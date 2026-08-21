@@ -112,7 +112,7 @@ if(svs_objdump)
             NAME dispatch_instructions_${svs_infix}
             COMMAND
             "${CMAKE_COMMAND}"
-            "-DSVS_OBJECT=$<TARGET_OBJECTS:${svs_arch}_obj>"
+            "-DSVS_OBJECT=$<TARGET_OBJECTS:${svs_infix}_obj>"
             "-DSVS_LEVEL=${svs_level}"
             "-DSVS_ARCH=${svs_arch}"
             "-DSVS_OBJDUMP=${svs_objdump}"

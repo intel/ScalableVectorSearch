@@ -30,7 +30,9 @@ foreach(tu_spec IN LISTS SVS_DISPATCH_TU_SPECS)
     add_library(${lib_name} INTERFACE)
     target_compile_options(${lib_name} INTERFACE -march=${arch} -mtune=${arch})
 
-    set(obj_name ${arch}_obj)
+    # Named after the level, not the -march: more than one level can share an
+    # instruction budget, and it is the level that says what is inside.
+    set(obj_name ${infix}_obj)
     add_library(${obj_name} OBJECT ${src})
     target_link_libraries(
         ${obj_name} PRIVATE ${SVS_LIB} svs::compile_options fmt::fmt ${lib_name}

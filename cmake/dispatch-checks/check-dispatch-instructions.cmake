@@ -55,7 +55,7 @@ set(svs_budget_table
     "x86-64||ymm zmm mask vnni"
     "haswell|ymm|zmm mask vnni"
     "skylake-avx512|zmm|vnni"
-    "cascadelake|zmm|"
+    "cascadelake|zmm vnni|"
 )
 
 set(svs_budget_found FALSE)

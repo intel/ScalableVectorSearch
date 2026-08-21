@@ -86,9 +86,11 @@ template <size_t N> svs::lib::MaybeStatic<N> probe_length() {
             buffer<Ea>(), buffer<Eb>(), 1.0F, probe_length<N>()                           \
         );
 
-#define SVS_PROBE_TARGET(N, LEVEL)                      \
-    if (host_satisfies<AVX_AVAILABILITY::LEVEL>()) {    \
-        SVS_FOR_EACH_TYPE_PAIR(SVS_PROBE_ONE, N, LEVEL) \
+// The level's own type-pair list, not the full one: naming a pair the level has no
+// kernel for would instantiate the generic template right here.
+#define SVS_PROBE_TARGET(N, LEVEL)                         \
+    if (host_satisfies<AVX_AVAILABILITY::LEVEL>()) {       \
+        SVS_TYPE_PAIRS_FOR(LEVEL, SVS_PROBE_ONE, N, LEVEL) \
     }
 
 float probe_all() {

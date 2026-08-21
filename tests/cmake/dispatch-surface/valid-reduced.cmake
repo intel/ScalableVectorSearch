@@ -13,13 +13,18 @@
 # limitations under the License.
 
 # A surface that shares no extent with the default declaration, so a build using
-# it cannot accidentally pass by reusing a committed header. Both ISA levels are
-# kept so that runtime dispatch is still exercised on an AVX-512 host.
+# it cannot accidentally pass by reusing a committed header.
+#
+# The extent list is what this fixture varies. The ISA levels are copied from the
+# default declaration verbatim, instruction budgets included: they are not
+# configuration, and a build with a different level set would be testing a library
+# nobody ships.
 #
 # Built and tested by the `non-default surface` CI job.
 
 set(SVS_SUPPORTED_DIMS 32 384)
 set(SVS_ISA_LEVELS
     "AVX2|haswell|avx2"
-    "AVX512|cascadelake|avx512"
+    "AVX512|skylake-avx512|avx512"
+    "AVX512_VNNI|cascadelake|vnni"
 )

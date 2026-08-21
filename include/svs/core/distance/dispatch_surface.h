@@ -60,6 +60,15 @@
     M(512, AVX512) \
     M(768, AVX512) \
     M(svs::Dynamic, AVX512) \
+    M(64, AVX512_VNNI) \
+    M(96, AVX512_VNNI) \
+    M(100, AVX512_VNNI) \
+    M(128, AVX512_VNNI) \
+    M(160, AVX512_VNNI) \
+    M(200, AVX512_VNNI) \
+    M(512, AVX512_VNNI) \
+    M(768, AVX512_VNNI) \
+    M(svs::Dynamic, AVX512_VNNI) \
     /* end */
 
 // Invokes M(isa_level) once per ISA level, weakest first. AVX_AVAILABILITY
@@ -67,6 +76,13 @@
 #define SVS_FOR_EACH_ISA_LEVEL(M) \
     M(AVX2) \
     M(AVX512) \
+    M(AVX512_VNNI) \
     /* end */
+
+// One per ISA level in the surface, and only those: a level absent from it has no
+// instantiations. Tested with `defined` so a -Wundef build stays quiet.
+#define SVS_ISA_LEVEL_AVX2 1
+#define SVS_ISA_LEVEL_AVX512 1
+#define SVS_ISA_LEVEL_AVX512_VNNI 1
 
 // clang-format on

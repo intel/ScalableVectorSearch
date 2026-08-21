@@ -68,6 +68,7 @@ string(APPEND SVS_GEN_DIM_LOOP "    /* end */")
 
 set(SVS_GEN_TARGET_LOOP "\\\n")
 set(SVS_GEN_LEVEL_LOOP "\\\n")
+set(SVS_GEN_LEVEL_DEFINES "")
 set(SVS_DISPATCH_TU_SPECS)
 foreach(level_spec IN LISTS SVS_ISA_LEVELS)
     string(REPLACE "|" ";" level_fields "${level_spec}")
@@ -76,6 +77,8 @@ foreach(level_spec IN LISTS SVS_ISA_LEVELS)
     list(GET level_fields 2 infix)
 
     string(APPEND SVS_GEN_LEVEL_LOOP "    M(${level}) \\\n")
+    string(APPEND SVS_GEN_LEVEL_DEFINES "#define SVS_ISA_LEVEL_${level} 1\n")
+
     foreach(dim IN LISTS SVS_DIM_LIST)
         string(APPEND SVS_GEN_TARGET_LOOP "    M(${dim}, ${level}) \\\n")
     endforeach()
@@ -91,6 +94,7 @@ foreach(level_spec IN LISTS SVS_ISA_LEVELS)
 endforeach()
 string(APPEND SVS_GEN_TARGET_LOOP "    /* end */")
 string(APPEND SVS_GEN_LEVEL_LOOP "    /* end */")
+string(STRIP "${SVS_GEN_LEVEL_DEFINES}" SVS_GEN_LEVEL_DEFINES)
 
 #####
 ##### Emit the header

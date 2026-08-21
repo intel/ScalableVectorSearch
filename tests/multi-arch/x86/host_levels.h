@@ -38,6 +38,10 @@ template <> inline bool host_satisfies<AVX_AVAILABILITY::AVX512>() {
     return svs::detail::avx_runtime_flags.is_avx512f_supported();
 }
 
+template <> inline bool host_satisfies<AVX_AVAILABILITY::AVX512_VNNI>() {
+    return svs::detail::avx_runtime_flags.is_avx512vnni_supported();
+}
+
 /// The level the distance entry points must choose on this host.
 ///
 /// The entry points test the strongest level first, so their choice is the

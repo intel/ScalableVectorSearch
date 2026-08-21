@@ -91,11 +91,29 @@ set(SVS_SUPPORTED_DIMS 64 96 100 128 160 200 512 768)
 #                      include/svs/multi-arch/x86/<infix>.cpp, and the object
 #                      library it is compiled into
 #
-# Adding a level here also requires a `SVS_TYPE_PAIRS_<enumerator>` list in
-# include/svs/multi-arch/x86/preprocessor.h, saying which element-type pairs
-# that level has kernels for. That is deliberately not configured here: a type
-# pair exists because an implementation exists for it.
+# Unlike the extent list above, this list is not a knob. A level exists because
+# kernels, a translation unit and a runtime check for it exist, so changing it
+# means changing code:
+#
+#   - a `SVS_TYPE_PAIRS_<enumerator>` list in
+#     include/svs/multi-arch/x86/preprocessor.h, saying which element-type pairs
+#     the level has kernels for
+#   - the specializations themselves, in the three distance headers
+#   - a branch in the entry points, and the CPUID check it tests
+#
+# The generated header defines `SVS_ISA_LEVEL_<enumerator>` for each level listed
+# here, which is how the entry points tell a level that is present from one that
+# is not; dropping AVX2 or AVX512 from this list is a compile error rather than a
+# silent fall back to unvectorized code.
+#
+# On the instruction budgets in particular: `skylake-avx512` rather than
+# `cascadelake` for the AVX512 level, because that level promises AVX-512 F/BW/DQ
+# and nothing more. `cascadelake` also enables AVX512-VNNI, which the compiler is
+# then free to emit into kernels that run on any AVX512F host -- a Skylake-SP
+# among them, where `vpdpbusd` does not exist. VNNI is its own level instead, so
+# that the budget and the promise line up.
 set(SVS_ISA_LEVELS
     "AVX2|haswell|avx2"
-    "AVX512|cascadelake|avx512"
+    "AVX512|skylake-avx512|avx512"
+    "AVX512_VNNI|cascadelake|vnni"
 )

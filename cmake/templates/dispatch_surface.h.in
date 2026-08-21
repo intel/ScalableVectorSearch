@@ -37,4 +37,8 @@
 // enumerators without a translation unit are absent: this is the surface.
 #define SVS_FOR_EACH_ISA_LEVEL(M) @SVS_GEN_LEVEL_LOOP@
 
+// One per ISA level in the surface, and only those: a level absent from it has no
+// instantiations. Tested with `defined` so a -Wundef build stays quiet.
+@SVS_GEN_LEVEL_DEFINES@
+
 // clang-format on

@@ -23,7 +23,7 @@
 ##### Everything else about the surface is a property of the symbol table, which a
 ##### specialization can satisfy while never running: one that disappears behind an
 ##### `#if` still links and still counts. This breaks on every level's kernel for one
-##### extent and reports the one the host's run reaches.
+##### extent and type pair, and reports the one the host's run reaches.
 #####
 ##### Only the level this host satisfies is checked. The weaker levels are checked by
 ##### hosts that satisfy only those, which is what the CI matrix is for.
@@ -70,8 +70,12 @@ endif()
 ##### The candidate symbols
 #####
 
-# L2 at float/float (`ff`) for the extent the probe reports: one symbol per level,
-# including any AVX_AVAILABILITY::NONE fallback the consumer instantiated itself.
+# The type pair the probe calls, Itanium-mangled. It must be one with a kernel at
+# every level in the surface, or the entry points legitimately route lower.
+set(svs_probe_pair "aa")
+
+# L2 at that pair for the extent the probe reports: one symbol per level, including
+# any AVX_AVAILABILITY::NONE fallback the consumer instantiated itself.
 execute_process(
     COMMAND "${SVS_NM}" --defined-only "${SVS_PROBE}"
     OUTPUT_VARIABLE raw
@@ -87,7 +91,7 @@ string(REPLACE "\n" ";" lines "${raw}")
 foreach(line IN LISTS lines)
     # The mangled name is the last whitespace-separated field.
     string(REGEX MATCH "[^ \t]+$" symbol "${line}")
-    if(NOT symbol MATCHES "^_ZN3svs8distance6L2ImplILm${extent}Eff.*7computeE")
+    if(NOT symbol MATCHES "^_ZN3svs8distance6L2ImplILm${extent}E${svs_probe_pair}.*7computeE")
         continue()
     endif()
     # Skip GCC's `.isra` clones: gdb reads a dot in a linespec as a file name.
@@ -101,10 +105,10 @@ list(REMOVE_DUPLICATES candidates)
 list(LENGTH candidates n_candidates)
 if(n_candidates EQUAL 0)
     message(FATAL_ERROR
-        "No L2 kernel symbol for extent ${extent} at float/float is defined in "
-        "${SVS_PROBE}. Either the entry points inlined every kernel, in which case "
-        "the `extern template` declarations are not in effect, or the surface no "
-        "longer covers that extent."
+        "No L2 kernel symbol for extent ${extent} at the mangled type pair "
+        "'${svs_probe_pair}' is defined in ${SVS_PROBE}. Either the entry points "
+        "inlined every kernel, in which case the `extern template` declarations are "
+        "not in effect, or the probe no longer calls that extent and pair."
     )
 endif()
 

@@ -55,6 +55,12 @@
 #define SVS_TYPE_PAIRS_AVX2 SVS_FOR_EACH_TYPE_PAIR
 #define SVS_TYPE_PAIRS_AVX512 SVS_FOR_EACH_TYPE_PAIR
 
+// Only these two: every other pair promotes to float, where VNNI has nothing to
+// offer. svs::distance::has_vnni_kernel is generated from this same list.
+#define SVS_TYPE_PAIRS_AVX512_VNNI(M, ...) \
+    M(int8_t, int8_t, __VA_ARGS__)         \
+    M(uint8_t, uint8_t, __VA_ARGS__)
+
 /////
 ///// Instantiation.
 /////
