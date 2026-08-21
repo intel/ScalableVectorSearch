@@ -182,16 +182,31 @@ Consistent naming improves API discoverability and reduces cognitive load.
 ### Function Naming Pattern
 
 ```
-svs_<object>[_<specialization>]_<operation>
+svs_<object>[_<specialization>]_<operation>[_<specialization>]
 ```
+
+The `<specialization>` qualifier sits next to the noun it modifies, so exactly
+one of the two optional slots is used per name:
+
+- **Leading form** — `svs_<object>_<specialization>_<operation>` when the
+  operation acts on an object that is *already* of that specialization
+  (e.g. `svs_algorithm_vamana_set_alpha` sets `alpha` on a Vamana algorithm;
+  `svs_index_dynamic_add_points` adds points to a dynamic index).
+- **Trailing form** — `svs_<object>_<operation>_<specialization>` when the
+  operation *produces* or *targets* that specialization
+  (e.g. `svs_algorithm_create_vamana` creates a Vamana algorithm;
+  `svs_index_build_dynamic` builds a dynamic index).
 
 **Examples:**
 
 | Function | Breakdown | Description |
 |----------|-----------|-------------|
 | `svs_index_search_topk()` | `svs` + `index` + `search_topk` | TopK index search (with optional ID filter) |
-| `svs_algorithm_vamana_set_alpha()` | `svs` + `algorithm` + `vamana` + `set_alpha` | Set Vamana-specific parameter |
+| `svs_algorithm_create_vamana()` | `svs` + `algorithm` + `create` + `vamana` | Create a Vamana algorithm configuration |
+| `svs_algorithm_vamana_set_alpha()` | `svs` + `algorithm` + `vamana` + `set_alpha` | Set `alpha` on a Vamana algorithm |
 | `svs_storage_create_lvq()` | `svs` + `storage` + `create` + `lvq` | Create LVQ storage configuration |
+| `svs_index_build_dynamic()` | `svs` + `index` + `build` + `dynamic` | Build a dynamic index |
+| `svs_index_dynamic_add_points()` | `svs` + `index` + `dynamic` + `add_points` | Add points to a dynamic index |
 | `svs_index_builder_set_threadpool()` | `svs` + `index_builder` + `set_threadpool` | Configure builder thread pool |
 
 ### Examples by Category

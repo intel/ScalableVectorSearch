@@ -999,14 +999,19 @@ CATCH_TEST_CASE("C API Filtered Search topK", "[c_api][index][search][filter]") 
 
         size_t total_found = 0;
         for (size_t q = 0; q < NUM_QUERIES; ++q) {
-            CATCH_REQUIRE(results.offsets[q + 1] - results.offsets[q] == K);
-            for (size_t j = 0; j < K; ++j) {
-                size_t idx = results.indices[q * K + j];
+            const size_t* indices = nullptr;
+            const float* distances = nullptr;
+            size_t num_neighbors = 0;
+            svs_search_results_row(&results, q, &indices, &distances, &num_neighbors);
+            CATCH_REQUIRE(num_neighbors > 0);
+            CATCH_REQUIRE(num_neighbors <= K);
+            for (size_t j = 0; j < num_neighbors; ++j) {
+                size_t idx = indices[j];
                 // Padding (unspecified) entries are allowed for a restrictive filter, but
                 // any specified neighbor must pass the filter predicate.
                 if (idx != static_cast<size_t>(-1)) {
                     CATCH_REQUIRE(idx < max_valid_id);
-                    CATCH_REQUIRE(std::isfinite(results.distances[q * K + j]));
+                    CATCH_REQUIRE(std::isfinite(distances[j]));
                     ++total_found;
                 }
             }

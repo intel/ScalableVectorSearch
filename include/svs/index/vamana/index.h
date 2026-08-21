@@ -624,21 +624,6 @@ class VamanaIndex {
     /// @brief Return the logical number aLf dimensions of the indexed vectors.
     size_t dimensions() const { return data_.dimensions(); }
 
-    /// @brief Return memory breakdown for the index.
-    ///
-    /// Reports the allocated memory for graph, data, and metadata components. Uses
-    /// capacity-based accounting for datasets that expose ``capacity()``, so that block
-    /// over-allocation is reflected. Metadata includes entry points. Integrators can use
-    /// this to report the true memory footprint of the index.
-    MemoryBreakdown get_memory_breakdown() const {
-        MemoryBreakdown usage{};
-        usage.graph_bytes = svs::data::detail::dataset_allocated_bytes(graph_.get_data());
-        usage.data_bytes = svs::data::detail::dataset_allocated_bytes(data_);
-        usage.metadata_bytes =
-            entry_point_.capacity() * sizeof(typename entry_point_type::value_type);
-        return usage;
-    }
-
     /// @brief Reconstruct vectors.
     ///
     /// Reconstruct each vector indexed by an external ID and store the results into
@@ -769,6 +754,21 @@ class VamanaIndex {
 
     /// @brief Get the ``graph_max_degree`` that was used for graph construction.
     size_t get_graph_max_degree() const { return graph_.max_degree(); }
+
+    /// @brief Return memory breakdown for the index.
+    ///
+    /// Reports the allocated memory for graph, data, and metadata components. Uses
+    /// capacity-based accounting for datasets that expose ``capacity()``, so that block
+    /// over-allocation is reflected. Metadata includes entry points. Integrators can use
+    /// this to report the true memory footprint of the index.
+    MemoryBreakdown get_memory_breakdown() const {
+        MemoryBreakdown usage{};
+        usage.graph_bytes = svs::data::detail::dataset_allocated_bytes(graph_.get_data());
+        usage.data_bytes = svs::data::detail::dataset_allocated_bytes(data_);
+        usage.metadata_bytes =
+            entry_point_.capacity() * sizeof(typename entry_point_type::value_type);
+        return usage;
+    }
 
     /// @brief Get the max candidate pool size that was used for graph construction.
     size_t get_max_candidates() const { return build_parameters_.max_candidate_pool_size; }

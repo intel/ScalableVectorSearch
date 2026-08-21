@@ -614,16 +614,23 @@ inline void ensure_search_results_capacity(
             r->indices = nullptr;
             r->distances = nullptr;
             r->results_capacity = 0;
-            r->indices = new size_t[min_results_capacity];
-            r->distances = new float[min_results_capacity];
+            // Use temporary unique_ptr to ensure exception safety during allocation.
+            auto indices = std::make_unique_for_overwrite<size_t[]>(min_results_capacity);
+            auto distances = std::make_unique_for_overwrite<float[]>(min_results_capacity);
+            r->indices = indices.release();
+            r->distances = distances.release();
             r->results_capacity = min_results_capacity;
         }
     } else if (r->offsets == nullptr && r->indices == nullptr && r->distances == nullptr) {
         // Descriptor was zero-initialized: take ownership and allocate.
-        r->offsets = new size_t[min_offsets_capacity];
+        // Use temporary unique_ptr to ensure exception safety during allocation.
+        auto offsets = std::make_unique_for_overwrite<size_t[]>(min_offsets_capacity);
+        auto indices = std::make_unique_for_overwrite<size_t[]>(min_results_capacity);
+        auto distances = std::make_unique_for_overwrite<float[]>(min_results_capacity);
+        r->offsets = offsets.release();
         r->offsets_capacity = min_offsets_capacity;
-        r->indices = new size_t[min_results_capacity];
-        r->distances = new float[min_results_capacity];
+        r->indices = indices.release();
+        r->distances = distances.release();
         r->results_capacity = min_results_capacity;
         r->owns_buffers = true;
     } else {
@@ -662,34 +669,42 @@ extern "C" bool svs_index_search_topk(
                 "Incompatible svs_search_results_t version"
             );
             INVALID_ARGUMENT_IF(
-                out_results->struct_size != sizeof(svs_search_results_t),
+                out_results->struct_size > sizeof(svs_search_results_t),
                 "Incompatible svs_search_results_t struct_size"
             );
+            // Early fail if no enough capacity in caller-owned buffers.
+            ensure_search_results_capacity(out_results, num_queries + 1, num_queries * k);
+
             auto queries_view = svs::data::ConstSimpleDataView<float>(
                 queries, num_queries, index_ptr->dimensions()
             );
 
             IDFilterAdapter id_filter_adapter(id_filter);
 
-            auto search_results = index_ptr->search(
+            auto [search_results, found_neighbors_per_query] = index_ptr->search(
                 queries_view,
                 k,
                 search_params == nullptr ? nullptr : search_params->impl,
                 id_filter == nullptr ? nullptr : &id_filter_adapter
             );
 
-            ensure_search_results_capacity(out_results, num_queries + 1, num_queries * k);
-
             out_results->num_queries = num_queries;
-            out_results->total_results = num_queries * k;
+            out_results->total_results = std::accumulate(
+                found_neighbors_per_query.begin(),
+                found_neighbors_per_query.end(),
+                size_t{0}
+            );
+
+            size_t result_index = 0;
             for (size_t i = 0; i < num_queries; ++i) {
-                out_results->offsets[i] = i * k;
-                for (size_t j = 0; j < k; ++j) {
-                    out_results->indices[i * k + j] = search_results.index(i, j);
-                    out_results->distances[i * k + j] = search_results.distance(i, j);
+                out_results->offsets[i] = result_index;
+                for (size_t j = 0; j < found_neighbors_per_query[i]; ++j) {
+                    out_results->indices[result_index] = search_results.index(i, j);
+                    out_results->distances[result_index] = search_results.distance(i, j);
+                    ++result_index;
                 }
             }
-            out_results->offsets[num_queries] = num_queries * k;
+            out_results->offsets[num_queries] = result_index; // sentinel
 
             return true;
         },

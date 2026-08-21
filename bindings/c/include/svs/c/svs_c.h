@@ -214,13 +214,13 @@ struct svs_id_filter_interface_ops {
 
 /// @brief Macro to create a user-defined ID filter interface operations structure
 /// @param is_member_func Function pointer to check if a given ID is a member of the filter
-/// @param filter_rate_func Optional function pointer to get the estimated selectivity of
-/// the filter
-#define SVS_INIT_ID_FILTER_OPS(is_member_func, filter_rate_func)       \
-    {                                                                  \
-        .version = SVS_C_API_VERSION,                                  \
-        .struct_size = sizeof(struct svs_id_filter_interface_ops),     \
-        .is_member = &is_member_func, .filter_rate = &filter_rate_func \
+/// @param ... Optional function pointer to get the estimated selectivity of the filter;
+/// when omitted, @c filter_rate is left NULL via designated-initializer zero-init.
+#define SVS_INIT_ID_FILTER_OPS(is_member_func, ...)                            \
+    {                                                                          \
+        .version = SVS_C_API_VERSION,                                          \
+        .struct_size = sizeof(struct svs_id_filter_interface_ops),             \
+        .is_member = &is_member_func __VA_OPT__(, .filter_rate = &__VA_ARGS__) \
     }
 
 /// @brief Structure representing a custom ID filter interface

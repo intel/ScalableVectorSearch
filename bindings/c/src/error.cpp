@@ -17,9 +17,10 @@
 
 #include "error.hpp"
 
+#include <new>
 #include <string>
 
-extern "C" svs_error_h svs_error_create() { return new svs_error_desc{}; }
+extern "C" svs_error_h svs_error_create() { return new (std::nothrow) svs_error_desc{}; }
 extern "C" bool svs_error_set(svs_error_h err, svs_error_code_t code, const char* message) {
     if (!err) {
         return false;

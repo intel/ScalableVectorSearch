@@ -31,6 +31,7 @@
 #include <functional>
 #include <limits>
 #include <stdexcept>
+#include <vector>
 
 namespace svs::c_runtime {
 
@@ -150,8 +151,9 @@ inline void set_empty_result(svs::QueryResult<size_t>& result) {
 // Perform a filtered nearest-neighbor search by iterating over batches of candidates and
 // keeping only those that pass the filter. The batch size is estimated adaptively based on
 // the observed hit rate. Results are written into `results`.
+// returns a vector containing the number of neighbors found for each query.
 template <typename IndexType>
-void filtered_topk_search(
+std::vector<size_t> filtered_topk_search(
     IndexType& index,
     svs::QueryResult<size_t>& results,
     svs::data::ConstSimpleDataView<float> queries,
@@ -164,10 +166,13 @@ void filtered_topk_search(
     // estimate of the filter hit rate, but takes longer to compute.
     const size_t MIN_SAMPLE_SIZE = 200;
 
+    assert(results.n_queries() == queries.size());
+
     // Filtered search: we need to estimate the batch size based on the filter rate and
     // the number of hits
     const auto num_neighbors = results.n_neighbors();
     const auto index_size = index.size();
+    std::vector<size_t> found_neighbors_per_query(queries.size(), 0);
 
     auto initial_batch_size = estimate_initial_batch_size(
         id_filter,
@@ -181,7 +186,7 @@ void filtered_topk_search(
         // If the batch size is 0, it means that the filter rate is too low than
         // expected and we should not even start the search
         set_empty_result(results);
-        return;
+        return found_neighbors_per_query;
     }
 
     const auto filter_rate = id_filter->filter_rate();
@@ -219,6 +224,7 @@ void filtered_topk_search(
 
             // Pad results if not enough neighbors found
             pad_result(results, i, found);
+            found_neighbors_per_query[i] = found;
         }
     };
 
@@ -227,6 +233,7 @@ void filtered_topk_search(
         svs::threads::StaticPartition{queries.size()},
         search_closure
     );
+    return found_neighbors_per_query;
 }
 
 } // namespace svs::c_runtime

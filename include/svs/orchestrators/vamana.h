@@ -50,6 +50,9 @@ class VamanaInterface {
 
     virtual size_t get_graph_max_degree() const = 0;
 
+    ///// Memory accounting
+    virtual svs::index::vamana::MemoryBreakdown get_memory_breakdown() const = 0;
+
     virtual void set_construction_window_size(size_t window_size) = 0;
     virtual size_t get_construction_window_size() const = 0;
 
@@ -101,9 +104,6 @@ class VamanaInterface {
 
     // Non-templated virtual method for distance calculation
     virtual double get_distance(size_t id, const AnonymousArray<1>& query) const = 0;
-
-    ///// Memory accounting
-    virtual svs::index::vamana::MemoryBreakdown get_memory_breakdown() const = 0;
 };
 
 template <lib::TypeList QueryTypes, typename Impl, typename IFace = VamanaInterface>
@@ -129,6 +129,10 @@ class VamanaImpl : public manager::ManagerImpl<QueryTypes, Impl, IFace> {
     float get_alpha() const override { return impl().get_alpha(); }
 
     size_t get_graph_max_degree() const override { return impl().get_graph_max_degree(); }
+
+    svs::index::vamana::MemoryBreakdown get_memory_breakdown() const override {
+        return impl().get_memory_breakdown();
+    }
 
     void set_construction_window_size(size_t window_size) override {
         impl().set_construction_window_size(window_size);
@@ -270,10 +274,6 @@ class VamanaImpl : public manager::ManagerImpl<QueryTypes, Impl, IFace> {
             }
         );
     }
-
-    svs::index::vamana::MemoryBreakdown get_memory_breakdown() const override {
-        return impl().get_memory_breakdown();
-    }
 };
 
 ///// Forward declarations
@@ -327,6 +327,11 @@ class Vamana : public manager::IndexManager<VamanaInterface> {
 
     /// @copydoc svs::index::vamana::VamanaIndex::get_graph_max_degree
     size_t get_graph_max_degree() const { return impl_->get_graph_max_degree(); }
+
+    /// @copydoc svs::index::vamana::VamanaIndex::get_memory_breakdown
+    svs::index::vamana::MemoryBreakdown get_memory_breakdown() const {
+        return impl_->get_memory_breakdown();
+    }
 
     /// @copydoc svs::index::vamana::VamanaIndex::set_construction_window_size
     size_t get_construction_window_size() const {
@@ -385,11 +390,6 @@ class Vamana : public manager::IndexManager<VamanaInterface> {
 
     void reconstruct_at(data::SimpleDataView<float> data, std::span<const uint64_t> ids) {
         impl_->reconstruct_at(data, ids);
-    }
-
-    /// @copydoc svs::index::vamana::VamanaIndex::get_memory_breakdown
-    svs::index::vamana::MemoryBreakdown get_memory_breakdown() const {
-        return impl_->get_memory_breakdown();
     }
 
     ///
