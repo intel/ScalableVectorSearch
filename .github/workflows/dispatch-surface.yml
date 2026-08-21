@@ -1,0 +1,106 @@
+# Copyright 2025 Intel Corporation
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# The set of distance kernels compiled ahead of time is declared once, in
+# cmake/dispatch-surface.cmake, and generated from there. Two things have to stay
+# true for that to be worth anything: the declaration must be checked rather than
+# trusted, and it must be genuinely configurable -- a knob nobody turns is a knob
+# that quietly stops working.
+
+name: Dispatch Surface
+
+on:
+  push:
+    branches:
+    - main
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }} @ ${{ github.event.pull_request.head.label || github.head_ref || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  declaration:
+    name: declaration is checked, committed header is current
+    runs-on: ubuntu-22.04
+    steps:
+    - uses: actions/checkout@v6
+
+    # Every fixture in tests/cmake/dispatch-surface, plus the default
+    # declaration. Needs nothing but cmake.
+    - name: Accept and reject declarations
+      run: .github/scripts/check_dispatch_surface.sh
+
+    # include/svs/core/distance/dispatch_surface.h is generated but committed, so
+    # that a bare `-I include` compile works without cmake. A configure refreshes
+    # it; if that produces a diff, either the declaration changed without a
+    # reconfigure or the header was edited by hand.
+    - name: Configure with the default surface
+      run: |
+        cmake -B "${{ runner.temp }}/build" -S "${GITHUB_WORKSPACE}" \
+              -DCMAKE_BUILD_TYPE=Release \
+              -DSVS_BUILD_TESTS=NO \
+              -DSVS_BUILD_BINARIES=NO
+
+    - name: Committed header matches the declaration
+      run: |
+        if ! git diff --exit-code -- include/svs/core/distance/dispatch_surface.h; then
+            echo "::error::include/svs/core/distance/dispatch_surface.h is stale." \
+                 "It is generated from cmake/dispatch-surface.cmake -- re-run cmake" \
+                 "and commit the result. Do not edit it by hand."
+            exit 1
+        fi
+
+  non-default-surface:
+    name: builds and tests with a non-default surface
+    runs-on: ubuntu-22.04
+    steps:
+    - uses: actions/checkout@v6
+
+    # valid-reduced.cmake shares no extent with the default declaration, so a
+    # build that silently fell back to the committed header would fail to
+    # compile rather than pass by accident.
+    - name: Configure
+      run: |
+        cmake -B "${{ runner.temp }}/build" -S "${GITHUB_WORKSPACE}" \
+              -DCMAKE_BUILD_TYPE=Release \
+              -DSVS_BUILD_TESTS=YES \
+              -DSVS_BUILD_BINARIES=NO \
+              -DSVS_DISPATCH_SURFACE_FILE="${GITHUB_WORKSPACE}/tests/cmake/dispatch-surface/valid-reduced.cmake"
+
+    - name: Build
+      working-directory: ${{ runner.temp }}/build
+      run: make -j$(nproc)
+
+    # Correctness must not depend on which extents have a fixed-extent kernel:
+    # an extent without one is served by the svs::Dynamic kernel instead. The
+    # long-running tests are covered by the default-surface build.
+    - name: Run tests
+      env:
+        CTEST_OUTPUT_ON_FAILURE: 1
+      working-directory: ${{ runner.temp }}/build/tests
+      run: ctest -C Release -LE long
+
+    # Overriding the surface for one build must not rewrite the committed header.
+    - name: Committed header was left alone
+      run: |
+        if ! git diff --exit-code -- include/svs/core/distance/dispatch_surface.h; then
+            echo "::error::A build with an overridden dispatch surface rewrote the" \
+                 "committed header. Only the default declaration may refresh it."
+            exit 1
+        fi

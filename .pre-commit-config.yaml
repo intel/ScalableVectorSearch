@@ -34,3 +34,14 @@ repos:
         args: [--markdown-linebreak-ext=md]
         exclude: .*\.svg$
       - id: mixed-line-ending
+
+  - repo: local
+    hooks:
+      # Cheap enough to run on every touch of the declaration, and it needs
+      # nothing but cmake -- no compiler, no build directory.
+      - id: dispatch-surface
+        name: dispatch surface declaration
+        entry: .github/scripts/check_dispatch_surface.sh
+        language: script
+        pass_filenames: false
+        files: ^(cmake/(dispatch-surface|validate-dispatch-surface)\.cmake|tests/cmake/dispatch-surface/.*\.cmake|\.github/scripts/check_dispatch_surface\.sh)$
