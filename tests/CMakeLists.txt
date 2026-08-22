@@ -161,6 +161,9 @@ set(TEST_SOURCES
     ${TEST_DIR}/svs/concurrent/multi.cpp
     ${TEST_DIR}/svs/concurrent/concurrency.cpp
     ${TEST_DIR}/svs/concurrent/dynamic_index.cpp
+    # Guards against defects only visible from outside the tree: the include order a
+    # downstream consumer uses, and quantized storage with the concurrent allocator tag.
+    ${TEST_DIR}/svs/concurrent/downstream.cpp
 )
 
 #####

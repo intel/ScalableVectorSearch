@@ -142,7 +142,10 @@ template <std::unsigned_integral Idx, data::MemoryDataset Data> class SimpleGrap
         for (;;) {
             auto maybe_seq = seq_counters_[src].read_begin();
             if (!maybe_seq) {
-                detail::pause();
+                // Fully qualified: an unqualified `detail::` here resolves to the enclosing
+                // `svs::index::vamana::detail` whenever a translation unit has already
+                // included an upstream vamana header, which has no `pause`.
+                svs::detail::pause();
                 continue;
             }
             const auto& list = get_node(src);
@@ -150,7 +153,7 @@ template <std::unsigned_integral Idx, data::MemoryDataset Data> class SimpleGrap
             if (seq_counters_[src].read_validate(*maybe_seq)) {
                 return found;
             }
-            detail::pause();
+            svs::detail::pause();
         }
     }
 
@@ -419,8 +422,10 @@ template <std::unsigned_integral Idx, data::MemoryDataset Data> class SimpleGrap
             throw ANNEXCEPTION(
                 "Trying to load a graph with adjacency list types {} to a graph with "
                 "adjacency list types {}.",
-                name(eltype),
-                name<datatype_v<Idx>>()
+                // Qualified: `svs::index::vamana::name(SlotMetadata)` hides `svs::name`
+                // for unqualified lookup from this nested namespace.
+                svs::name(eltype),
+                svs::name<datatype_v<Idx>>()
             );
         }
 
@@ -447,8 +452,10 @@ template <std::unsigned_integral Idx, data::MemoryDataset Data> class SimpleGrap
             throw ANNEXCEPTION(
                 "Trying to load a graph with adjacency list types {} to a graph with "
                 "adjacency list types {}.",
-                name(eltype),
-                name<datatype_v<Idx>>()
+                // Qualified: `svs::index::vamana::name(SlotMetadata)` hides `svs::name`
+                // for unqualified lookup from this nested namespace.
+                svs::name(eltype),
+                svs::name<datatype_v<Idx>>()
             );
         }
 

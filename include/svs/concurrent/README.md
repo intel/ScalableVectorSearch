@@ -156,10 +156,14 @@ bindings. Both are about integrating the *modified in place* index into existing
 paths; a separate index does not need them. The Python bindings continue to expose the
 pre-existing dynamic index.
 
-**6. `PruneState` test expectations — corrected.** The source branch's test asserts
-`reenable(Candidate) == Candidate`. The implementation returns `Available`, which is what
-the two-round pruning heuristic requires. `tests/svs/concurrent/prune.cpp` asserts the
-correct values (`reenable(Pruned) == Pruned`, `reenable(Candidate) == Available`,
+**6. `PruneState` test expectations — corrected.** The two-round pruning heuristic adds a
+fourth state, `Candidate`, and redefines `reenable` to promote `Candidate` (rather than
+`Pruned`) back to `Available`. The source branch makes that change but leaves the
+pre-existing `tests/svs/index/vamana/prune.cpp` asserting the old semantics
+(`reenable(Pruned) == Available`), which its own change invalidates. Here the concurrent
+`PruneState` is a distinct type in a distinct namespace, so the upstream test keeps testing
+upstream `reenable` and keeps passing; `tests/svs/concurrent/prune.cpp` asserts the new
+semantics (`reenable(Pruned) == Pruned`, `reenable(Candidate) == Available`,
 `excluded(Candidate) == true`).
 
 **7. Reverse-edge rebuild — bug fixed.** `rebuild_reverse_edges` in the source branch
@@ -188,7 +192,14 @@ bucket array a reader is walking. These are now the two-flavour operations descr
 *Lock discipline*, and TSan reports the original as a race on every search that overlaps
 an insert.
 
-**9. Greedy-search scaffolding via `using`-declarations.** See *How the separation works*.
+**9. Unsynchronized dataset `size_` — bug fixed.** The grow-stable dataset's `size_` is
+written by `resize()` while lock-free searches read it through `size()`. The source branch
+leaves both as plain accesses; here `resize()` publishes with a release store and `size()`
+reads with an acquire load (`blocked_data.h`). Growth is the racing case — the shrink path
+in `compact()` already excludes readers via `compact_mutex_` — and TSan reports the
+original on any search that overlaps an `add_points`.
+
+**10. Greedy-search scaffolding via `using`-declarations.** See *How the separation works*.
 The source branch has no analogue because it edits upstream in place and so never crosses
 a namespace boundary.
 

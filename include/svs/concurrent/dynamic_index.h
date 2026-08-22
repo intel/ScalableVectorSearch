@@ -1832,17 +1832,40 @@ class MutableVamanaIndex {
 };
 
 ///
+/// @brief Hides an index's id translation from the search extensions.
+///
+/// Every ``extensions::single_search`` implementation tops the search buffer up itself, by
+/// calling the generic ``extensions::check_and_supplement_search_buffer`` under
+/// ``if constexpr (Index::needs_id_translation)``. That routine is unsafe for this index --
+/// see ``MutableVamanaIndex::supplement_search_buffer`` -- and it is a plain function, not a
+/// customization point, so it cannot be overridden. Passing this wrapper in place of the
+/// index makes that branch disappear, leaving the top-up to the index itself.
+///
+/// The implementations touch nothing else on the index, so nothing else needs forwarding.
+///
+template <typename Index> struct SupplementSuppressed {
+    static constexpr bool needs_id_translation = false;
+};
+
+///
 /// @brief ``extensions::single_search`` for the concurrent mutable index.
 ///
-/// Identical to the generic implementation in ``svs/index/vamana/extensions.h`` except
-/// that the search-buffer top-up is delegated to the index (see
-/// ``MutableVamanaIndex::supplement_search_buffer``). More specialized than the generic
-/// overload on the index parameter, so it wins partial ordering for this index type.
+/// Runs the dataset's own search implementation and then tops the buffer up through the
+/// index (see ``MutableVamanaIndex::supplement_search_buffer``). More specialized than the
+/// generic overload on the index parameter, so it wins partial ordering for this index type.
+///
+/// The dispatch back through ``extensions::single_search`` is what makes compressed datasets
+/// work: LVQ and LeanVec each provide their own implementation, keyed on the *dataset*, which
+/// unpacks the scratch space (a tuple of distance functors, for LeanVec) and reranks. Doing
+/// the search inline here instead would shadow those with a plain uncompressed search, and
+/// then fail to compile because the tuple is not a distance functor. Recursion is not a
+/// concern: the wrapper is not a ``MutableVamanaIndex``, so this overload does not match the
+/// inner call.
 ///
 template <
     typename Data,
     typename SearchBuffer,
-    typename Distance,
+    typename Scratch,
     typename Query,
     typename Search,
     typename Graph,
@@ -1850,22 +1873,29 @@ template <
     typename Dist>
 SVS_FORCE_INLINE void svs_invoke(
     svs::tag_t<vamana::extensions::single_search>,
-    const Data& SVS_UNUSED(dataset),
+    const Data& dataset,
     SearchBuffer& search_buffer,
-    Distance& distance,
+    Scratch& scratch,
     const Query& query,
     const Search& search,
     const MutableVamanaIndex<Graph, IndexData, Dist>& index,
     const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>())
 ) {
+    using index_type = MutableVamanaIndex<Graph, IndexData, Dist>;
+    vamana::extensions::single_search(
+        dataset,
+        search_buffer,
+        scratch,
+        query,
+        search,
+        SupplementSuppressed<index_type>{},
+        cancel
+    );
+
     // Check if request to cancel the search
     if (cancel()) {
         return;
     }
-    // Perform graph search.
-    auto accessor = data::GetDatumAccessor();
-    search(query, accessor, distance, search_buffer);
-
     index.supplement_search_buffer(search_buffer, query);
 }
 
