@@ -169,6 +169,9 @@ foreach(level_spec IN LISTS SVS_ISA_LEVELS)
         )
     endif()
     list(APPEND SVS_DISPATCH_TU_SPECS "${tu_src}|${level}|${arch}|${infix}")
+    list(APPEND svs_level_report
+        "AVX_AVAILABILITY::${level} -march=${arch} ${infix}.cpp"
+    )
 endforeach()
 string(APPEND SVS_GEN_TARGET_LOOP "    /* end */")
 
@@ -204,8 +207,41 @@ if(svs_surface_is_default)
     )
 endif()
 
+#####
+##### Report the surface
+#####
+
 list(LENGTH SVS_ISA_LEVELS svs_level_count)
+string(REPLACE ";" " " svs_dims_display "${SVS_SUPPORTED_DIMS}")
 message(STATUS
-    "Dispatch surface: ${SVS_GEN_DIM_COUNT} extents (${svs_dims_unique} fixed + "
-    "svs::Dynamic) x ${svs_level_count} ISA levels"
+    "Dispatch surface: ${SVS_GEN_DIM_COUNT} extents x ${svs_level_count} ISA levels"
 )
+message(STATUS "  extents: ${svs_dims_display} svs::Dynamic")
+foreach(entry IN LISTS svs_level_report)
+    message(STATUS "  level:   ${entry}")
+endforeach()
+
+# Every enumerator without a translation unit is still reachable -- the entry
+# points fall back to it -- so its kernels are built by each consumer instead.
+set(svs_enum_header "${PROJECT_SOURCE_DIR}/include/svs/core/distance/distance_core.h")
+if(EXISTS "${svs_enum_header}")
+    file(READ "${svs_enum_header}" svs_enum_text)
+    if(svs_enum_text MATCHES "enum class AVX_AVAILABILITY[ \t\r\n]*{([^}]*)}")
+        string(REPLACE "," ";" svs_enumerators "${CMAKE_MATCH_1}")
+        set(svs_undeclared)
+        foreach(enumerator IN LISTS svs_enumerators)
+            string(STRIP "${enumerator}" enumerator)
+            if(enumerator AND NOT enumerator IN_LIST svs_seen_levels)
+                list(APPEND svs_undeclared "${enumerator}")
+            endif()
+        endforeach()
+        if(svs_undeclared)
+            string(REPLACE ";" ", " svs_undeclared_display "${svs_undeclared}")
+            message(STATUS "  not in the surface: ${svs_undeclared_display}")
+            message(STATUS
+                "           dispatched to, but compiled by no translation unit, so "
+                "every consumer instantiates those kernels itself, at its own -march"
+            )
+        endif()
+    endif()
+endif()
