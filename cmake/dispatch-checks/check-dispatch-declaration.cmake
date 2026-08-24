@@ -24,14 +24,15 @@
 #####         -DSVS_ARCHIVE=<libsvs_x86_objects.a> \
 #####         -DSVS_CONSUMER_OBJECT=<entry_probe.cpp.o> \
 #####         -DSVS_NM=<nm> \
-#####         -P cmake/check-dispatch-declaration.cmake
+#####         -P cmake/dispatch-checks/check-dispatch-declaration.cmake
 #####
-##### cmake/check-dispatch-linkage.cmake compares the archive against a probe, and
-##### both are generated from the same header: a generator that dropped an extent
-##### would drop it from both and still agree. The expectation here is derived from
-##### the three hand-written sources instead -- the extent list and levels, the type
-##### pairs, and the enumerator order -- so the generated header is not consulted at
-##### all and a generator bug has nowhere to hide.
+##### cmake/dispatch-checks/check-dispatch-linkage.cmake compares the archive
+##### against a probe, and both are generated from the same header: a generator
+##### that dropped an extent would drop it from both and still agree. The
+##### expectation here is derived from the three hand-written sources instead --
+##### the extent list and levels, the type pairs, and the enumerator order -- so
+##### the generated header is not consulted at all and a generator bug has nowhere
+##### to hide.
 #####
 
 # Without it, CMP0057 is unset in script mode and the `IN_LIST` tests below are

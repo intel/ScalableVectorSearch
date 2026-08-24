@@ -20,7 +20,7 @@
 #####   cmake -DSVS_PROBE_OBJECT=<link_probe.cpp.o> \
 #####         -DSVS_ARCHIVE=<libsvs_x86_objects.a> \
 #####         -DSVS_NM=<nm> \
-#####         -P cmake/check-dispatch-linkage.cmake
+#####         -P cmake/dispatch-checks/check-dispatch-linkage.cmake
 #####
 ##### The probe object names every kernel the surface declares and nothing else
 ##### (see tests/multi-arch/x86/link_probe.cpp), so the kernels it *references*

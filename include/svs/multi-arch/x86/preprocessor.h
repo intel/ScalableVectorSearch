@@ -21,8 +21,8 @@
 /////
 ///// Element-type pairs.
 /////
-///// Hand-written, unlike the generated extent list: a pair is here because a
-///// kernel exists for it, and generating it would invite unimplemented pairs.
+///// Every (query, dataset) combination of float, int8_t, uint8_t and Float16.
+///// Each pair costs one instantiation per extent, ISA level and distance.
 /////
 
 // Invokes M(query_type, dataset_type, ...) once per type pair.

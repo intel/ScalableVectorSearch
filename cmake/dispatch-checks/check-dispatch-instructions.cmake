@@ -20,7 +20,7 @@
 #####   cmake -DSVS_OBJECT=<avx2.cpp.o> \
 #####         -DSVS_LEVEL=AVX2 -DSVS_ARCH=haswell \
 #####         -DSVS_OBJDUMP=<objdump> \
-#####         -P cmake/check-dispatch-instructions.cmake
+#####         -P cmake/dispatch-checks/check-dispatch-instructions.cmake
 #####
 ##### A level promises the host satisfies its runtime predicate and nothing more,
 ##### so an instruction the predicate does not guarantee is an illegal-instruction

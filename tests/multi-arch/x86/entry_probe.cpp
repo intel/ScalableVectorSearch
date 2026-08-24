@@ -94,8 +94,8 @@ float entry_all() {
 
 int main(int argc, char** argv) {
     if (argc == 2 && std::strcmp(argv[1], "--report") == 0) {
-        // Read by cmake/check-dispatch-execution.cmake, which then breaks on the
-        // kernels of this extent and checks which level the call below enters.
+        // Read by cmake/dispatch-checks/check-dispatch-execution.cmake, which
+        // breaks on this extent's kernels to see which level the call enters.
         std::printf("expect-level %d\n", svs_test::expected_level());
         std::printf("probe-extent %zu\n", entry_report_dim);
         std::printf(

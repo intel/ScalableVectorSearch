@@ -23,7 +23,7 @@
 ##### directory to its own project, where that points somewhere else entirely.
 #####
 
-set(svs_dispatch_cmake_dir "${CMAKE_CURRENT_LIST_DIR}/../../cmake")
+set(svs_dispatch_cmake_dir "${CMAKE_CURRENT_LIST_DIR}/../../cmake/dispatch-checks")
 
 # The object libraries exist so that each probe's single object file can be named
 # with $<TARGET_OBJECTS:>, which is what the symbol-table checks read.

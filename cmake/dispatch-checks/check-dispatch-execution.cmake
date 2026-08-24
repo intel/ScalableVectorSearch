@@ -18,7 +18,7 @@
 ##### Run in script mode:
 #####
 #####   cmake -DSVS_PROBE=<entry_probe> -DSVS_NM=<nm> -DSVS_GDB=<gdb> \
-#####         -P cmake/check-dispatch-execution.cmake
+#####         -P cmake/dispatch-checks/check-dispatch-execution.cmake
 #####
 ##### Everything else about the surface is a property of the symbol table, which a
 ##### specialization can satisfy while never running: one that disappears behind an
