@@ -145,6 +145,7 @@ endforeach()
 string(APPEND SVS_GEN_DIM_LOOP "    /* end */")
 
 set(SVS_GEN_TARGET_LOOP "\\\n")
+set(SVS_GEN_LEVEL_LOOP "\\\n")
 set(SVS_DISPATCH_TU_SPECS)
 set(svs_x86_src_dir "${PROJECT_SOURCE_DIR}/include/svs/multi-arch/x86")
 foreach(level_spec IN LISTS SVS_ISA_LEVELS)
@@ -153,6 +154,7 @@ foreach(level_spec IN LISTS SVS_ISA_LEVELS)
     list(GET level_fields 1 arch)
     list(GET level_fields 2 infix)
 
+    string(APPEND SVS_GEN_LEVEL_LOOP "    M(${level}) \\\n")
     foreach(dim IN LISTS svs_dim_list)
         string(APPEND SVS_GEN_TARGET_LOOP "    M(${dim}, ${level}) \\\n")
     endforeach()
@@ -174,6 +176,7 @@ foreach(level_spec IN LISTS SVS_ISA_LEVELS)
     )
 endforeach()
 string(APPEND SVS_GEN_TARGET_LOOP "    /* end */")
+string(APPEND SVS_GEN_LEVEL_LOOP "    /* end */")
 
 #####
 ##### Emit the header

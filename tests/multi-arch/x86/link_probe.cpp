@@ -20,9 +20,10 @@
 #include "svs/core/distance/cosine.h"
 #include "svs/core/distance/euclidean.h"
 #include "svs/core/distance/inner_product.h"
-#include "svs/lib/avx_detection.h"
 #include "svs/lib/static.h"
 #include "svs/multi-arch/x86/preprocessor.h"
+
+#include "host_levels.h"
 
 #include <algorithm>
 #include <array>
@@ -32,18 +33,7 @@
 namespace {
 
 using svs::distance::AVX_AVAILABILITY;
-
-// A level added to the surface without a specialization here is an undefined
-// symbol, deliberately: there is no way to guess the right predicate.
-template <AVX_AVAILABILITY Level> bool host_satisfies();
-
-template <> bool host_satisfies<AVX_AVAILABILITY::AVX2>() {
-    return svs::detail::avx_runtime_flags.is_avx2_supported();
-}
-
-template <> bool host_satisfies<AVX_AVAILABILITY::AVX512>() {
-    return svs::detail::avx_runtime_flags.is_avx512f_supported();
-}
+using svs_test::host_satisfies;
 
 // The longest fixed extent in the surface.
 constexpr size_t probe_max_dim = []() {

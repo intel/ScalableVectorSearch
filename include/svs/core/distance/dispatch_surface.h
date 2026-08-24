@@ -62,4 +62,11 @@
     M(svs::Dynamic, AVX512) \
     /* end */
 
+// Invokes M(isa_level) once per ISA level, weakest first. AVX_AVAILABILITY
+// enumerators without a translation unit are absent: this is the surface.
+#define SVS_FOR_EACH_ISA_LEVEL(M) \
+    M(AVX2) \
+    M(AVX512) \
+    /* end */
+
 // clang-format on

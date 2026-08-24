@@ -33,4 +33,8 @@
 // once per kernel the library compiles ahead of time, modulo type pairs.
 #define SVS_FOR_EACH_DISPATCH_TARGET(M) @SVS_GEN_TARGET_LOOP@
 
+// Invokes M(isa_level) once per ISA level, weakest first. AVX_AVAILABILITY
+// enumerators without a translation unit are absent: this is the surface.
+#define SVS_FOR_EACH_ISA_LEVEL(M) @SVS_GEN_LEVEL_LOOP@
+
 // clang-format on
