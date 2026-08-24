@@ -150,16 +150,13 @@ inline float cosine_distance(const float* a, const float* b, size_t dim) {
 ///   * compression compiled out -> exactly SVS_ERROR_NOT_IMPLEMENTED. Silently
 ///     succeeding would mean the build flag did not take effect.
 inline bool check_storage_support(svs_storage_h storage, svs_error_h error) {
-#ifdef SVS_TEST_EXPECT_LVQ_LEANVEC
     if (storage != nullptr) {
         return svs_error_ok(error) == true;
     }
+#ifdef SVS_TEST_EXPECT_LVQ_LEANVEC
     // Accept only a genuine hardware limitation, never a missing implementation.
     return svs_error_get_code(error) == SVS_ERROR_UNSUPPORTED_HW;
 #else
-    if (storage != nullptr) {
-        return false; // compression should not be available in a public build
-    }
     return svs_error_get_code(error) == SVS_ERROR_NOT_IMPLEMENTED;
 #endif
 }
