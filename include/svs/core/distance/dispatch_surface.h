@@ -14,20 +14,14 @@
  * limitations under the License.
  */
 
-// GENERATED FILE -- DO NOT EDIT.
-//
-// Regenerated on every CMake configure from cmake/dispatch-surface.cmake, which
-// is where changes to the extent list or the ISA levels belong. This file is
-// committed so that consuming the headers with a bare `-I include` -- no CMake
-// -- keeps working.
+// GENERATED FILE -- DO NOT EDIT. Regenerated on every CMake configure from
+// cmake/dispatch-surface.cmake; committed so a bare `-I include` compile works.
 
 #pragma once
 
 // clang-format off
-//
-// The escaped-newline alignment column depends on the longest generated line, so
-// letting clang-format reflow this file would make the committed copy disagree
-// with the one CMake writes -- an endless format/regenerate loop.
+// Reflowing would realign the escaped newlines and make the committed copy
+// disagree with the one CMake writes -- an endless format/regenerate loop.
 
 // Number of extents with a fixed-extent kernel, including svs::Dynamic.
 #define SVS_SUPPORTED_DIM_COUNT 9

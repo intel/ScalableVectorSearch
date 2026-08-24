@@ -21,11 +21,8 @@
 /////
 ///// Element-type pairs.
 /////
-///// Hand-written, and deliberately so. Unlike the extent list -- which is
-///// declared in cmake/dispatch-surface.cmake and generated -- a type pair is
-///// not a free axis: it appears here because a kernel exists for it, in some
-///// cases a hand-crafted specialization. Generating this list would invite
-///// combinations with no implementation to reach.
+///// Hand-written, unlike the generated extent list: a pair is here because a
+///// kernel exists for it, and generating it would invite unimplemented pairs.
 /////
 
 // Invokes M(query_type, dataset_type, ...) once per type pair.
