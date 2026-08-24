@@ -39,9 +39,8 @@ constexpr std::array<size_t, SVS_SUPPORTED_DIM_COUNT> supported_dim_list{
 
 /// Whether N has a fixed-extent kernel.
 ///
-/// This is not a capability test: every dimensionality is supported. An extent
-/// that answers `false` here dispatches to the svs::Dynamic kernel instead of a
-/// fully unrolled one.
+/// Not a capability test: every dimensionality is supported. An extent answering
+/// `false` dispatches to the svs::Dynamic kernel instead of a fully unrolled one.
 template <size_t N> constexpr bool is_dim_supported() {
     for (auto i : supported_dim_list) {
         if (i == N) {
