@@ -51,25 +51,46 @@ echo " FAISS C++ tests: "
 echo "-----------------------------------------------"
 echo " FAISS-SVS C++ examples: "
 make 10-SVS-Vamana-LVQ 11-SVS-Vamana-LeanVec
-# Check if running on Intel hardware (LVQ/LeanVec require Intel-specific instructions)
-if grep -q "GenuineIntel" /proc/cpuinfo; then
+# The examples request LVQ/LeanVec unconditionally, which needs an enabled runtime and
+# Intel hardware; public-only compiles the formats out, so the CPU vendor alone mispredicts.
+lvq_leanvec_missing=""
+if [ "${ENABLE_LVQ_LEANVEC:-ON}" != "ON" ]; then
+  lvq_leanvec_missing="the runtime is built without LVQ/LeanVec support"
+elif ! grep -q "GenuineIntel" /proc/cpuinfo; then
+  lvq_leanvec_missing="the CPU is not GenuineIntel"
+fi
+
+# The trailing class name differs between bindings/cpp/src/vamana_index.cpp and
+# dynamic_vamana_index.cpp, so matching the full message would pin the examples to one index kind.
+storage_kind_rejection="The specified storage kind is not compatible with the"
+
+# A nonzero exit alone would let a broken example, a missing library or a segfault pass as expected.
+expect_storage_kind_rejection() {
+  local label="$1"
+  shift
+  local output status
+  output=$("$@" 2>&1) && status=0 || status=$?
+  echo "$output"
+  if [ "$status" -eq 0 ]; then
+    echo "UNEXPECTED: $label succeeded although $lvq_leanvec_missing"
+    return 1
+  fi
+  if ! printf '%s\n' "$output" | grep -qF "$storage_kind_rejection"; then
+    echo "UNEXPECTED: $label exited $status without rejecting the storage kind"
+    return 1
+  fi
+  echo "XFAIL: $label rejected the storage kind as expected ($lvq_leanvec_missing)"
+}
+
+if [ -z "$lvq_leanvec_missing" ]; then
   $RUN_PREFIX ./tutorial/cpp/10-SVS-Vamana-LVQ
   $RUN_PREFIX ./tutorial/cpp/11-SVS-Vamana-LeanVec
 else
-  echo "Non-Intel CPU detected - LVQ/LeanVec examples expected to fail"
-  set +e
-  ./tutorial/cpp/10-SVS-Vamana-LVQ
-  exit_code_10=$?
-  ./tutorial/cpp/11-SVS-Vamana-LeanVec
-  exit_code_11=$?
-  set -e
-
-  if [ $exit_code_10 -ne 0 ] && [ $exit_code_11 -ne 0 ]; then
-    echo "XFAIL: Examples failed as expected on non-Intel hardware"
-  else
-    echo "UNEXPECTED: One or more tests passed on non-Intel hardware (exit codes: $exit_code_10, $exit_code_11)"
-    exit 1
-  fi
+  echo "LVQ/LeanVec examples expected to reject the storage kind: $lvq_leanvec_missing"
+  expect_storage_kind_rejection 10-SVS-Vamana-LVQ \
+    $RUN_PREFIX ./tutorial/cpp/10-SVS-Vamana-LVQ
+  expect_storage_kind_rejection 11-SVS-Vamana-LeanVec \
+    $RUN_PREFIX ./tutorial/cpp/11-SVS-Vamana-LeanVec
 fi
 echo "-----------------------------------------------"
 echo " FAISS python bindings: "
@@ -82,19 +103,11 @@ PYTHONPATH=../build/faiss/python/build/lib/ OMP_NUM_THREADS=4 python -m unittest
 echo "-----------------------------------------------"
 echo " FAISS-SVS python examples: "
 cd ../tutorial/python/
-if grep -q "GenuineIntel" /proc/cpuinfo; then
+if [ -z "$lvq_leanvec_missing" ]; then
   PYTHONPATH=../../build/faiss/python/build/lib/ OMP_NUM_THREADS=4 $RUN_PREFIX python 11-SVS.py
 else
-  echo "Non-Intel CPU detected - SVS python example expected to fail"
-  set +e
-  PYTHONPATH=../../build/faiss/python/build/lib/ OMP_NUM_THREADS=4 python 11-SVS.py
-  exit_code=$?
-  set -e
-
-  if [ $exit_code -ne 0 ]; then
-    echo "XFAIL: Python example failed as expected on non-Intel hardware"
-  else
-    echo "UNEXPECTED: Python example passed on non-Intel hardware"
-    exit 1
-  fi
+  echo "SVS python example expected to reject the storage kind: $lvq_leanvec_missing"
+  expect_storage_kind_rejection 11-SVS.py \
+    env PYTHONPATH=../../build/faiss/python/build/lib/ OMP_NUM_THREADS=4 \
+    $RUN_PREFIX python 11-SVS.py
 fi

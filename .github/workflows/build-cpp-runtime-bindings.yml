@@ -95,10 +95,14 @@ jobs:
     runs-on: ubuntu-22.04
     strategy:
       matrix:
+        # enable_lvq_leanvec must match the build job's value for this suffix; if they
+        # disagree, test-faiss.sh expects the wrong outcome from the downloaded artifact.
         include:
           - name: "with static library"
+            enable_lvq_leanvec: "ON"
             suffix: ""
           - name: "public only"
+            enable_lvq_leanvec: "OFF"
             suffix: "-public-only"
       fail-fast: false
 
@@ -126,6 +130,6 @@ jobs:
             -v ${{ github.workspace }}:/workspace \
             -v ${{ github.workspace }}/runtime_conda:/runtime_conda \
             -w /workspace \
-            -e SUFFIX=${{ matrix.suffix }} \
+            -e ENABLE_LVQ_LEANVEC=${{ matrix.enable_lvq_leanvec }} \
             svs-manylinux228:latest \
             /bin/bash .github/scripts/test-faiss.sh
