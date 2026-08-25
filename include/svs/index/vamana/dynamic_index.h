@@ -328,9 +328,10 @@ class MutableVamanaIndex {
     /// over-allocation is reflected. Metadata includes status array, entry points, and an
     /// estimated size of the ID translation maps (external/internal ID translation maps).
     MemoryBreakdown get_memory_breakdown() const {
+        using namespace svs::data;
         MemoryBreakdown usage{};
-        usage.graph_bytes = svs::data::detail::dataset_allocated_bytes(graph_.get_data());
-        usage.data_bytes = svs::data::detail::dataset_allocated_bytes(data_);
+        usage.graph_bytes = dataset_allocated_bytes(graph_.get_data());
+        usage.data_bytes = dataset_allocated_bytes(data_);
 
         size_t metadata_bytes = status_.capacity() * sizeof(SlotMetadata);
         metadata_bytes +=

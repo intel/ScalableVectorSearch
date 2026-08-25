@@ -110,15 +110,19 @@ class LVQDataBuilder {
             svs::c_runtime::adjust_blocked_size(num_vectors, primary_element_sz, allocator);
 
         const auto residual_element_sz = residual_element_size(dimension);
-        const auto residual_size = svs::c_runtime::adjust_blocked_size(
-            num_vectors, residual_element_sz, allocator
-        );
+        const auto residual_size = residual_element_sz > 0
+                                       ? svs::c_runtime::adjust_blocked_size(
+                                             num_vectors, residual_element_sz, allocator
+                                         )
+                                       : 0;
 
         // Assuming a single centroid for estimation purposes
         const size_t num_centroids = 1; // Assuming 1 centroid for estimation
-        // TODO: Fix the actual memory breakdown reported by index by implementing
-        // dataset_allocated_bytes() specialization for LVQDataset.
-        const size_t centroid_size = 0; // Skipping centroids for estimation
+
+        // Note: the following size is not included in the current estimate as it is
+        // not included in memory breakdown calculations in the current implementation. It
+        // can be added if needed.
+        const size_t centroid_size = 0;
         // const auto centroid_size =
         //     sizeof(typename data_type::centroid_type::element_type) * dimension;
 

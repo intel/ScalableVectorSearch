@@ -762,9 +762,10 @@ class VamanaIndex {
     /// over-allocation is reflected. Metadata includes entry points. Integrators can use
     /// this to report the true memory footprint of the index.
     MemoryBreakdown get_memory_breakdown() const {
+        using namespace svs::data;
         MemoryBreakdown usage{};
-        usage.graph_bytes = svs::data::detail::dataset_allocated_bytes(graph_.get_data());
-        usage.data_bytes = svs::data::detail::dataset_allocated_bytes(data_);
+        usage.graph_bytes = dataset_allocated_bytes(graph_.get_data());
+        usage.data_bytes = dataset_allocated_bytes(data_);
         usage.metadata_bytes =
             entry_point_.capacity() * sizeof(typename entry_point_type::value_type);
         return usage;
