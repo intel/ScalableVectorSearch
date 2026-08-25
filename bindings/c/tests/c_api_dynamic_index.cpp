@@ -371,10 +371,6 @@ CATCH_TEST_CASE("C API Dynamic Index", "[c_api][index][dynamic]") {
 }
 
 CATCH_TEST_CASE("C API Dynamic Index Memory", "[c_api][index][memory][dynamic]") {
-    // TODO: fix the blocked memory breakdown reported by index for LVQ, LeanVec storages.
-    // For now, we will:
-    // * test only the default simple and SQ storages.
-    // * Align graph and data sizes to BLOCK_SIZE to avoid test failures.
     const size_t BLOCK_SIZE = 8 * 1024; // 8 KB block size for testing
     const size_t DIMENSION = 32;
     const size_t GRAPH_DEGREE = 16;
@@ -519,6 +515,41 @@ CATCH_TEST_CASE("C API Dynamic Index Memory", "[c_api][index][memory][dynamic]")
         // Scalar quantization storage.
         {
             svs_storage_h storage = svs_storage_create_sq(SVS_DATA_TYPE_INT8, error);
+            CATCH_REQUIRE(check_storage_support(storage, error) == true);
+            if (storage != nullptr) {
+                estimate_and_verify(storage);
+                svs_storage_free(storage);
+            }
+        }
+
+        // LVQ: primary = int4, residual = int8.
+        {
+            svs_storage_h storage =
+                svs_storage_create_lvq(SVS_DATA_TYPE_INT4, SVS_DATA_TYPE_INT8, error);
+            CATCH_REQUIRE(check_storage_support(storage, error) == true);
+            if (storage != nullptr) {
+                estimate_and_verify(storage);
+                svs_storage_free(storage);
+            }
+        }
+
+        // LeanVec: leanvec_dims = DIMENSION / 2, primary = int4, secondary = int8.
+        {
+            svs_storage_h storage = svs_storage_create_leanvec(
+                DIMENSION / 2, SVS_DATA_TYPE_INT4, SVS_DATA_TYPE_INT8, error
+            );
+            CATCH_REQUIRE(check_storage_support(storage, error) == true);
+            if (storage != nullptr) {
+                estimate_and_verify(storage);
+                svs_storage_free(storage);
+            }
+        }
+
+        // LeanVec: leanvec_dims = DIMENSION / 2, primary = int4, secondary = int4.
+        {
+            svs_storage_h storage = svs_storage_create_leanvec(
+                DIMENSION / 2, SVS_DATA_TYPE_INT4, SVS_DATA_TYPE_INT4, error
+            );
             CATCH_REQUIRE(check_storage_support(storage, error) == true);
             if (storage != nullptr) {
                 estimate_and_verify(storage);
