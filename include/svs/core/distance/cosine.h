@@ -47,8 +47,6 @@ class CosineSimilarity {
   public:
     template <typename Ea, typename Eb>
     static constexpr float compute(const Ea* a, const Eb* b, float a_norm, size_t N) {
-        // Compiles away entirely for the pairs with no VNNI kernel, which is most
-        // of them.
         if constexpr (has_vnni_kernel<Ea, Eb>) {
             if (__builtin_expect(
                     svs::detail::avx_runtime_flags.is_avx512vnni_supported(), 1
@@ -286,8 +284,7 @@ template <> struct CosineFloatOp<16> : public svs::simd::ConvertToFloat<16> {
     }
 };
 
-// Small Integers, with VNNI. Its own ISA level rather than a runtime branch inside
-// the AVX512 kernels: the check belongs at the one place the level is chosen.
+// Small Integers, with VNNI
 SVS_VALIDATE_BOOL_ENV(SVS_AVX512_VNNI)
 #if SVS_AVX512_VNNI
 template <size_t N>
@@ -345,8 +342,8 @@ struct CosineSimilarityImpl<N, uint8_t, uint8_t, AVX_AVAILABILITY::AVX512_VNNI> 
 
 #endif
 
-// Outside the SVS_AVX512_VNNI guard deliberately: the AVX512 translation unit is
-// compiled where that macro is 0, so a missing specialization silently goes generic.
+// Must stay outside the SVS_AVX512_VNNI guard: avx512.cpp compiles with that macro
+// at 0, and hiding this specialization there would silently select the generic kernel.
 template <size_t N>
 struct CosineSimilarityImpl<N, int8_t, int8_t, AVX_AVAILABILITY::AVX512> {
     SVS_NOINLINE static float

@@ -46,8 +46,6 @@ class IP {
   public:
     template <typename Ea, typename Eb>
     static constexpr float compute(const Ea* a, const Eb* b, size_t N) {
-        // Compiles away entirely for the pairs with no VNNI kernel, which is most
-        // of them.
         if constexpr (has_vnni_kernel<Ea, Eb>) {
             if (__builtin_expect(
                     svs::detail::avx_runtime_flags.is_avx512vnni_supported(), 1
@@ -241,8 +239,7 @@ template <> struct IPFloatOp<16> : public svs::simd::ConvertToFloat<16> {
     static float reduce(__m512 x) { return _mm512_reduce_add_ps(x); }
 };
 
-// Small Integers, with VNNI. Its own ISA level rather than a runtime branch inside
-// the AVX512 kernels: the check belongs at the one place the level is chosen.
+// Small Integers, with VNNI
 SVS_VALIDATE_BOOL_ENV(SVS_AVX512_VNNI)
 #if SVS_AVX512_VNNI
 
@@ -286,8 +283,8 @@ template <size_t N> struct IPImpl<N, uint8_t, uint8_t, AVX_AVAILABILITY::AVX512_
 
 #endif
 
-// Outside the SVS_AVX512_VNNI guard deliberately: the AVX512 translation unit is
-// compiled where that macro is 0, so a missing specialization silently goes generic.
+// Must stay outside the SVS_AVX512_VNNI guard: avx512.cpp compiles with that macro
+// at 0, and hiding this specialization there would silently select the generic kernel.
 template <size_t N> struct IPImpl<N, int8_t, int8_t, AVX_AVAILABILITY::AVX512> {
     SVS_NOINLINE static float
     compute(const int8_t* a, const int8_t* b, lib::MaybeStatic<N> length) {
