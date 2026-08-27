@@ -289,7 +289,7 @@ Defines how vectors are stored in memory, supporting various compression schemes
 | **Simple** | FP32, FP16, INT8, UINT8, INT4, UINT4 | Uncompressed storage |
 | **SQ** | INT8, UINT8 | Scalar quantization |
 | **LVQ** | Primary: INT4/UINT4/INT8/UINT8<br>Residual: VOID/INT4/UINT4/INT8/UINT8 | Locally-adaptive vector quantization |
-| **LeanVec** | Dimensions<br>Primary: data type<br>Secondary: data type | LeanVec dimensionality reduced storage |
+| **LeanVec** | Dimensions<br>Primary: data type<br>Secondary: data type<br>Optional pre-trained matrices | LeanVec dimensionality reduced storage; matrices computed via PCA at build time, or trained up front (in-distribution or out-of-distribution) |
 
 **Example:**
 ```c
@@ -301,10 +301,23 @@ svs_storage_h storage = svs_storage_create_lvq(
     SVS_DATA_TYPE_UINT8, SVS_DATA_TYPE_UINT4, err
 );
 
-// LeanVec with 128 dimensions
+// LeanVec with 128 dimensions; reduction matrices are computed from the
+// dataset (PCA) at build time
 svs_storage_h storage = svs_storage_create_leanvec(
     128, SVS_DATA_TYPE_FLOAT16, SVS_DATA_TYPE_INT8, err
 );
+
+// LeanVec from matrices trained up front. Passing training queries learns
+// out-of-distribution (OOD) matrices; passing none learns PCA matrices.
+// `leanvec_dims` comes from the training data.
+svs_leanvec_training_data_h td = svs_leanvec_training_data_build(
+    dim, num_vectors, x, num_queries, x_q, 128, err
+);
+svs_storage_h storage = svs_storage_create_leanvec_trained(
+    td, SVS_DATA_TYPE_INT4, SVS_DATA_TYPE_INT8, err
+);
+// The storage holds its own reference to the matrices.
+svs_leanvec_training_data_free(td);
 
 // Scalar quantization
 svs_storage_h storage = svs_storage_create_sq(SVS_DATA_TYPE_INT8, err);
