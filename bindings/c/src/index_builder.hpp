@@ -33,6 +33,7 @@
 #include <svs/index/vamana/dynamic_index.h>
 #include <svs/index/vamana/index.h>
 #include <svs/lib/float16.h>
+#include <svs/lib/neighbor.h>
 #include <svs/orchestrators/vamana.h>
 
 #include <filesystem>
@@ -192,6 +193,54 @@ struct IndexBuilder {
             storage.get(),
             to_distance_type(distance_metric),
             blocksize_bytes
+        );
+    }
+
+    template <svs::NeighborLike NeighborType>
+    size_t estimate_search_memory_impl(
+        size_t num_queries,
+        size_t num_neighbors,
+        const std::shared_ptr<Algorithm::SearchParams>& search_params
+    ) const {
+        if (search_params && search_params->type != algorithm->type) {
+            throw std::invalid_argument(
+                "Search parameters type does not match algorithm type"
+            );
+        }
+
+        NOT_IMPLEMENTED_IF(
+            algorithm->type != SVS_ALGORITHM_TYPE_VAMANA,
+            "Search memory estimation is currently supported only for Vamana algorithm"
+        );
+        auto vamana_algorithm = std::static_pointer_cast<AlgorithmVamana>(algorithm);
+        auto vamana_search_params = std::static_pointer_cast<AlgorithmVamana::SearchParams>(
+            search_params ? search_params : vamana_algorithm->get_default_search_params()
+        );
+
+        auto params = vamana_search_params->get_search_parameters();
+        auto search_buffer_size =
+            std::max(params.buffer_config_.get_total_capacity(), num_neighbors);
+        return num_queries * search_buffer_size * sizeof(NeighborType);
+    }
+
+    size_t estimate_search_memory(
+        size_t num_queries,
+        size_t num_neighbors,
+        const std::shared_ptr<Algorithm::SearchParams>& search_params
+    ) const {
+        return estimate_search_memory_impl<svs::SearchNeighbor<uint32_t>>(
+            num_queries, num_neighbors, search_params
+        );
+    }
+
+    size_t estimate_search_memory_dynamic(
+        size_t num_queries,
+        size_t num_neighbors,
+        const std::shared_ptr<Algorithm::SearchParams>& search_params,
+        size_t SVS_UNUSED(blocksize_bytes)
+    ) const {
+        return estimate_search_memory_impl<svs::PredicatedSearchNeighbor<uint32_t>>(
+            num_queries, num_neighbors, search_params
         );
     }
 };

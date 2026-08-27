@@ -982,6 +982,109 @@ CATCH_TEST_CASE("C API Index Memory Management", "[c_api][index][memory]") {
 
         svs_error_free(error);
     }
+
+    CATCH_SECTION("Estimate Search Memory") {
+        const size_t NUM_QUERIES = 5;
+        const size_t K = 10;
+        svs_error_h error = svs_error_create();
+
+        svs_algorithm_h algorithm = svs_algorithm_create_vamana(16, 32, 50, error);
+        CATCH_REQUIRE(algorithm != nullptr);
+        CATCH_REQUIRE(svs_error_ok(error));
+
+        svs_index_builder_h builder = svs_index_builder_create(
+            SVS_DISTANCE_METRIC_EUCLIDEAN, DIMENSION, algorithm, error
+        );
+        CATCH_REQUIRE(builder != nullptr);
+        CATCH_REQUIRE(svs_error_ok(error));
+
+        // Basic estimate using the builder's default search parameters.
+        size_t default_size = 0;
+        bool success = svs_index_builder_estimate_search_memory(
+            builder, NUM_QUERIES, K, nullptr, &default_size, error
+        );
+        CATCH_REQUIRE(success);
+        CATCH_REQUIRE(svs_error_ok(error));
+        CATCH_REQUIRE(default_size > 0);
+
+        // The estimate scales linearly with the number of queries.
+        size_t double_queries_size = 0;
+        success = svs_index_builder_estimate_search_memory(
+            builder, NUM_QUERIES * 2, K, nullptr, &double_queries_size, error
+        );
+        CATCH_REQUIRE(success);
+        CATCH_REQUIRE(svs_error_ok(error));
+        CATCH_REQUIRE(double_queries_size == default_size * 2);
+
+        // Explicit search parameters yield a valid estimate.
+        svs_search_params_h search_params = svs_search_params_create_vamana(50, error);
+        CATCH_REQUIRE(search_params != nullptr);
+        CATCH_REQUIRE(svs_error_ok(error));
+        size_t params_size = 0;
+        success = svs_index_builder_estimate_search_memory(
+            builder, NUM_QUERIES, K, search_params, &params_size, error
+        );
+        CATCH_REQUIRE(success);
+        CATCH_REQUIRE(svs_error_ok(error));
+        CATCH_REQUIRE(params_size > 0);
+
+        // A larger search window size requires at least as much memory.
+        svs_search_params_h large_params = svs_search_params_create_vamana(100, error);
+        CATCH_REQUIRE(large_params != nullptr);
+        CATCH_REQUIRE(svs_error_ok(error));
+        size_t large_params_size = 0;
+        success = svs_index_builder_estimate_search_memory(
+            builder, NUM_QUERIES, K, large_params, &large_params_size, error
+        );
+        CATCH_REQUIRE(success);
+        CATCH_REQUIRE(svs_error_ok(error));
+        CATCH_REQUIRE(large_params_size >= params_size);
+
+        // Requesting more neighbors than the search window size grows the estimate.
+        size_t many_neighbors_size = 0;
+        success = svs_index_builder_estimate_search_memory(
+            builder, NUM_QUERIES, 200, search_params, &many_neighbors_size, error
+        );
+        CATCH_REQUIRE(success);
+        CATCH_REQUIRE(svs_error_ok(error));
+        CATCH_REQUIRE(many_neighbors_size >= params_size);
+
+        // Null-argument handling.
+        size_t out_size = 0;
+        CATCH_REQUIRE(
+            svs_index_builder_estimate_search_memory(
+                nullptr, NUM_QUERIES, K, nullptr, &out_size, error
+            ) == false
+        );
+        CATCH_REQUIRE(svs_error_get_code(error) == SVS_ERROR_INVALID_ARGUMENT);
+
+        CATCH_REQUIRE(
+            svs_index_builder_estimate_search_memory(
+                builder, NUM_QUERIES, K, nullptr, nullptr, error
+            ) == false
+        );
+        CATCH_REQUIRE(svs_error_get_code(error) == SVS_ERROR_INVALID_ARGUMENT);
+
+        CATCH_REQUIRE(
+            svs_index_builder_estimate_search_memory(
+                builder, 0, K, nullptr, &out_size, error
+            ) == false
+        );
+        CATCH_REQUIRE(svs_error_get_code(error) == SVS_ERROR_INVALID_ARGUMENT);
+
+        CATCH_REQUIRE(
+            svs_index_builder_estimate_search_memory(
+                builder, NUM_QUERIES, 0, nullptr, &out_size, error
+            ) == false
+        );
+        CATCH_REQUIRE(svs_error_get_code(error) == SVS_ERROR_INVALID_ARGUMENT);
+
+        svs_search_params_free(large_params);
+        svs_search_params_free(search_params);
+        svs_index_builder_free(builder);
+        svs_algorithm_free(algorithm);
+        svs_error_free(error);
+    }
 }
 
 namespace {

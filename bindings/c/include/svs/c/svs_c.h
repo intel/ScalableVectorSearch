@@ -727,6 +727,47 @@ SVS_API bool svs_index_builder_estimate_memory_dynamic(
     svs_error_h out_err /*=NULL*/
 );
 
+/// @brief Estimate the memory usage of a search operation based on the builder
+/// configuration, search parameters, number of queries, and nearest neighbors to retrieve
+/// @param builder The index builder handle
+/// @param num_queries The number of queries to be performed
+/// @param num_neighbors The number of nearest neighbors to retrieve per query
+/// @param search_params The search parameters handle; if NULL, the builder's default search
+/// parameters are used
+/// @param out_size Pointer to a variable to receive the estimated memory size
+/// @param out_err An optional error handle to capture errors
+/// @return true on success, false on failure
+SVS_API bool svs_index_builder_estimate_search_memory(
+    svs_index_builder_h builder,
+    size_t num_queries,
+    size_t num_neighbors,
+    svs_search_params_h search_params,
+    size_t* out_size,
+    svs_error_h out_err /*=NULL*/
+);
+
+/// @brief Estimate the memory usage of a dynamic search operation based on the builder
+/// configuration, search parameters, number of queries, nearest neighbors to retrieve, and
+/// block size
+/// @param builder The index builder handle
+/// @param num_queries The number of queries to be performed
+/// @param num_neighbors The number of nearest neighbors to retrieve per query
+/// @param search_params The search parameters handle; if NULL, the builder's default search
+/// parameters are used
+/// @param blocksize_bytes The block size in bytes for dynamic search (0 for default)
+/// @param out_size Pointer to a variable to receive the estimated memory size
+/// @param out_err An optional error handle to capture errors
+/// @return true on success, false on failure
+SVS_API bool svs_index_builder_estimate_search_memory_dynamic(
+    svs_index_builder_h builder,
+    size_t num_queries,
+    size_t num_neighbors,
+    svs_search_params_h search_params,
+    size_t blocksize_bytes,
+    size_t* out_size,
+    svs_error_h out_err /*=NULL*/
+);
+
 /// @brief Build an index from the provided data
 /// @param builder The index builder handle
 /// @param data Pointer to the vector data (float array)
