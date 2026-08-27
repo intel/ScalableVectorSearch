@@ -558,6 +558,92 @@ CATCH_TEST_CASE("C API Dynamic Index Memory", "[c_api][index][memory][dynamic]")
         }
     }
 
+    CATCH_SECTION("Estimate Search Memory") {
+        // Basic estimate using the builder's default search parameters.
+        size_t default_size = 0;
+        bool ok = svs_index_builder_estimate_search_memory_dynamic(
+            builder, K, K, nullptr, BLOCK_SIZE, &default_size, error
+        );
+        CATCH_REQUIRE(ok);
+        CATCH_REQUIRE(svs_error_ok(error));
+        CATCH_REQUIRE(default_size > 0);
+
+        // The estimate scales linearly with the number of queries.
+        size_t double_queries_size = 0;
+        ok = svs_index_builder_estimate_search_memory_dynamic(
+            builder, K * 2, K, nullptr, BLOCK_SIZE, &double_queries_size, error
+        );
+        CATCH_REQUIRE(ok);
+        CATCH_REQUIRE(svs_error_ok(error));
+        CATCH_REQUIRE(double_queries_size == default_size * 2);
+
+        // Explicit search parameters yield a valid estimate.
+        svs_search_params_h search_params = svs_search_params_create_vamana(50, error);
+        CATCH_REQUIRE(search_params != nullptr);
+        CATCH_REQUIRE(svs_error_ok(error));
+        size_t params_size = 0;
+        ok = svs_index_builder_estimate_search_memory_dynamic(
+            builder, K, K, search_params, BLOCK_SIZE, &params_size, error
+        );
+        CATCH_REQUIRE(ok);
+        CATCH_REQUIRE(svs_error_ok(error));
+        CATCH_REQUIRE(params_size > 0);
+
+        // A larger search window size requires at least as much memory.
+        svs_search_params_h large_params = svs_search_params_create_vamana(100, error);
+        CATCH_REQUIRE(large_params != nullptr);
+        CATCH_REQUIRE(svs_error_ok(error));
+        size_t large_params_size = 0;
+        ok = svs_index_builder_estimate_search_memory_dynamic(
+            builder, K, K, large_params, BLOCK_SIZE, &large_params_size, error
+        );
+        CATCH_REQUIRE(ok);
+        CATCH_REQUIRE(svs_error_ok(error));
+        CATCH_REQUIRE(large_params_size >= params_size);
+
+        // Requesting more neighbors than the search window size grows the estimate.
+        size_t many_neighbors_size = 0;
+        ok = svs_index_builder_estimate_search_memory_dynamic(
+            builder, K, 200, search_params, BLOCK_SIZE, &many_neighbors_size, error
+        );
+        CATCH_REQUIRE(ok);
+        CATCH_REQUIRE(svs_error_ok(error));
+        CATCH_REQUIRE(many_neighbors_size >= params_size);
+
+        // Null-argument handling.
+        size_t out_size = 0;
+        CATCH_REQUIRE(
+            svs_index_builder_estimate_search_memory_dynamic(
+                nullptr, K, K, nullptr, BLOCK_SIZE, &out_size, error
+            ) == false
+        );
+        CATCH_REQUIRE(svs_error_get_code(error) == SVS_ERROR_INVALID_ARGUMENT);
+
+        CATCH_REQUIRE(
+            svs_index_builder_estimate_search_memory_dynamic(
+                builder, K, K, nullptr, BLOCK_SIZE, nullptr, error
+            ) == false
+        );
+        CATCH_REQUIRE(svs_error_get_code(error) == SVS_ERROR_INVALID_ARGUMENT);
+
+        CATCH_REQUIRE(
+            svs_index_builder_estimate_search_memory_dynamic(
+                builder, 0, K, nullptr, BLOCK_SIZE, &out_size, error
+            ) == false
+        );
+        CATCH_REQUIRE(svs_error_get_code(error) == SVS_ERROR_INVALID_ARGUMENT);
+
+        CATCH_REQUIRE(
+            svs_index_builder_estimate_search_memory_dynamic(
+                builder, K, 0, nullptr, BLOCK_SIZE, &out_size, error
+            ) == false
+        );
+        CATCH_REQUIRE(svs_error_get_code(error) == SVS_ERROR_INVALID_ARGUMENT);
+
+        svs_search_params_free(large_params);
+        svs_search_params_free(search_params);
+    }
+
     svs_index_builder_free(builder);
     svs_algorithm_free(algorithm);
     svs_error_free(error);
