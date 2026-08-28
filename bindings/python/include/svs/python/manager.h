@@ -44,7 +44,10 @@ pybind11::tuple py_search(
         matrix_view(result_idx), matrix_view(result_dists)
     );
 
-    svs::index::search_batch_into(self, q_result, query_data.cview());
+    {
+        pybind11::gil_scoped_release release;
+        svs::index::search_batch_into(self, q_result, query_data.cview());
+    }
     return pybind11::make_tuple(result_idx, result_dists);
 }
 
@@ -86,7 +89,7 @@ void add_threading_interface(pybind11::class_<Manager>& manager) {
         "num_threads",
         &Manager::get_num_threads,
         [](Manager& self, int num_threads) {
-            self.set_threadpool(svs::threads::DefaultThreadPool(num_threads));
+            self.set_threadpool(svs::threads::SwitchNativeThreadPool(num_threads));
         },
         "Read/Write (int): Get and set the number of threads used to process queries."
     );

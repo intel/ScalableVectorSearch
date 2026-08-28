@@ -156,7 +156,7 @@ class ScopedModuleNameOverride {
 
 } // namespace
 
-PYBIND11_MODULE(_svs, m) {
+PYBIND11_MODULE(_svs, m, py::mod_gil_not_used()) {
     // Internally, the top level `__init__.py` imports everything from the C++ module named
     // `_svs`.
     //

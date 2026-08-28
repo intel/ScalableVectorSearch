@@ -27,6 +27,8 @@
 #include "svs/lib/preprocessor.h"
 #include "svs/lib/threads.h"
 
+#include <limits>
+
 namespace svs::index::vamana::extensions {
 
 /////
@@ -437,8 +439,16 @@ void check_and_supplement_search_buffer(
     if (search_buffer.valid() < search_buffer.target_window() &&
         search_buffer.valid() < index.size()) {
         search_buffer.sort();
+        // Snapshot of external IDs may contain entries that a concurrent
+        // `consolidate()` erases before we reach them. Use the non-throwing
+        // `_or` lookup and skip any ID that's no longer mapped.
+        using IdT = decltype(index.translate_external_id(0));
+        constexpr IdT kMissing = std::numeric_limits<IdT>::max();
         for (auto external_id : index.external_ids()) {
-            auto internal_id = index.translate_external_id(external_id);
+            auto internal_id = index.translate_external_id_or(external_id, kMissing);
+            if (internal_id == kMissing) {
+                continue;
+            }
             auto dist = index.get_distance(external_id, query);
             auto builder = index.internal_search_builder();
             search_buffer.insert(builder(internal_id, dist));

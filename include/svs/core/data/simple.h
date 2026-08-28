@@ -30,6 +30,7 @@
 #include "svs/lib/misc.h"
 #include "svs/lib/prefetch.h"
 #include "svs/lib/saveload.h"
+#include "svs/lib/segmented_vector.h"
 #include "svs/lib/threads.h"
 #include "svs/lib/uuid.h"
 
@@ -729,7 +730,6 @@ class SimpleData<T, Extent, Blocked<Alloc>> {
         , allocator_{alloc} {
         size_t elements_per_block = blocksize_.value();
         size_t num_blocks = lib::div_round_up(n_elements, elements_per_block);
-        blocks_.reserve(num_blocks);
         for (size_t i = 0; i < num_blocks; ++i) {
             add_block();
         }
@@ -782,10 +782,10 @@ class SimpleData<T, Extent, Blocked<Alloc>> {
     /// Add a new data block to the end of the current collection of blocks.
     ///
     void add_block() {
-        blocks_.emplace_back(
+        blocks_.push_back(array_type(
             make_dims(blocksize().value(), lib::forward_extent<Extent>(dimensions())),
             allocator_.get_allocator()
-        );
+        ));
     }
 
     ///
@@ -967,7 +967,12 @@ class SimpleData<T, Extent, Blocked<Alloc>> {
   private:
     // The blocksize in terms of number of vectors.
     lib::PowerOfTwo blocksize_;
-    std::vector<array_type> blocks_;
+    // Grow-stable directory of fixed-size blocks: appending a block never relocates the
+    // existing block wrappers (or the heap buffers they point to), so a concurrent
+    // lock-free reader subscripting blocks_[block_id] is safe against a writer growing the
+    // dataset. Element addressing (block_id, data_id) is unchanged; only the outer block
+    // directory is grow-stable (2-level lock-free array). See svs/lib/segmented_vector.h.
+    lib::SegmentedVector<array_type> blocks_;
     size_t dimensions_;
     size_t size_;
     Blocked<Alloc> allocator_;

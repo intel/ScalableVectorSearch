@@ -480,6 +480,14 @@ template <typename Idx, typename Cmp = std::less<>> class MutableBuffer {
             // Maintain 5A
             // Invariant 6 has not activated.
             roi_end_ = size();
+
+            // Maintain best_unvisited_ invariant.
+            // Recompute it from scratch, mirroring the 5B branch below.
+            for (best_unvisited_ = 0; best_unvisited_ < roi_end_; ++best_unvisited_) {
+                if (!candidates_[best_unvisited_].visited()) {
+                    break;
+                }
+            }
             return;
         }
 

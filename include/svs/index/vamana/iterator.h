@@ -257,61 +257,76 @@ template <typename Index, typename QueryType> class BatchIterator {
 
         bool restart_search_copy = std::exchange(restart_search_, true);
 
-        parent_->experimental_escape_hatch([&]<std::integral I>(
-                                               const auto& graph,
-                                               const auto& data,
-                                               const auto& SVS_UNUSED(distance),
-                                               std::span<const I> entry_points
-                                           ) {
-            auto search_closure =
-                [&](const auto& query, const auto& accessor, auto& d, auto& buffer) {
-                    constexpr vamana::extensions::UsesReranking<
-                        std::remove_const_t<std::remove_reference_t<decltype(data)>>>
-                        uses_reranking{};
-                    if constexpr (uses_reranking()) {
-                        distance::maybe_fix_argument(d, query);
-                        for (size_t j = 0, jmax = buffer.size(); j < jmax; ++j) {
-                            auto& neighbor = buffer[j];
-                            auto id = neighbor.id();
-                            auto new_distance =
-                                distance::compute(d, query, data.get_primary(id));
-                            neighbor.set_distance(new_distance);
+        // Hold the search lock (compact_mutex_ shared for a dynamic index; a
+        // no-op for a static one) so a concurrent compact() cannot free the
+        // segments under us. add_points growth is lock-free (grow-stable
+        // storage). The guard is released at the end of this scope — before
+        // acquiring the translation lock. The two locks must never be held
+        // nested in the translator-before-compact order: that would invert the
+        // global lock order (compact -> translator) and deadlock against compact.
+        {
+            [[maybe_unused]] auto search_guard = parent_->lock_for_search();
+            parent_->experimental_escape_hatch([&]<std::integral I>(
+                                                   const auto& graph,
+                                                   const auto& data,
+                                                   const auto& SVS_UNUSED(distance),
+                                                   std::span<const I> entry_points
+                                               ) {
+                auto search_closure =
+                    [&](const auto& query, const auto& accessor, auto& d, auto& buffer) {
+                        constexpr vamana::extensions::UsesReranking<
+                            std::remove_const_t<std::remove_reference_t<decltype(data)>>>
+                            uses_reranking{};
+                        if constexpr (uses_reranking()) {
+                            distance::maybe_fix_argument(d, query);
+                            for (size_t j = 0, jmax = buffer.size(); j < jmax; ++j) {
+                                auto& neighbor = buffer[j];
+                                auto id = neighbor.id();
+                                auto new_distance =
+                                    distance::compute(d, query, data.get_primary(id));
+                                neighbor.set_distance(new_distance);
+                            }
+                            buffer.sort();
                         }
-                        buffer.sort();
-                    }
 
-                    vamana::greedy_search(
-                        graph,
-                        data,
-                        accessor,
-                        query,
-                        d,
-                        buffer,
-                        RestartInitializer<I>{entry_points, restart_search_copy},
-                        parent_->internal_search_builder(),
-                        scratchspace_.prefetch_parameters,
-                        cancel
-                    );
+                        vamana::greedy_search(
+                            graph,
+                            data,
+                            accessor,
+                            query,
+                            d,
+                            buffer,
+                            RestartInitializer<I>{entry_points, restart_search_copy},
+                            parent_->internal_search_builder(),
+                            scratchspace_.prefetch_parameters,
+                            cancel
+                        );
 
-                    if constexpr (Index::needs_id_translation) {
-                        buffer.cleanup();
-                        buffer.sort();
-                    }
-                };
+                        if constexpr (Index::needs_id_translation) {
+                            buffer.cleanup();
+                            buffer.sort();
+                        }
+                    };
 
-            extensions::single_search(
-                data,
-                scratchspace_.buffer,
-                scratchspace_.scratch,
-                lib::as_const_span(query_),
-                search_closure,
-                *parent_
-            );
-        });
+                extensions::single_search(
+                    data,
+                    scratchspace_.buffer,
+                    scratchspace_.scratch,
+                    lib::as_const_span(query_),
+                    search_closure,
+                    *parent_
+                );
+            });
+        }
 
         ++iteration_;
         restart_search_ = false;
-        copy_from_scratch(batch_size);
+        // Hold the translation lock (translator_mutex_) so a
+        // concurrent consolidate/compact cannot erase or remap entries mid-copy.
+        {
+            [[maybe_unused]] auto translation_guard = parent_->lock_for_translation();
+            copy_from_scratch(batch_size);
+        }
         // If result is empty after calling next(), mark the iterator as exhausted.
         // The iterator will not be able to find any more neighbors.
         if (results_.size() == 0 && batch_size > 0) {

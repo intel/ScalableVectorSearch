@@ -254,6 +254,98 @@ CATCH_TEST_CASE("MutableVamanaIndex", "[graph_index]") {
 }
 #endif
 
+namespace {
+
+// Build a one-row dataset holding a copy of `source[row]`, to feed add_points.
+svs::data::SimpleData<float, svs::Dynamic>
+one_point_from(const svs::data::BlockedData<float>& source, size_t row) {
+    auto points = svs::data::SimpleData<float, svs::Dynamic>(1, source.dimensions());
+    points.set_datum(0, source.get_datum(row));
+    return points;
+}
+
+} // namespace
+
+// Re-adding an external ID that already exists must throw *without mutating the
+// index*. These tests pin the two failure modes the transactional-insert +
+// Phase-1-rollback fix addresses: a leaked reserved slot (Defect A) and a
+// half-inserted "ghost" ID that would later hang delete (Defect B).
+CATCH_TEST_CASE(
+    "MutableVamana add_points duplicate external IDs", "[graph_index][dynamic_index]"
+) {
+    const size_t num_threads = 2;
+    using Distance = svs::distance::DistanceL2;
+
+    auto base = test_dataset::data_blocked_f32();
+    const size_t n = base.size();
+    std::vector<size_t> indices(n);
+    std::iota(indices.begin(), indices.end(), 0);
+
+    svs::index::vamana::VamanaBuildParameters parameters{1.2, 64, 10, 20, 10, true};
+    auto index = svs::index::vamana::MutableVamanaIndex(
+        parameters, base.copy(), indices, Distance(), num_threads
+    );
+
+    CATCH_SECTION("Re-adding a live ID throws and leaks no slot") {
+        // All n slots are Valid, so a re-add must grow to reserve a slot, then
+        // throw. With the fix that slot is rolled back to Empty and reused by the
+        // next add — the physical footprint grows by exactly one across both
+        // operations. Without the fix the reserved slot leaks (stuck Pending) and
+        // the footprint grows by two.
+        const size_t footprint_before = index.view_data().size();
+        CATCH_REQUIRE(index.size() == n);
+
+        auto dup = one_point_from(base, 0);
+        CATCH_REQUIRE_THROWS_AS(
+            index.add_points(dup, std::vector<size_t>{0}), svs::ANNException
+        );
+        // Throw left the live mapping intact and added nothing.
+        CATCH_REQUIRE(index.size() == n);
+        CATCH_REQUIRE(index.has_id(0));
+
+        // A subsequent fresh add must reuse the rolled-back slot.
+        const size_t fresh_id = n + 100;
+        auto fresh = one_point_from(base, 1);
+        index.add_points(fresh, std::vector<size_t>{fresh_id});
+        CATCH_REQUIRE(index.has_id(fresh_id));
+        CATCH_REQUIRE(index.size() == n + 1);
+        CATCH_REQUIRE(index.view_data().size() == footprint_before + 1);
+        index.debug_check_invariants(false);
+    }
+
+    CATCH_SECTION("Mixed [fresh, live] batch throws without a ghost ID") {
+        // The batch validates fully before mutating the translator, so the fresh
+        // ID is never committed. It must not be searchable, and a later delete of
+        // it must be a prompt no-op (not spin forever on a Pending slot).
+        const size_t fresh_id = n + 100;
+        auto points = svs::data::SimpleData<float, svs::Dynamic>(2, base.dimensions());
+        points.set_datum(0, base.get_datum(1)); // fresh_id
+        points.set_datum(1, base.get_datum(0)); // live id 0 -> triggers throw
+
+        CATCH_REQUIRE_THROWS_AS(
+            index.add_points(points, std::vector<size_t>{fresh_id, 0}), svs::ANNException
+        );
+
+        CATCH_REQUIRE_FALSE(index.has_id(fresh_id)); // no ghost mapping
+        CATCH_REQUIRE(index.size() == n);
+        // Deleting the never-added ID resolves nothing and returns immediately.
+        CATCH_REQUIRE(index.delete_entries(std::vector<size_t>{fresh_id}) == 0);
+        index.debug_check_invariants(false);
+    }
+
+    CATCH_SECTION("Re-adding a soft-deleted (stale) ID still succeeds") {
+        // The stale-replacement path must be unaffected by the transactional split.
+        index.delete_entries(std::vector<size_t>{0});
+        CATCH_REQUIRE(index.size() == n - 1);
+
+        auto readd = one_point_from(base, 0);
+        CATCH_REQUIRE_NOTHROW(index.add_points(readd, std::vector<size_t>{0}));
+        CATCH_REQUIRE(index.has_id(0));
+        CATCH_REQUIRE(index.size() == n);
+        index.debug_check_invariants(true);
+    }
+}
+
 CATCH_TEST_CASE(
     "MutableVamana Index Save and Load", "[graph_index][dynamic_index][saveload]"
 ) {
@@ -385,12 +477,16 @@ CATCH_TEST_CASE("MutableVamana Index Memory Usage", "[graph_index][dynamic_index
     const size_t expected_graph_bytes = index.view_graph().get_data().capacity() *
                                         index.view_graph().get_data().element_size();
     using Index = decltype(index);
-    const size_t expected_metadata_bytes =
-        data_size * sizeof(svs::index::vamana::SlotMetadata) +
-        sizeof(typename Index::internal_id_type) +
-        2 * indices.size() *
-            (sizeof(typename Index::external_id_type) +
-             sizeof(typename Index::internal_id_type));
+    // The per-slot status array is a SegmentedVector, whose capacity rounds up to the
+    // power-of-two bucket layout rather than tracking size() exactly.
+    const size_t expected_status_bytes =
+        svs::lib::SegmentedVector<svs::index::vamana::SlotMetadata>(data_size).capacity() *
+        sizeof(svs::index::vamana::SlotMetadata);
+    const size_t expected_metadata_bytes = expected_status_bytes +
+                                           sizeof(typename Index::internal_id_type) +
+                                           2 * indices.size() *
+                                               (sizeof(typename Index::external_id_type) +
+                                                sizeof(typename Index::internal_id_type));
     const size_t expected_total_bytes =
         expected_data_bytes + expected_graph_bytes + expected_metadata_bytes;
 

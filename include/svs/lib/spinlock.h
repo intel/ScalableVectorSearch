@@ -37,6 +37,13 @@ class SpinLock {
   public:
     SpinLock() = default;
 
+    SpinLock(const SpinLock& /*unused*/)
+        : value_{false} {}
+    SpinLock& operator=(const SpinLock& /*unused*/) { return *this; }
+    SpinLock(SpinLock&& /*unused*/) noexcept
+        : value_{false} {}
+    SpinLock& operator=(SpinLock&& /*unused*/) noexcept { return *this; }
+
     ///
     /// Implement C++ named requirements "Lockable"
     ///
