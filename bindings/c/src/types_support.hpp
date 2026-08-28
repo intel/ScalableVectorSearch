@@ -102,20 +102,27 @@ struct IDFilterAdapter : public IDFilterInterface {
 };
 
 template <typename Alloc>
-size_t
-adjust_blocked_size(size_t num_vectors, size_t element_size, const Alloc& allocator) {
-    if constexpr (svs::data::is_blocked_v<Alloc>) {
-        // If using blocked allocator, account for block size overhead
-        // following the same logic as in SimpleData .ctor for Blocked allocators
-        assert(element_size > 0);
-        const auto blocksize =
-            lib::prevpow2(allocator.parameters().blocksize_bytes.value() / element_size);
-        size_t elements_per_block = blocksize.value();
-        size_t num_blocks = lib::div_round_up(num_vectors, elements_per_block);
-        return num_blocks * blocksize.value() * element_size;
-    } else {
-        return num_vectors * element_size;
-    }
+size_t adjust_blocked_size(
+    size_t num_vectors, size_t element_size, const Alloc& SVS_UNUSED(allocator)
+) {
+    return num_vectors * element_size;
+}
+
+template <typename Alloc>
+size_t adjust_blocked_size(
+    size_t num_vectors, size_t element_size, const svs::data::Blocked<Alloc>& allocator
+) {
+    assert(element_size > 0);
+    // Ensure element_size is a multiple of the size of the value type
+    assert(element_size % sizeof(typename Alloc::value_type) == 0);
+
+    // If using blocked allocator, account for block size overhead
+    // following the same logic as in SimpleData .ctor for Blocked allocators
+    const auto dim = element_size / sizeof(typename Alloc::value_type);
+    const auto blocksize = svs::data::compute_blocksize(allocator, dim);
+    size_t elements_per_block = blocksize.value();
+    size_t num_blocks = lib::div_round_up(num_vectors, elements_per_block);
+    return num_blocks * blocksize.value() * element_size;
 }
 
 } // namespace c_runtime
