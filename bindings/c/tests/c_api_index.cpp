@@ -257,23 +257,22 @@ CATCH_TEST_CASE("C API Index Build and Search", "[c_api][index][build][search]")
 
     CATCH_SECTION("Index Build and Search with pre-trained LeanVec") {
         svs_error_h error = svs_error_create();
+        svs_algorithm_h algorithm = svs_algorithm_create_vamana(16, 32, 50, error);
+        CATCH_REQUIRE(algorithm != nullptr);
+
+        svs_index_builder_h builder = svs_index_builder_create(
+            SVS_DISTANCE_METRIC_EUCLIDEAN, DIMENSION, algorithm, error
+        );
+        CATCH_REQUIRE(builder != nullptr);
+
+        bool success = svs_index_builder_set_threadpool(
+            builder, SVS_THREADPOOL_KIND_NATIVE, NUM_THREADS, error
+        );
+        CATCH_REQUIRE(success);
 
         auto run_build_and_search = [&](svs_storage_h storage) {
             CATCH_REQUIRE(storage != nullptr);
             CATCH_REQUIRE(svs_error_ok(error));
-
-            svs_algorithm_h algorithm = svs_algorithm_create_vamana(16, 32, 50, error);
-            CATCH_REQUIRE(algorithm != nullptr);
-
-            svs_index_builder_h builder = svs_index_builder_create(
-                SVS_DISTANCE_METRIC_EUCLIDEAN, DIMENSION, algorithm, error
-            );
-            CATCH_REQUIRE(builder != nullptr);
-
-            bool success = svs_index_builder_set_threadpool(
-                builder, SVS_THREADPOOL_KIND_NATIVE, NUM_THREADS, error
-            );
-            CATCH_REQUIRE(success);
 
             success = svs_index_builder_set_storage(builder, storage, error);
             CATCH_REQUIRE(success);
@@ -296,8 +295,6 @@ CATCH_TEST_CASE("C API Index Build and Search", "[c_api][index][build][search]")
 
             svs_search_results_free(&results);
             svs_index_free(index);
-            svs_index_builder_free(builder);
-            svs_algorithm_free(algorithm);
             svs_storage_free(storage);
         };
 
@@ -305,7 +302,7 @@ CATCH_TEST_CASE("C API Index Build and Search", "[c_api][index][build][search]")
         // data handle to confirm the storage keeps its own reference to the matrices.
         auto build_trained_storage = [&](size_t num_queries, const float* x_q) {
             svs_leanvec_training_data_h training_data = svs_leanvec_training_data_build(
-                DIMENSION, NUM_VECTORS, data.data(), num_queries, x_q, DIMENSION / 2, error
+                builder, DIMENSION / 2, NUM_VECTORS, data.data(), num_queries, x_q, error
             );
             CATCH_REQUIRE(check_training_data_support(training_data, error) == true);
             if (!training_data_usable(training_data)) {
@@ -332,6 +329,8 @@ CATCH_TEST_CASE("C API Index Build and Search", "[c_api][index][build][search]")
             run_build_and_search(storage);
         }
 
+        svs_index_builder_free(builder);
+        svs_algorithm_free(algorithm);
         svs_error_free(error);
     }
 
