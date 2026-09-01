@@ -17,10 +17,10 @@
 #pragma once
 
 // local
-#include "svs/core/distance.h"
 #include "svs/concurrent/graph.h"
-#include "svs/index/vamana/extensions.h"
 #include "svs/concurrent/prune.h"
+#include "svs/core/distance.h"
+#include "svs/index/vamana/extensions.h"
 #include "svs/lib/array.h"
 #include "svs/lib/threads.h"
 #include "svs/lib/timing.h"

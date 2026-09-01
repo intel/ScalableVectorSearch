@@ -17,8 +17,8 @@
 #pragma once
 
 // svs
-#include "svs/index/index.h"
 #include "svs/concurrent/dynamic_index.h"
+#include "svs/index/index.h"
 #include "svs/index/vamana/index.h"
 #include "svs/lib/scopeguard.h"
 

@@ -19,12 +19,12 @@
 #include "svs/concepts/data.h"
 #include "svs/concepts/distance.h"
 #include "svs/concurrent/graph_concepts.h"
+#include "svs/concurrent/spinlock.h"
 // For `svs::index::vamana::GreedySearchPrefetchParameters`, which this stack reuses
 // unchanged -- see the using-declaration below.
 #include "svs/index/vamana/greedy_search.h"
 #include "svs/index/vamana/search_buffer.h"
 #include "svs/lib/concurrency/seqlock.h"
-#include "svs/concurrent/spinlock.h"
 
 #include <algorithm>
 #include <memory>

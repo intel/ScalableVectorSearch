@@ -19,12 +19,12 @@
 #include "svs/concurrent/blocked_data.h"
 #include "svs/concurrent/graph_concepts.h"
 #include "svs/concurrent/reverse_edges.h"
+#include "svs/concurrent/spinlock.h"
 #include "svs/core/data/simple.h"
 #include "svs/lib/algorithms.h"
 #include "svs/lib/boundscheck.h"
 #include "svs/lib/concurrency/atomic_span.h"
 #include "svs/lib/concurrency/seqlock.h"
-#include "svs/concurrent/spinlock.h"
 #include "svs/lib/saveload.h"
 #include "svs/lib/segmented_vector.h"
 #include "svs/lib/threads.h"
@@ -160,9 +160,7 @@ template <std::unsigned_integral Idx, data::MemoryDataset Data> class SimpleGrap
     ///
     /// @brief Return the current out degree of vertex ``i``.
     ///
-    size_t get_node_degree(Idx i) const {
-        return relaxed_load(data_.get_datum(i).front());
-    }
+    size_t get_node_degree(Idx i) const { return relaxed_load(data_.get_datum(i).front()); }
 
     ///
     /// @brief Prefetch the adjacency list for node ``i`` into the L1 cache.
@@ -637,8 +635,9 @@ bool operator==(const SimpleGraph<Idx, A1>& x, const SimpleGraph<Idx, A2>& y) {
 }
 
 template <std::unsigned_integral Idx>
-class SimpleBlockedGraph
-    : public SimpleGraphBase<Idx, SegmentedBlockedData<Idx, Dynamic, HugepageAllocator<Idx>>> {
+class SimpleBlockedGraph : public SimpleGraphBase<
+                               Idx,
+                               SegmentedBlockedData<Idx, Dynamic, HugepageAllocator<Idx>>> {
   public:
     using parent_type =
         SimpleGraphBase<Idx, SegmentedBlockedData<Idx, Dynamic, HugepageAllocator<Idx>>>;

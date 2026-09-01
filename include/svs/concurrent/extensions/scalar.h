@@ -31,13 +31,14 @@
 /// @endcode
 ///
 /// It is a separate trait from ``svs::data::is_blocked_v``, and partial specialization does
-/// not match through derivation, so ``SegmentedBlocked<A>`` deriving from ``data::Blocked<A>``
-/// is not enough: without the specialization below, a scalar-quantized concurrent index
-/// fails to compile the moment it grows or compacts.
+/// not match through derivation, so ``SegmentedBlocked<A>`` deriving from
+/// ``data::Blocked<A>`` is not enough: without the specialization below, a scalar-quantized
+/// concurrent index fails to compile the moment it grows or compacts.
 ///
-/// This lives in its own header rather than in ``blocked_data.h`` so that the core concurrent
-/// headers do not pull in the quantization stack, mirroring how ``svs/extensions/vamana/``
-/// separates the per-dataset vamana extensions from the index itself. Include it alongside
+/// This lives in its own header rather than in ``blocked_data.h`` so that the core
+/// concurrent headers do not pull in the quantization stack, mirroring how
+/// ``svs/extensions/vamana/`` separates the per-dataset vamana extensions from the index
+/// itself. Include it alongside
 /// ``svs/extensions/vamana/scalar.h``.
 ///
 
@@ -47,6 +48,7 @@
 namespace svs::quantization::scalar::detail {
 
 template <typename A>
-inline constexpr bool is_blocked<svs::index::vamana::concurrent::SegmentedBlocked<A>> = true;
+inline constexpr bool is_blocked<svs::index::vamana::concurrent::SegmentedBlocked<A>> =
+    true;
 
 } // namespace svs::quantization::scalar::detail
