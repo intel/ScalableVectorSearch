@@ -98,8 +98,10 @@ void greedy_search(
         if (cancel()) {
             return;
         }
-        // Get the next unvisited vertex.
-        const auto& node = search_buffer.next();
+        // Get the next unvisited vertex. Copy rather than bind a reference: the
+        // SeqLock retry loop below can re-enter after `search_buffer.insert()` has
+        // reallocated the candidates buffer, which would dangle a reference here.
+        const auto node = search_buffer.next();
         auto node_id = node.id();
 
         for (;;) { // SeqLock retry loop
