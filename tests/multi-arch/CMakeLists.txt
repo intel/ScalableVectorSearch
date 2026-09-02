@@ -57,6 +57,15 @@ svs_add_dispatch_probe(entry_probe x86/entry_probe.cpp)
 add_test(NAME dispatch_link_probe COMMAND link_probe)
 add_test(NAME dispatch_entry_probe COMMAND entry_probe)
 
+# The probe's modes are disjoint: --report returns after the one call the execution check
+# breaks on, so covering both under ctest takes two invocations.
+add_test(NAME dispatch_entry_report COMMAND entry_probe --report)
+# Exit status alone would pass on a probe that stopped honouring the flag, which the
+# execution check would then report as a missing level rather than as the cause.
+set_tests_properties(
+    dispatch_entry_report PROPERTIES PASS_REGULAR_EXPRESSION "expect-level [0-9]+"
+)
+
 if(DEFINED CMAKE_NM AND CMAKE_NM)
     set(svs_nm "${CMAKE_NM}")
 else()
