@@ -19,12 +19,12 @@
 #include "svs/concurrent/blocked_data.h"
 #include "svs/concurrent/graph_concepts.h"
 #include "svs/concurrent/reverse_edges.h"
+#include "svs/concurrent/spinlock.h"
 #include "svs/core/data/simple.h"
 #include "svs/lib/algorithms.h"
 #include "svs/lib/boundscheck.h"
 #include "svs/lib/concurrency/atomic_span.h"
 #include "svs/lib/concurrency/seqlock.h"
-#include "svs/concurrent/spinlock.h"
 #include "svs/lib/saveload.h"
 #include "svs/lib/segmented_vector.h"
 #include "svs/lib/threads.h"
@@ -40,6 +40,13 @@
 #include <vector>
 
 namespace svs::index::vamana::concurrent::graphs {
+
+template <typename A, bool = data::is_blocked_v<A>> struct unwrap_blocked_allocator {
+    using type = A;
+};
+template <typename A> struct unwrap_blocked_allocator<A, true> {
+    using type = typename A::allocator_type;
+};
 
 //
 // We rely on an implicit layout for the graphs where length is stored inline with the
@@ -75,6 +82,13 @@ template <std::unsigned_integral Idx, data::MemoryDataset Data> class SimpleGrap
     using reference = std::span<Idx>;
     /// Type used to represent constant adjacency lists externally.
     using const_reference = AtomicSpan<const Idx>;
+
+    /// Base allocator underlying the adjacency storage; the reverse-edge index (when
+    /// enabled) is allocated through it so its bytes are accounted the same way as the
+    /// graph's own storage.
+    using reverse_edge_allocator_type =
+        typename unwrap_blocked_allocator<typename Data::allocator_type>::type;
+    using reverse_edges_type = ReverseEdges<Idx, reverse_edge_allocator_type>;
 
     ///
     /// @brief Construct an empty graph of the desired size.
@@ -160,9 +174,7 @@ template <std::unsigned_integral Idx, data::MemoryDataset Data> class SimpleGrap
     ///
     /// @brief Return the current out degree of vertex ``i``.
     ///
-    size_t get_node_degree(Idx i) const {
-        return relaxed_load(data_.get_datum(i).front());
-    }
+    size_t get_node_degree(Idx i) const { return relaxed_load(data_.get_datum(i).front()); }
 
     ///
     /// @brief Prefetch the adjacency list for node ``i`` into the L1 cache.
@@ -336,11 +348,12 @@ template <std::unsigned_integral Idx, data::MemoryDataset Data> class SimpleGrap
     /// dynamic index.
     ///
     void enable_reverse_edges() {
-        reverse_edges_ = std::make_unique<ReverseEdges<Idx>>(n_nodes());
+        reverse_edges_ =
+            std::make_unique<reverse_edges_type>(n_nodes(), reverse_edge_allocator_());
     }
 
-    ReverseEdges<Idx>* reverse_edges() { return reverse_edges_.get(); }
-    const ReverseEdges<Idx>* reverse_edges() const { return reverse_edges_.get(); }
+    reverse_edges_type* reverse_edges() { return reverse_edges_.get(); }
+    const reverse_edges_type* reverse_edges() const { return reverse_edges_.get(); }
 
     ///
     /// @brief Rebuild the reverse-edge index from the current (quiescent) graph.
@@ -550,6 +563,20 @@ template <std::unsigned_integral Idx, data::MemoryDataset Data> class SimpleGrap
     // (over-recording, never under-recording, preserving completeness).
     static constexpr Idx MAX_STACK_DEGREE = 256;
 
+    // Recover the graph's base allocator instance for the reverse-edge index, unwrapping
+    // the Blocked<> layer (Blocked derives from its base allocator) when present.
+    reverse_edge_allocator_type reverse_edge_allocator_() const {
+        if constexpr (data::is_blocked_v<typename Data::allocator_type>) {
+            return reverse_edge_allocator_type(
+                static_cast<const typename Data::allocator_type::allocator_type&>(
+                    data_.get_allocator()
+                )
+            );
+        } else {
+            return reverse_edge_allocator_type(data_.get_allocator());
+        }
+    }
+
   protected:
     data_type data_;
     Idx max_degree_;
@@ -559,7 +586,7 @@ template <std::unsigned_integral Idx, data::MemoryDataset Data> class SimpleGrap
     // locks at stable addresses. See svs/lib/segmented_vector.h.
     lib::SegmentedVector<SpinLock> node_locks_;
     // Per-node in-neighbor index. Null (disabled) unless the owning index enables it.
-    std::unique_ptr<ReverseEdges<Idx>> reverse_edges_ = nullptr;
+    std::unique_ptr<reverse_edges_type> reverse_edges_ = nullptr;
 };
 
 /////
@@ -637,8 +664,9 @@ bool operator==(const SimpleGraph<Idx, A1>& x, const SimpleGraph<Idx, A2>& y) {
 }
 
 template <std::unsigned_integral Idx>
-class SimpleBlockedGraph
-    : public SimpleGraphBase<Idx, SegmentedBlockedData<Idx, Dynamic, HugepageAllocator<Idx>>> {
+class SimpleBlockedGraph : public SimpleGraphBase<
+                               Idx,
+                               SegmentedBlockedData<Idx, Dynamic, HugepageAllocator<Idx>>> {
   public:
     using parent_type =
         SimpleGraphBase<Idx, SegmentedBlockedData<Idx, Dynamic, HugepageAllocator<Idx>>>;

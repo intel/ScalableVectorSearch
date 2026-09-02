@@ -22,6 +22,7 @@
 #include <atomic>
 #include <bit>
 #include <cstddef>
+#include <memory>
 #include <new>
 #include <stdexcept>
 #include <utility>
@@ -62,7 +63,7 @@ namespace svs::lib {
 /// ``at``, ``size``, ``empty``, ``capacity``, ``resize(n)``, ``resize(n, fill)``,
 /// ``push_back``, ``pop_back``, ``shrink_to(n)``.
 ///
-template <typename T> class SegmentedVector {
+template <typename T, typename Alloc = std::allocator<T>> class SegmentedVector {
     static constexpr std::size_t kDirBuckets = 64;
     // Number of elements in the first directory bucket. Bucket ``k`` then holds
     // ``kFirstBucket << k`` elements, so a small first bucket means many tiny
@@ -72,29 +73,54 @@ template <typename T> class SegmentedVector {
         (kFirstBucket & (kFirstBucket - 1)) == 0, "kFirstBucket must be a power of two"
     );
 
+    using alloc_traits = std::allocator_traits<Alloc>;
+
   public:
     using value_type = T;
+    using allocator_type = Alloc;
     using size_type = std::size_t;
     using reference = T&;
     using const_reference = const T&;
 
     SegmentedVector() = default;
+    explicit SegmentedVector(const Alloc& alloc)
+        : alloc_{alloc} {}
     explicit SegmentedVector(size_type n) { resize(n); }
+    SegmentedVector(size_type n, const Alloc& alloc)
+        : alloc_{alloc} {
+        resize(n);
+    }
     SegmentedVector(size_type n, const T& fill) { resize(n, fill); }
+    SegmentedVector(size_type n, const T& fill, const Alloc& alloc)
+        : alloc_{alloc} {
+        resize(n, fill);
+    }
 
-    SegmentedVector(const SegmentedVector& other) { copy_from_(other); }
+    SegmentedVector(const SegmentedVector& other)
+        : alloc_{alloc_traits::select_on_container_copy_construction(other.alloc_)} {
+        copy_from_(other);
+    }
     SegmentedVector& operator=(const SegmentedVector& other) {
         if (this != &other) {
             destroy_all_();
+            if constexpr (alloc_traits::propagate_on_container_copy_assignment::value) {
+                alloc_ = other.alloc_;
+            }
             copy_from_(other);
         }
         return *this;
     }
 
-    SegmentedVector(SegmentedVector&& other) noexcept { steal_from_(other); }
+    SegmentedVector(SegmentedVector&& other) noexcept
+        : alloc_{std::move(other.alloc_)} {
+        steal_from_(other);
+    }
     SegmentedVector& operator=(SegmentedVector&& other) noexcept {
         if (this != &other) {
             destroy_all_();
+            if constexpr (alloc_traits::propagate_on_container_move_assignment::value) {
+                alloc_ = std::move(other.alloc_);
+            }
             steal_from_(other);
         }
         return *this;
@@ -140,10 +166,33 @@ template <typename T> class SegmentedVector {
 
     /// @brief Grow or shrink the logical size. New elements are default-constructed.
     /// Single-writer; concurrent readers safe on grow (see class contract).
-    void resize(size_type n) { resize_impl_(n, nullptr); }
+    ///
+    void resize(size_type n) {
+        size_type old = size_.load(std::memory_order_relaxed);
+        if (n == old) {
+            return;
+        }
+        if (n < old) {
+            shrink_logical_(n, old);
+            return;
+        }
+        construct_default_range_(old, n);
+        size_.store(n, std::memory_order_release);
+    }
 
     /// @brief Grow or shrink the logical size, filling new elements with ``fill``.
-    void resize(size_type n, const T& fill) { resize_impl_(n, &fill); }
+    void resize(size_type n, const T& fill) {
+        size_type old = size_.load(std::memory_order_relaxed);
+        if (n == old) {
+            return;
+        }
+        if (n < old) {
+            shrink_logical_(n, old);
+            return;
+        }
+        construct_fill_range_(old, n, fill);
+        size_.store(n, std::memory_order_release);
+    }
 
     /// @brief Append one element, move-*constructing* it into the new slot.
     ///
@@ -191,6 +240,7 @@ template <typename T> class SegmentedVector {
     std::atomic<T*> dir_[kDirBuckets] = {};
     std::atomic<size_type> size_{0};
     size_type allocated_buckets_{0};
+    [[no_unique_address]] Alloc alloc_{};
 
     // Number of elements held by bucket ``b`` (= kFirstBucket << b).
     static constexpr size_type bucket_size_(size_type b) noexcept {
@@ -218,7 +268,7 @@ template <typename T> class SegmentedVector {
     T* ensure_bucket_(size_type b) {
         T* bucket = dir_[b].load(std::memory_order_relaxed);
         if (bucket == nullptr) {
-            bucket = static_cast<T*>(::operator new[](bucket_size_(b) * sizeof(T)));
+            bucket = alloc_traits::allocate(alloc_, bucket_size_(b));
             dir_[b].store(bucket, std::memory_order_release);
             if (b + 1 > allocated_buckets_) {
                 allocated_buckets_ = b + 1;
@@ -227,17 +277,21 @@ template <typename T> class SegmentedVector {
         return bucket;
     }
 
-    // Construct elements [from, to) in place (single-writer). ``fill`` is nullptr for
-    // default-construction. Allocates buckets as needed.
-    void construct_range_(size_type from, size_type to, const T* fill) {
+    // Default-construct elements [from, to) in place (single-writer). Allocates buckets as
+    // needed.
+    void construct_default_range_(size_type from, size_type to) {
         for (size_type i = from; i < to; ++i) {
             auto [b, off] = locate_(i);
             T* bucket = ensure_bucket_(b);
-            if (fill == nullptr) {
-                new (&bucket[off]) T();
-            } else {
-                new (&bucket[off]) T(*fill);
-            }
+            new (&bucket[off]) T();
+        }
+    }
+
+    void construct_fill_range_(size_type from, size_type to, const T& fill) {
+        for (size_type i = from; i < to; ++i) {
+            auto [b, off] = locate_(i);
+            T* bucket = ensure_bucket_(b);
+            new (&bucket[off]) T(fill);
         }
     }
 
@@ -249,22 +303,9 @@ template <typename T> class SegmentedVector {
         }
     }
 
-    void resize_impl_(size_type n, const T* fill) {
-        size_type old = size_.load(std::memory_order_relaxed);
-        if (n == old) {
-            return;
-        }
-        if (n < old) {
-            // Logical-only shrink (no bucket freeing — use shrink_to for reclamation),
-            // but still destroy the dropped elements to run their destructors.
-            size_.store(n, std::memory_order_release);
-            destroy_range_(n, old);
-            return;
-        }
-        // Grow: construct the new elements, then publish the new size last so a reader
-        // that observes it sees fully-constructed elements in published buckets.
-        construct_range_(old, n, fill);
+    void shrink_logical_(size_type n, size_type old) {
         size_.store(n, std::memory_order_release);
+        destroy_range_(n, old);
     }
 
     // Free every bucket whose entire index range lies at or above ``n`` (single-writer;
@@ -276,7 +317,7 @@ template <typename T> class SegmentedVector {
             }
             T* bucket = dir_[b].load(std::memory_order_relaxed);
             if (bucket != nullptr) {
-                ::operator delete[](static_cast<void*>(bucket));
+                alloc_traits::deallocate(alloc_, bucket, bucket_size_(b));
                 dir_[b].store(nullptr, std::memory_order_relaxed);
             }
             allocated_buckets_ = b;
@@ -289,7 +330,7 @@ template <typename T> class SegmentedVector {
         for (size_type b = 0; b < allocated_buckets_; ++b) {
             T* bucket = dir_[b].load(std::memory_order_relaxed);
             if (bucket != nullptr) {
-                ::operator delete[](static_cast<void*>(bucket));
+                alloc_traits::deallocate(alloc_, bucket, bucket_size_(b));
                 dir_[b].store(nullptr, std::memory_order_relaxed);
             }
         }
@@ -325,6 +366,6 @@ template <typename T> class SegmentedVector {
 
 namespace svs {
 // Opt SegmentedVector into svs::getindex's optional bounds checking.
-template <typename T>
-inline constexpr bool enable_boundschecking<lib::SegmentedVector<T>> = true;
+template <typename T, typename Alloc>
+inline constexpr bool enable_boundschecking<lib::SegmentedVector<T, Alloc>> = true;
 } // namespace svs

@@ -28,20 +28,20 @@
 
 // svs
 #include "svs/concepts/distance.h"
+#include "svs/concurrent/consolidate.h"
+#include "svs/concurrent/dynamic_search_buffer.h"
+#include "svs/concurrent/graph.h"
+#include "svs/concurrent/greedy_search.h"
+#include "svs/concurrent/translation.h"
+#include "svs/concurrent/vamana_build.h"
 #include "svs/core/data.h"
 #include "svs/core/distance.h"
-#include "svs/concurrent/graph.h"
 #include "svs/core/loading.h"
 #include "svs/core/logging.h"
 #include "svs/core/medioid.h"
 #include "svs/core/query_result.h"
 #include "svs/core/recall.h"
-#include "svs/concurrent/translation.h"
-#include "svs/concurrent/consolidate.h"
-#include "svs/concurrent/dynamic_search_buffer.h"
-#include "svs/concurrent/greedy_search.h"
 #include "svs/index/vamana/index.h"
-#include "svs/concurrent/vamana_build.h"
 #include "svs/lib/boundscheck.h"
 #include "svs/lib/preprocessor.h"
 #include "svs/lib/segmented_vector.h"
@@ -438,6 +438,9 @@ class MutableVamanaIndex {
                           (sizeof(IDTranslator::external_id_type) +
                            sizeof(IDTranslator::internal_id_type));
         usage.metadata_bytes = metadata_bytes;
+        if (const auto* reverse_edges = graph_.reverse_edges()) {
+            usage.reverse_edges_bytes = reverse_edges->memory_bytes();
+        }
         return usage;
     }
 
@@ -469,7 +472,8 @@ class MutableVamanaIndex {
     // The translator is a pair of hash maps mutated by `add_points` (insert),
     // `consolidate` (erase), and `compact` (remap) under `translator_mutex_` exclusive. A
     // hash-map read concurrent with an insert is a data race in the strict sense and a
-    // crash in practice: an insert can rehash and free the bucket array a reader is walking.
+    // crash in practice: an insert can rehash and free the bucket array a reader is
+    // walking.
     //
     // So every read of `translator_` happens under `translator_mutex_` shared. Each
     // translation operation comes in two flavours:
@@ -1810,7 +1814,7 @@ class MutableVamanaIndex {
             // Skip slots pending deferred translator cleanup, reserved by an in-flight
             // add_points, or otherwise not live.
             if (std::atomic_ref<SlotMetadata>(const_cast<SlotMetadata&>(status_[internal_id]
-                ))
+                                              ))
                     .load(std::memory_order_acquire) != SlotMetadata::Valid) {
                 continue;
             }
@@ -1837,8 +1841,8 @@ class MutableVamanaIndex {
 /// Every ``extensions::single_search`` implementation tops the search buffer up itself, by
 /// calling the generic ``extensions::check_and_supplement_search_buffer`` under
 /// ``if constexpr (Index::needs_id_translation)``. That routine is unsafe for this index --
-/// see ``MutableVamanaIndex::supplement_search_buffer`` -- and it is a plain function, not a
-/// customization point, so it cannot be overridden. Passing this wrapper in place of the
+/// see ``MutableVamanaIndex::supplement_search_buffer`` -- and it is a plain function, not
+/// a customization point, so it cannot be overridden. Passing this wrapper in place of the
 /// index makes that branch disappear, leaving the top-up to the index itself.
 ///
 /// The implementations touch nothing else on the index, so nothing else needs forwarding.
@@ -1852,15 +1856,16 @@ template <typename Index> struct SupplementSuppressed {
 ///
 /// Runs the dataset's own search implementation and then tops the buffer up through the
 /// index (see ``MutableVamanaIndex::supplement_search_buffer``). More specialized than the
-/// generic overload on the index parameter, so it wins partial ordering for this index type.
+/// generic overload on the index parameter, so it wins partial ordering for this index
+/// type.
 ///
-/// The dispatch back through ``extensions::single_search`` is what makes compressed datasets
-/// work: LVQ and LeanVec each provide their own implementation, keyed on the *dataset*, which
-/// unpacks the scratch space (a tuple of distance functors, for LeanVec) and reranks. Doing
-/// the search inline here instead would shadow those with a plain uncompressed search, and
-/// then fail to compile because the tuple is not a distance functor. Recursion is not a
-/// concern: the wrapper is not a ``MutableVamanaIndex``, so this overload does not match the
-/// inner call.
+/// The dispatch back through ``extensions::single_search`` is what makes compressed
+/// datasets work: LVQ and LeanVec each provide their own implementation, keyed on the
+/// *dataset*, which unpacks the scratch space (a tuple of distance functors, for LeanVec)
+/// and reranks. Doing the search inline here instead would shadow those with a plain
+/// uncompressed search, and then fail to compile because the tuple is not a distance
+/// functor. Recursion is not a concern: the wrapper is not a ``MutableVamanaIndex``, so
+/// this overload does not match the inner call.
 ///
 template <
     typename Data,
