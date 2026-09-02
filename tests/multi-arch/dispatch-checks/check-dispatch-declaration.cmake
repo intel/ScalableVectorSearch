@@ -24,9 +24,9 @@
 #####         -DSVS_ARCHIVE=<libsvs_x86_objects.a> \
 #####         -DSVS_CONSUMER_OBJECT=<entry_probe.cpp.o> \
 #####         -DSVS_NM=<nm> \
-#####         -P cmake/dispatch-checks/check-dispatch-declaration.cmake
+#####         -P tests/multi-arch/dispatch-checks/check-dispatch-declaration.cmake
 #####
-##### cmake/dispatch-checks/check-dispatch-linkage.cmake compares the archive
+##### tests/multi-arch/dispatch-checks/check-dispatch-linkage.cmake compares the archive
 ##### against a probe, and both are generated from the same header: a generator
 ##### that dropped an extent would drop it from both and still agree. The
 ##### expectation here is derived from the three hand-written sources instead --
@@ -39,22 +39,10 @@
 # rejected as unknown arguments.
 cmake_minimum_required(VERSION 3.21)
 
-foreach(required
-    SVS_SURFACE_FILE SVS_TYPE_PAIR_HEADER SVS_ENUM_HEADER
-    SVS_ARCHIVE SVS_CONSUMER_OBJECT SVS_NM
-)
-    if(NOT ${required})
-        message(FATAL_ERROR "${required} is not set.")
-    endif()
-endforeach()
-foreach(required
-    SVS_SURFACE_FILE SVS_TYPE_PAIR_HEADER SVS_ENUM_HEADER
-    SVS_ARCHIVE SVS_CONSUMER_OBJECT
-)
-    if(NOT EXISTS "${${required}}")
-        message(FATAL_ERROR "${required} does not exist: ${${required}}")
-    endif()
-endforeach()
+include("${CMAKE_CURRENT_LIST_DIR}/lib.cmake")
+
+svs_require(SVS_SURFACE_FILE SVS_TYPE_PAIR_HEADER SVS_ENUM_HEADER SVS_ARCHIVE SVS_CONSUMER_OBJECT SVS_NM)
+svs_require_files(SVS_SURFACE_FILE SVS_TYPE_PAIR_HEADER SVS_ENUM_HEADER SVS_ARCHIVE SVS_CONSUMER_OBJECT)
 
 #####
 ##### Ground truth 1: the extents and the ISA levels
@@ -187,29 +175,7 @@ endforeach()
 # Mangled names throughout: demangled ones carry `[clone .isra.0]` suffixes that
 # differ between a local instantiation and an explicit one.
 set(svs_kernel_regex "^_ZN3svs8distance([0-9]+[A-Za-z0-9_]+)ILm([0-9]+)E.*AVX_AVAILABILITYE([0-9]+)E")
-
-function(svs_symbols out_var file nm_arg)
-    execute_process(
-        COMMAND "${SVS_NM}" ${nm_arg} "${file}"
-        OUTPUT_VARIABLE raw
-        ERROR_VARIABLE err
-        RESULT_VARIABLE status
-    )
-    if(NOT status EQUAL 0)
-        message(FATAL_ERROR "${SVS_NM} failed on ${file}: ${err}")
-    endif()
-    set(symbols)
-    string(REPLACE "\n" ";" lines "${raw}")
-    foreach(line IN LISTS lines)
-        if(line MATCHES "_ZN3svs8distance.*AVX_AVAILABILITY")
-            # The mangled name is the last whitespace-separated field.
-            string(REGEX MATCH "[^ \t]+$" symbol "${line}")
-            list(APPEND symbols "${symbol}")
-        endif()
-    endforeach()
-    list(REMOVE_DUPLICATES symbols)
-    set(${out_var} "${symbols}" PARENT_SCOPE)
-endfunction()
+set(svs_distance_regex "_ZN3svs8distance.*AVX_AVAILABILITY")
 
 # Sets <prefix>_KEYS, <prefix>_FOREIGN and <prefix>_HAVE_<key> in the caller.
 function(svs_tally prefix symbols)
@@ -236,9 +202,9 @@ function(svs_tally prefix symbols)
     set(${prefix}_FOREIGN "${foreign}" PARENT_SCOPE)
 endfunction()
 
-svs_symbols(archive_defines "${SVS_ARCHIVE}" --defined-only)
-svs_symbols(consumer_defines "${SVS_CONSUMER_OBJECT}" --defined-only)
-svs_symbols(consumer_references "${SVS_CONSUMER_OBJECT}" --undefined-only)
+svs_nm_symbols(archive_defines "${SVS_ARCHIVE}" "${svs_distance_regex}" NM_ARGS --defined-only)
+svs_nm_symbols(consumer_defines "${SVS_CONSUMER_OBJECT}" "${svs_distance_regex}" NM_ARGS --defined-only)
+svs_nm_symbols(consumer_references "${SVS_CONSUMER_OBJECT}" "${svs_distance_regex}" NM_ARGS --undefined-only)
 
 svs_tally(ARCHIVE "${archive_defines}")
 svs_tally(CONSUMER "${consumer_references}")
@@ -248,21 +214,6 @@ svs_tally(CONSUMER "${consumer_references}")
 #####
 
 set(errors 0)
-
-function(svs_report_first list_var limit)
-    set(shown ${${list_var}})
-    list(LENGTH shown count)
-    if(count GREATER limit)
-        list(SUBLIST shown 0 ${limit} shown)
-    endif()
-    foreach(entry IN LISTS shown)
-        message("      ${entry}")
-    endforeach()
-    if(count GREATER limit)
-        math(EXPR rest "${count} - ${limit}")
-        message("      ... and ${rest} more")
-    endif()
-endfunction()
 
 # Sets <prefix>_ERRORS in the caller. `what` names the thing being compared, for
 # the failure message.

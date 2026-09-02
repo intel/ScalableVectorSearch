@@ -20,7 +20,7 @@
 #####   cmake -DSVS_PROBE_OBJECT=<link_probe.cpp.o> \
 #####         -DSVS_ARCHIVE=<libsvs_x86_objects.a> \
 #####         -DSVS_NM=<nm> \
-#####         -P cmake/dispatch-checks/check-dispatch-linkage.cmake
+#####         -P tests/multi-arch/dispatch-checks/check-dispatch-linkage.cmake
 #####
 ##### The probe object names every kernel the surface declares and nothing else
 ##### (see tests/multi-arch/x86/link_probe.cpp), so the kernels it *references*
@@ -29,69 +29,19 @@
 ##### its own.
 #####
 
-foreach(required SVS_PROBE_OBJECT SVS_ARCHIVE SVS_NM)
-    if(NOT ${required})
-        message(FATAL_ERROR "${required} is not set.")
-    endif()
-endforeach()
-foreach(required SVS_PROBE_OBJECT SVS_ARCHIVE)
-    if(NOT EXISTS "${${required}}")
-        message(FATAL_ERROR "${required} does not exist: ${${required}}")
-    endif()
-endforeach()
+include("${CMAKE_CURRENT_LIST_DIR}/lib.cmake")
+
+svs_require(SVS_PROBE_OBJECT SVS_ARCHIVE SVS_NM)
+svs_require_files(SVS_PROBE_OBJECT SVS_ARCHIVE)
 
 # Distance kernels, and nothing else in the archive. Mangled names are used
 # throughout: demangled ones carry `[clone .isra.0]` suffixes that differ between
 # a local instantiation and an explicit one.
 set(svs_kernel_regex "_ZN3svs8distance.*Impl")
 
-# Returns the mangled names of the matching symbols, one per list element.
-function(svs_symbols out_var)
-    cmake_parse_arguments(arg "" "FILE" "NM_ARGS" ${ARGN})
-    execute_process(
-        COMMAND "${SVS_NM}" ${arg_NM_ARGS} "${arg_FILE}"
-        OUTPUT_VARIABLE raw
-        ERROR_VARIABLE err
-        RESULT_VARIABLE status
-    )
-    if(NOT status EQUAL 0)
-        message(FATAL_ERROR "${SVS_NM} failed on ${arg_FILE}: ${err}")
-    endif()
-
-    set(symbols)
-    string(REPLACE "\n" ";" lines "${raw}")
-    foreach(line IN LISTS lines)
-        if(line MATCHES "${svs_kernel_regex}")
-            # The mangled name is the last whitespace-separated field.
-            string(REGEX MATCH "[^ \t]+$" symbol "${line}")
-            list(APPEND symbols "${symbol}")
-        endif()
-    endforeach()
-    list(REMOVE_DUPLICATES symbols)
-    list(SORT symbols)
-    set(${out_var} "${symbols}" PARENT_SCOPE)
-endfunction()
-
-# Shows up to `limit` entries of a list. The names stay mangled -- pipe them
-# through c++filt to read them.
-function(svs_report_symbols symbols limit)
-    list(LENGTH symbols count)
-    set(shown ${symbols})
-    if(count GREATER limit)
-        list(SUBLIST shown 0 ${limit} shown)
-    endif()
-    foreach(symbol IN LISTS shown)
-        message("      ${symbol}")
-    endforeach()
-    if(count GREATER limit)
-        math(EXPR rest "${count} - ${limit}")
-        message("      ... and ${rest} more")
-    endif()
-endfunction()
-
-svs_symbols(probe_defines FILE "${SVS_PROBE_OBJECT}" NM_ARGS --defined-only)
-svs_symbols(probe_references FILE "${SVS_PROBE_OBJECT}" NM_ARGS --undefined-only)
-svs_symbols(archive_defines FILE "${SVS_ARCHIVE}" NM_ARGS --defined-only)
+svs_nm_symbols(probe_defines "${SVS_PROBE_OBJECT}" "${svs_kernel_regex}" NM_ARGS --defined-only)
+svs_nm_symbols(probe_references "${SVS_PROBE_OBJECT}" "${svs_kernel_regex}" NM_ARGS --undefined-only)
+svs_nm_symbols(archive_defines "${SVS_ARCHIVE}" "${svs_kernel_regex}" NM_ARGS --defined-only)
 
 list(LENGTH probe_defines n_probe_defines)
 list(LENGTH probe_references n_probe_references)
@@ -118,7 +68,7 @@ if(NOT n_probe_defines EQUAL 0)
     message("template, at the consumer's own -march. Declare them: the extern")
     message("blocks in the distance headers must cover the whole surface.")
     message("    Instantiated locally:")
-    svs_report_symbols("${probe_defines}" 10)
+    svs_report_first(probe_defines 10)
     math(EXPR errors "${errors} + 1")
 endif()
 
@@ -134,7 +84,7 @@ if(NOT n_missing EQUAL 0)
     message("They are declared `extern template` in the distance headers but no")
     message("translation unit defines them, so linking against the library fails.")
     message("    Undefined:")
-    svs_report_symbols("${missing}" 10)
+    svs_report_first(missing 10)
     math(EXPR errors "${errors} + 1")
 endif()
 
@@ -149,7 +99,7 @@ if(NOT n_unreachable EQUAL 0)
     message("dispatch surface. Nothing declares them, so no consumer reaches")
     message("them; they only add to the size of the library.")
     message("    Unreachable:")
-    svs_report_symbols("${unreachable}" 10)
+    svs_report_first(unreachable 10)
     math(EXPR errors "${errors} + 1")
 endif()
 

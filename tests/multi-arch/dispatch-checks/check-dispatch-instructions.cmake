@@ -20,7 +20,7 @@
 #####   cmake -DSVS_OBJECT=<avx2.cpp.o> \
 #####         -DSVS_LEVEL=AVX2 -DSVS_ARCH=haswell \
 #####         -DSVS_OBJDUMP=<objdump> \
-#####         -P cmake/dispatch-checks/check-dispatch-instructions.cmake
+#####         -P tests/multi-arch/dispatch-checks/check-dispatch-instructions.cmake
 #####
 ##### A level promises the host satisfies its runtime predicate and nothing more,
 ##### so an instruction the predicate does not guarantee is an illegal-instruction
@@ -31,14 +31,10 @@
 # field of a budget row below is silently dropped rather than read as empty.
 cmake_minimum_required(VERSION 3.21)
 
-foreach(required SVS_OBJECT SVS_LEVEL SVS_ARCH SVS_OBJDUMP)
-    if(NOT ${required})
-        message(FATAL_ERROR "${required} is not set.")
-    endif()
-endforeach()
-if(NOT EXISTS "${SVS_OBJECT}")
-    message(FATAL_ERROR "SVS_OBJECT does not exist: ${SVS_OBJECT}")
-endif()
+include("${CMAKE_CURRENT_LIST_DIR}/lib.cmake")
+
+svs_require(SVS_OBJECT SVS_LEVEL SVS_ARCH SVS_OBJDUMP)
+svs_require_files(SVS_OBJECT)
 
 # What each instruction class looks like in AT&T disassembly. Register classes are
 # matched with their `%` sigil so that a mangled name can never look like one.

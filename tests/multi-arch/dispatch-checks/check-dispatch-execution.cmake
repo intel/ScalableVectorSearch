@@ -18,7 +18,7 @@
 ##### Run in script mode:
 #####
 #####   cmake -DSVS_PROBE=<entry_probe> -DSVS_NM=<nm> -DSVS_GDB=<gdb> \
-#####         -P cmake/dispatch-checks/check-dispatch-execution.cmake
+#####         -P tests/multi-arch/dispatch-checks/check-dispatch-execution.cmake
 #####
 ##### Everything else about the surface is a property of the symbol table, which a
 ##### specialization can satisfy while never running: one that disappears behind an
@@ -29,14 +29,10 @@
 ##### hosts that satisfy only those, which is what the CI matrix is for.
 #####
 
-foreach(required SVS_PROBE SVS_NM SVS_GDB)
-    if(NOT ${required})
-        message(FATAL_ERROR "${required} is not set.")
-    endif()
-endforeach()
-if(NOT EXISTS "${SVS_PROBE}")
-    message(FATAL_ERROR "SVS_PROBE does not exist: ${SVS_PROBE}")
-endif()
+include("${CMAKE_CURRENT_LIST_DIR}/lib.cmake")
+
+svs_require(SVS_PROBE SVS_NM SVS_GDB)
+svs_require_files(SVS_PROBE)
 
 # The probe owns the runtime predicates, so it -- not this script -- decides which
 # level the entry points are obliged to choose here.
@@ -76,24 +72,11 @@ set(svs_probe_pair "aa")
 
 # L2 at that pair for the extent the probe reports: one symbol per level, including
 # any AVX_AVAILABILITY::NONE fallback the consumer instantiated itself.
-execute_process(
-    COMMAND "${SVS_NM}" --defined-only "${SVS_PROBE}"
-    OUTPUT_VARIABLE raw
-    ERROR_VARIABLE err
-    RESULT_VARIABLE status
-)
-if(NOT status EQUAL 0)
-    message(FATAL_ERROR "${SVS_NM} failed on ${SVS_PROBE}: ${err}")
-endif()
+set(svs_symbol_regex "_ZN3svs8distance6L2ImplILm${extent}E${svs_probe_pair}.*7computeE")
+svs_nm_symbols(raw_symbols "${SVS_PROBE}" "${svs_symbol_regex}" NM_ARGS --defined-only)
 
 set(candidates)
-string(REPLACE "\n" ";" lines "${raw}")
-foreach(line IN LISTS lines)
-    # The mangled name is the last whitespace-separated field.
-    string(REGEX MATCH "[^ \t]+$" symbol "${line}")
-    if(NOT symbol MATCHES "^_ZN3svs8distance6L2ImplILm${extent}E${svs_probe_pair}.*7computeE")
-        continue()
-    endif()
+foreach(symbol IN LISTS raw_symbols)
     # Skip GCC's `.isra` clones: gdb reads a dot in a linespec as a file name.
     if(symbol MATCHES "\\.")
         continue()
