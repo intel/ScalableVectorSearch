@@ -66,18 +66,19 @@ storage_kind_rejection="The specified storage kind is not compatible with the"
 
 # A nonzero exit alone would let a broken example, a missing library or a segfault pass as expected.
 expect_storage_kind_rejection() {
+  local label="$1"
   local output status
-  output=$("$@" 2>&1) && status=0 || status=$?
+  output=$("${@:2}" 2>&1) && status=0 || status=$?
   echo "$output"
   if [ "$status" -eq 0 ]; then
-    echo "UNEXPECTED: $* succeeded although $lvq_leanvec_missing"
+    echo "UNEXPECTED: $label succeeded although $lvq_leanvec_missing"
     return 1
   fi
   if ! printf '%s\n' "$output" | grep -qF "$storage_kind_rejection"; then
-    echo "UNEXPECTED: $* exited $status without rejecting the storage kind"
+    echo "UNEXPECTED: $label exited $status without rejecting the storage kind"
     return 1
   fi
-  echo "XFAIL: $* rejected the storage kind as expected ($lvq_leanvec_missing)"
+  echo "XFAIL: $label rejected the storage kind as expected ($lvq_leanvec_missing)"
 }
 
 if [ -z "$lvq_leanvec_missing" ]; then
@@ -85,8 +86,10 @@ if [ -z "$lvq_leanvec_missing" ]; then
   $RUN_PREFIX ./tutorial/cpp/11-SVS-Vamana-LeanVec
 else
   echo "LVQ/LeanVec examples expected to reject the storage kind: $lvq_leanvec_missing"
-  expect_storage_kind_rejection $RUN_PREFIX ./tutorial/cpp/10-SVS-Vamana-LVQ
-  expect_storage_kind_rejection $RUN_PREFIX ./tutorial/cpp/11-SVS-Vamana-LeanVec
+  expect_storage_kind_rejection 10-SVS-Vamana-LVQ \
+    $RUN_PREFIX ./tutorial/cpp/10-SVS-Vamana-LVQ
+  expect_storage_kind_rejection 11-SVS-Vamana-LeanVec \
+    $RUN_PREFIX ./tutorial/cpp/11-SVS-Vamana-LeanVec
 fi
 echo "-----------------------------------------------"
 echo " FAISS python bindings: "
@@ -103,6 +106,7 @@ if [ -z "$lvq_leanvec_missing" ]; then
   PYTHONPATH=../../build/faiss/python/build/lib/ OMP_NUM_THREADS=4 $RUN_PREFIX python 11-SVS.py
 else
   echo "SVS python example expected to reject the storage kind: $lvq_leanvec_missing"
-  expect_storage_kind_rejection env PYTHONPATH=../../build/faiss/python/build/lib/ \
-    OMP_NUM_THREADS=4 $RUN_PREFIX python 11-SVS.py
+  expect_storage_kind_rejection 11-SVS.py \
+    env PYTHONPATH=../../build/faiss/python/build/lib/ OMP_NUM_THREADS=4 \
+    $RUN_PREFIX python 11-SVS.py
 fi
