@@ -128,6 +128,26 @@ if(svs_surface_is_default)
 endif()
 
 #####
+##### Emit the manifest
+#####
+
+# The ctest checks read this rather than including the declaration, so they depend on the
+# surface's contents and not on that file's format, its location, or what else it sets.
+set(svs_manifest_levels)
+foreach(level_spec IN LISTS SVS_ISA_LEVELS)
+    svs_parse_isa_level("${level_spec}" svs_manifest_level _ _)
+    list(APPEND svs_manifest_levels "${svs_manifest_level}")
+endforeach()
+string(REPLACE ";" " " svs_manifest_levels_text "${svs_manifest_levels}")
+string(REPLACE ";" " " svs_manifest_extents_text "${SVS_SUPPORTED_DIMS}")
+file(GENERATE
+    OUTPUT "${CMAKE_BINARY_DIR}/dispatch_surface.manifest.cmake"
+    CONTENT "set(SVS_MANIFEST_FIXED_EXTENTS ${svs_manifest_extents_text})
+set(SVS_MANIFEST_LEVELS ${svs_manifest_levels_text})
+"
+)
+
+#####
 ##### Report the surface
 #####
 

@@ -18,7 +18,7 @@
 #####
 ##### Run in script mode:
 #####
-#####   cmake -DSVS_SURFACE_FILE=cmake/dispatch-surface.cmake \
+#####   cmake -DSVS_MANIFEST=build/dispatch_surface.manifest.cmake \
 #####         -DSVS_TYPE_PAIR_HEADER=include/svs/multi-arch/x86/preprocessor.h \
 #####         -DSVS_ENUM_HEADER=include/svs/core/distance/distance_core.h \
 #####         -DSVS_ARCHIVE=<libsvs_x86_objects.a> \
@@ -30,9 +30,9 @@
 ##### against a probe, and both are generated from the same header: a generator
 ##### that dropped an extent would drop it from both and still agree. The
 ##### expectation here is derived from the three hand-written sources instead --
-##### the extent list and levels, the type pairs, and the enumerator order -- so
-##### the generated header is not consulted at all and a generator bug has nowhere
-##### to hide.
+##### the extent list and levels from the manifest, the type pairs, and the enumerator
+##### order -- so the generated header is not consulted at all and a generator bug
+##### has nowhere to hide.
 #####
 
 # Without it, CMP0057 is unset in script mode and the `IN_LIST` tests below are
@@ -41,32 +41,26 @@ cmake_minimum_required(VERSION 3.21)
 
 include("${CMAKE_CURRENT_LIST_DIR}/lib.cmake")
 
-svs_require(SVS_SURFACE_FILE SVS_TYPE_PAIR_HEADER SVS_ENUM_HEADER SVS_ARCHIVE SVS_CONSUMER_OBJECT SVS_NM)
-svs_require_files(SVS_SURFACE_FILE SVS_TYPE_PAIR_HEADER SVS_ENUM_HEADER SVS_ARCHIVE SVS_CONSUMER_OBJECT)
+svs_require(SVS_MANIFEST SVS_TYPE_PAIR_HEADER SVS_ENUM_HEADER SVS_ARCHIVE SVS_CONSUMER_OBJECT SVS_NM)
+svs_require_files(SVS_MANIFEST SVS_TYPE_PAIR_HEADER SVS_ENUM_HEADER SVS_ARCHIVE SVS_CONSUMER_OBJECT)
 
 #####
 ##### Ground truth 1: the extents and the ISA levels
 #####
 
-include("${SVS_SURFACE_FILE}")
+include("${SVS_MANIFEST}")
 
-if(NOT SVS_SUPPORTED_DIMS OR NOT SVS_ISA_LEVELS)
+if(NOT SVS_MANIFEST_FIXED_EXTENTS OR NOT SVS_MANIFEST_LEVELS)
     message(FATAL_ERROR
-        "${SVS_SURFACE_FILE} declares no extents or no ISA levels; it is not a "
-        "dispatch-surface declaration."
+        "${SVS_MANIFEST} is not a dispatch-surface manifest; it does not declare "
+        "extents or ISA levels."
     )
 endif()
 
 # svs::Dynamic mangles as its numeric value: the extent is a size_t template
 # argument, and Dynamic is SIZE_MAX.
-set(svs_expected_extents ${SVS_SUPPORTED_DIMS} "18446744073709551615")
-
-set(svs_expected_levels)
-foreach(level_spec IN LISTS SVS_ISA_LEVELS)
-    string(REPLACE "|" ";" fields "${level_spec}")
-    list(GET fields 0 level)
-    list(APPEND svs_expected_levels "${level}")
-endforeach()
+set(svs_expected_extents ${SVS_MANIFEST_FIXED_EXTENTS} "18446744073709551615")
+set(svs_expected_levels ${SVS_MANIFEST_LEVELS})
 
 #####
 ##### Ground truth 2: the enumerator order, which fixes the mangled digit
@@ -231,7 +225,7 @@ function(svs_compare prefix what)
     list(LENGTH wrong n_wrong)
     set(${prefix}_ERRORS 0 PARENT_SCOPE)
     if(NOT n_wrong EQUAL 0)
-        message("${n_wrong} of ${what} disagree with ${SVS_SURFACE_FILE}.")
+        message("${n_wrong} of ${what} disagree with the manifest.")
         message("Each entry is <distance>_<extent>_<ISA level>. A count of 0 means")
         message("the declaration asks for kernels that were never built; a count")
         message("below the number of type pairs means the level is missing some.")
@@ -248,7 +242,7 @@ math(EXPR errors "${ARCHIVE_ERRORS} + ${CONSUMER_ERRORS}")
 if(ARCHIVE_FOREIGN)
     list(LENGTH ARCHIVE_FOREIGN n)
     message("${n} kernels in the archive are outside the declared surface.")
-    message("Nothing in ${SVS_SURFACE_FILE} asks for them, so no consumer reaches")
+    message("Nothing in the manifest asks for them, so no consumer reaches")
     message("them and they only add to the size of the library.")
     message("    Outside the surface:")
     svs_report_first(ARCHIVE_FOREIGN 10)
@@ -291,7 +285,7 @@ endforeach()
 string(REPLACE ";" ", " pair_display "${pair_display}")
 message(
     "dispatch declaration: ${svs_expected_total} kernels required by "
-    "${SVS_SURFACE_FILE} (${n_levels} levels x ${n_extents} extents x "
+    "the manifest (${n_levels} levels x ${n_extents} extents x "
     "${n_distances} distances x type pairs per level {${pair_display}}); the "
     "archive defines exactly those and the entry points reach all of them"
 )

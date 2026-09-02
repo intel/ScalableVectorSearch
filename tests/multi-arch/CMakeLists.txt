@@ -23,6 +23,8 @@
 ##### directory to its own project, where that points somewhere else entirely.
 #####
 
+include("${CMAKE_CURRENT_LIST_DIR}/../../cmake/dispatch-levels.cmake")
+
 set(svs_dispatch_cmake_dir "${CMAKE_CURRENT_LIST_DIR}/dispatch-checks")
 
 # The object libraries exist so that each probe's single object file can be named
@@ -87,7 +89,7 @@ if(svs_nm)
         NAME dispatch_surface_declaration
         COMMAND
         "${CMAKE_COMMAND}"
-        "-DSVS_SURFACE_FILE=${SVS_DISPATCH_SURFACE_FILE}"
+        "-DSVS_MANIFEST=${CMAKE_BINARY_DIR}/dispatch_surface.manifest.cmake"
         "-DSVS_TYPE_PAIR_HEADER=${CMAKE_CURRENT_LIST_DIR}/../../include/svs/multi-arch/x86/preprocessor.h"
         "-DSVS_ENUM_HEADER=${CMAKE_CURRENT_LIST_DIR}/../../include/svs/core/distance/distance_core.h"
         "-DSVS_ARCHIVE=$<TARGET_FILE:svs_x86_objects>"
@@ -104,10 +106,7 @@ if(svs_objdump)
     # runtime predicate does not guarantee faults on a host the dispatcher routes
     # to it, which no symbol-table check can see.
     foreach(tu_spec IN LISTS SVS_DISPATCH_TU_SPECS)
-        string(REPLACE "|" ";" tu_fields "${tu_spec}")
-        list(GET tu_fields 1 svs_level)
-        list(GET tu_fields 2 svs_arch)
-        list(GET tu_fields 3 svs_infix)
+        svs_parse_tu_spec("${tu_spec}" svs_src svs_level svs_arch svs_infix)
         add_test(
             NAME dispatch_instructions_${svs_infix}
             COMMAND
