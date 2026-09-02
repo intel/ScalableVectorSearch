@@ -28,8 +28,8 @@ foreach(tu_spec IN LISTS SVS_DISPATCH_TU_SPECS)
     add_library(${lib_name} INTERFACE)
     target_compile_options(${lib_name} INTERFACE -march=${arch} -mtune=${arch})
 
-    # Named after the level, not the -march: more than one level can share an
-    # instruction budget, and it is the level that says what is inside.
+    # Unique only because validate-dispatch-surface.cmake rejects duplicate
+    # infixes; two levels sharing one would collide on this target name.
     set(obj_name ${infix}_obj)
     add_library(${obj_name} OBJECT ${src})
     target_link_libraries(
