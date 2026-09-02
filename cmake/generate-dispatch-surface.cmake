@@ -22,6 +22,8 @@
 
 include_guard(GLOBAL)
 
+include("${CMAKE_CURRENT_LIST_DIR}/dispatch-levels.cmake")
+
 set(SVS_DEFAULT_DISPATCH_SURFACE_FILE "${CMAKE_CURRENT_LIST_DIR}/dispatch-surface.cmake")
 set(SVS_DISPATCH_SURFACE_FILE "${SVS_DEFAULT_DISPATCH_SURFACE_FILE}"
     CACHE FILEPATH
@@ -71,10 +73,7 @@ set(SVS_GEN_LEVEL_LOOP "\\\n")
 set(SVS_GEN_LEVEL_DEFINES "")
 set(SVS_DISPATCH_TU_SPECS)
 foreach(level_spec IN LISTS SVS_ISA_LEVELS)
-    string(REPLACE "|" ";" level_fields "${level_spec}")
-    list(GET level_fields 0 level)
-    list(GET level_fields 1 arch)
-    list(GET level_fields 2 infix)
+    svs_parse_isa_level("${level_spec}" level arch infix)
 
     string(APPEND SVS_GEN_LEVEL_LOOP "    M(${level}) \\\n")
     string(APPEND SVS_GEN_LEVEL_DEFINES "#define SVS_ISA_LEVEL_${level} 1\n")

@@ -40,6 +40,8 @@ cmake_policy(PUSH)
 cmake_policy(SET CMP0007 NEW)
 cmake_policy(SET CMP0057 NEW)
 
+include("${CMAKE_CURRENT_LIST_DIR}/dispatch-levels.cmake")
+
 if(NOT SVS_DISPATCH_SURFACE_FILE)
     message(FATAL_ERROR "SVS_DISPATCH_SURFACE_FILE is not set.")
 endif()
@@ -107,17 +109,7 @@ endif()
 set(svs_seen_levels)
 set(svs_seen_infixes)
 foreach(level_spec IN LISTS SVS_ISA_LEVELS)
-    string(REPLACE "|" ";" level_fields "${level_spec}")
-    list(LENGTH level_fields nfields)
-    if(NOT nfields EQUAL 3)
-        message(FATAL_ERROR
-            "Malformed SVS_ISA_LEVELS entry '${level_spec}': expected exactly "
-            "three '|'-separated fields <enumerator>|<instruction budget>|<TU infix>."
-        )
-    endif()
-    list(GET level_fields 0 level)
-    list(GET level_fields 1 arch)
-    list(GET level_fields 2 infix)
+    svs_parse_isa_level("${level_spec}" level arch infix)
     foreach(field level arch infix)
         if(NOT ${field})
             message(FATAL_ERROR

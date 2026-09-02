@@ -13,6 +13,6 @@
 # limitations under the License.
 
 # The TU infix is absent.
-# EXPECT-ERROR: expected exactly three '|'-separated fields
+# EXPECT-ERROR: Malformed ISA level 'AVX2|haswell': expected <level>|<arch>|<infix>.
 set(SVS_SUPPORTED_DIMS 128)
 set(SVS_ISA_LEVELS "AVX2|haswell")

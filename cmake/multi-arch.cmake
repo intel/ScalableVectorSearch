@@ -16,14 +16,12 @@
 # SVS_DISPATCH_TU_SPECS -- "<src>|<level>|<arch>|<infix>", one entry per ISA
 # level. The extent list and the levels themselves are declared in
 # cmake/dispatch-surface.cmake.
+include("${CMAKE_CURRENT_LIST_DIR}/dispatch-levels.cmake")
 include("${CMAKE_CURRENT_LIST_DIR}/generate-dispatch-surface.cmake")
 
 set(SVS_X86_OBJECT_FILES)
 foreach(tu_spec IN LISTS SVS_DISPATCH_TU_SPECS)
-    string(REPLACE "|" ";" tu_fields "${tu_spec}")
-    list(GET tu_fields 0 src)
-    list(GET tu_fields 2 arch)
-    list(GET tu_fields 3 infix)
+    svs_parse_tu_spec("${tu_spec}" src level arch infix)
 
     # Carries the instruction budget for this level, and nothing else.
     set(lib_name "svs_x86_${infix}")
