@@ -78,13 +78,16 @@ template <size_t N> svs::lib::MaybeStatic<N> probe_length() {
     total += svs::distance::L2Impl<N, Ea, Eb, AVX_AVAILABILITY::LEVEL>::compute(          \
         buffer<Ea>(), buffer<Eb>(), probe_length<N>()                                     \
     );                                                                                    \
+    ++count;                                                                              \
     total += svs::distance::IPImpl<N, Ea, Eb, AVX_AVAILABILITY::LEVEL>::compute(          \
         buffer<Ea>(), buffer<Eb>(), probe_length<N>()                                     \
     );                                                                                    \
+    ++count;                                                                              \
     total +=                                                                              \
         svs::distance::CosineSimilarityImpl<N, Ea, Eb, AVX_AVAILABILITY::LEVEL>::compute( \
             buffer<Ea>(), buffer<Eb>(), 1.0F, probe_length<N>()                           \
-        );
+        );                                                                                \
+    ++count;
 
 // The level's own type-pair list, not the full one: naming a pair the level has no
 // kernel for would instantiate the generic template right here.
@@ -93,10 +96,19 @@ template <size_t N> svs::lib::MaybeStatic<N> probe_length() {
         SVS_TYPE_PAIRS_FOR(LEVEL, SVS_PROBE_ONE, N, LEVEL) \
     }
 
-float probe_all() {
+// Both values are returned together so that the counter cannot drift from the sum it
+// describes; the count is what makes a link-only failure distinguishable from a call that
+// was never emitted.
+struct ProbeResult {
     float total = 0;
+    std::size_t kernels = 0;
+};
+
+ProbeResult probe_all() {
+    float total = 0;
+    std::size_t count = 0;
     SVS_FOR_EACH_DISPATCH_TARGET(SVS_PROBE_TARGET)
-    return total;
+    return ProbeResult{total, count};
 }
 
 #undef SVS_PROBE_TARGET
@@ -105,8 +117,13 @@ float probe_all() {
 } // namespace
 
 int main() {
-    // Printing keeps the calls above from being optimized away, and makes the run
-    // a smoke test of every kernel this host can reach.
-    std::printf("dispatch surface probe: %f\n", static_cast<double>(probe_all()));
+    const ProbeResult result = probe_all();
+    std::printf(
+        "dispatch surface probe: called %zu kernels that computed a total distance sum "
+        "of %f (total distance only printed here to avoid calls from getting optimized "
+        "away)\n",
+        result.kernels,
+        static_cast<double>(result.total)
+    );
     return 0;
 }

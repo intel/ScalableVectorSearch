@@ -64,6 +64,13 @@ template <typename E> const E* buffer() {
     return values.data();
 }
 
+// Both values are returned together so that the counter cannot drift from the sum it
+// describes; the count is what distinguishes a reached entry point from one never emitted.
+struct ProbeResult {
+    float total = 0;
+    std::size_t kernels = 0;
+};
+
 // A template rather than a macro body: the svs::Dynamic entry points take a
 // length, and `if constexpr` only discards the other branch inside a template.
 template <size_t N, typename Ea, typename Eb> float entry_one() {
@@ -79,13 +86,19 @@ template <size_t N, typename Ea, typename Eb> float entry_one() {
     }
 }
 
-#define SVS_ENTRY_ONE(Ea, Eb, N) total += entry_one<N, Ea, Eb>();
+// entry_one reaches L2, IP and cosine; a change to its body must change this constant.
+constexpr std::size_t entry_kernels_per_call = 3;
+
+#define SVS_ENTRY_ONE(Ea, Eb, N)     \
+    total += entry_one<N, Ea, Eb>(); \
+    count += entry_kernels_per_call;
 #define SVS_ENTRY_DIM(N) SVS_FOR_EACH_TYPE_PAIR(SVS_ENTRY_ONE, N)
 
-float entry_all() {
+ProbeResult entry_all() {
     float total = 0;
+    std::size_t count = 0;
     SVS_FOR_EACH_SUPPORTED_DIM(SVS_ENTRY_DIM)
-    return total;
+    return ProbeResult{total, count};
 }
 
 #undef SVS_ENTRY_DIM
@@ -108,8 +121,13 @@ int main(int argc, char** argv) {
         return 0;
     }
 
-    // Printing keeps the calls from being optimized away, and makes the run a
-    // smoke test of every entry point over the whole surface.
-    std::printf("dispatch surface entry probe: %f\n", static_cast<double>(entry_all()));
+    const ProbeResult result = entry_all();
+    std::printf(
+        "dispatch surface entry probe: called %zu kernels that computed a total distance "
+        "sum of %f (total distance only printed here to avoid calls from getting optimized "
+        "away)\n",
+        result.kernels,
+        static_cast<double>(result.total)
+    );
     return 0;
 }
