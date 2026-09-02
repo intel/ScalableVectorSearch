@@ -154,12 +154,14 @@ void heuristic_prune_neighbors(
                 distance_function, query, accessor(dataset, candidate.id())
             );
 
+            // Every neighbor the plain MRNG rule would drop is only *deferred* to the
+            // second round, where the alpha-scaled rule decides its fate. Applying the
+            // alpha test here as well would discard neighbors that the reference
+            // implementation (svs/index/vamana/prune.h) re-enables for its second alpha
+            // round, which costs ~5 points of recall@10 for the inner-product metrics
+            // that dispatch to this strategy.
             if (cmp(djk, candidate.distance())) {
-                if (cmp(alpha * djk, candidate.distance())) {
-                    pruned[t] = PruneState::Pruned;
-                } else {
-                    pruned[t] = PruneState::Candidate;
-                }
+                pruned[t] = PruneState::Candidate;
             }
         }
         ++start;
