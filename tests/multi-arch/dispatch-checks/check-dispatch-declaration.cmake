@@ -88,7 +88,7 @@ set(svs_expected_digits)
 foreach(level IN LISTS svs_expected_levels)
     if(NOT DEFINED svs_digit_of_${level})
         message(FATAL_ERROR
-            "ISA level '${level}' is declared in ${SVS_SURFACE_FILE} but is not an "
+            "ISA level '${level}' is declared in ${SVS_MANIFEST} but is not an "
             "AVX_AVAILABILITY enumerator."
         )
     endif()
