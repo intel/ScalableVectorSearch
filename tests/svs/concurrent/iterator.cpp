@@ -75,9 +75,8 @@ using ConcurrentData = cc::SegmentedBlockedData<float>;
 // dataset types. The concurrent index is built on the grow-stable variants, so load the
 // same files into those instead.
 auto concurrent_graph_loader() {
-    return svs::lib::Lazy([]() {
-        return ConcurrentGraph::load(test_dataset::graph_file());
-    });
+    return svs::lib::Lazy([]() { return ConcurrentGraph::load(test_dataset::graph_file()); }
+    );
 }
 
 auto concurrent_data_loader() {

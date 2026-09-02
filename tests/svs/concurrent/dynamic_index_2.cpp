@@ -15,10 +15,10 @@
  */
 
 // svs
+#include "svs/concurrent/dynamic_index.h"
 #include "svs/core/medioid.h"
 #include "svs/core/recall.h"
 #include "svs/index/flat/flat.h"
-#include "svs/concurrent/dynamic_index.h"
 #include "svs/lib/float16.h"
 #include "svs/lib/preprocessor.h"
 #include "svs/lib/timing.h"

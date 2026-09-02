@@ -19,12 +19,12 @@
 #include "svs/concepts/data.h"
 #include "svs/concepts/distance.h"
 #include "svs/concurrent/graph_concepts.h"
+#include "svs/concurrent/spinlock.h"
 // For `svs::index::vamana::GreedySearchPrefetchParameters`, which this stack reuses
 // unchanged -- see the using-declaration below.
 #include "svs/index/vamana/greedy_search.h"
 #include "svs/index/vamana/search_buffer.h"
 #include "svs/lib/concurrency/seqlock.h"
-#include "svs/concurrent/spinlock.h"
 
 #include <algorithm>
 #include <memory>
@@ -98,8 +98,10 @@ void greedy_search(
         if (cancel()) {
             return;
         }
-        // Get the next unvisited vertex.
-        const auto& node = search_buffer.next();
+        // Get the next unvisited vertex. Copy rather than bind a reference: the
+        // SeqLock retry loop below can re-enter after `search_buffer.insert()` has
+        // reallocated the candidates buffer, which would dangle a reference here.
+        const auto node = search_buffer.next();
         auto node_id = node.id();
 
         for (;;) { // SeqLock retry loop

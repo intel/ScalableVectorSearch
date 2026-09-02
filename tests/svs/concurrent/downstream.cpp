@@ -19,17 +19,18 @@
 // so most of the value here is in the include order at the top of the file.
 //
 // (1) The upstream vamana headers come FIRST. `svs::index::vamana::concurrent` is nested
-//     inside `svs::index::vamana`, so anything the enclosing namespace declares participates
-//     in unqualified and relative lookup from inside the concurrent headers. Whether it has
-//     been declared *yet* depends on the translation unit's include order, and the concurrent
-//     tests happen to include the concurrent headers first, which hid the problem: within
-//     this order `detail::pause()` resolved to `svs::index::vamana::detail` (no `pause`) and
-//     `name<datatype_v<T>>()` resolved to `svs::index::vamana::name(SlotMetadata)`.
+//     inside `svs::index::vamana`, so anything the enclosing namespace declares
+//     participates in unqualified and relative lookup from inside the concurrent headers.
+//     Whether it has been declared *yet* depends on the translation unit's include order,
+//     and the concurrent tests happen to include the concurrent headers first, which hid
+//     the problem: within this order `detail::pause()` resolved to
+//     `svs::index::vamana::detail` (no `pause`) and `name<datatype_v<T>>()` resolved to
+//     `svs::index::vamana::name(SlotMetadata)`.
 //
 // (2) A scalar-quantized dataset with the concurrent storage tag. `SQDataset` gates
 //     `resize()`/`compact()` on a trait private to `svs::quantization::scalar`, which knows
-//     only about `data::Blocked` -- deriving from it is not enough. Any growth or compaction
-//     of a quantized concurrent index failed to compile until
+//     only about `data::Blocked` -- deriving from it is not enough. Any growth or
+//     compaction of a quantized concurrent index failed to compile until
 //     `svs/concurrent/extensions/scalar.h` supplied the specialization.
 #include "svs/index/vamana/dynamic_index.h"
 #include "svs/index/vamana/multi.h"
@@ -73,8 +74,9 @@ CATCH_TEST_CASE(
     "Concurrent index with upstream vamana headers included first",
     "[concurrent][downstream]"
 ) {
-    // `has_edge` and the translator's `validate` are the two entities that failed to compile
-    // in this include order, so both are called here rather than merely instantiated.
+    // `has_edge` and the translator's `validate` are the two entities that failed to
+    // compile in this include order, so both are called here rather than merely
+    // instantiated.
     auto base = cc::SegmentedBlockedData<float>::load(test_dataset::data_svs_file());
     std::vector<size_t> ids(base.size());
     std::iota(ids.begin(), ids.end(), 0);

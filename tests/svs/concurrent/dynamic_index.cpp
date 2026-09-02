@@ -301,9 +301,8 @@ CATCH_TEST_CASE(
     std::iota(indices.begin(), indices.end(), 0);
 
     svs::index::vamana::VamanaBuildParameters parameters{1.2, 64, 10, 20, 10, true};
-    auto index = cc::MutableVamanaIndex(
-        parameters, base.copy(), indices, Distance(), num_threads
-    );
+    auto index =
+        cc::MutableVamanaIndex(parameters, base.copy(), indices, Distance(), num_threads);
 
     CATCH_SECTION("Re-adding a live ID throws and leaks no slot") {
         // All n slots are Valid, so a re-add must grow to reserve a slot, then
@@ -502,7 +501,8 @@ CATCH_TEST_CASE(
 }
 
 CATCH_TEST_CASE(
-    "Concurrent MutableVamana Index Memory Usage", "[concurrent][graph_index][dynamic_index]"
+    "Concurrent MutableVamana Index Memory Usage",
+    "[concurrent][graph_index][dynamic_index]"
 ) {
     const size_t num_threads = 2;
     using Distance = svs::distance::DistanceL2;
