@@ -46,16 +46,16 @@ endfunction()
 
 # Names every kernel the surface declares and nothing else, so a declared-but-
 # uninstantiated kernel is an undefined symbol here.
-svs_add_dispatch_probe(dispatch_surface_probe x86/link_probe.cpp)
+svs_add_dispatch_probe(link_probe x86/link_probe.cpp)
 
 # Reaches the kernels through the entry points instead, so it also sees whether the
 # entry points route to the whole surface.
-svs_add_dispatch_probe(dispatch_entry_probe x86/entry_probe.cpp)
+svs_add_dispatch_probe(entry_probe x86/entry_probe.cpp)
 
 # Calls every kernel whose ISA level this host satisfies. Which kernels those are
 # depends on the host, so this covers the whole surface only across the CI matrix.
-add_test(NAME dispatch_surface_probe COMMAND dispatch_surface_probe)
-add_test(NAME dispatch_entry_probe COMMAND dispatch_entry_probe)
+add_test(NAME dispatch_link_probe COMMAND link_probe)
+add_test(NAME dispatch_entry_probe COMMAND entry_probe)
 
 if(DEFINED CMAKE_NM AND CMAKE_NM)
     set(svs_nm "${CMAKE_NM}")
@@ -76,7 +76,7 @@ if(svs_nm)
         NAME dispatch_surface_linkage
         COMMAND
         "${CMAKE_COMMAND}"
-        "-DSVS_PROBE_OBJECT=$<TARGET_OBJECTS:dispatch_surface_probe_objects>"
+        "-DSVS_PROBE_OBJECT=$<TARGET_OBJECTS:link_probe_objects>"
         "-DSVS_ARCHIVE=$<TARGET_FILE:svs_x86_objects>"
         "-DSVS_NM=${svs_nm}"
         -P "${svs_dispatch_cmake_dir}/check-dispatch-linkage.cmake"
@@ -93,7 +93,7 @@ if(svs_nm)
         "-DSVS_TYPE_PAIR_HEADER=${CMAKE_CURRENT_LIST_DIR}/../../include/svs/multi-arch/x86/preprocessor.h"
         "-DSVS_ENUM_HEADER=${CMAKE_CURRENT_LIST_DIR}/../../include/svs/core/distance/distance_core.h"
         "-DSVS_ARCHIVE=$<TARGET_FILE:svs_x86_objects>"
-        "-DSVS_CONSUMER_OBJECT=$<TARGET_OBJECTS:dispatch_entry_probe_objects>"
+        "-DSVS_CONSUMER_OBJECT=$<TARGET_OBJECTS:entry_probe_objects>"
         "-DSVS_NM=${svs_nm}"
         -P "${svs_dispatch_cmake_dir}/check-dispatch-declaration.cmake"
     )
@@ -129,7 +129,7 @@ if(svs_nm AND svs_gdb)
         NAME dispatch_surface_execution
         COMMAND
         "${CMAKE_COMMAND}"
-        "-DSVS_PROBE=$<TARGET_FILE:dispatch_entry_probe>"
+        "-DSVS_PROBE=$<TARGET_FILE:entry_probe>"
         "-DSVS_NM=${svs_nm}"
         "-DSVS_GDB=${svs_gdb}"
         -P "${svs_dispatch_cmake_dir}/check-dispatch-execution.cmake"
