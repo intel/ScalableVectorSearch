@@ -37,6 +37,7 @@ svs::DynamicVamana dispatch_dynamic_vamana_index_build(
     const Storage* storage,
     svs::DistanceType distance_type,
     svs::threads::ThreadPoolHandle pool,
+    const AllocatorHandle<std::byte>& allocator_handle,
     size_t blocksize_bytes
 );
 
@@ -46,6 +47,7 @@ svs::DynamicVamana dispatch_dynamic_vamana_index_load(
     const Storage* storage,
     svs::DistanceType distance_type,
     svs::threads::ThreadPoolHandle pool,
+    const AllocatorHandle<std::byte>& allocator_handle,
     size_t blocksize_bytes
 );
 

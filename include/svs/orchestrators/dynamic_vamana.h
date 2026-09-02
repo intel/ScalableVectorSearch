@@ -119,6 +119,9 @@ class DynamicVamana : public manager::IndexManager<DynamicVamanaInterface> {
     using base_type = manager::IndexManager<DynamicVamanaInterface>;
     using VamanaSearchParameters = index::vamana::VamanaSearchParameters;
 
+    /// @private
+    struct BuildTag {};
+    /// @private
     struct AssembleTag {};
 
     ///
@@ -288,13 +291,15 @@ class DynamicVamana : public manager::IndexManager<DynamicVamanaInterface> {
         manager::QueryTypeDefinition QueryTypes,
         typename DataLoader,
         typename Distance,
-        typename ThreadPoolProto>
+        typename ThreadPoolProto,
+        typename GraphAllocator = data::Blocked<HugepageAllocator<uint32_t>>>
     static DynamicVamana build(
         const index::vamana::VamanaBuildParameters& parameters,
         DataLoader&& data_loader,
         std::span<const size_t> ids,
         Distance distance,
-        ThreadPoolProto threadpool_proto
+        ThreadPoolProto threadpool_proto,
+        const GraphAllocator& graph_allocator = {}
     ) {
         auto threadpool = threads::as_threadpool(std::move(threadpool_proto));
         auto data =
@@ -304,16 +309,24 @@ class DynamicVamana : public manager::IndexManager<DynamicVamanaInterface> {
             auto dispatcher = DistanceDispatcher(distance);
             return dispatcher([&](auto distance_function) {
                 return make_dynamic_vamana<manager::as_typelist<QueryTypes>>(
+                    BuildTag{},
                     parameters,
                     std::move(data),
                     ids,
                     std::move(distance_function),
-                    std::move(threadpool)
+                    std::move(threadpool),
+                    graph_allocator
                 );
             });
         } else {
             return make_dynamic_vamana<manager::as_typelist<QueryTypes>>(
-                parameters, std::move(data), ids, std::move(distance), std::move(threadpool)
+                BuildTag{},
+                parameters,
+                std::move(data),
+                ids,
+                std::move(distance),
+                std::move(threadpool),
+                graph_allocator
             );
         }
     }
@@ -506,6 +519,13 @@ DynamicVamana make_dynamic_vamana(Args&&... args) {
     using Impl = decltype(index::vamana::MutableVamanaIndex{std::forward<Args>(args)...});
     return DynamicVamana{
         std::make_unique<DynamicVamanaImpl<QueryTypes, Impl>>(std::forward<Args>(args)...)};
+}
+
+template <lib::TypeList QueryTypes, typename... Args>
+DynamicVamana make_dynamic_vamana(DynamicVamana::BuildTag SVS_UNUSED(tag), Args&&... args) {
+    return make_dynamic_vamana<QueryTypes>(
+        index::vamana::auto_dynamic_build(std::forward<Args>(args)...)
+    );
 }
 
 } // namespace svs
