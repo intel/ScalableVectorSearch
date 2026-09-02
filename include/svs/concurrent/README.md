@@ -4,10 +4,10 @@ A dynamic Vamana index that supports **lock-free search concurrent with mutation
 searches, `add_points`, `delete_entries`, and `consolidate` may all be in flight at the
 same time, from any number of threads.
 
-This is a **separate index**. The pre-existing `svs::index::vamana::VamanaIndex` and
-`svs::index::vamana::MutableVamanaIndex` are not modified, and neither is anything else
-under `include/svs/`. The only pre-existing file this stack touches at all is
-`tests/CMakeLists.txt`, to register the new tests.
+This is a **separate index**. The pre-existing `svs::index::vamana::VamanaIndex`,
+`svs::index::vamana::MutableVamanaIndex`, and `svs::index::vamana::MultiMutableVamanaIndex`
+are not modified, and neither is anything else under `include/svs/`. The only pre-existing
+file this stack touches at all is `tests/CMakeLists.txt`, to register the new tests.
 
 ## Why a separate index
 

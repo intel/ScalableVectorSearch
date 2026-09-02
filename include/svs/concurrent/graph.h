@@ -142,9 +142,6 @@ template <std::unsigned_integral Idx, data::MemoryDataset Data> class SimpleGrap
         for (;;) {
             auto maybe_seq = seq_counters_[src].read_begin();
             if (!maybe_seq) {
-                // Fully qualified: an unqualified `detail::` here resolves to the enclosing
-                // `svs::index::vamana::detail` whenever a translation unit has already
-                // included an upstream vamana header, which has no `pause`.
                 svs::detail::pause();
                 continue;
             }
