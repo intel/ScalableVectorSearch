@@ -14,6 +14,11 @@
 
 include_guard(GLOBAL)
 
+## A function captures the policy stack where it is defined, so CMP0007 is set here rather
+## than by the caller: under OLD an empty field vanishes and a row with one is called malformed.
+cmake_policy(PUSH)
+cmake_policy(SET CMP0007 NEW)
+
 # Parses an ISA level spec from SVS_ISA_LEVELS and returns the three fields.
 # The spec format is <level>|<arch>|<infix>.
 function(svs_parse_isa_level spec out_level out_arch out_infix)
@@ -47,3 +52,5 @@ function(svs_parse_tu_spec spec out_src out_level out_arch out_infix)
   set(${out_arch}   "${v2}" PARENT_SCOPE)
   set(${out_infix}  "${v3}" PARENT_SCOPE)
 endfunction()
+
+cmake_policy(POP)
