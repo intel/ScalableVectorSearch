@@ -135,5 +135,5 @@ if(svs_nm AND svs_gdb)
         -P "${svs_dispatch_cmake_dir}/check-dispatch-execution.cmake"
     )
 else()
-    message(STATUS "gdb not found; skipping the dispatch surface execution test")
+    message(STATUS "nm or gdb not found; skipping the dispatch surface execution test")
 endif()
