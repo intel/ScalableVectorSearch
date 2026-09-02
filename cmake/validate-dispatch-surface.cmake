@@ -108,6 +108,7 @@ endif()
 
 set(svs_seen_levels)
 set(svs_seen_infixes)
+set(svs_seen_archs)
 foreach(level_spec IN LISTS SVS_ISA_LEVELS)
     svs_parse_isa_level("${level_spec}" level arch infix)
     foreach(field level arch infix)
@@ -126,6 +127,14 @@ foreach(level_spec IN LISTS SVS_ISA_LEVELS)
             "generated files and must be unique."
         )
     endif()
+    if(arch IN_LIST svs_seen_archs)
+        message(FATAL_ERROR
+            "Duplicate -march '${arch}' in SVS_ISA_LEVELS; each level's -march "
+            "is its instruction budget, so two levels sharing one budget compile "
+            "the weaker level with instructions its runtime predicate does not "
+            "guarantee, and hosts routed to it fault."
+        )
+    endif()
     if(NOT EXISTS "${SVS_X86_SRC_DIR}/${infix}.cpp")
         message(FATAL_ERROR
             "ISA level '${level}' has no translation unit: expected "
@@ -135,6 +144,7 @@ foreach(level_spec IN LISTS SVS_ISA_LEVELS)
     endif()
     list(APPEND svs_seen_levels ${level})
     list(APPEND svs_seen_infixes ${infix})
+    list(APPEND svs_seen_archs ${arch})
 endforeach()
 
 cmake_policy(POP)
