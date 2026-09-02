@@ -140,7 +140,8 @@ struct lib::
 };
 
 template <bool UseBlocked, typename F> void for_leanvec_specializations(F&& f) {
-    using byte_alloc = svs::c_runtime::MaybeBlockedAlloc<std::byte, UseBlocked>;
+    using byte_alloc = svs::c_runtime::
+        MaybeBlockedAlloc<std::byte, UseBlocked, AllocatorHandle<std::byte>>;
 
 #define X(P, S, D) f.template operator()<LeanVecDataBuilder<P, S, byte_alloc>, D>();
 #define XX(P, S) X(P, S, DistanceL2) X(P, S, DistanceIP) X(P, S, DistanceCosineSimilarity)

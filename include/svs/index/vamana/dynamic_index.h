@@ -201,6 +201,56 @@ class MutableVamanaIndex {
         translator_.insert(external_ids, threads::UnitRange<Idx>(0, external_ids.size()));
     }
 
+    template <typename ExternalIds, typename ThreadPoolProto>
+    MutableVamanaIndex(
+        const VamanaBuildParameters& parameters,
+        Graph graph,
+        Data data,
+        Idx entry_point,
+        Dist distance_function,
+        const ExternalIds& external_ids,
+        ThreadPoolProto threadpool_proto,
+        // Optional logger parameter
+        svs::logging::logger_ptr logger = svs::logging::get()
+    )
+        : MutableVamanaIndex{
+              std::move(graph),
+              std::move(data),
+              entry_point,
+              std::move(distance_function),
+              external_ids,
+              std::move(threadpool_proto),
+              std::move(logger)} {
+        if (graph_.n_nodes() != data_.size()) {
+            throw ANNEXCEPTION("Wrong sizes!");
+        }
+        build_parameters_ = parameters;
+        // Verify and set defaults before using the parameters to set other member
+        // variables.
+        verify_and_set_default_index_parameters(build_parameters_, distance_function);
+
+        assert(build_parameters_.graph_max_degree == graph_.max_degree());
+        alpha_ = build_parameters_.alpha;
+        construction_window_size_ = build_parameters_.window_size;
+        max_candidates_ = build_parameters_.max_candidate_pool_size;
+        prune_to_ = build_parameters_.prune_to;
+        use_full_search_history_ = build_parameters_.use_full_search_history;
+        // Perform graph construction.
+        auto builder = VamanaBuilder(
+            graph_,
+            data_,
+            distance_,
+            build_parameters_,
+            threadpool_,
+            extensions::estimate_prefetch_parameters(data_),
+            logger_
+        );
+        builder.construct(1.0f, entry_point_[0], logging::Level::Trace, logger_);
+        builder.construct(
+            build_parameters_.alpha, entry_point_[0], logging::Level::Trace, logger_
+        );
+    }
+
     ///
     /// Build a graph from scratch.
     ///
@@ -1394,6 +1444,45 @@ struct VamanaStateLoader {
 };
 
 } // namespace detail
+
+// Build
+template <
+    typename DataProto,
+    typename Distance,
+    typename ExternalIdsProto,
+    typename ThreadPoolProto,
+    typename GraphAllocator = data::Blocked<HugepageAllocator<uint32_t>>>
+auto auto_dynamic_build(
+    const VamanaBuildParameters& parameters,
+    DataProto&& data_proto,
+    ExternalIdsProto&& external_ids_proto,
+    Distance distance,
+    ThreadPoolProto threadpool_proto,
+    const GraphAllocator& graph_allocator = {},
+    svs::logging::logger_ptr logger = svs::logging::get()
+) {
+    auto threadpool = threads::as_threadpool(std::move(threadpool_proto));
+    auto data = svs::detail::dispatch_load(SVS_FWD(data_proto), threadpool);
+    auto external_ids = svs::detail::dispatch_load(SVS_FWD(external_ids_proto), threadpool);
+    auto entry_point = extensions::compute_entry_point(data, threadpool);
+
+    // Perform graph construction.
+    auto verified_parameters = parameters;
+    verify_and_set_default_index_parameters(verified_parameters, distance);
+
+    auto graph =
+        default_graph(data.size(), verified_parameters.graph_max_degree, graph_allocator);
+    using Idx = typename decltype(graph)::index_type;
+    return MutableVamanaIndex{
+        verified_parameters,
+        std::move(graph),
+        std::move(data),
+        lib::narrow<Idx>(entry_point),
+        std::move(distance),
+        std::move(external_ids),
+        std::move(threadpool),
+        std::move(logger)};
+}
 
 // Assembly
 template <

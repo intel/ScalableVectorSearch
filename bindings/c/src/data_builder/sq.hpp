@@ -93,8 +93,10 @@ struct lib::DispatchConverter<const c_runtime::Storage*, SQDataBuilder<T, Alloc>
 };
 
 template <bool UseBlocked, typename F> void for_sq_specializations(F&& f) {
-    using int8_alloc = svs::c_runtime::MaybeBlockedAlloc<int8_t, UseBlocked>;
-    using uint8_alloc = svs::c_runtime::MaybeBlockedAlloc<uint8_t, UseBlocked>;
+    using int8_alloc =
+        svs::c_runtime::MaybeBlockedAlloc<int8_t, UseBlocked, AllocatorHandle<int8_t>>;
+    using uint8_alloc =
+        svs::c_runtime::MaybeBlockedAlloc<uint8_t, UseBlocked, AllocatorHandle<uint8_t>>;
 #define X(T, A, D) f.template operator()<SQDataBuilder<T, A>, D>();
 #define XX(T, A) X(T, A, DistanceL2) X(T, A, DistanceIP) X(T, A, DistanceCosineSimilarity)
     XX(uint8_t, uint8_alloc)
