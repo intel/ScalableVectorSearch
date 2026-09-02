@@ -25,6 +25,27 @@ a new level.
 These tests are only added to the build when the x86 object libraries
 exist. Run `ctest` from `<build>/tests`, not from the build root.
 
+## Why these are not Catch2 cases
+
+Everything else under `tests/` is a Catch2 case registered with ctest by
+`catch_discover_tests`. These are registered with `add_test` instead, and the
+two probes under `../x86/` contain no Catch2 macros. That is deliberate for the
+probes and provisional for the checkers.
+
+`link_probe.cpp` cannot be a Catch2 case because *its test is the link step*: it
+names every kernel the surface declares and nothing else, so a declared but
+uninstantiated kernel is an undefined symbol and the probe fails to link. Folding
+it into the single `tests` binary would turn a surface bug into a whole-suite link
+failure, and would stop `nm --undefined-only` from isolating the surface's symbols
+from the hundred other objects. `entry_probe.cpp` is driven under gdb, which needs
+its own small executable with predictable breakpoints.
+
+The four `cmake -P` checkers have no such excuse. They are scripts because they
+shell out to `nm` and `objdump` and were easiest to write that way. Porting them
+to Catch2 cases that shell out to the same tools is planned separately; it would
+get real data structures and unit-testable helpers without adding a Python
+dependency to the C++ build.
+
 ## check-dispatch-linkage.cmake
 
 **Test:** `dispatch_surface_linkage`
