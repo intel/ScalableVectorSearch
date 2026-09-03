@@ -376,6 +376,7 @@ CATCH_TEST_CASE("C API Dynamic Index Memory", "[c_api][index][memory][dynamic]")
     const size_t GRAPH_DEGREE = 16;
     const size_t NUM_VECTORS = BLOCK_SIZE / DIMENSION; // full blocks of data
     const size_t K = 5;
+    const size_t NUM_THREADS = 4;
 
     std::vector<float> data;
     std::vector<size_t> ids(NUM_VECTORS);
@@ -388,13 +389,18 @@ CATCH_TEST_CASE("C API Dynamic Index Memory", "[c_api][index][memory][dynamic]")
 
     svs_error_h error = svs_error_create();
 
-    svs_algorithm_h algorithm = svs_algorithm_create_vamana(GRAPH_DEGREE, 100, 100, error);
+    svs_algorithm_h algorithm = svs_algorithm_create_vamana(GRAPH_DEGREE, 32, 50, error);
     CATCH_REQUIRE(algorithm != nullptr);
 
     svs_index_builder_h builder = svs_index_builder_create(
         SVS_DISTANCE_METRIC_EUCLIDEAN, DIMENSION, algorithm, error
     );
     CATCH_REQUIRE(builder != nullptr);
+
+    bool success = svs_index_builder_set_threadpool(
+        builder, SVS_THREADPOOL_KIND_NATIVE, NUM_THREADS, error
+    );
+    CATCH_REQUIRE(success);
 
     CATCH_SECTION("Dynamic Index Memory Accounting") {
         // Build dynamic index
@@ -458,7 +464,7 @@ CATCH_TEST_CASE("C API Dynamic Index Memory", "[c_api][index][memory][dynamic]")
             }
 
             // Estimate before build.
-            svs_memory_breakdown_t estimated{};
+            svs_memory_breakdown_t estimated = SVS_INIT_MEMORY_BREAKDOWN();
             ok = svs_index_builder_estimate_memory_dynamic(
                 local_builder, NUM_VECTORS, BLOCK_SIZE, &estimated, error
             );
@@ -475,7 +481,7 @@ CATCH_TEST_CASE("C API Dynamic Index Memory", "[c_api][index][memory][dynamic]")
             CATCH_REQUIRE(index != nullptr);
             CATCH_REQUIRE(svs_error_ok(error));
 
-            svs_memory_breakdown_t actual{};
+            svs_memory_breakdown_t actual = SVS_INIT_MEMORY_BREAKDOWN();
             ok = svs_index_get_memory_breakdown(index, &actual, error);
             CATCH_REQUIRE(ok);
             CATCH_REQUIRE(svs_error_ok(error));
@@ -642,6 +648,122 @@ CATCH_TEST_CASE("C API Dynamic Index Memory", "[c_api][index][memory][dynamic]")
 
         svs_search_params_free(large_params);
         svs_search_params_free(search_params);
+    }
+
+    CATCH_SECTION("Allocator Configuration") {
+        // Each built-in allocator kind must yield a usable dynamic index.
+        auto build_with_allocator = [&](svs_allocator_kind_t kind) {
+            svs_index_builder_h local_builder = svs_index_builder_create(
+                SVS_DISTANCE_METRIC_EUCLIDEAN, DIMENSION, algorithm, error
+            );
+            CATCH_REQUIRE(local_builder != nullptr);
+            CATCH_REQUIRE(svs_error_ok(error));
+
+            bool success = svs_index_builder_set_threadpool(
+                local_builder, SVS_THREADPOOL_KIND_NATIVE, NUM_THREADS, error
+            );
+            CATCH_REQUIRE(success);
+
+            bool ok = svs_index_builder_set_allocator(local_builder, kind, error);
+            CATCH_REQUIRE(ok);
+            CATCH_REQUIRE(svs_error_ok(error));
+
+            // Use big blocksize to avoid many HugePage allocations.
+            svs_index_h index = svs_index_build_dynamic(
+                local_builder, data.data(), ids.data(), NUM_VECTORS, 1 << 30, error
+            );
+            CATCH_REQUIRE(index != nullptr);
+            CATCH_REQUIRE(svs_error_ok(error));
+
+            size_t memory_usage = 0;
+            ok = svs_index_get_memory_usage(index, &memory_usage, error);
+            CATCH_REQUIRE(ok);
+            CATCH_REQUIRE(memory_usage > 0);
+
+            svs_index_free(index);
+            svs_index_builder_free(local_builder);
+        };
+
+        build_with_allocator(SVS_ALLOCATOR_KIND_DEFAULT);
+        build_with_allocator(SVS_ALLOCATOR_KIND_HUGE_PAGE);
+
+        // Null builder is rejected.
+        CATCH_REQUIRE(
+            svs_index_builder_set_allocator(nullptr, SVS_ALLOCATOR_KIND_DEFAULT, error) ==
+            false
+        );
+        CATCH_REQUIRE(svs_error_get_code(error) == SVS_ERROR_INVALID_ARGUMENT);
+
+        // Unknown allocator kind is rejected.
+        CATCH_REQUIRE(
+            svs_index_builder_set_allocator(
+                builder, static_cast<svs_allocator_kind_t>(999), error
+            ) == false
+        );
+        CATCH_REQUIRE(svs_error_get_code(error) == SVS_ERROR_INVALID_ARGUMENT);
+    }
+
+    CATCH_SECTION("Custom Allocator") {
+        // Wire up a memory-tracking custom allocator.
+        TrackingAllocator tracker;
+        struct svs_allocator_interface_ops alloc_ops = SVS_INIT_ALLOCATOR_OPS(
+            tracking_allocator_allocate, tracking_allocator_deallocate
+        );
+        struct svs_allocator_interface allocator = SVS_MAKE_INTERFACE(&tracker, alloc_ops);
+
+        // Null builder and null allocator are both rejected.
+        CATCH_REQUIRE(
+            svs_index_builder_set_allocator_custom(nullptr, &allocator, error) == false
+        );
+        CATCH_REQUIRE(svs_error_get_code(error) == SVS_ERROR_INVALID_ARGUMENT);
+        CATCH_REQUIRE(
+            svs_index_builder_set_allocator_custom(builder, nullptr, error) == false
+        );
+        CATCH_REQUIRE(svs_error_get_code(error) == SVS_ERROR_INVALID_ARGUMENT);
+
+        bool ok = svs_index_builder_set_allocator_custom(builder, &allocator, error);
+        CATCH_REQUIRE(ok);
+        CATCH_REQUIRE(svs_error_ok(error));
+
+        // Build the dynamic index; the vector data is allocated through `tracker`.
+        svs_index_h index = svs_index_build_dynamic(
+            builder, data.data(), ids.data(), NUM_VECTORS, BLOCK_SIZE, error
+        );
+        CATCH_REQUIRE(index != nullptr);
+        CATCH_REQUIRE(svs_error_ok(error));
+
+        // The custom allocator must actually have been used.
+        CATCH_REQUIRE(tracker.alloc_count > 0);
+        CATCH_REQUIRE(tracker.live_bytes > 0);
+        CATCH_REQUIRE(tracker.total_bytes >= tracker.live_bytes);
+
+        // Actual memory usage reported by the built index.
+        svs_memory_breakdown_t breakdown = SVS_INIT_MEMORY_BREAKDOWN();
+        ok = svs_index_get_memory_breakdown(index, &breakdown, error);
+        CATCH_REQUIRE(ok);
+        CATCH_REQUIRE(svs_error_ok(error));
+
+        // For the dynamic Vamana index only the vector data is routed through the
+        // builder's allocator (the blocked graph and id-translation metadata use their
+        // own internal allocators), so the bytes still held by the custom allocator must
+        // match the data portion of the breakdown and the pre-build estimate.
+        auto within_1pct = [](size_t a, size_t b) {
+            if (a == b) {
+                return true;
+            }
+            const auto [smaller, larger] = std::minmax(a, b);
+            return (larger - smaller) * 100 <= larger;
+        };
+        // TODO: Modify MutableVamanaIndex metadata allocations to use the builder's
+        // allocator so that this check can be extended to include metadata_bytes.
+        CATCH_REQUIRE(
+            within_1pct(tracker.live_bytes, breakdown.data_bytes + breakdown.graph_bytes)
+        );
+
+        // Freeing the index returns every tracked byte to the allocator.
+        svs_index_free(index);
+        CATCH_REQUIRE(tracker.live_bytes == 0);
+        CATCH_REQUIRE(tracker.dealloc_count == tracker.alloc_count);
     }
 
     svs_index_builder_free(builder);

@@ -54,15 +54,20 @@ svs::DynamicVamana build_dynamic_vamana_index(
     }
     using allocator_type = typename DataBuilder::allocator_type;
     using value_type = typename allocator_type::value_type;
+
     auto data_allocator_handle = svs::lib::rebind_allocator<value_type>(allocator_handle);
-    auto allocator = allocator_type{block_params, data_allocator_handle};
-    auto data = builder.build(std::move(src_data.first), pool, allocator);
+    auto data_allocator = allocator_type{block_params, data_allocator_handle};
+    auto data = builder.build(std::move(src_data.first), pool, data_allocator);
+
+    auto graph_allocator_handle = svs::lib::rebind_allocator<uint32_t>(allocator_handle);
+    auto graph_allocator = svs::data::Blocked{block_params, graph_allocator_handle};
     return svs::DynamicVamana::build<float>(
         build_params,
         std::move(data),
         std::move(src_data.second),
         std::move(D),
-        std::move(pool)
+        std::move(pool),
+        graph_allocator
     );
 }
 
@@ -85,9 +90,13 @@ svs::DynamicVamana load_dynamic_vamana_index(
     auto data_allocator_handle = svs::lib::rebind_allocator<value_type>(allocator_handle);
     auto allocator = allocator_type{block_params, data_allocator_handle};
     auto data = loader.load(directory / "data", allocator);
+
+    auto graph_allocator_handle = svs::lib::rebind_allocator<uint32_t>(allocator_handle);
+    auto graph_allocator = svs::data::Blocked{block_params, graph_allocator_handle};
+
     return svs::DynamicVamana::assemble<float>(
         directory / "config",
-        svs::GraphLoader{directory / "graph"},
+        svs::GraphLoader{directory / "graph", graph_allocator},
         std::move(data),
         std::move(D),
         std::move(pool)
@@ -186,24 +195,26 @@ svs::index::vamana::MemoryBreakdown dispatch_dynamic_vamana_memory_estimate(
     size_t blocksize_bytes
 ) {
     svs::index::vamana::MemoryBreakdown breakdown{};
+
+    // Graph size
     // Graph: SimpleBlockedData<uint32_t> with num_vectors rows and (max_degree + 1)
     // cols; the +1 slot stores the per-node neighbor count.
     using index_type = uint32_t;
+    using graph_allocator_type = svs::data::Blocked<svs::lib::Allocator<index_type>>;
+
     const size_t max_degree = build_params.graph_max_degree;
 
-    // TODO Fix/refactor DynamicVamana index builder to use proper allocator type and
-    // blocking parameters for graph, so that the memory estimate can be accurate for
-    // blocked data. For now, we use the default blocking parameters.
-    // There is MutableVamanaIndex deduction guides for index building defined in
-    // dynamic_index.h which set SimpleBlockedGraph as default graph type.
-    using graph_type = graphs::SimpleBlockedGraph<index_type>;
-    using graph_data_type = typename graph_type::data_type;
-    using allocator_type = graph_data_type::allocator_type;
-    using graph_builder_type = svs::SimpleDataBuilder<index_type, allocator_type>;
+    svs::data::BlockingParameters block_params;
+    if (blocksize_bytes != 0) {
+        block_params.blocksize_bytes = svs::lib::prevpow2(blocksize_bytes);
+    }
+    auto graph_allocator = graph_allocator_type{block_params};
+    auto graph_data_builder = svs::SimpleDataBuilder<index_type, graph_allocator_type>{};
 
     breakdown.graph_bytes =
-        graph_builder_type{}.estimate_size(num_vectors, (max_degree + 1));
+        graph_data_builder.estimate_size(num_vectors, (max_degree + 1), graph_allocator);
 
+    // Data size
     breakdown.data_bytes =
         estimate_data_size_blocked(storage, num_vectors, dimension, blocksize_bytes);
 
