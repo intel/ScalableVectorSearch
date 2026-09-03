@@ -679,6 +679,23 @@ template <typename Alloc> class Blocked : public Alloc {
 template <typename Alloc> inline constexpr bool is_blocked_v = false;
 template <typename Alloc> inline constexpr bool is_blocked_v<Blocked<Alloc>> = true;
 
+template <typename Alloc> struct remove_blocking {
+    using type = Alloc;
+};
+template <typename Alloc> struct remove_blocking<Blocked<Alloc>> {
+    using type = Alloc;
+};
+template <typename Alloc> using remove_blocked_t = typename remove_blocking<Alloc>::type;
+
+template <typename Alloc>
+constexpr remove_blocked_t<Alloc> remove_blocked(const Alloc& alloc) {
+    if constexpr (is_blocked_v<Alloc>) {
+        return alloc.get_allocator();
+    } else {
+        return alloc;
+    }
+}
+
 } // namespace data
 
 namespace lib::detail {
@@ -696,6 +713,9 @@ template <typename T, size_t Extent, typename Alloc>
 class SimpleData<T, Extent, Blocked<Alloc>> {
   public:
     ///// Static Members
+
+    /// The static dimensionality of the underlying data.
+    static constexpr size_t extent = Extent;
 
     ///
     /// Default block size in bytes.

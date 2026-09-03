@@ -107,6 +107,183 @@ class ValidBuilder {
     const std::vector<SlotMetadata>& status_;
 };
 
+/// @brief transactional graph wrapper for a graph that allows for transactional updates to
+/// the graph structure without modifying the underlying graph.
+/// @tparam Graph  The type of the underlying immutable graph.
+template <graphs::ImmutableMemoryGraph Graph> struct TransactionGraph {
+    using index_type = typename Graph::index_type;
+    using value_type = typename Graph::value_type;
+    using const_value_type = typename Graph::const_value_type;
+    using reference = typename Graph::reference;
+    using const_reference = typename Graph::const_reference;
+    using updated_nodes_type = std::vector<std::vector<index_type>>;
+    using slots_map_type = std::vector<index_type>; //, index_type>;
+    static constexpr index_type invalid_index = static_cast<index_type>(-1);
+
+  private:
+    const Graph& graph_;
+    const size_t num_nodes_;
+    const size_t new_size_;
+    updated_nodes_type updated_nodes_;
+    std::unique_ptr<std::shared_mutex> nodes_mutex_;
+    slots_map_type slots_map_;
+    size_t num_slots_ = 0;
+
+    static inline bool has_edge_in_span(const_reference neighbors, index_type to) {
+        return std::find(neighbors.begin(), neighbors.end(), to) != neighbors.end();
+    }
+
+    index_type get_slot_index_unsafe(index_type id) const { return slots_map_[id]; }
+
+    index_type get_slot_index(index_type id) const {
+        std::shared_lock lock(*nodes_mutex_);
+        return get_slot_index_unsafe(id);
+    }
+
+    index_type get_or_add_slot_unsafe(index_type id) {
+        if (slots_map_[id] != invalid_index) {
+            return slots_map_[id];
+        }
+        index_type new_slot = num_slots_++;
+        slots_map_[id] = new_slot;
+        updated_nodes_.emplace_back();
+        return new_slot;
+    }
+
+    index_type get_or_add_slot(index_type id) {
+        index_type slot_index = get_slot_index(id);
+        if (slot_index != invalid_index) {
+            return slot_index;
+        }
+        std::lock_guard lock(*nodes_mutex_);
+        return get_or_add_slot_unsafe(id);
+    }
+
+    index_type get_or_load_slot(index_type id) {
+        index_type slot_index = get_slot_index(id);
+        if (slot_index != invalid_index) {
+            return slot_index;
+        }
+        std::lock_guard lock(*nodes_mutex_);
+        slot_index = get_slot_index_unsafe(id);
+        if (slot_index != invalid_index) {
+            return slot_index;
+        }
+
+        slot_index = num_slots_++;
+        slots_map_[id] = slot_index;
+        auto node = graph_.get_node(id);
+        updated_nodes_.emplace_back(node.begin(), node.end());
+        return slot_index;
+    }
+
+  public:
+    TransactionGraph(const Graph& graph, std::span<size_t> slots)
+        : graph_(graph)
+        , num_nodes_(graph.n_nodes())
+        , new_size_(std::max(num_nodes_, slots.empty() ? 0 : slots.back() + 1))
+        , nodes_mutex_(std::make_unique<std::shared_mutex>())
+        , slots_map_(new_size_, invalid_index)
+        , num_slots_(slots.size()) {
+        updated_nodes_.reserve(std::min(slots.size() * graph_.max_degree(), new_size_));
+        updated_nodes_.resize(slots.size());
+        for (size_t i = 0; i < slots.size(); ++i) {
+            slots_map_[slots[i]] = i;
+        }
+    }
+
+    size_t n_nodes() const { return new_size_; }
+
+    const_reference get_node(index_type id) const {
+        index_type slot_index = get_slot_index(id);
+        if (slot_index != invalid_index) {
+            return updated_nodes_[slot_index];
+        } else {
+            return graph_.get_node(id);
+        }
+    }
+
+    bool has_edge(index_type from, index_type to) const {
+        index_type slot_index = get_slot_index(from);
+        if (slot_index != invalid_index) {
+            return has_edge_in_span(updated_nodes_[slot_index], to);
+        } else {
+            return graph_.has_edge(from, to);
+        }
+    }
+
+    void clear_node(index_type id) {
+        index_type slot_index = get_or_add_slot(id);
+        updated_nodes_[slot_index].clear();
+    }
+
+    void replace_node(index_type id, std::vector<index_type> neighbors) {
+        replace_node(id, std::span<const index_type>(neighbors));
+    }
+
+    void replace_node(index_type id, std::span<const index_type> neighbors) {
+        auto slot_index = get_or_add_slot(id);
+        updated_nodes_[slot_index].assign(neighbors.begin(), neighbors.end());
+
+        for (auto neighbor : neighbors) {
+            get_or_load_slot(neighbor);
+        }
+    }
+
+    size_t get_node_degree(index_type id) const {
+        auto slot_index = get_slot_index(id);
+        if (slot_index != invalid_index) {
+            return updated_nodes_[slot_index].size();
+        } else {
+            return graph_.get_node_degree(id);
+        }
+    }
+
+    size_t max_degree() const { return graph_.max_degree(); }
+
+    size_t add_edge(index_type from, index_type to) {
+        if (from == to) {
+            return get_node_degree(from);
+            ;
+        }
+        if (from >= new_size_ || to >= new_size_) {
+            throw std::out_of_range("Index out of range in TransactionalGraph::add_edge");
+        }
+        auto slot_index = get_or_load_slot(from);
+        auto& updated_node = updated_nodes_[slot_index];
+        if (updated_node.size() >= graph_.max_degree()) {
+            return updated_node.size();
+        }
+        if (!has_edge_in_span(updated_node, to)) {
+            updated_node.push_back(to);
+        }
+        return updated_node.size();
+    }
+
+    void prefetch_node(index_type id) const {
+        auto slot_index = get_slot_index(id);
+        if (slot_index == invalid_index) {
+            graph_.prefetch_node(id);
+        }
+    }
+
+    template <graphs::MemoryGraph G> void copy_edges(G& target_graph) const {
+        assert(
+            &target_graph == &graph_ && "Target graph must be same as the original graph"
+        );
+        if (new_size_ > target_graph.n_nodes()) {
+            target_graph.unsafe_resize(new_size_);
+        }
+        for (size_t id = 0; id < slots_map_.size(); ++id) {
+            index_type slot_index = get_slot_index_unsafe(id);
+            if (slot_index != invalid_index) {
+                auto& src = updated_nodes_[slot_index];
+                target_graph.replace_node(id, src);
+            }
+        }
+    }
+};
+
 template <graphs::MemoryGraph Graph, typename Data, typename Dist>
 class MutableVamanaIndex {
     friend class MultiMutableVamanaIndex<Graph, Data, Dist>;
@@ -156,7 +333,8 @@ class MutableVamanaIndex {
 
     // Thread local data structures.
     distance_type distance_;
-    threads::ThreadPoolHandle threadpool_;
+    mutable threads::ThreadPoolHandle
+        threadpool_; // TODO: Remove mutable and const_casts in the code.
     lib::ReadWriteProtected<VamanaSearchParameters> search_parameters_;
 
     // Configurations
@@ -637,26 +815,10 @@ class MutableVamanaIndex {
         );
     }
 
-    ///
-    /// @brief Add the points with the given external IDs to the dataset.
-    //
-    /// When `delete_entries` is called, a soft deletion is performed, marking the entries
-    /// as `deleted`. When `consolidate` is called, the state of these deleted entries
-    /// becomes `empty`. When `add_points` is called with the `reuse_empty` flag enabled,
-    /// the memory is scanned from the beginning to locate and fill these empty entries with
-    /// new points.
-    ///
-    /// @param points Dataset of points to add.
-    /// @param external_ids The external IDs of the corresponding points. Must be a
-    ///     container implementing forward iteration.
-    /// @param reuse_empty A flag that determines whether to reuse empty entries that may
-    /// exist after deletion and consolidation. When enabled, scan from the beginning to
-    /// find and fill these empty entries when adding new points.
-    ///
     template <data::ImmutableMemoryDataset Points, class ExternalIds>
-    std::vector<size_t> add_points(
+    auto add_points_compute_changes(
         const Points& points, const ExternalIds& external_ids, bool reuse_empty = false
-    ) {
+    ) const {
         const size_t num_points = points.size();
         const size_t num_ids = external_ids.size();
         if (num_points != num_ids) {
@@ -690,30 +852,16 @@ class MutableVamanaIndex {
             size_t needed = num_points - slots.size();
             size_t current_size = data_.size();
             size_t new_size = current_size + needed;
-            data_.resize(new_size);
-
-            // Graph resizing marked as un-safe because graph contain internal references
-            // and thus it's not a good idea to go around shrinking the graph without care.
-            //
-            // However, we are only growing here, so resizing will not change any
-            // invariants.
-            graph_.unsafe_resize(new_size);
-            status_.resize(new_size, SlotMetadata::Empty);
-
             // Append the correct number of extra slots.
-            threads::UnitRange<size_t> extra_points{current_size, current_size + needed};
+            threads::UnitRange<size_t> extra_points{current_size, new_size};
             slots.insert(slots.end(), extra_points.begin(), extra_points.end());
         }
         assert(slots.size() == num_points);
 
-        // Try to update the id translation now that we have internal ids.
-        // If this fails, we still haven't mutated the index data structure so we're safe
-        // to throw an exception.
-        translator_.insert(external_ids, slots);
-
-        // Copy the given points into the data and clear the adjacency lists for the graph.
-        copy_points(points, slots);
-        clear_lists(slots);
+        // Create transaction data wrapper
+        auto data_wrapper =
+            extensions::transaction_data_builder(data_, points, slots, threadpool_);
+        TransactionGraph<graph_type> graph_wrapper{graph_, slots};
 
         // Patch in the new neighbors.
         auto parameters = VamanaBuildParameters{
@@ -728,8 +876,8 @@ class MutableVamanaIndex {
         auto prefetch_parameters =
             GreedySearchPrefetchParameters{sp.prefetch_lookahead_, sp.prefetch_step_};
         VamanaBuilder builder{
-            graph_,
-            data_,
+            graph_wrapper,
+            data_wrapper,
             distance_,
             parameters,
             threadpool_,
@@ -737,8 +885,35 @@ class MutableVamanaIndex {
             logger_,
             logging::Level::Trace};
         builder.construct(alpha_, entry_point(), slots, logging::Level::Trace, logger_);
+        return std::make_tuple(
+            std::move(data_wrapper), std::move(graph_wrapper), std::move(slots)
+        );
+    }
+
+    template <class ExternalIds, typename DataWrapper>
+    std::vector<size_t> add_points_commit(
+        const ExternalIds& external_ids,
+        const std::tuple<DataWrapper, TransactionGraph<graph_type>, std::vector<size_t>>&
+            changes
+    ) {
+        auto& [data_wrapper, graph_wrapper, slots] = changes;
+
+        // Try to update the id translation now that we have internal ids.
+        // If this fails, we still haven't mutated the index data structure so we're safe
+        // to throw an exception.
+        translator_.insert(external_ids, slots);
+
+        // Update data_
+        data_wrapper.copy_points(data_);
+        graph_wrapper.copy_edges(graph_);
+
         // Mark all added entries as valid.
-        for (const auto& i : slots) {
+        auto new_size = data_.size();
+        assert(graph_.n_nodes() == new_size);
+        assert(status_.size() <= new_size);
+        status_.resize(new_size, SlotMetadata::Valid);
+        for (auto i : slots) {
+            assert(i < new_size);
             status_[i] = SlotMetadata::Valid;
         }
 
@@ -746,6 +921,30 @@ class MutableVamanaIndex {
             first_empty_ = std::max(first_empty_, slots.back() + 1);
         }
         return slots;
+    }
+
+    ///
+    /// @brief Add the points with the given external IDs to the dataset.
+    //
+    /// When `delete_entries` is called, a soft deletion is performed, marking the entries
+    /// as `deleted`. When `consolidate` is called, the state of these deleted entries
+    /// becomes `empty`. When `add_points` is called with the `reuse_empty` flag enabled,
+    /// the memory is scanned from the beginning to locate and fill these empty entries with
+    /// new points.
+    ///
+    /// @param points Dataset of points to add.
+    /// @param external_ids The external IDs of the corresponding points. Must be a
+    ///     container implementing forward iteration.
+    /// @param reuse_empty A flag that determines whether to reuse empty entries that may
+    /// exist after deletion and consolidation. When enabled, scan from the beginning to
+    /// find and fill these empty entries when adding new points.
+    ///
+    template <data::ImmutableMemoryDataset Points, class ExternalIds>
+    std::vector<size_t> add_points(
+        const Points& points, const ExternalIds& external_ids, bool reuse_empty = false
+    ) {
+        auto changes = add_points_compute_changes(points, external_ids, reuse_empty);
+        return add_points_commit(external_ids, changes);
     }
 
     ///
