@@ -13,7 +13,7 @@
 # limitations under the License.
 
 cmake_minimum_required(VERSION 3.21)
-project(svs_c_api VERSION 0.4.0 LANGUAGES CXX C)
+project(svs_c_api VERSION 0.5.0 LANGUAGES CXX C)
 set(TARGET_NAME svs_c_api)
 
 include(GNUInstallDirs)
