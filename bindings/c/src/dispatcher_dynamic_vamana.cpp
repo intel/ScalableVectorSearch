@@ -165,4 +165,50 @@ svs::DynamicVamana dispatch_dynamic_vamana_index_load(
         blocksize_bytes
     );
 }
+
+svs::index::vamana::MemoryBreakdown dispatch_dynamic_vamana_memory_estimate(
+    const svs::index::vamana::VamanaBuildParameters& build_params,
+    size_t num_vectors,
+    size_t dimension,
+    const Storage* storage,
+    svs::DistanceType SVS_UNUSED(distance_type),
+    size_t blocksize_bytes
+) {
+    svs::index::vamana::MemoryBreakdown breakdown{};
+    // Graph: SimpleBlockedData<uint32_t> with num_vectors rows and (max_degree + 1)
+    // cols; the +1 slot stores the per-node neighbor count.
+    using index_type = uint32_t;
+    const size_t max_degree = build_params.graph_max_degree;
+
+    // TODO Fix/refactor DynamicVamana index builder to use proper allocator type and
+    // blocking parameters for graph, so that the memory estimate can be accurate for
+    // blocked data. For now, we use the default blocking parameters.
+    // There is MutableVamanaIndex deduction guides for index building defined in
+    // dynamic_index.h which set SimpleBlockedGraph as default graph type.
+    using graph_type = graphs::SimpleBlockedGraph<index_type>;
+    using graph_data_type = typename graph_type::data_type;
+    using allocator_type = graph_data_type::allocator_type;
+    using graph_builder_type = svs::SimpleDataBuilder<index_type, allocator_type>;
+
+    breakdown.graph_bytes =
+        graph_builder_type{}.estimate_size(num_vectors, (max_degree + 1));
+
+    breakdown.data_bytes =
+        estimate_data_size_blocked(storage, num_vectors, dimension, blocksize_bytes);
+
+    // Metadata: single entry point held as Idx, plus the SlotMetadata vector, plus the
+    // IDTranslator maps.
+    size_t metadata_bytes =
+        sizeof(index_type) + sizeof(svs::index::vamana::SlotMetadata) * num_vectors;
+    // The IDTranslator holds two tsl::robin_map instances (external->internal and
+    // internal->external), neither of which exposes its allocated byte count. We
+    // approximate the storage as the id pair held in each of the two directions. This
+    // ignores the maps' load-factor slack and control bytes, so it is an estimate of
+    // the hash-map overhead that is accurate to within a few percent.
+    metadata_bytes +=
+        2 * num_vectors *
+        (sizeof(IDTranslator::external_id_type) + sizeof(IDTranslator::internal_id_type));
+    breakdown.metadata_bytes = metadata_bytes;
+    return breakdown;
+}
 } // namespace svs::c_runtime

@@ -151,8 +151,7 @@ class VectorDataLoader {
     Allocator allocator_ = {};
 };
 
-// Matching rule for uncompressed data.
-namespace data::detail {
+namespace data {
 
 /// @brief Return the number of bytes allocated for the backing storage of ``dataset``.
 ///
@@ -168,6 +167,8 @@ template <typename Dataset> size_t dataset_allocated_bytes(const Dataset& datase
     }
 }
 
+// Matching rule for uncompressed data.
+namespace detail {
 template <typename T, size_t Extent> int64_t check_match(svs::DataType type, size_t dims) {
     // If the types don't match - then there is no match.
     if (type != svs::datatype_v<T>) {
@@ -186,7 +187,8 @@ template <typename T, size_t Extent> int64_t check_match(svs::DataType type, siz
     }
     return lib::invalid_match;
 }
-} // namespace data::detail
+} // namespace detail
+} // namespace data
 
 // TODO: Further constrain allocator to be rebind-convertible
 template <typename T, size_t Extent, typename Alloc1, typename Alloc2>

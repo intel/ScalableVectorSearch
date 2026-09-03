@@ -18,6 +18,7 @@
 #include "svs/c/svs_c.h"
 
 #include "algorithm.hpp"
+#include "data_builder.hpp"
 #include "dispatcher_dynamic_vamana.hpp"
 #include "dispatcher_vamana.hpp"
 #include "index.hpp"
@@ -29,7 +30,10 @@
 #include <svs/core/distance.h>
 #include <svs/core/query_result.h>
 #include <svs/index/vamana/build_params.h>
+#include <svs/index/vamana/dynamic_index.h>
+#include <svs/index/vamana/index.h>
 #include <svs/lib/float16.h>
+#include <svs/lib/neighbor.h>
 #include <svs/orchestrators/vamana.h>
 
 #include <filesystem>
@@ -151,6 +155,93 @@ struct IndexBuilder {
             return index;
         }
         return nullptr;
+    }
+
+    // Estimate the memory a built static Vamana index would consume
+    // for `num_vectors` vectors. Mirrors the accounting done by
+    // svs::index::vamana::VamanaIndex::get_memory_breakdown().
+    svs::index::vamana::MemoryBreakdown estimate_memory_breakdown(size_t num_vectors
+    ) const {
+        NOT_IMPLEMENTED_IF(
+            algorithm->type != SVS_ALGORITHM_TYPE_VAMANA,
+            "Memory estimation is currently supported only for Vamana algorithm"
+        );
+        auto vamana_algorithm = std::static_pointer_cast<AlgorithmVamana>(algorithm);
+        return dispatch_vamana_memory_estimate(
+            vamana_algorithm->build_parameters(),
+            num_vectors,
+            dimension,
+            storage.get(),
+            to_distance_type(distance_metric)
+        );
+    }
+
+    // Estimate the memory a built dynamic Vamana index would consume
+    // for `num_vectors` vectors. Mirrors the accounting done by
+    // svs::index::vamana::MutableVamanaIndex::get_memory_breakdown().
+    svs::index::vamana::MemoryBreakdown
+    estimate_memory_breakdown_dynamic(size_t num_vectors, size_t blocksize_bytes) const {
+        NOT_IMPLEMENTED_IF(
+            algorithm->type != SVS_ALGORITHM_TYPE_VAMANA,
+            "Memory estimation is currently supported only for Vamana algorithm"
+        );
+        auto vamana_algorithm = std::static_pointer_cast<AlgorithmVamana>(algorithm);
+        return dispatch_dynamic_vamana_memory_estimate(
+            vamana_algorithm->build_parameters(),
+            num_vectors,
+            dimension,
+            storage.get(),
+            to_distance_type(distance_metric),
+            blocksize_bytes
+        );
+    }
+
+    template <svs::NeighborLike NeighborType>
+    size_t estimate_search_memory_impl(
+        size_t num_queries,
+        size_t num_neighbors,
+        const std::shared_ptr<Algorithm::SearchParams>& search_params
+    ) const {
+        if (search_params && search_params->type != algorithm->type) {
+            throw std::invalid_argument(
+                "Search parameters type does not match algorithm type"
+            );
+        }
+
+        NOT_IMPLEMENTED_IF(
+            algorithm->type != SVS_ALGORITHM_TYPE_VAMANA,
+            "Search memory estimation is currently supported only for Vamana algorithm"
+        );
+        auto vamana_algorithm = std::static_pointer_cast<AlgorithmVamana>(algorithm);
+        auto vamana_search_params = std::static_pointer_cast<AlgorithmVamana::SearchParams>(
+            search_params ? search_params : vamana_algorithm->get_default_search_params()
+        );
+
+        auto params = vamana_search_params->get_search_parameters();
+        auto search_buffer_size =
+            std::max(params.buffer_config_.get_total_capacity(), num_neighbors);
+        return num_queries * search_buffer_size * sizeof(NeighborType);
+    }
+
+    size_t estimate_search_memory(
+        size_t num_queries,
+        size_t num_neighbors,
+        const std::shared_ptr<Algorithm::SearchParams>& search_params
+    ) const {
+        return estimate_search_memory_impl<svs::SearchNeighbor<uint32_t>>(
+            num_queries, num_neighbors, search_params
+        );
+    }
+
+    size_t estimate_search_memory_dynamic(
+        size_t num_queries,
+        size_t num_neighbors,
+        const std::shared_ptr<Algorithm::SearchParams>& search_params,
+        size_t SVS_UNUSED(blocksize_bytes)
+    ) const {
+        return estimate_search_memory_impl<svs::PredicatedSearchNeighbor<uint32_t>>(
+            num_queries, num_neighbors, search_params
+        );
     }
 };
 } // namespace svs::c_runtime
