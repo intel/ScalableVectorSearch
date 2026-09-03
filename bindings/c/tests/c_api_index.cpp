@@ -341,11 +341,7 @@ CATCH_TEST_CASE("C API Index Build and Search", "[c_api][index][build][search]")
             nullptr, SVS_DATA_TYPE_INT4, SVS_DATA_TYPE_INT8, error
         );
         CATCH_REQUIRE(storage == nullptr);
-#ifdef SVS_TEST_EXPECT_LVQ_LEANVEC
         CATCH_REQUIRE(svs_error_get_code(error) == SVS_ERROR_INVALID_ARGUMENT);
-#else
-        CATCH_REQUIRE(svs_error_get_code(error) == SVS_ERROR_NOT_IMPLEMENTED);
-#endif
 
         svs_error_free(error);
     }
