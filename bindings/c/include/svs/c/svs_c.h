@@ -773,9 +773,10 @@ SVS_API bool svs_index_builder_set_allocator(
 /// @param allocator The custom allocator interface
 /// @param out_err An optional error handle to capture errors
 /// @return true on success, false on failure
-/// @remarks The builder copies @p allocator (the interface struct and its ops table) by
-/// value before returning, so the caller may free or modify @p allocator and its ops table
-/// once this call returns.
+/// @remarks The builder copies @p allocator and its ops table by value, so those two
+/// objects may be freed or modified after this call returns. The object referenced by
+/// @p allocator->self is not copied and must outlive the builder and every index built or
+/// loaded with it.
 SVS_API bool svs_index_builder_set_allocator_custom(
     svs_index_builder_h builder, svs_allocator_i allocator, svs_error_h out_err /*=NULL*/
 );

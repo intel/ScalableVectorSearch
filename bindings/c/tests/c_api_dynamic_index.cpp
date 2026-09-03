@@ -743,10 +743,6 @@ CATCH_TEST_CASE("C API Dynamic Index Memory", "[c_api][index][memory][dynamic]")
         CATCH_REQUIRE(ok);
         CATCH_REQUIRE(svs_error_ok(error));
 
-        // For the dynamic Vamana index only the vector data is routed through the
-        // builder's allocator (the blocked graph and id-translation metadata use their
-        // own internal allocators), so the bytes still held by the custom allocator must
-        // match the data portion of the breakdown and the pre-build estimate.
         auto within_1pct = [](size_t a, size_t b) {
             if (a == b) {
                 return true;
@@ -754,6 +750,10 @@ CATCH_TEST_CASE("C API Dynamic Index Memory", "[c_api][index][memory][dynamic]")
             const auto [smaller, larger] = std::minmax(a, b);
             return (larger - smaller) * 100 <= larger;
         };
+        // For the dynamic Vamana index, both vector data and the blocked graph are routed
+        // through the builder's allocator. ID-translation metadata uses its own internal
+        // allocator, so tracked live bytes must match the data and graph portions of the
+        // breakdown.
         // TODO: Modify MutableVamanaIndex metadata allocations to use the builder's
         // allocator so that this check can be extended to include metadata_bytes.
         CATCH_REQUIRE(
