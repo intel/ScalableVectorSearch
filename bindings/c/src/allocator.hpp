@@ -57,7 +57,7 @@ template <typename T> class CustomAllocator : public svs::AllocatorInterface {
     void* allocate(size_t n) override {
         svs_error_desc err{SVS_ERROR_UNKNOWN, "Unknown error in custom allocator allocate"};
 
-        auto result = ops_.allocate(self_, n, alignof(T), &err);
+        auto result = ops_.allocate(self_, n * sizeof(T), alignof(T), &err);
         if (result == nullptr) {
             throw std::runtime_error(
                 "Custom allocator failed to allocate memory: (" + std::to_string(err.code) +
@@ -68,7 +68,7 @@ template <typename T> class CustomAllocator : public svs::AllocatorInterface {
     }
 
     void deallocate(void* p, size_t n) override {
-        ops_.deallocate(self_, p, n, alignof(T));
+        ops_.deallocate(self_, p, n * sizeof(T), alignof(T));
     }
 
     AllocatorInterface* clone() const override {
