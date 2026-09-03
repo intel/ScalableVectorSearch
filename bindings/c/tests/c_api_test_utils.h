@@ -18,6 +18,7 @@
 #include "svs/c/svs_c.h"
 
 // Standard library
+#include <atomic>
 #include <cmath>
 #include <cstddef>
 #include <cstdlib>
@@ -164,3 +165,54 @@ inline bool check_storage_support(svs_storage_h storage, svs_error_h error) {
 /// True when compressed storage is expected to be usable on this host, so callers
 /// can skip the build/search portion of a test that cannot run.
 inline bool storage_usable(svs_storage_h storage) { return storage != nullptr; }
+
+/// Memory-accounting state for a custom allocator used in tests. A single instance is
+/// passed as the `self` pointer of a svs_allocator_interface; because every rebound or
+/// cloned copy of the underlying allocator shares that pointer, one TrackingAllocator
+/// accounts for every allocation funneled through the interface. The counters are atomic
+/// because index builds allocate concurrently from multiple worker threads.
+struct TrackingAllocator {
+    std::atomic<size_t> live_bytes{0};    ///< Currently held bytes (allocated - freed).
+    std::atomic<size_t> total_bytes{0};   ///< Cumulative bytes ever requested.
+    std::atomic<size_t> peak_bytes{0};    ///< Maximum simultaneously live bytes.
+    std::atomic<size_t> alloc_count{0};   ///< Number of allocate() calls.
+    std::atomic<size_t> dealloc_count{0}; ///< Number of deallocate() calls.
+};
+
+/// svs_allocator_interface_ops::allocate implementation backed by a TrackingAllocator.
+inline void* tracking_allocator_allocate(
+    void* self, size_t size, size_t alignment, svs_error_h out_err
+) {
+    auto* tracker = static_cast<TrackingAllocator*>(self);
+    // std::aligned_alloc requires a power-of-two alignment that is at least
+    // alignof(std::max_align_t) and a size that is a multiple of that alignment.
+    size_t align =
+        alignment < alignof(std::max_align_t) ? alignof(std::max_align_t) : alignment;
+    size_t rounded = ((size + align - 1) / align) * align;
+    void* ptr = std::aligned_alloc(align, rounded);
+    if (ptr == nullptr) {
+        svs_error_set(
+            out_err, SVS_ERROR_OUT_OF_MEMORY, "TrackingAllocator: allocation failed"
+        );
+        return nullptr;
+    }
+    tracker->total_bytes.fetch_add(size, std::memory_order_relaxed);
+    size_t live = tracker->live_bytes.fetch_add(size, std::memory_order_relaxed) + size;
+    // Best-effort peak update (racy under contention but only used for diagnostics).
+    size_t peak = tracker->peak_bytes.load(std::memory_order_relaxed);
+    while (live > peak &&
+           !tracker->peak_bytes.compare_exchange_weak(peak, live, std::memory_order_relaxed)
+    ) {}
+    tracker->alloc_count.fetch_add(1, std::memory_order_relaxed);
+    return ptr;
+}
+
+/// svs_allocator_interface_ops::deallocate implementation backed by a TrackingAllocator.
+inline void tracking_allocator_deallocate(
+    void* self, void* ptr, size_t size, size_t /*alignment*/
+) {
+    auto* tracker = static_cast<TrackingAllocator*>(self);
+    tracker->live_bytes.fetch_sub(size, std::memory_order_relaxed);
+    tracker->dealloc_count.fetch_add(1, std::memory_order_relaxed);
+    std::free(ptr);
+}

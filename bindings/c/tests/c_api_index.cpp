@@ -883,7 +883,7 @@ CATCH_TEST_CASE("C API Index Memory Management", "[c_api][index][memory]") {
             }
 
             // Estimate before build.
-            svs_memory_breakdown_t estimated{};
+            svs_memory_breakdown_t estimated = SVS_INIT_MEMORY_BREAKDOWN();
             success =
                 svs_index_builder_estimate_memory(builder, NUM_VECTORS, &estimated, error);
             CATCH_REQUIRE(success);
@@ -897,7 +897,7 @@ CATCH_TEST_CASE("C API Index Memory Management", "[c_api][index][memory]") {
             CATCH_REQUIRE(index != nullptr);
             CATCH_REQUIRE(svs_error_ok(error));
 
-            svs_memory_breakdown_t actual{};
+            svs_memory_breakdown_t actual = SVS_INIT_MEMORY_BREAKDOWN();
             success = svs_index_get_memory_breakdown(index, &actual, error);
             CATCH_REQUIRE(success);
             CATCH_REQUIRE(svs_error_ok(error));
@@ -1081,6 +1081,154 @@ CATCH_TEST_CASE("C API Index Memory Management", "[c_api][index][memory]") {
 
         svs_search_params_free(large_params);
         svs_search_params_free(search_params);
+        svs_index_builder_free(builder);
+        svs_algorithm_free(algorithm);
+        svs_error_free(error);
+    }
+
+    CATCH_SECTION("Allocator Configuration") {
+        svs_error_h error = svs_error_create();
+
+        // Each built-in allocator kind must yield a usable index.
+        auto build_with_allocator = [&](svs_allocator_kind_t kind) {
+            svs_algorithm_h algorithm = svs_algorithm_create_vamana(16, 32, 50, error);
+            CATCH_REQUIRE(algorithm != nullptr);
+            CATCH_REQUIRE(svs_error_ok(error));
+
+            svs_index_builder_h builder = svs_index_builder_create(
+                SVS_DISTANCE_METRIC_EUCLIDEAN, DIMENSION, algorithm, error
+            );
+            CATCH_REQUIRE(builder != nullptr);
+            CATCH_REQUIRE(svs_error_ok(error));
+
+            bool success = svs_index_builder_set_threadpool(
+                builder, SVS_THREADPOOL_KIND_NATIVE, 4, error
+            );
+            CATCH_REQUIRE(success);
+            CATCH_REQUIRE(svs_error_ok(error));
+
+            success = svs_index_builder_set_allocator(builder, kind, error);
+            CATCH_REQUIRE(success);
+            CATCH_REQUIRE(svs_error_ok(error));
+
+            svs_index_h index = svs_index_build(builder, data.data(), NUM_VECTORS, error);
+            CATCH_REQUIRE(index != nullptr);
+            CATCH_REQUIRE(svs_error_ok(error));
+
+            size_t memory_usage = 0;
+            success = svs_index_get_memory_usage(index, &memory_usage, error);
+            CATCH_REQUIRE(success);
+            CATCH_REQUIRE(memory_usage > 0);
+
+            svs_index_free(index);
+            svs_index_builder_free(builder);
+            svs_algorithm_free(algorithm);
+        };
+
+        build_with_allocator(SVS_ALLOCATOR_KIND_DEFAULT);
+        build_with_allocator(SVS_ALLOCATOR_KIND_HUGE_PAGE);
+
+        // Null builder is rejected.
+        CATCH_REQUIRE(
+            svs_index_builder_set_allocator(nullptr, SVS_ALLOCATOR_KIND_DEFAULT, error) ==
+            false
+        );
+        CATCH_REQUIRE(svs_error_get_code(error) == SVS_ERROR_INVALID_ARGUMENT);
+
+        // Unknown allocator kind is rejected.
+        {
+            svs_algorithm_h algorithm = svs_algorithm_create_vamana(16, 32, 50, error);
+            svs_index_builder_h builder = svs_index_builder_create(
+                SVS_DISTANCE_METRIC_EUCLIDEAN, DIMENSION, algorithm, error
+            );
+            CATCH_REQUIRE(builder != nullptr);
+            CATCH_REQUIRE(
+                svs_index_builder_set_allocator(
+                    builder, static_cast<svs_allocator_kind_t>(999), error
+                ) == false
+            );
+            CATCH_REQUIRE(svs_error_get_code(error) == SVS_ERROR_INVALID_ARGUMENT);
+            svs_index_builder_free(builder);
+            svs_algorithm_free(algorithm);
+        }
+
+        svs_error_free(error);
+    }
+
+    CATCH_SECTION("Custom Allocator") {
+        svs_error_h error = svs_error_create();
+
+        svs_algorithm_h algorithm = svs_algorithm_create_vamana(16, 32, 50, error);
+        CATCH_REQUIRE(algorithm != nullptr);
+        CATCH_REQUIRE(svs_error_ok(error));
+
+        svs_index_builder_h builder = svs_index_builder_create(
+            SVS_DISTANCE_METRIC_EUCLIDEAN, DIMENSION, algorithm, error
+        );
+        CATCH_REQUIRE(builder != nullptr);
+        CATCH_REQUIRE(svs_error_ok(error));
+
+        bool success =
+            svs_index_builder_set_threadpool(builder, SVS_THREADPOOL_KIND_NATIVE, 4, error);
+        CATCH_REQUIRE(success);
+        CATCH_REQUIRE(svs_error_ok(error));
+
+        // Wire up a memory-tracking custom allocator.
+        TrackingAllocator tracker;
+        struct svs_allocator_interface_ops alloc_ops = SVS_INIT_ALLOCATOR_OPS(
+            tracking_allocator_allocate, tracking_allocator_deallocate
+        );
+        struct svs_allocator_interface allocator = SVS_MAKE_INTERFACE(&tracker, alloc_ops);
+
+        // Null builder and null allocator are both rejected.
+        CATCH_REQUIRE(
+            svs_index_builder_set_allocator_custom(nullptr, &allocator, error) == false
+        );
+        CATCH_REQUIRE(svs_error_get_code(error) == SVS_ERROR_INVALID_ARGUMENT);
+        CATCH_REQUIRE(
+            svs_index_builder_set_allocator_custom(builder, nullptr, error) == false
+        );
+        CATCH_REQUIRE(svs_error_get_code(error) == SVS_ERROR_INVALID_ARGUMENT);
+
+        success = svs_index_builder_set_allocator_custom(builder, &allocator, error);
+        CATCH_REQUIRE(success);
+        CATCH_REQUIRE(svs_error_ok(error));
+
+        // Build the index; both data and graph allocations flow through `tracker`.
+        svs_index_h index = svs_index_build(builder, data.data(), NUM_VECTORS, error);
+        CATCH_REQUIRE(index != nullptr);
+        CATCH_REQUIRE(svs_error_ok(error));
+
+        // The custom allocator must actually have been used.
+        CATCH_REQUIRE(tracker.alloc_count > 0);
+        CATCH_REQUIRE(tracker.live_bytes > 0);
+        CATCH_REQUIRE(tracker.total_bytes >= tracker.live_bytes);
+
+        // Actual memory usage reported by the built index.
+        size_t memory_usage = 0;
+        success = svs_index_get_memory_usage(index, &memory_usage, error);
+        CATCH_REQUIRE(success);
+        CATCH_REQUIRE(svs_error_ok(error));
+
+        // For the static Vamana index both the data and the graph are allocated through
+        // the builder's allocator, so the bytes still held by the custom allocator must
+        // match the graph + data portion of the breakdown (the tiny metadata entry point
+        // is not routed through the allocator). The same must hold against the pre-build
+        // estimate.
+        auto within_1pct = [](size_t a, size_t b) {
+            if (a == b) {
+                return true;
+            }
+            const auto [smaller, larger] = std::minmax(a, b);
+            return (larger - smaller) * 100 <= larger;
+        };
+        CATCH_REQUIRE(within_1pct(tracker.live_bytes, memory_usage));
+
+        // Freeing the index returns every tracked byte to the allocator.
+        svs_index_free(index);
+        CATCH_REQUIRE(tracker.live_bytes == 0);
+        CATCH_REQUIRE(tracker.dealloc_count == tracker.alloc_count);
+
         svs_index_builder_free(builder);
         svs_algorithm_free(algorithm);
         svs_error_free(error);

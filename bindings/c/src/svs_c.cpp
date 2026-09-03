@@ -17,6 +17,7 @@
 #include "svs/c/svs_c.h"
 
 #include "algorithm.hpp"
+#include "allocator.hpp"
 #include "error.hpp"
 #include "index.hpp"
 #include "index_builder.hpp"
@@ -31,8 +32,10 @@
 #include <span>
 #include <vector>
 
+#include <svs/core/allocator.h>
 #include <svs/core/data.h>
 #include <svs/core/query_result.h>
+#include <svs/lib/memory.h>
 #include <svs/orchestrators/vamana.h>
 
 // C API implementation
@@ -455,6 +458,54 @@ extern "C" bool svs_index_builder_set_threadpool_custom(
             return true;
         },
         out_err
+    );
+}
+
+SVS_API bool svs_index_builder_set_allocator(
+    svs_index_builder_h builder, svs_allocator_kind_t kind, svs_error_h out_err
+) {
+    using namespace svs::c_runtime;
+    return wrap_exceptions(
+        [&]() {
+            EXPECT_ARG_NOT_NULL(builder);
+            switch (kind) {
+                case SVS_ALLOCATOR_KIND_DEFAULT: {
+                    builder->impl->set_allocator_handle(
+                        svs::make_allocator_handle(svs::lib::Allocator<std::byte>{})
+                    );
+                    break;
+                }
+                case SVS_ALLOCATOR_KIND_HUGE_PAGE: {
+                    builder->impl->set_allocator_handle(
+                        svs::make_allocator_handle(svs::HugepageAllocator<std::byte>{})
+                    );
+                    break;
+                }
+                default:
+                    throw std::invalid_argument("Invalid allocator kind");
+            }
+            return true;
+        },
+        out_err,
+        false
+    );
+}
+
+SVS_API bool svs_index_builder_set_allocator_custom(
+    svs_index_builder_h builder, svs_allocator_i allocator, svs_error_h out_err
+) {
+    using namespace svs::c_runtime;
+    return wrap_exceptions(
+        [&]() {
+            EXPECT_ARG_NOT_NULL(builder);
+            EXPECT_ARG_NOT_NULL(allocator);
+            builder->impl->set_allocator_handle(
+                make_custom_allocator_handle<std::byte>(allocator)
+            );
+            return true;
+        },
+        out_err,
+        false
     );
 }
 

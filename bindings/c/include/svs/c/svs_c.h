@@ -189,6 +189,65 @@ struct svs_threadpool_interface {
     void* self;
 };
 
+/// @brief Allocators used for memory management in the SVS C API.
+enum svs_allocator_kind {
+    SVS_ALLOCATOR_KIND_DEFAULT = 0,
+    SVS_ALLOCATOR_KIND_HUGE_PAGE = 1,
+    SVS_ALLOCATOR_KIND_CUSTOM = 2
+};
+
+/// @brief Operations table for a custom allocator interface
+/// @remarks The user must ensure that the allocator implementation is thread-safe and
+/// that the provided function pointers remain valid for the lifetime of the allocator
+/// interface.
+/// @var svs_allocator_interface_ops::version
+///   Version of the allocator interface.
+/// @var svs_allocator_interface_ops::struct_size
+///   Size of the structure, used for versioning and compatibility checks.
+/// @var svs_allocator_interface_ops::allocate
+///   Function pointer to allocate memory with the specified size and alignment.
+///   @param self Pointer to the allocator instance.
+///   @param size Size of the memory to allocate in bytes.
+///   @param alignment Alignment requirement for the allocated memory in bytes.
+///   @param out_err Handle to capture any error that occurs during allocation. User code
+///   may call svs_error_set() to set the error code and message if an error occurs.
+///   @return Pointer to the allocated memory, or NULL if allocation fails.
+/// @var svs_allocator_interface_ops::deallocate
+///   Function pointer to deallocate memory previously allocated by the allocator.
+///   @param self Pointer to the allocator instance.
+///   @param ptr Pointer to the memory to deallocate.
+///   @param size Size of the memory to deallocate in bytes.
+///   @param alignment Alignment requirement for the allocated memory in bytes.
+struct svs_allocator_interface_ops {
+    uint32_t version;
+    size_t struct_size;
+    void* (*allocate)(void* self, size_t size, size_t alignment, svs_error_h out_err);
+    void (*deallocate)(void* self, void* ptr, size_t size, size_t alignment);
+};
+
+/// @brief Macro to create a user-defined allocator interface operations structure
+/// @param allocate_func Function pointer to allocate memory with the specified size and
+/// alignment
+/// @param deallocate_func Function pointer to deallocate memory previously allocated by the
+/// allocator
+#define SVS_INIT_ALLOCATOR_OPS(allocate_func, deallocate_func)     \
+    {                                                              \
+        .version = SVS_C_API_VERSION,                              \
+        .struct_size = sizeof(struct svs_allocator_interface_ops), \
+        .allocate = &allocate_func, .deallocate = &deallocate_func \
+    }
+
+/// @brief Structure representing a custom allocator interface
+/// @var svs_allocator_interface::ops
+///   Function pointers for the allocator operations.
+/// @var svs_allocator_interface::self
+///   Pointer to the user-defined allocator instance. This pointer is passed to the
+///   function pointers in @p ops when they are called.
+struct svs_allocator_interface {
+    struct svs_allocator_interface_ops* ops;
+    void* self;
+};
+
 /// @brief Operations table for a custom ID filter interface
 /// @remarks The user must ensure that the ID filter implementation is thread-safe and
 /// that the provided function pointers remain valid for the lifetime of the ID filter
@@ -424,10 +483,14 @@ typedef enum svs_algorithm_type svs_algorithm_type_t;
 typedef enum svs_data_type svs_data_type_t;
 typedef enum svs_storage_kind svs_storage_kind_t;
 typedef enum svs_threadpool_kind svs_threadpool_kind_t;
+typedef enum svs_allocator_kind svs_allocator_kind_t;
 
 typedef struct svs_threadpool_interface_ops svs_threadpool_ops_t;
 typedef struct svs_threadpool_interface svs_threadpool_t;
 typedef struct svs_threadpool_interface* svs_threadpool_i;
+typedef struct svs_allocator_interface_ops svs_allocator_ops_t;
+typedef struct svs_allocator_interface svs_allocator_t;
+typedef struct svs_allocator_interface* svs_allocator_i;
 
 typedef struct svs_id_filter_interface_ops svs_id_filter_ops_t;
 typedef struct svs_id_filter_interface svs_id_filter_t;
@@ -694,6 +757,28 @@ SVS_API bool svs_index_builder_set_threadpool(
 /// call returns.
 SVS_API bool svs_index_builder_set_threadpool_custom(
     svs_index_builder_h builder, svs_threadpool_i pool, svs_error_h out_err /*=NULL*/
+);
+
+/// @brief Set the allocator configuration for the index builder
+/// @param builder The index builder handle
+/// @param kind The kind of allocator to use
+/// @param out_err An optional error handle to capture errors
+/// @return true on success, false on failure
+SVS_API bool svs_index_builder_set_allocator(
+    svs_index_builder_h builder, svs_allocator_kind_t kind, svs_error_h out_err /*=NULL*/
+);
+
+/// @brief Set the custom allocator for the index builder
+/// @param builder The index builder handle
+/// @param allocator The custom allocator interface
+/// @param out_err An optional error handle to capture errors
+/// @return true on success, false on failure
+/// @remarks The builder copies @p allocator and its ops table by value, so those two
+/// objects may be freed or modified after this call returns. The object referenced by
+/// @p allocator->self is not copied and must outlive the builder and every index built or
+/// loaded with it.
+SVS_API bool svs_index_builder_set_allocator_custom(
+    svs_index_builder_h builder, svs_allocator_i allocator, svs_error_h out_err /*=NULL*/
 );
 
 /// @brief Estimate the memory usage of an index based on the builder configuration and
