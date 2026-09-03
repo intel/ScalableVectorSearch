@@ -16,6 +16,8 @@ set(SVS_X86_SRC_DIR "${PROJECT_SOURCE_DIR}/include/svs/multi-arch/x86")
 set(SVS_X86
   "${SVS_X86_SRC_DIR}/avx2.cpp,avx2,haswell"
   "${SVS_X86_SRC_DIR}/avx512.cpp,avx512,cascadelake"
+  "${SVS_X86_SRC_DIR}/avx512_fp16.cpp,avx512fp16,cascadelake"
+
 )
 
 set(SVS_X86_OBJECT_FILES)
@@ -26,8 +28,21 @@ foreach(x86_info IN LISTS SVS_X86)
     list(GET x86_info 2 arch)
     set(lib_name "svs_x86_${avx}")
     add_library(${lib_name} INTERFACE)
+    # Base arch tuning
     target_compile_options(${lib_name} INTERFACE -march=${arch} -mtune=${arch})
-    set(obj_name ${arch}_obj)
+    # If building AVX512-FP16 variant, request the specific FP16 ISA flags if supported
+    if("${avx}" STREQUAL "avx512fp16")
+        include(CheckCXXCompilerFlag)
+        check_cxx_compiler_flag("-mavx512fp16" SVS_COMPILER_HAS_AVX512FP16)
+        check_cxx_compiler_flag("-mavx512vl" SVS_COMPILER_HAS_AVX512VL)
+        if(SVS_COMPILER_HAS_AVX512FP16 AND SVS_COMPILER_HAS_AVX512VL)
+            target_compile_options(${lib_name} INTERFACE -mavx512fp16 -mavx512vl)
+        else()
+            message(STATUS "Compiler does not support -mavx512fp16/-mavx512vl; building FP16 object without those flags for validation only.")
+        endif()
+    endif()
+    # Ensure object target names are unique per arch+avx variant
+    set(obj_name ${arch}_${avx}_obj)
 
     add_library(${obj_name} OBJECT ${src})
     target_link_libraries(${obj_name} PRIVATE ${SVS_LIB} svs::compile_options fmt::fmt ${lib_name})

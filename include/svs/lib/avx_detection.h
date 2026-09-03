@@ -36,15 +36,19 @@ struct AVXRuntimeFlags {
         avx2 = extended_features && ((ebx & (1 << 5)) != 0);
         avx512f = extended_features && ((ebx & (1 << 16)) != 0);
         avx512vnni = extended_features && ((ecx & (1 << 11)) != 0);
+        // AVX512-FP16 reported in CPUID leaf 7 subleaf 0 EDX bit 23 (Intel SDM vol.2 Table 3-8)
+        avx512fp16 = extended_features && ((edx & (1u << 23)) != 0);
     }
 
     bool is_avx2_supported() const noexcept { return avx2; }
     bool is_avx512f_supported() const noexcept { return avx512f; }
     bool is_avx512vnni_supported() const noexcept { return avx512vnni; }
+    bool is_avx512fp16_supported() const noexcept { return avx512fp16; }
 
     bool avx2;
     bool avx512f;
     bool avx512vnni;
+    bool avx512fp16;
 };
 #else
 struct AVXRuntimeFlags {
