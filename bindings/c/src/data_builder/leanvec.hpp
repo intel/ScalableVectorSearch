@@ -19,6 +19,7 @@
 
 #include "svs/c/svs_c.h"
 
+#include "leanvec_training_data.hpp"
 #include "storage.hpp"
 #include "types_support.hpp"
 
@@ -53,11 +54,12 @@ class LeanVecDataBuilder {
     std::optional<svs::leanvec::LeanVecMatrices<svs::Dynamic>> matrices_;
 
   public:
-    LeanVecDataBuilder(
-        size_t leanvec_dims,
-        std::optional<svs::leanvec::LeanVecMatrices<svs::Dynamic>> matrices = std::nullopt
-    )
+    LeanVecDataBuilder(size_t leanvec_dims)
         : leanvec_dims_(leanvec_dims)
+        , matrices_(std::nullopt) {}
+
+    LeanVecDataBuilder(svs::leanvec::LeanVecMatrices<svs::Dynamic> matrices)
+        : leanvec_dims_(matrices.num_cols())
         , matrices_(std::move(matrices)) {}
 
     using data_type = svs::leanvec::LeanDataset<
@@ -106,8 +108,9 @@ struct lib::
         // `leanvec_dims` is taken from the training data at storage construction,
         // so it is authoritative in both cases.
         if (leanvec->training_data) {
-            return To{leanvec->leanvec_dims, leanvec->training_data->matrices()};
+            return To{leanvec->training_data->matrices()};
         }
+        assert(leanvec->leanvec_dims > 0);
         return To{leanvec->leanvec_dims};
     }
 };

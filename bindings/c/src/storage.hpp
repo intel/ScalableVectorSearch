@@ -25,8 +25,6 @@
 #include <svs/lib/type_traits.h>
 
 #ifdef SVS_RUNTIME_ENABLE_LVQ_LEANVEC
-#include "leanvec_training_data.hpp"
-
 #include <svs/cpuid.h>
 #endif
 
@@ -58,17 +56,16 @@ struct StorageSimple : public Storage {
     }
 };
 
+class LeanVecTrainingData;
 struct StorageLeanVec : public Storage {
     size_t leanvec_dims;
     size_t primary_bits;
     size_t secondary_bits;
-#ifdef SVS_RUNTIME_ENABLE_LVQ_LEANVEC
     // Pre-trained reduction matrices; when set, they are used instead of PCA
     // matrices computed at build time (enables out-of-distribution LeanVec).
     // Fixed at construction: `leanvec_dims` is taken from the training data, so
     // the two can never disagree.
-    std::shared_ptr<const LeanVecTrainingData> training_data;
-#endif
+    std::shared_ptr<const LeanVecTrainingData> training_data = nullptr;
 
     StorageLeanVec(size_t leanvec_dims, svs_data_type_t primary, svs_data_type_t secondary)
         : Storage{SVS_STORAGE_KIND_LEANVEC}
@@ -88,7 +85,6 @@ struct StorageLeanVec : public Storage {
 #endif
     }
 
-#ifdef SVS_RUNTIME_ENABLE_LVQ_LEANVEC
     // Construct from pre-trained matrices. `leanvec_dims` is the single value
     // carried by the training data, so no reconciliation is needed.
     StorageLeanVec(
@@ -96,10 +92,9 @@ struct StorageLeanVec : public Storage {
         svs_data_type_t primary,
         svs_data_type_t secondary
     )
-        : StorageLeanVec(training_data->leanvec_dims(), primary, secondary) {
+        : StorageLeanVec(0, primary, secondary) {
         this->training_data = std::move(training_data);
     }
-#endif
 
     static size_t to_bits_number(svs_data_type_t data_type) {
         switch (data_type) {

@@ -645,23 +645,33 @@ SVS_API bool svs_storage_get_kind(
 SVS_API void svs_storage_free(svs_storage_h storage);
 
 /// @brief Train LeanVec dimensionality-reduction matrices from a data sample
-/// @param dim The dimensionality of the data (and training queries)
+/// @param builder The index builder handle
+/// @param leanvec_dims The reduced number of LeanVec dimensions
 /// @param num_vectors The number of data vectors in x
 /// @param x Pointer to the data vectors [num_vectors x dim] (float array)
 /// @param num_queries The number of training queries in x_q (0 for in-distribution)
 /// @param x_q Pointer to the training queries [num_queries x dim], or NULL. When
 /// provided, matrices are trained out-of-distribution (OOD) using these queries;
 /// when num_queries is 0 or x_q is NULL, in-distribution (PCA) matrices are computed.
-/// @param leanvec_dims The reduced number of LeanVec dimensions
 /// @param out_err An optional error handle to capture errors
 /// @return A handle to the trained LeanVec matrices
+/// @remarks
+/// * The training data build process depends on the index builder's dimension and thread
+/// pool configuration, so the builder must be configured with the correct dimension and
+/// thread pool before calling this function.
+/// * The training data is copied into the returned handle, so the caller may
+/// free or modify @p x and @p x_q once this call returns.
+/// * The training data built by this function is used to create a LeanVec storage
+/// configuration via svs_storage_create_leanvec_trained(). The training data handle may be
+/// freed once svs_storage_create_leanvec_trained() returns, as the storage retains a
+/// reference to the trained matrices.
 SVS_API svs_leanvec_training_data_h svs_leanvec_training_data_build(
-    size_t dim,
+    svs_index_builder_h builder,
+    size_t leanvec_dims,
     size_t num_vectors,
     const float* x,
     size_t num_queries,
-    const float* x_q /*=NULL*/,
-    size_t leanvec_dims,
+    const float* x_q,   /*=NULL*/
     svs_error_h out_err /*=NULL*/
 );
 

@@ -20,13 +20,10 @@
 #include "error.hpp"
 #include "index.hpp"
 #include "index_builder.hpp"
+#include "leanvec_training_data.hpp"
 #include "storage.hpp"
 #include "threadpool.hpp"
 #include "types_support.hpp"
-
-#ifdef SVS_RUNTIME_ENABLE_LVQ_LEANVEC
-#include "leanvec_training_data.hpp"
-#endif
 
 #include <cstddef>
 #include <filesystem>
@@ -61,9 +58,7 @@ struct svs_storage {
 };
 
 struct svs_leanvec_training_data {
-#ifdef SVS_RUNTIME_ENABLE_LVQ_LEANVEC
     std::shared_ptr<const svs::c_runtime::LeanVecTrainingData> impl;
-#endif
 };
 
 extern "C" uint32_t svs_get_version() { return SVS_C_API_VERSION; }
@@ -342,7 +337,6 @@ extern "C" svs_storage_h svs_storage_create_leanvec_trained(
     using namespace svs::c_runtime;
     return wrap_exceptions(
         [&]() -> svs_storage_h {
-#ifdef SVS_RUNTIME_ENABLE_LVQ_LEANVEC
             EXPECT_ARG_NOT_NULL(training_data);
             INVALID_ARGUMENT_IF(
                 (training_data->impl == nullptr), "training_data holds no trained matrices"
@@ -356,14 +350,6 @@ extern "C" svs_storage_h svs_storage_create_leanvec_trained(
             auto result = new svs_storage;
             result->impl = storage;
             return result;
-#else
-            (void)training_data;
-            (void)primary;
-            (void)secondary;
-            throw svs::c_runtime::not_implemented(
-                "LeanVec storage is not implemented in this build"
-            );
-#endif
         },
         out_err
     );
@@ -431,22 +417,23 @@ extern "C" SVS_API bool svs_storage_get_kind(
 extern "C" void svs_storage_free(svs_storage_h storage) { delete storage; }
 
 extern "C" svs_leanvec_training_data_h svs_leanvec_training_data_build(
-    size_t dim,
+    svs_index_builder_h builder,
+    size_t leanvec_dims,
     size_t num_vectors,
     const float* x,
     size_t num_queries,
     const float* x_q,
-    size_t leanvec_dims,
     svs_error_h out_err
 ) {
     using namespace svs::c_runtime;
     return wrap_exceptions(
         [&]() -> svs_leanvec_training_data_h {
-#ifdef SVS_RUNTIME_ENABLE_LVQ_LEANVEC
-            EXPECT_ARG_GT_THAN(dim, 0);
+            EXPECT_ARG_NOT_NULL(builder);
             EXPECT_ARG_GT_THAN(num_vectors, 0);
             EXPECT_ARG_NOT_NULL(x);
             EXPECT_ARG_GT_THAN(leanvec_dims, 0);
+
+            const auto dim = builder->impl->dimension;
             EXPECT_ARG_GE_THAN(dim, leanvec_dims);
             INVALID_ARGUMENT_IF(
                 (num_queries > 0 && x_q == nullptr),
@@ -459,7 +446,7 @@ extern "C" svs_leanvec_training_data_h svs_leanvec_training_data_build(
                 x_q, (x_q == nullptr) ? 0 : num_queries, dim
             );
 
-            auto pool = ThreadPoolBuilder{}.build();
+            auto pool = builder->impl->pool_builder.build();
             auto training_data = std::make_shared<const LeanVecTrainingData>(
                 data, queries, leanvec_dims, pool
             );
@@ -467,17 +454,6 @@ extern "C" svs_leanvec_training_data_h svs_leanvec_training_data_build(
             auto result = new svs_leanvec_training_data;
             result->impl = std::move(training_data);
             return result;
-#else
-            (void)dim;
-            (void)num_vectors;
-            (void)x;
-            (void)num_queries;
-            (void)x_q;
-            (void)leanvec_dims;
-            throw svs::c_runtime::not_implemented(
-                "LeanVec training data is not implemented in this build"
-            );
-#endif
         },
         out_err
     );
