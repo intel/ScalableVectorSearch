@@ -12,25 +12,29 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-set(SVS_X86_SRC_DIR "${PROJECT_SOURCE_DIR}/include/svs/multi-arch/x86")
-set(SVS_X86
-  "${SVS_X86_SRC_DIR}/avx2.cpp,avx2,haswell"
-  "${SVS_X86_SRC_DIR}/avx512.cpp,avx512,cascadelake"
-)
+# Writes the generated dispatch-surface header and populates
+# SVS_DISPATCH_TU_SPECS -- "<src>|<level>|<arch>|<infix>", one entry per ISA
+# level. The extent list and the levels themselves are declared in
+# cmake/dispatch-surface.cmake.
+include("${CMAKE_CURRENT_LIST_DIR}/dispatch-levels.cmake")
+include("${CMAKE_CURRENT_LIST_DIR}/generate-dispatch-surface.cmake")
 
 set(SVS_X86_OBJECT_FILES)
-foreach(x86_info IN LISTS SVS_X86)
-    string(REPLACE "," ";" x86_info "${x86_info}")
-    list(GET x86_info 0 src)
-    list(GET x86_info 1 avx)
-    list(GET x86_info 2 arch)
-    set(lib_name "svs_x86_${avx}")
+foreach(tu_spec IN LISTS SVS_DISPATCH_TU_SPECS)
+    svs_parse_tu_spec("${tu_spec}" src level arch infix)
+
+    # Carries the instruction budget for this level, and nothing else.
+    set(lib_name "svs_x86_${infix}")
     add_library(${lib_name} INTERFACE)
     target_compile_options(${lib_name} INTERFACE -march=${arch} -mtune=${arch})
-    set(obj_name ${arch}_obj)
 
+    # Unique only because validate-dispatch-surface.cmake rejects duplicate
+    # infixes; two levels sharing one would collide on this target name.
+    set(obj_name ${infix}_obj)
     add_library(${obj_name} OBJECT ${src})
-    target_link_libraries(${obj_name} PRIVATE ${SVS_LIB} svs::compile_options fmt::fmt ${lib_name})
+    target_link_libraries(
+        ${obj_name} PRIVATE ${SVS_LIB} svs::compile_options fmt::fmt ${lib_name}
+    )
     list(APPEND SVS_X86_OBJECT_FILES $<TARGET_OBJECTS:${obj_name}>)
 endforeach()
 

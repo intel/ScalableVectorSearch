@@ -21,16 +21,55 @@
 #include "svs/lib/saveload.h"
 #include "svs/lib/type_traits.h"
 
+// The extent list and the ISA levels, generated from cmake/dispatch-surface.cmake.
+#include "svs/core/distance/dispatch_surface.h"
+
+// Needed here and not only where the kernels are declared: the entry points must
+// not dispatch to a level with no kernel for the pair in hand.
+#if defined(__x86_64__)
+#include "svs/multi-arch/x86/preprocessor.h"
+
+// Dispatched to for every type pair, so a surface without them would leave each
+// consumer to instantiate the kernels itself, from the generic template.
+#if !defined(SVS_ISA_LEVEL_AVX2) || !defined(SVS_ISA_LEVEL_AVX512)
+#error "the x86 dispatch surface must declare the AVX2 and AVX512 ISA levels"
+#endif
+#endif
+
 #include <cmath>
 #include <span>
 
 namespace svs::distance {
 
-enum class AVX_AVAILABILITY { NONE, AVX2, AVX512 };
+/// The runtime ISA levels the library compiles distance kernels for.
+///
+/// Each is a promise about the host, checked once in the entry point; the kernels
+/// branch on nothing. Append new levels -- renumbering changes mangled names.
+enum class AVX_AVAILABILITY { NONE, AVX2, AVX512, AVX512_VNNI };
 
-constexpr std::array<size_t, 9> supported_dim_list{
-    64, 96, 100, 128, 160, 200, 512, 768, svs::Dynamic};
+/// Whether (Ea, Eb) has a kernel at AVX_AVAILABILITY::AVX512_VNNI.
+///
+/// False where there is no such kernel -- a float-promoting pair, or any pair when
+/// the surface omits the level. Dispatching anyway instantiates the generic template.
+template <typename Ea, typename Eb> inline constexpr bool has_vnni_kernel = false;
 
+#if defined(__x86_64__) && defined(SVS_ISA_LEVEL_AVX512_VNNI)
+#define SVS_MARK_VNNI_PAIR(Ea, Eb, ...) \
+    template <> inline constexpr bool has_vnni_kernel<Ea, Eb> = true;
+SVS_TYPE_PAIRS_AVX512_VNNI(SVS_MARK_VNNI_PAIR, )
+#undef SVS_MARK_VNNI_PAIR
+#endif
+
+/// The extents that have a fixed-extent kernel, including svs::Dynamic.
+#define SVS_DIM_LIST_ENTRY(N) N,
+constexpr std::array<size_t, SVS_SUPPORTED_DIM_COUNT> supported_dim_list{
+    SVS_FOR_EACH_SUPPORTED_DIM(SVS_DIM_LIST_ENTRY)};
+#undef SVS_DIM_LIST_ENTRY
+
+/// Whether N has a fixed-extent kernel.
+///
+/// Not a capability test: every dimensionality is supported. An extent answering
+/// `false` dispatches to the svs::Dynamic kernel instead of a fully unrolled one.
 template <size_t N> constexpr bool is_dim_supported() {
     for (auto i : supported_dim_list) {
         if (i == N) {

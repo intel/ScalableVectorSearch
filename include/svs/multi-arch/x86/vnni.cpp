@@ -1,5 +1,5 @@
 /*
- * Copyright 2025 Intel Corporation
+ * Copyright 2026 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,7 +23,7 @@ namespace svs::distance {
 
 // Define every kernel for this ISA level at every generated extent. Extents come
 // from cmake/dispatch-surface.cmake, type pairs from multi-arch/x86/preprocessor.h.
-#define SVS_DEFINE_FOR_DIM(DIM) SVS_INSTANTIATE_DISTANCES(template, DIM, AVX2)
+#define SVS_DEFINE_FOR_DIM(DIM) SVS_INSTANTIATE_DISTANCES(template, DIM, AVX512_VNNI)
 SVS_FOR_EACH_SUPPORTED_DIM(SVS_DEFINE_FOR_DIM)
 #undef SVS_DEFINE_FOR_DIM
 
