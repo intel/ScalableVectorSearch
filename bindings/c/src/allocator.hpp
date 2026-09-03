@@ -43,6 +43,16 @@ template <typename T> class CustomAllocator : public svs::AllocatorInterface {
         if (allocator->ops == nullptr) {
             throw std::invalid_argument("Custom allocator interface is not initialized.");
         }
+        if (allocator->ops->version > svs_get_version()) {
+            throw std::invalid_argument(
+                "Custom allocator interface version is not supported."
+            );
+        }
+        if (allocator->ops->struct_size < sizeof(svs_allocator_ops_t)) {
+            throw std::invalid_argument(
+                "Incompatible custom allocator interface struct size."
+            );
+        }
         if (allocator->ops->allocate == nullptr || allocator->ops->deallocate == nullptr) {
             throw std::invalid_argument(
                 "Custom allocator interface has null function pointers."
@@ -59,7 +69,7 @@ template <typename T> class CustomAllocator : public svs::AllocatorInterface {
 
         auto result = ops_.allocate(self_, n * sizeof(T), alignof(T), &err);
         if (result == nullptr) {
-            throw std::runtime_error(
+            throw svs::c_runtime::out_of_memory(
                 "Custom allocator failed to allocate memory: (" + std::to_string(err.code) +
                 ") " + err.message
             );

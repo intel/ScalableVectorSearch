@@ -97,6 +97,11 @@ class unsupported_hw : public std::runtime_error {
     using std::runtime_error::runtime_error;
 };
 
+class out_of_memory : public std::runtime_error {
+  public:
+    using std::runtime_error::runtime_error;
+};
+
 // A helper to wrap C++ exceptions and convert them to C error codes/messages.
 template <typename Callable, typename Result = std::invoke_result_t<Callable>>
 Result wrap_exceptions(Callable&& func, svs_error_h err, Result err_res = {}) noexcept {
@@ -114,6 +119,9 @@ Result wrap_exceptions(Callable&& func, svs_error_h err, Result err_res = {}) no
         return err_res;
     } catch (const svs::c_runtime::unsupported_hw& ex) {
         SET_ERROR(err, SVS_ERROR_UNSUPPORTED_HW, ex.what());
+        return err_res;
+    } catch (const svs::c_runtime::out_of_memory& ex) {
+        SET_ERROR(err, SVS_ERROR_OUT_OF_MEMORY, ex.what());
         return err_res;
     } catch (const svs::lib::ANNException& ex) {
         SET_ERROR(err, SVS_ERROR_GENERIC, ex.what());
