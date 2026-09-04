@@ -73,18 +73,27 @@ class ReverseEdges {
 
     void set_recording(bool on) { recording_.store(on, std::memory_order_release); }
 
+    // lists are keeped sorted for fast binary search of elements.
     void record(Idx m, Idx n) {
         if (!recording_.load(std::memory_order_acquire)) {
             return;
         }
         std::lock_guard lock{locks_[n]};
-        lists_[n].push_back(m);
+        auto& list = lists_[n];
+        // lists_[n].push_back(m);
+        auto it = std::lower_bound(list.begin(), list.end(), m);
+        if (it != list.end() && *it == m)
+            return; // already present
+        list.insert(it, m);
     }
 
     void remove(Idx m, Idx n) {
         std::lock_guard lock{locks_[n]};
         auto& list = lists_[n];
-        list.erase(std::remove(list.begin(), list.end(), m), list.end());
+        // list.erase(std::remove(list.begin(), list.end(), m), list.end());
+        auto it = std::lower_bound(list.begin(), list.end(), m);
+        if (it != list.end() && *it == m)
+            list.erase(it);
     }
 
     template <typename Deleted>
@@ -99,12 +108,13 @@ class ReverseEdges {
 
     void reset_node(Idx n) {
         std::lock_guard lock{locks_[n]};
-        lists_[n].clear();
+        list_type empty(idx_alloc_);
+        lists_[n].swap(empty);
     }
 
     void reset() {
         for (size_t i = 0, imax = lists_.size(); i < imax; ++i) {
-            lists_[i].clear();
+            reset_node(i);
         }
     }
 

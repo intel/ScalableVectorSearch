@@ -29,8 +29,10 @@
 #include "svs/lib/segmented_vector.h"
 #include "svs/lib/threads.h"
 
+// external
+#include "tsl/robin_set.h"
+
 #include <algorithm>
-#include <array>
 #include <atomic>
 #include <cassert>
 #include <cstdint>
@@ -306,7 +308,11 @@ template <std::unsigned_integral Idx, data::MemoryDataset Data> class SimpleGrap
 
         seq_counters_[src].end_write(seq);
         if (reverse_edges_) {
-            reverse_edges_->record(src, dst);
+            if (!has_edge(dst, lib::narrow_cast<Idx>(src))) {
+                reverse_edges_->record(src, dst);
+            } else {
+                reverse_edges_->remove(dst, src);
+            }
         }
         return AddEdgeResult::Added;
     }
@@ -358,18 +364,7 @@ template <std::unsigned_integral Idx, data::MemoryDataset Data> class SimpleGrap
     ///
     /// @brief Rebuild the reverse-edge index from the current (quiescent) graph.
     ///
-    /// Records ``src`` into ``R(dst)`` for *every* edge ``src -> dst``. Must be called with
-    /// no concurrent graph mutation (load, post-build, post-compact).
-    ///
-    /// It is tempting to skip edges whose reverse ``dst -> src`` also exists, halving the
-    /// index: `gather_work_set` visits `out(d) union R(d)`, so a symmetric in-neighbor is
-    /// already covered by `out(d)`. That weaker invariant is *not maintainable*, though.
-    /// It reads "for every edge `u -> d`: `u` is in `R(d)` **or** the edge `d -> u`
-    /// exists", and the second disjunct is falsified whenever consolidation rewires `d`
-    /// and drops `d -> u` -- at which point `u`'s in-edge becomes invisible and a later
-    /// deletion of `d` leaves `u` pointing at a retired slot. Recording unconditionally
-    /// gives the strictly stronger `R(d) contains in(d)`, which no edge *removal* can
-    /// break and which every mutator already preserves on edge creation.
+    /// Re-derives the asymmetric-only in-neighbor set
     ///
     template <threads::ThreadPool Pool> void rebuild_reverse_edges(Pool& threadpool) {
         if (!reverse_edges_) {
@@ -382,9 +377,11 @@ template <std::unsigned_integral Idx, data::MemoryDataset Data> class SimpleGrap
             [&](const auto& is, uint64_t /*tid*/) {
                 for (auto src : is) {
                     for (auto dst : get_node(lib::narrow_cast<Idx>(src))) {
-                        reverse_edges_->record(
-                            lib::narrow_cast<Idx>(src), lib::narrow_cast<Idx>(dst)
-                        );
+                        if (!has_edge(dst, lib::narrow_cast<Idx>(src))) {
+                            reverse_edges_->record(
+                                lib::narrow_cast<Idx>(src), lib::narrow_cast<Idx>(dst)
+                            );
+                        }
                     }
                 }
             }
@@ -518,26 +515,62 @@ template <std::unsigned_integral Idx, data::MemoryDataset Data> class SimpleGrap
     }
 
     template <typename Span> void replace_node_impl(Idx i, const Span& new_neighbors) {
-        std::span<const Idx> old_snapshot{};
-        std::array<Idx, MAX_STACK_DEGREE> old_buffer;
-        Idx old_size = 0;
-
         std::lock_guard lock{node_locks_[i]};
         std::span<Idx> raw_data = data_.get_datum(i);
-
-        if (reverse_edges_) {
-            old_size = relaxed_load(raw_data[0]);
-            old_size = std::min({old_size, max_degree_, Idx{MAX_STACK_DEGREE}});
-            for (Idx j = 0; j < old_size; ++j) {
-                old_buffer[j] = relaxed_load(raw_data[1 + j]);
-            }
-            old_snapshot = std::span<const Idx>(old_buffer.data(), old_size);
-        }
 
         // Clamp the number of elements to copy to the maximum out degree to correctly
         // handle the case where the caller passes in too many neighbors.
         Idx elements_to_copy =
             std::min(max_degree_, lib::narrow_cast<Idx>(new_neighbors.size()));
+
+        std::vector<Idx> edges_to_remove;
+        if (reverse_edges_) {
+            Idx old_size = relaxed_load(raw_data[0]);
+            old_size = std::min(old_size, max_degree_);
+
+            tsl::robin_set<Idx> overlap;
+            for (Idx k = 0; k < elements_to_copy; ++k) {
+                Idx idx = new_neighbors[k];
+                for (Idx j = 0; j < old_size; ++j) {
+                    if (relaxed_load(raw_data[1 + j]) == idx) {
+                        overlap.insert(idx);
+                        break;
+                    }
+                }
+            }
+
+            for (Idx k = 0; k < elements_to_copy; ++k) {
+                Idx dst = new_neighbors[k];
+                if (overlap.contains(dst))
+                    continue;
+
+                reverse_edges_->record(i, dst);
+                // [Exact list]
+                // Commented lines with [Exact list] mark
+                // can be used to maintain exact reverse_edges list
+                // reverse_edges list would be exact for single thread.
+                // Need investigation for concurent case.
+                // if (!has_edge(dst, i)) {
+                //    reverse_edges_->record(i, dst);
+                // } else {
+                //     reverse_edges_->remove(dst, i);
+                // }
+            }
+
+            for (Idx j = 0; j < old_size; ++j) {
+                Idx dst = relaxed_load(raw_data[1 + j]);
+                if (overlap.contains(dst))
+                    continue;
+
+                edges_to_remove.push_back(dst);
+
+                reverse_edges_->record(dst, i);
+                // [Exact list]
+                // if (has_edge(dst, i)) {
+                //     reverse_edges_->record(dst, i);
+                // }
+            }
+        }
 
         auto seq = seq_counters_[i].begin_write();
         for (Idx j = 0; j < elements_to_copy; ++j) {
@@ -546,22 +579,14 @@ template <std::unsigned_integral Idx, data::MemoryDataset Data> class SimpleGrap
         relaxed_store(raw_data[0], elements_to_copy);
         seq_counters_[i].end_write(seq);
 
-        if (reverse_edges_) {
-            for (Idx j = 0; j < elements_to_copy; ++j) {
-                Idx dst = new_neighbors[j];
-                bool existed = std::find(old_snapshot.begin(), old_snapshot.end(), dst) !=
-                               old_snapshot.end();
-                if (!existed) {
-                    reverse_edges_->record(i, dst);
-                }
-            }
+        // If removing was done before seqlock write,
+        // concurent consolidation may observe the state
+        // with already removed reverse edge but not updated
+        // neighbors list
+        for (Idx idx : edges_to_remove) {
+            reverse_edges_->remove(i, idx);
         }
     }
-
-    // Upper bound on adjacency degree we snapshot on the stack for the reverse-edge diff.
-    // Graphs with larger degree still work; the diff is simply skipped past this bound
-    // (over-recording, never under-recording, preserving completeness).
-    static constexpr Idx MAX_STACK_DEGREE = 256;
 
     // Recover the graph's base allocator instance for the reverse-edge index, unwrapping
     // the Blocked<> layer (Blocked derives from its base allocator) when present.
