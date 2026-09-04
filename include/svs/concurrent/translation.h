@@ -435,9 +435,8 @@ class IDTranslator {
             throw ANNEXCEPTION("Mismatched kind!");
         }
 
-        // Fully qualified: `svs::index::vamana` declares its own `name(SlotMetadata)`,
-        // which hides `svs::name<DataType>()` for unqualified lookup from inside this
-        // namespace as soon as a translation unit has included an upstream vamana header.
+        // `svs::name` must be qualified here: the enclosing `svs::index::vamana` declares
+        // its own `name(SlotMetadata)`, which hides `svs::name<DataType>()`.
         constexpr std::string_view external_id_name =
             svs::name<datatype_v<external_id_type>>();
         constexpr std::string_view internal_id_name =

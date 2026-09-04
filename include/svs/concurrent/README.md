@@ -1,13 +1,27 @@
-# `svs::index::vamana::concurrent` — concurrent dynamic Vamana index
+<!--
+  ~ Copyright 2026 Intel Corporation
+  ~
+  ~ Licensed under the Apache License, Version 2.0 (the "License");
+  ~ you may not use this file except in compliance with the License.
+  ~ You may obtain a copy of the License at
+  ~
+  ~     http://www.apache.org/licenses/LICENSE-2.0
+  ~
+  ~ Unless required by applicable law or agreed to in writing, software
+  ~ distributed under the License is distributed on an "AS IS" BASIS,
+  ~ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  ~ See the License for the specific language governing permissions and
+  ~ limitations under the License.
+-->
 
 A dynamic Vamana index that supports **lock-free search concurrent with mutation**:
 searches, `add_points`, `delete_entries`, and `consolidate` may all be in flight at the
 same time, from any number of threads.
 
-This is a **separate index**. The pre-existing `svs::index::vamana::VamanaIndex` and
-`svs::index::vamana::MutableVamanaIndex` are not modified, and neither is anything else
-under `include/svs/`. The only pre-existing file this stack touches at all is
-`tests/CMakeLists.txt`, to register the new tests.
+This is a **separate index**. The pre-existing `svs::index::vamana::VamanaIndex`,
+`svs::index::vamana::MutableVamanaIndex`, and `svs::index::vamana::MultiMutableVamanaIndex`
+are not modified, and neither is anything else under `include/svs/`. The only pre-existing
+file this stack touches at all is `tests/CMakeLists.txt`, to register the new tests.
 
 ## Why a separate index
 

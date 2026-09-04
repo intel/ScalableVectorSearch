@@ -31,13 +31,9 @@
 
 namespace svs::index::vamana::concurrent {
 
-// The greedy-search *scaffolding* -- the tracker API, the tracker concept, the entry-point
-// initializer, the default neighbor builder, and the prefetch parameters -- is unchanged by
-// this stack; only `greedy_search` itself gains the SeqLock retry loop. Alias the
-// pre-existing entities rather than redeclaring them: a redeclaration inside `concurrent`
-// would shadow the enclosing namespace's with a distinct look-alike, and values arriving
-// from facilities reused verbatim (e.g. `SearchScratchspace::prefetch_parameters`, or
-// `RestartInitializer`'s `NullTracker` parameter) would then fail to convert.
+// Only `greedy_search` itself changes here (it gains the SeqLock retry loop); the
+// surrounding scaffolding is reused as-is. Alias it rather than redeclaring it, so the
+// names stay the same types as the enclosing namespace's.
 using svs::index::vamana::GreedySearchPrefetchParameters;
 using svs::index::vamana::GreedySearchTracker;
 using svs::index::vamana::NullTracker;
