@@ -523,25 +523,39 @@ CATCH_TEST_CASE(
     const size_t expected_graph_bytes = index.view_graph().get_data().capacity() *
                                         index.view_graph().get_data().element_size();
     using Index = decltype(index);
-    // The per-slot status array is a SegmentedVector, whose capacity rounds up to the
+    // Both the per-slot status array and the reverse-edge directories are
+    // `SegmentedVector`s sized by the number of slots, whose capacity rounds up to the
     // power-of-two bucket layout rather than tracking size() exactly.
-    const size_t expected_status_bytes =
-        svs::lib::SegmentedVector<cc::SlotMetadata>(data_size).capacity() *
-        sizeof(cc::SlotMetadata);
+    const size_t segmented_capacity =
+        svs::lib::SegmentedVector<cc::SlotMetadata>(data_size).capacity();
+    const size_t expected_status_bytes = segmented_capacity * sizeof(cc::SlotMetadata);
     const size_t expected_metadata_bytes = expected_status_bytes +
                                            sizeof(typename Index::internal_id_type) +
                                            2 * indices.size() *
                                                (sizeof(typename Index::external_id_type) +
                                                 sizeof(typename Index::internal_id_type));
-    const size_t expected_total_bytes =
-        expected_data_bytes + expected_graph_bytes + expected_metadata_bytes;
+
+    // The reverse-edge index holds one in-neighbor list plus one lock per slot, so its
+    // directory overhead is deterministic. The payload is not: the index only records
+    // *asymmetric* in-edges, whose count depends on the (thread-order dependent) graph,
+    // and the per-node lists are `std::vector`s with an implementation-defined growth
+    // policy. So pin the directory and require a non-empty payload on top of it.
+    using ReverseList = typename ConcurrentGraph::reverse_edges_type::list_type;
+    const size_t expected_reverse_directory_bytes =
+        segmented_capacity * (sizeof(ReverseList) + sizeof(cc::SpinLock));
 
     // Dynamic get_memory_usage() should exactly match the capacity-based graph and data
-    // bytes plus the deterministic metadata implied by the input ids.
+    // bytes plus the deterministic metadata implied by the input ids, plus the
+    // reverse-edge index.
     const auto breakdown = index.get_memory_breakdown();
     CATCH_REQUIRE(breakdown.graph_bytes == expected_graph_bytes);
     CATCH_REQUIRE(breakdown.data_bytes == expected_data_bytes);
     CATCH_REQUIRE(breakdown.metadata_bytes == expected_metadata_bytes);
+    CATCH_REQUIRE(breakdown.reverse_edges_bytes > expected_reverse_directory_bytes);
+
+    const size_t expected_total_bytes = expected_data_bytes + expected_graph_bytes +
+                                        expected_metadata_bytes +
+                                        breakdown.reverse_edges_bytes;
     CATCH_REQUIRE(breakdown.total() == expected_total_bytes);
     const size_t usage = index.get_memory_breakdown().total();
     CATCH_REQUIRE(usage == expected_total_bytes);
