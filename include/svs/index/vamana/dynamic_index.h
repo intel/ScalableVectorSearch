@@ -463,6 +463,24 @@ class MutableVamanaIndex {
     }
 
     ///
+    /// @brief Rename external ID `old_id` to `new_id`, keeping the same stored vector
+    /// data and adjacency list.
+    ///
+    /// @param old_id The existing external ID to rename.
+    /// @param new_id The external ID to assign. Must not already exist.
+    ///
+    /// Requires that `old_id` exists in the index and `new_id` does not; throws
+    /// otherwise, leaving the index unmodified. Unlike `delete_entries` followed by
+    /// `add_points`, this is a pure bookkeeping operation on the ID translation table --
+    /// it does not touch the underlying dataset or graph.
+    ///
+    /// @see has_id, delete_entries
+    ///
+    void relabelVector(size_t old_id, size_t new_id) {
+        translator_.remap_external_id(old_id, new_id);
+    }
+
+    ///
     /// @brief Get the raw data for external id `e`.
     ///
     auto get_datum(size_t e) const { return data_.get_datum(translate_external_id(e)); }
