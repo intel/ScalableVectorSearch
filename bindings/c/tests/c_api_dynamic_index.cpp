@@ -651,7 +651,7 @@ CATCH_TEST_CASE("C API Dynamic Index Memory", "[c_api][index][memory][dynamic]")
         // Basic estimate using the builder's default search parameters.
         size_t default_size = 0;
         bool ok = svs_index_builder_estimate_search_memory_dynamic(
-            builder, K, K, nullptr, BLOCK_SIZE, &default_size, error
+            builder, K, K, nullptr, nullptr, BLOCK_SIZE, &default_size, error
         );
         CATCH_REQUIRE(ok);
         CATCH_REQUIRE(svs_error_ok(error));
@@ -660,7 +660,7 @@ CATCH_TEST_CASE("C API Dynamic Index Memory", "[c_api][index][memory][dynamic]")
         // The estimate scales linearly with the number of queries.
         size_t double_queries_size = 0;
         ok = svs_index_builder_estimate_search_memory_dynamic(
-            builder, K * 2, K, nullptr, BLOCK_SIZE, &double_queries_size, error
+            builder, K * 2, K, nullptr, nullptr, BLOCK_SIZE, &double_queries_size, error
         );
         CATCH_REQUIRE(ok);
         CATCH_REQUIRE(svs_error_ok(error));
@@ -672,7 +672,7 @@ CATCH_TEST_CASE("C API Dynamic Index Memory", "[c_api][index][memory][dynamic]")
         CATCH_REQUIRE(svs_error_ok(error));
         size_t params_size = 0;
         ok = svs_index_builder_estimate_search_memory_dynamic(
-            builder, K, K, search_params, BLOCK_SIZE, &params_size, error
+            builder, K, K, search_params, nullptr, BLOCK_SIZE, &params_size, error
         );
         CATCH_REQUIRE(ok);
         CATCH_REQUIRE(svs_error_ok(error));
@@ -684,7 +684,7 @@ CATCH_TEST_CASE("C API Dynamic Index Memory", "[c_api][index][memory][dynamic]")
         CATCH_REQUIRE(svs_error_ok(error));
         size_t large_params_size = 0;
         ok = svs_index_builder_estimate_search_memory_dynamic(
-            builder, K, K, large_params, BLOCK_SIZE, &large_params_size, error
+            builder, K, K, large_params, nullptr, BLOCK_SIZE, &large_params_size, error
         );
         CATCH_REQUIRE(ok);
         CATCH_REQUIRE(svs_error_ok(error));
@@ -693,38 +693,52 @@ CATCH_TEST_CASE("C API Dynamic Index Memory", "[c_api][index][memory][dynamic]")
         // Requesting more neighbors than the search window size grows the estimate.
         size_t many_neighbors_size = 0;
         ok = svs_index_builder_estimate_search_memory_dynamic(
-            builder, K, 200, search_params, BLOCK_SIZE, &many_neighbors_size, error
+            builder, K, 200, search_params, nullptr, BLOCK_SIZE, &many_neighbors_size, error
         );
         CATCH_REQUIRE(ok);
         CATCH_REQUIRE(svs_error_ok(error));
         CATCH_REQUIRE(many_neighbors_size >= params_size);
 
+        // The estimate grows if filtering is applied.
+        bool (*is_member)(void*, size_t) = [](void*, size_t) { return true; };
+        float (*filter_rate)(void*) = [](void*) { return 0.5f; };
+        svs_id_filter_interface_ops trivial_ops =
+            SVS_INIT_ID_FILTER_OPS((*is_member), (*filter_rate));
+        svs_id_filter_interface trivial_filter = SVS_MAKE_INTERFACE(nullptr, trivial_ops);
+        size_t filtered_size = 0;
+        ok = svs_index_builder_estimate_search_memory_dynamic(
+            builder, K, K, search_params, &trivial_filter, BLOCK_SIZE, &filtered_size, error
+        );
+        CATCH_REQUIRE(ok);
+        CATCH_REQUIRE(svs_error_ok(error));
+        CATCH_REQUIRE(filtered_size >= params_size);
+
         // Null-argument handling.
         size_t out_size = 0;
         CATCH_REQUIRE(
             svs_index_builder_estimate_search_memory_dynamic(
-                nullptr, K, K, nullptr, BLOCK_SIZE, &out_size, error
+                nullptr, K, K, nullptr, nullptr, BLOCK_SIZE, &out_size, error
             ) == false
         );
         CATCH_REQUIRE(svs_error_get_code(error) == SVS_ERROR_INVALID_ARGUMENT);
 
         CATCH_REQUIRE(
             svs_index_builder_estimate_search_memory_dynamic(
-                builder, K, K, nullptr, BLOCK_SIZE, nullptr, error
+                builder, K, K, nullptr, nullptr, BLOCK_SIZE, nullptr, error
             ) == false
         );
         CATCH_REQUIRE(svs_error_get_code(error) == SVS_ERROR_INVALID_ARGUMENT);
 
         CATCH_REQUIRE(
             svs_index_builder_estimate_search_memory_dynamic(
-                builder, 0, K, nullptr, BLOCK_SIZE, &out_size, error
+                builder, 0, K, nullptr, nullptr, BLOCK_SIZE, &out_size, error
             ) == false
         );
         CATCH_REQUIRE(svs_error_get_code(error) == SVS_ERROR_INVALID_ARGUMENT);
 
         CATCH_REQUIRE(
             svs_index_builder_estimate_search_memory_dynamic(
-                builder, K, 0, nullptr, BLOCK_SIZE, &out_size, error
+                builder, K, 0, nullptr, nullptr, BLOCK_SIZE, &out_size, error
             ) == false
         );
         CATCH_REQUIRE(svs_error_get_code(error) == SVS_ERROR_INVALID_ARGUMENT);

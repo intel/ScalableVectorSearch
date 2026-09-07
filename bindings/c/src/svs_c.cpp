@@ -613,6 +613,7 @@ SVS_API bool svs_index_builder_estimate_search_memory(
     size_t num_queries,
     size_t num_neighbors,
     svs_search_params_h search_params,
+    svs_id_filter_i id_filter,
     size_t* out_size,
     svs_error_h out_err
 ) {
@@ -623,8 +624,12 @@ SVS_API bool svs_index_builder_estimate_search_memory(
             EXPECT_ARG_NOT_NULL(out_size);
             EXPECT_ARG_GT_THAN(num_queries, 0);
             EXPECT_ARG_GT_THAN(num_neighbors, 0);
+            const IDFilterAdapter filter(id_filter);
             auto size = builder->impl->estimate_search_memory(
-                num_queries, num_neighbors, search_params ? search_params->impl : nullptr
+                num_queries,
+                num_neighbors,
+                search_params ? search_params->impl : nullptr,
+                filter
             );
             *out_size = size;
             return true;
@@ -639,6 +644,7 @@ SVS_API bool svs_index_builder_estimate_search_memory_dynamic(
     size_t num_queries,
     size_t num_neighbors,
     svs_search_params_h search_params,
+    svs_id_filter_i id_filter,
     size_t blocksize_bytes,
     size_t* out_size,
     svs_error_h out_err
@@ -650,10 +656,12 @@ SVS_API bool svs_index_builder_estimate_search_memory_dynamic(
             EXPECT_ARG_NOT_NULL(out_size);
             EXPECT_ARG_GT_THAN(num_queries, 0);
             EXPECT_ARG_GT_THAN(num_neighbors, 0);
+            const IDFilterAdapter filter(id_filter);
             auto size = builder->impl->estimate_search_memory_dynamic(
                 num_queries,
                 num_neighbors,
                 search_params ? search_params->impl : nullptr,
+                filter,
                 blocksize_bytes
             );
             *out_size = size;

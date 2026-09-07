@@ -200,7 +200,8 @@ struct IndexBuilder {
     size_t estimate_search_memory_vamana(
         size_t num_queries,
         size_t num_neighbors,
-        const std::shared_ptr<Algorithm::SearchParams>& search_params
+        const std::shared_ptr<Algorithm::SearchParams>& search_params,
+        const IDFilterInterface& id_filter
     ) const {
         if (search_params && search_params->type != algorithm->type) {
             throw std::invalid_argument(
@@ -214,10 +215,21 @@ struct IndexBuilder {
         );
 
         auto params = vamana_search_params->get_search_parameters();
-        auto buffer_size =
+        auto batch_size =
             std::max(params.buffer_config_.get_total_capacity(), num_neighbors);
+
+        if (id_filter.filter_rate() > 0.0) {
+            // Adjust the buffer size based on the filter hit rate.
+            // This is a rough estimate; the actual number of candidates that pass the
+            // filter may vary, but this gives a reasonable approximation for memory
+            // estimation.
+            batch_size = static_cast<size_t>(
+                static_cast<float>(batch_size) / id_filter.filter_rate()
+            );
+        }
+
         auto scratch_buffer_size = SearchBufferType::estimate_memory_footprint(
-            svs::index::vamana::SearchBufferConfig{buffer_size},
+            svs::index::vamana::SearchBufferConfig{batch_size},
             params.search_buffer_visited_set_
         );
 
@@ -233,7 +245,8 @@ struct IndexBuilder {
     size_t estimate_search_memory(
         size_t num_queries,
         size_t num_neighbors,
-        const std::shared_ptr<Algorithm::SearchParams>& search_params
+        const std::shared_ptr<Algorithm::SearchParams>& search_params,
+        const IDFilterInterface& id_filter
     ) const {
         NOT_IMPLEMENTED_IF(
             algorithm->type != SVS_ALGORITHM_TYPE_VAMANA,
@@ -241,7 +254,7 @@ struct IndexBuilder {
         );
         // Cmp template parameter can be ignored - it is not used in the memory estimation.
         return estimate_search_memory_vamana<svs::index::vamana::SearchBuffer<uint32_t>>(
-            num_queries, num_neighbors, search_params
+            num_queries, num_neighbors, search_params, id_filter
         );
     }
 
@@ -249,6 +262,7 @@ struct IndexBuilder {
         size_t num_queries,
         size_t num_neighbors,
         const std::shared_ptr<Algorithm::SearchParams>& search_params,
+        const IDFilterInterface& id_filter,
         size_t SVS_UNUSED(blocksize_bytes)
     ) const {
         NOT_IMPLEMENTED_IF(
@@ -257,7 +271,7 @@ struct IndexBuilder {
         );
         // Cmp template parameter can be ignored - it is not used in the memory estimation.
         return estimate_search_memory_vamana<svs::index::vamana::MutableBuffer<uint32_t>>(
-            num_queries, num_neighbors, search_params
+            num_queries, num_neighbors, search_params, id_filter
         );
     }
 };
