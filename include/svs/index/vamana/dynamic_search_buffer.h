@@ -45,11 +45,14 @@ template <typename Idx, typename Cmp = std::less<>> class MutableBuffer {
     using value_type = PredicatedSearchNeighbor<Idx>;
     using reference = value_type&;
     using const_reference = const value_type&;
+    using compare_type = Cmp;
+
     using vector_type = std::vector<value_type, threads::CacheAlignedAllocator<value_type>>;
     using iterator = typename vector_type::iterator;
     using const_iterator = typename vector_type::const_iterator;
-    using compare_type = Cmp;
-    using filter_type = VisitedFilter<Idx, 16>;
+
+    /// A visited filter with 65,535 entries with a memory footpring of 128 kiB.
+    using set_type = VisitedFilter<Idx, 16>;
 
   private:
     ///// Invariants:
@@ -91,7 +94,7 @@ template <typename Idx, typename Cmp = std::less<>> class MutableBuffer {
     // reserve one-past-the-end for copying neighbors.
     vector_type candidates_{};
     // An optional visited filter.
-    std::optional<filter_type> visited_{std::nullopt};
+    std::optional<set_type> visited_{std::nullopt};
 
   public:
     MutableBuffer() = default;
@@ -113,6 +116,38 @@ template <typename Idx, typename Cmp = std::less<>> class MutableBuffer {
     /// Construct a new buffer with the given size and capacity.
     explicit MutableBuffer(size_t size, Cmp compare = Cmp{}, bool enable_visited = false)
         : MutableBuffer{SearchBufferConfig{size}, std::move(compare), enable_visited} {}
+
+    /// Estimate heap memory footprint of a search buffer with the given configuration.
+    static constexpr size_t estimate_memory_footprint(
+        const SearchBufferConfig& config, bool enable_visited = false
+    ) {
+        // The SearchBuffer contains a vector of candidates and an optional visited set. The
+        // size of the vector is determined by the total capacity of the buffer.
+        const auto candidates_num = config.get_total_capacity();
+
+        // Calculate the size of the candidates vector, taking into account the alignment of
+        // the CacheAlignedAllocator.
+        constexpr size_t alignment = threads::CacheAlignedAllocator<value_type>::alignment;
+        const auto candidates_size =
+            alignment * lib::div_round_up(sizeof(value_type) * candidates_num, alignment);
+
+        auto result = candidates_size;
+
+        // VisitedFilter has a static filter capacity, which is a compile-time constant. The
+        // size of the visited set is determined by the filter capacity of the
+        // VisitedFilter, which is a compile-time constant.
+        if (enable_visited) {
+            result += set_type::filter_capacity * sizeof(typename set_type::value_type);
+        }
+
+        return result;
+    }
+
+    /// Estimate the memory footprint of a search buffer with the given size.
+    static constexpr size_t
+    estimate_memory_footprint(size_t size, bool enable_visited = false) {
+        return estimate_memory_footprint(SearchBufferConfig(size), enable_visited);
+    }
 
     /// Copy the portions of the MutableBuffer that matter for the purposes of scratch
     /// space.

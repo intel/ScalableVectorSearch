@@ -580,19 +580,17 @@ class VamanaIndex {
 
                 // Allocate scratchspace according to the provided search parameters.
                 auto search_buffer = search_buffer_type{
-                    SearchBufferConfig(search_parameters.buffer_config_),
+                    // Increase the search window size if the defaults are not suitable for
+                    // the requested number of neighbors.
+                    search_parameters.buffer_config_.get_total_capacity() < num_neighbors
+                        ? SearchBufferConfig{num_neighbors}
+                        : search_parameters.buffer_config_,
                     distance::comparator(distance_),
                     search_parameters.search_buffer_visited_set_};
 
                 auto prefetch_parameters = GreedySearchPrefetchParameters{
                     search_parameters.prefetch_lookahead_,
                     search_parameters.prefetch_step_};
-
-                // Increase the search window size if the defaults are not suitable for the
-                // requested number of neighbors.
-                if (search_buffer.capacity() < num_neighbors) {
-                    search_buffer.change_maxsize(SearchBufferConfig{num_neighbors});
-                }
 
                 // Pre-allocate scratch space needed by the dataset implementation.
                 auto scratch = extensions::per_thread_batch_search_setup(data_, distance_);

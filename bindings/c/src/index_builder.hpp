@@ -196,8 +196,8 @@ struct IndexBuilder {
         );
     }
 
-    template <svs::NeighborLike NeighborType>
-    size_t estimate_search_memory_impl(
+    template <typename SearchBufferType>
+    size_t estimate_search_memory_vamana(
         size_t num_queries,
         size_t num_neighbors,
         const std::shared_ptr<Algorithm::SearchParams>& search_params
@@ -208,19 +208,26 @@ struct IndexBuilder {
             );
         }
 
-        NOT_IMPLEMENTED_IF(
-            algorithm->type != SVS_ALGORITHM_TYPE_VAMANA,
-            "Search memory estimation is currently supported only for Vamana algorithm"
-        );
         auto vamana_algorithm = std::static_pointer_cast<AlgorithmVamana>(algorithm);
         auto vamana_search_params = std::static_pointer_cast<AlgorithmVamana::SearchParams>(
             search_params ? search_params : vamana_algorithm->get_default_search_params()
         );
 
         auto params = vamana_search_params->get_search_parameters();
-        auto search_buffer_size =
+        auto buffer_size =
             std::max(params.buffer_config_.get_total_capacity(), num_neighbors);
-        return num_queries * search_buffer_size * sizeof(NeighborType);
+        auto scratch_buffer_size = SearchBufferType::estimate_memory_footprint(
+            svs::index::vamana::SearchBufferConfig{buffer_size},
+            params.search_buffer_visited_set_
+        );
+
+        // There is also potential memory overhead in distance functor for 'fixed' query
+        // argument which size might in the range of [0, 3 * dimensions * sizeof(float)]
+        // depending on the distance metric and storage kind. However, given the calculation
+        // complexity, this is negligible and can be ignored for estimation purposes - at
+        // least for now.
+
+        return num_queries * scratch_buffer_size;
     }
 
     size_t estimate_search_memory(
@@ -228,7 +235,12 @@ struct IndexBuilder {
         size_t num_neighbors,
         const std::shared_ptr<Algorithm::SearchParams>& search_params
     ) const {
-        return estimate_search_memory_impl<svs::SearchNeighbor<uint32_t>>(
+        NOT_IMPLEMENTED_IF(
+            algorithm->type != SVS_ALGORITHM_TYPE_VAMANA,
+            "Search memory estimation is currently supported only for Vamana algorithm"
+        );
+        // Cmp template parameter can be ignored - it is not used in the memory estimation.
+        return estimate_search_memory_vamana<svs::index::vamana::SearchBuffer<uint32_t>>(
             num_queries, num_neighbors, search_params
         );
     }
@@ -239,7 +251,12 @@ struct IndexBuilder {
         const std::shared_ptr<Algorithm::SearchParams>& search_params,
         size_t SVS_UNUSED(blocksize_bytes)
     ) const {
-        return estimate_search_memory_impl<svs::PredicatedSearchNeighbor<uint32_t>>(
+        NOT_IMPLEMENTED_IF(
+            algorithm->type != SVS_ALGORITHM_TYPE_VAMANA,
+            "Search memory estimation is currently supported only for Vamana algorithm"
+        );
+        // Cmp template parameter can be ignored - it is not used in the memory estimation.
+        return estimate_search_memory_vamana<svs::index::vamana::MutableBuffer<uint32_t>>(
             num_queries, num_neighbors, search_params
         );
     }
