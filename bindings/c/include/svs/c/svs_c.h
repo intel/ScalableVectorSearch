@@ -762,6 +762,17 @@ SVS_API bool svs_index_builder_estimate_memory(
     svs_error_h out_err /*=NULL*/
 );
 
+/// @brief Returns default block size in bytes for dynamic index building based on the
+/// builder configuration
+/// @param builder The index builder handle
+/// @param out_blocksize_bytes Pointer to a variable to receive the default block size in
+/// bytes
+/// @param out_err An optional error handle to capture errors
+/// @return true on success, false on failure
+SVS_API bool svs_index_builder_get_default_blocksize_bytes(
+    svs_index_builder_h builder, size_t* out_blocksize_bytes, svs_error_h out_err /*=NULL*/
+);
+
 /// @brief Estimate the memory usage of a dynamic index based on the builder configuration,
 /// number of vectors, and block size
 /// @param builder The index builder handle

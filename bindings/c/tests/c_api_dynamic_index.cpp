@@ -458,7 +458,7 @@ CATCH_TEST_CASE("C API Dynamic Index Memory", "[c_api][index][memory][dynamic]")
             }
 
             // Estimate before build.
-            svs_memory_breakdown_t estimated{};
+            svs_memory_breakdown_t estimated = SVS_INIT_MEMORY_BREAKDOWN();
             ok = svs_index_builder_estimate_memory_dynamic(
                 local_builder, NUM_VECTORS, BLOCK_SIZE, &estimated, error
             );
@@ -475,7 +475,7 @@ CATCH_TEST_CASE("C API Dynamic Index Memory", "[c_api][index][memory][dynamic]")
             CATCH_REQUIRE(index != nullptr);
             CATCH_REQUIRE(svs_error_ok(error));
 
-            svs_memory_breakdown_t actual{};
+            svs_memory_breakdown_t actual = SVS_INIT_MEMORY_BREAKDOWN();
             ok = svs_index_get_memory_breakdown(index, &actual, error);
             CATCH_REQUIRE(ok);
             CATCH_REQUIRE(svs_error_ok(error));
@@ -556,6 +556,95 @@ CATCH_TEST_CASE("C API Dynamic Index Memory", "[c_api][index][memory][dynamic]")
                 svs_storage_free(storage);
             }
         }
+    }
+
+    CATCH_SECTION("Estimate Memory") {
+        // Normal call with an explicit block size yields a positive, self-consistent
+        // breakdown.
+        svs_memory_breakdown_t breakdown = SVS_INIT_MEMORY_BREAKDOWN();
+        bool ok = svs_index_builder_estimate_memory_dynamic(
+            builder, NUM_VECTORS, BLOCK_SIZE, &breakdown, error
+        );
+        CATCH_REQUIRE(ok);
+        CATCH_REQUIRE(svs_error_ok(error));
+        CATCH_REQUIRE(breakdown.graph_bytes > 0);
+        CATCH_REQUIRE(breakdown.data_bytes > 0);
+        CATCH_REQUIRE(breakdown.metadata_bytes > 0);
+
+        // Default block size (0) is accepted and also yields a positive estimate.
+        svs_memory_breakdown_t default_block = SVS_INIT_MEMORY_BREAKDOWN();
+        ok = svs_index_builder_estimate_memory_dynamic(
+            builder, NUM_VECTORS, 0, &default_block, error
+        );
+        CATCH_REQUIRE(ok);
+        CATCH_REQUIRE(svs_error_ok(error));
+        CATCH_REQUIRE(default_block.graph_bytes > 0);
+        CATCH_REQUIRE(default_block.data_bytes > 0);
+        CATCH_REQUIRE(default_block.metadata_bytes > 0);
+
+        // Passing the explicit default block size matches the implicit default (0).
+        size_t default_blocksize = 0;
+        CATCH_REQUIRE(svs_index_builder_get_default_blocksize_bytes(
+            builder, &default_blocksize, error
+        ));
+        CATCH_REQUIRE(svs_error_ok(error));
+        CATCH_REQUIRE(default_blocksize > 0);
+
+        svs_memory_breakdown_t explicit_default = SVS_INIT_MEMORY_BREAKDOWN();
+        ok = svs_index_builder_estimate_memory_dynamic(
+            builder, NUM_VECTORS, default_blocksize, &explicit_default, error
+        );
+        CATCH_REQUIRE(ok);
+        CATCH_REQUIRE(svs_error_ok(error));
+        CATCH_REQUIRE(explicit_default.graph_bytes == default_block.graph_bytes);
+        CATCH_REQUIRE(explicit_default.data_bytes == default_block.data_bytes);
+        CATCH_REQUIRE(explicit_default.metadata_bytes == default_block.metadata_bytes);
+
+        // The estimate grows (or stays equal) with the number of vectors.
+        svs_memory_breakdown_t more_vectors = SVS_INIT_MEMORY_BREAKDOWN();
+        ok = svs_index_builder_estimate_memory_dynamic(
+            builder, NUM_VECTORS * 2, BLOCK_SIZE, &more_vectors, error
+        );
+        CATCH_REQUIRE(ok);
+        CATCH_REQUIRE(svs_error_ok(error));
+        CATCH_REQUIRE(more_vectors.data_bytes >= breakdown.data_bytes);
+        CATCH_REQUIRE(more_vectors.graph_bytes >= breakdown.graph_bytes);
+        CATCH_REQUIRE(more_vectors.metadata_bytes >= breakdown.metadata_bytes);
+
+        // Corner case: a single vector still produces a valid estimate.
+        svs_memory_breakdown_t single = SVS_INIT_MEMORY_BREAKDOWN();
+        ok = svs_index_builder_estimate_memory_dynamic(
+            builder, 1, BLOCK_SIZE, &single, error
+        );
+        CATCH_REQUIRE(ok);
+        CATCH_REQUIRE(svs_error_ok(error));
+        CATCH_REQUIRE(single.data_bytes > 0);
+        CATCH_REQUIRE(single.metadata_bytes > 0);
+
+        // Null builder is rejected.
+        svs_memory_breakdown_t out = SVS_INIT_MEMORY_BREAKDOWN();
+        CATCH_REQUIRE(
+            svs_index_builder_estimate_memory_dynamic(
+                nullptr, NUM_VECTORS, BLOCK_SIZE, &out, error
+            ) == false
+        );
+        CATCH_REQUIRE(svs_error_get_code(error) == SVS_ERROR_INVALID_ARGUMENT);
+
+        // Null output breakdown is rejected.
+        CATCH_REQUIRE(
+            svs_index_builder_estimate_memory_dynamic(
+                builder, NUM_VECTORS, BLOCK_SIZE, nullptr, error
+            ) == false
+        );
+        CATCH_REQUIRE(svs_error_get_code(error) == SVS_ERROR_INVALID_ARGUMENT);
+
+        // Corner case: zero vectors is rejected.
+        CATCH_REQUIRE(
+            svs_index_builder_estimate_memory_dynamic(
+                builder, 0, BLOCK_SIZE, &out, error
+            ) == false
+        );
+        CATCH_REQUIRE(svs_error_get_code(error) == SVS_ERROR_INVALID_ARGUMENT);
     }
 
     CATCH_SECTION("Estimate Search Memory") {

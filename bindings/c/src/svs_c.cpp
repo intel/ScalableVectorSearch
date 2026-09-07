@@ -563,6 +563,25 @@ extern "C" bool svs_index_builder_estimate_memory(
     );
 }
 
+SVS_API bool svs_index_builder_get_default_blocksize_bytes(
+    svs_index_builder_h builder, size_t* out_blocksize_bytes, svs_error_h out_err
+) {
+    using namespace svs::c_runtime;
+    return wrap_exceptions(
+        [&]() {
+            EXPECT_ARG_NOT_NULL(builder);
+            EXPECT_ARG_NOT_NULL(out_blocksize_bytes);
+            // For now, default blocksize is hardcoded in svs::data::BlockingParameters, so
+            // we can just return that value.
+            *out_blocksize_bytes =
+                svs::data::BlockingParameters::default_blocksize_bytes.value();
+            return true;
+        },
+        out_err,
+        false
+    );
+}
+
 extern "C" bool svs_index_builder_estimate_memory_dynamic(
     svs_index_builder_h builder,
     size_t num_vectors,
@@ -576,7 +595,6 @@ extern "C" bool svs_index_builder_estimate_memory_dynamic(
             EXPECT_ARG_NOT_NULL(builder);
             EXPECT_ARG_NOT_NULL(out_breakdown);
             EXPECT_ARG_GT_THAN(num_vectors, 0);
-            EXPECT_ARG_GT_THAN(blocksize_bytes, 0);
             auto breakdown = builder->impl->estimate_memory_breakdown_dynamic(
                 num_vectors, blocksize_bytes
             );

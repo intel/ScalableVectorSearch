@@ -974,7 +974,7 @@ CATCH_TEST_CASE("C API Index Memory Management", "[c_api][index][memory]") {
             }
 
             // Estimate before build.
-            svs_memory_breakdown_t estimated{};
+            svs_memory_breakdown_t estimated = SVS_INIT_MEMORY_BREAKDOWN();
             success =
                 svs_index_builder_estimate_memory(builder, NUM_VECTORS, &estimated, error);
             CATCH_REQUIRE(success);
@@ -988,7 +988,7 @@ CATCH_TEST_CASE("C API Index Memory Management", "[c_api][index][memory]") {
             CATCH_REQUIRE(index != nullptr);
             CATCH_REQUIRE(svs_error_ok(error));
 
-            svs_memory_breakdown_t actual{};
+            svs_memory_breakdown_t actual = SVS_INIT_MEMORY_BREAKDOWN();
             success = svs_index_get_memory_breakdown(index, &actual, error);
             CATCH_REQUIRE(success);
             CATCH_REQUIRE(svs_error_ok(error));
