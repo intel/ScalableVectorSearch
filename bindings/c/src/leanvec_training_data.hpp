@@ -49,16 +49,14 @@ class LeanVecTrainingData {
         size_t leanvec_dims,
         svs::threads::ThreadPoolHandle& pool
     )
-        : leanvec_dims_{leanvec_dims}
-        , matrices_{
+        : matrices_{
               queries.size() == 0 ? compute_pca(data, leanvec_dims, pool)
                                   : compute_ood(data, queries, leanvec_dims, pool)} {}
 
-    size_t leanvec_dims() const { return leanvec_dims_; }
+    size_t leanvec_dims() const { return matrices_.num_cols(); }
     const matrices_type& matrices() const { return matrices_; }
 
   private:
-    size_t leanvec_dims_;
     matrices_type matrices_;
 
     static matrices_type compute_pca(
@@ -89,6 +87,18 @@ class LeanVecTrainingData {
     }
 };
 
+} // namespace svs::c_runtime
+
+#else // SVS_RUNTIME_ENABLE_LVQ_LEANVEC
+namespace svs::c_runtime {
+class LeanVecTrainingData {
+  public:
+    template <typename... Args> LeanVecTrainingData(Args&&...) {
+        throw svs::c_runtime::not_implemented(
+            "LeanVec training is not implemented in this build"
+        );
+    }
+};
 } // namespace svs::c_runtime
 
 #endif // SVS_RUNTIME_ENABLE_LVQ_LEANVEC

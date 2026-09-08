@@ -308,10 +308,12 @@ svs_storage_h storage = svs_storage_create_leanvec(
 );
 
 // LeanVec from matrices trained up front. Passing training queries learns
-// out-of-distribution (OOD) matrices; passing none learns PCA matrices.
-// `leanvec_dims` comes from the training data.
+// out-of-distribution (OOD) matrices; passing 0/NULL learns in-distribution
+// (PCA) matrices. The builder must already be configured with the correct
+// dimension and thread pool. The storage's LeanVec dimensions come from the
+// training data.
 svs_leanvec_training_data_h td = svs_leanvec_training_data_build(
-    dim, num_vectors, x, num_queries, x_q, 128, err
+    builder, 128, num_vectors, x, num_queries, x_q, err
 );
 svs_storage_h storage = svs_storage_create_leanvec_trained(
     td, SVS_DATA_TYPE_INT4, SVS_DATA_TYPE_INT8, err
