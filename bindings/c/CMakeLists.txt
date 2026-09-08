@@ -1,0 +1,279 @@
+# Copyright 2026 Intel Corporation
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+cmake_minimum_required(VERSION 3.21)
+project(svs_c_api VERSION 0.4.0 LANGUAGES CXX C)
+set(TARGET_NAME svs_c_api)
+
+include(GNUInstallDirs)
+
+set(SVS_C_API_GENERATED_INCLUDE_DIR "${CMAKE_CURRENT_BINARY_DIR}/include")
+set(SVS_C_API_VERSION_HEADER "${SVS_C_API_GENERATED_INCLUDE_DIR}/svs/c/svs_c_version.h")
+configure_file(
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/svs/c/svs_c_version.h.in"
+    "${SVS_C_API_VERSION_HEADER}"
+)
+
+set(SVS_C_API_HEADERS
+    include/svs/c/svs_c_config.h
+    include/svs/c/svs_c.h
+    ${SVS_C_API_VERSION_HEADER}
+)
+
+set(SVS_C_API_SOURCES
+    src/algorithm.hpp
+    src/error.hpp
+    src/filtered_search.hpp
+    src/index.hpp
+    src/index_builder.hpp
+    src/storage.hpp
+    src/threadpool.hpp
+    src/types_support.hpp
+
+    src/error.cpp
+    src/svs_c.cpp
+    src/dispatcher_vamana.cpp
+    src/dispatcher_dynamic_vamana.cpp
+)
+
+add_library(${TARGET_NAME} SHARED
+    ${SVS_C_API_HEADERS}
+    ${SVS_C_API_SOURCES}
+)
+
+target_include_directories(${TARGET_NAME}
+    PUBLIC
+        $<BUILD_INTERFACE:${SVS_C_API_GENERATED_INCLUDE_DIR}>
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+        $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
+    PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src
+)
+
+find_package(OpenMP REQUIRED)
+# PRIVATE: OpenMP is an implementation detail linked into the shared library.
+# Exporting it would force consumers of the C ABI to resolve a C++ OpenMP
+# target they never asked for.
+target_link_libraries(${TARGET_NAME} PRIVATE OpenMP::OpenMP_CXX)
+
+target_compile_options(${TARGET_NAME} PRIVATE
+    -DSVS_ENABLE_OMP=1
+    -fvisibility=hidden
+)
+
+if(UNIX AND NOT APPLE)
+    # Don't export 3rd-party symbols from the lib
+    target_link_options(${TARGET_NAME} PRIVATE "SHELL:-Wl,--exclude-libs,ALL")
+endif()
+
+# C++20 is required to *build* this library.
+# Propagate language standards to consumers of the public C ABI header so their
+# user code is compiled at a supported standard:
+#   - C consumers   -> C99 or later
+#   - C++ consumers -> C++20 or later
+# These meta-features are language-specific, so a pure-C consumer is held to C99
+# only and is never forced to compile as C++20.
+target_compile_features(${TARGET_NAME}
+    PUBLIC cxx_std_20
+    INTERFACE c_std_99
+)
+if (NOT DEFINED SVS_CXX_STANDARD OR SVS_CXX_STANDARD STREQUAL "")
+    set(SVS_CXX_STANDARD 20)
+endif()
+set_target_properties(${TARGET_NAME} PROPERTIES PUBLIC_HEADER "${SVS_C_API_HEADERS}")
+set_target_properties(${TARGET_NAME} PROPERTIES CXX_STANDARD ${SVS_CXX_STANDARD})
+set_target_properties(${TARGET_NAME} PROPERTIES CXX_STANDARD_REQUIRED ON)
+set_target_properties(${TARGET_NAME} PROPERTIES CXX_EXTENSIONS OFF)
+set_target_properties(${TARGET_NAME} PROPERTIES VERSION ${PROJECT_VERSION} SOVERSION ${PROJECT_VERSION_MAJOR} )
+
+target_link_libraries(${TARGET_NAME} PRIVATE
+    svs::svs
+)
+
+# The non-LTO fallback below is correct but slower, so nothing fails and CI stays
+# green. Set this where the LTO archive is the point (CI) to make the drop an error.
+option(SVS_REQUIRE_LTO_ARCHIVE
+    "Fail instead of warn when the compiler cannot consume the LVQ/LeanVec LTO archive" OFF)
+
+if (SVS_RUNTIME_ENABLE_LVQ_LEANVEC)
+    message(STATUS "Enabling LVQ/LeanVec support in C API")
+    target_compile_definitions(${TARGET_NAME} PRIVATE SVS_RUNTIME_ENABLE_LVQ_LEANVEC)
+    if(SVS_LVQ_HEADER)
+        target_compile_definitions(${TARGET_NAME} PRIVATE
+            SVS_LVQ_HEADER="${SVS_LVQ_HEADER}"
+        )
+        # "SVS_LVQ_HEADER=\"${SVS_LVQ_HEADER}\""
+    endif()
+    if(SVS_LEANVEC_HEADER)
+        target_compile_definitions(${TARGET_NAME} PRIVATE
+            SVS_LEANVEC_HEADER="${SVS_LEANVEC_HEADER}"
+        )
+        # "SVS_LEANVEC_HEADER=\"${SVS_LEANVEC_HEADER}\""
+    endif()
+
+    if (RUNTIME_BINDINGS_PRIVATE_SOURCE_BUILD)
+        message(STATUS "Building directly from private sources with IVF support")
+        target_link_libraries(${TARGET_NAME} PRIVATE
+            svs::svs
+            svs_compile_options
+        )
+        if(SVS_EXPERIMENTAL_LINK_STATIC_MKL)
+            link_mkl_static(${TARGET_NAME})
+        endif()
+    elseif(TARGET svs::svs)
+        message(FATAL_ERROR
+            "Pre-built LVQ/LeanVec SVS library cannot be used in SVS main build. "
+            "Please build SVS C API using bindings/c directory as CMake source root."
+        )
+    else()
+        # Links to LTO-enabled static library, requires GCC/G++ 11.2
+        if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" AND CMAKE_CXX_COMPILER_VERSION VERSION_GREATER_EQUAL "11.2" AND CMAKE_CXX_COMPILER_VERSION VERSION_LESS "11.3")
+            set(SVS_URL "https://github.com/intel/ScalableVectorSearch/releases/download/nightly/svs-shared-library-lto-nightly-2026-07-21-127.tar.gz"
+                CACHE STRING "URL to download SVS shared library")
+        else()
+            # The fallback is correct but slower, so nothing downstream fails and CI
+            # stays green. Set SVS_REQUIRE_LTO_ARCHIVE=ON where the LTO archive is
+            # the point (the containerised CI job) to make the drop an error.
+            if(SVS_REQUIRE_LTO_ARCHIVE)
+                set(SVS_LTO_MESSAGE_LEVEL FATAL_ERROR)
+            else()
+                set(SVS_LTO_MESSAGE_LEVEL WARNING)
+            endif()
+            message(${SVS_LTO_MESSAGE_LEVEL}
+                "Pre-built LVQ/LeanVec SVS library requires GCC/G++ v.11.2 to apply LTO optimizations."
+                "Current compiler: ${CMAKE_CXX_COMPILER_ID} ${CMAKE_CXX_COMPILER_VERSION}"
+            )
+            set(SVS_URL "https://github.com/intel/ScalableVectorSearch/releases/download/v0.4.0/svs-shared-library.tar.gz"
+                CACHE STRING "URL to download SVS shared library")
+        endif()
+        include(FetchContent)
+        # DOWNLOAD_EXTRACT_TIMESTAMP needs CMake 3.24+; 3.22 is still around locally.
+        set(SVS_FETCH_EXTRA_ARGS)
+        if(CMAKE_VERSION VERSION_GREATER_EQUAL "3.24")
+            list(APPEND SVS_FETCH_EXTRA_ARGS DOWNLOAD_EXTRACT_TIMESTAMP TRUE)
+        endif()
+        FetchContent_Declare(
+            svs
+            URL ${SVS_URL}
+            ${SVS_FETCH_EXTRA_ARGS}
+        )
+        FetchContent_MakeAvailable(svs)
+        list(APPEND CMAKE_PREFIX_PATH "${svs_SOURCE_DIR}")
+        find_package(svs REQUIRED)
+        target_link_libraries(${TARGET_NAME} PRIVATE
+            svs::svs
+            svs::svs_compile_options
+            svs::svs_static_library
+        )
+    endif()
+else()
+    message(STATUS "LVQ/LeanVec support is disabled in C API")
+    # Include the SVS library directly if needed.
+    if (NOT TARGET svs::svs)
+        add_subdirectory("../.." "${CMAKE_CURRENT_BINARY_DIR}/svs")
+    endif()
+    target_link_libraries(${TARGET_NAME} PRIVATE
+       svs::svs
+       svs_compile_options
+       svs_x86_options_base
+    )
+endif()
+
+# Installing
+set(SVS_C_API_EXPORT_NAME ${TARGET_NAME})
+set(VERSION_CONFIG "${CMAKE_CURRENT_BINARY_DIR}/${SVS_C_API_EXPORT_NAME}ConfigVersion.cmake")
+set(SVS_C_API_CONFIG_INSTALL_DIR ${CMAKE_INSTALL_LIBDIR}/cmake/svs_c_api)
+set(SVS_C_API_COMPONENT_NAME "C_API")
+
+install(TARGETS ${TARGET_NAME}
+    EXPORT ${SVS_C_API_EXPORT_NAME}
+    COMPONENT ${SVS_C_API_COMPONENT_NAME}
+    LIBRARY DESTINATION lib
+    PUBLIC_HEADER DESTINATION include/svs/c
+    INCLUDES DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
+)
+
+install(DIRECTORY include/svs/c
+    COMPONENT ${SVS_C_API_COMPONENT_NAME}
+    DESTINATION include/svs
+    FILES_MATCHING PATTERN "*.h"
+)
+
+install(EXPORT ${SVS_C_API_EXPORT_NAME}
+    COMPONENT ${SVS_C_API_COMPONENT_NAME}
+    NAMESPACE svs::
+    DESTINATION ${SVS_C_API_CONFIG_INSTALL_DIR}
+)
+
+include(CMakePackageConfigHelpers)
+configure_package_config_file(
+    "${CMAKE_CURRENT_LIST_DIR}/c_apiConfig.cmake.in"
+    "${CMAKE_CURRENT_BINARY_DIR}/${SVS_C_API_EXPORT_NAME}Config.cmake"
+    INSTALL_DESTINATION "${SVS_C_API_CONFIG_INSTALL_DIR}"
+)
+
+# Don't make compatibility guarantees until we reach a compatibility milestone.
+write_basic_package_version_file(
+    ${VERSION_CONFIG}
+    VERSION ${PROJECT_VERSION}
+    COMPATIBILITY ExactVersion
+)
+
+install(FILES
+    "${CMAKE_CURRENT_BINARY_DIR}/${SVS_C_API_EXPORT_NAME}Config.cmake"
+    "${VERSION_CONFIG}"
+    COMPONENT ${SVS_C_API_COMPONENT_NAME}
+    DESTINATION "${SVS_C_API_CONFIG_INSTALL_DIR}"
+)
+
+# Build tests if requested
+if(DEFINED SVS_BUILD_TESTS)
+    option(SVS_BUILD_C_API_TESTS "Build C API tests" ${SVS_BUILD_TESTS})
+else()
+    option(SVS_BUILD_C_API_TESTS "Build C API tests" OFF)
+endif()
+
+
+if(SVS_BUILD_C_API_TESTS)
+    # Add test to CTest
+    include(CTest)
+    enable_testing()
+    if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+        target_compile_options(${TARGET_NAME} PRIVATE --coverage)
+        target_link_options(${TARGET_NAME} PRIVATE --coverage)
+        # add coverage target
+        add_custom_target(clean_coverage
+            COMMAND ${CMAKE_COMMAND} -E echo "Cleaning coverage data..."
+            COMMAND ${CMAKE_COMMAND} -E chdir ${CMAKE_BINARY_DIR} find . -name "*.gcda" -delete
+            COMMAND ${CMAKE_COMMAND} -E remove -f ${CMAKE_BINARY_DIR}/coverage.info
+            COMMENT "Cleaning coverage data..."
+        )
+        add_custom_target(coverage
+            COMMAND ${CMAKE_COMMAND} -E echo "Generating coverage report..."
+            COMMAND ${CMAKE_COMMAND} -E env GCOV_PREFIX=${CMAKE_BINARY_DIR}/coverage GCOV_PREFIX_STRIP=1 ${CMAKE_COMMAND} -E make_directory ${CMAKE_BINARY_DIR}/coverage
+            COMMAND ${CMAKE_COMMAND} -E chdir ${CMAKE_BINARY_DIR} lcov --capture --directory . --output-file coverage.info
+            COMMAND ${CMAKE_COMMAND} -E chdir ${CMAKE_BINARY_DIR} lcov --remove coverage.info '/usr/*' --output-file coverage.info
+            COMMAND ${CMAKE_COMMAND} -E chdir ${CMAKE_BINARY_DIR} lcov --remove coverage.info '*/_deps/*' --output-file coverage.info
+            COMMAND ${CMAKE_COMMAND} -E chdir ${CMAKE_BINARY_DIR} lcov --list coverage.info
+            COMMENT "Generating code coverage report..."
+        )
+    endif()
+    add_subdirectory(tests)
+endif()
+
+if(SVS_BUILD_EXAMPLES)
+    add_subdirectory(
+        "${CMAKE_CURRENT_SOURCE_DIR}/../../examples/c"
+        "${CMAKE_CURRENT_BINARY_DIR}/examples"
+    )
+endif()

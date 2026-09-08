@@ -58,6 +58,11 @@ else()
     message(STATUS "SVS runtime will be built without IVF support")
 endif()
 
+# The non-LTO fallback below is correct but slower, so nothing fails and CI stays
+# green. Set this where the LTO archive is the point (CI) to make the drop an error.
+option(SVS_REQUIRE_LTO_ARCHIVE
+    "Fail instead of warn when the compiler cannot consume the LVQ/LeanVec LTO archive" OFF)
+
 option(SVS_RUNTIME_ENABLE_LVQ_LEANVEC "Enable compilation of SVS runtime with LVQ and LeanVec support" ON)
 if (SVS_RUNTIME_ENABLE_LVQ_LEANVEC)
     message(STATUS "SVS runtime will be built with LVQ support")
@@ -141,18 +146,28 @@ if (SVS_RUNTIME_ENABLE_LVQ_LEANVEC)
             set(SVS_URL "https://github.com/intel/ScalableVectorSearch/releases/download/nightly/svs-shared-library-lto-nightly-2026-07-21-127.tar.gz"
                 CACHE STRING "URL to download SVS shared library")
         else()
-            message(WARNING
+            if(SVS_REQUIRE_LTO_ARCHIVE)
+                set(SVS_LTO_MESSAGE_LEVEL FATAL_ERROR)
+            else()
+                set(SVS_LTO_MESSAGE_LEVEL WARNING)
+            endif()
+            message(${SVS_LTO_MESSAGE_LEVEL}
                 "Pre-built LVQ/LeanVec SVS library requires GCC/G++ v.11.2 to apply LTO optimizations."
                 "Current compiler: ${CMAKE_CXX_COMPILER_ID} ${CMAKE_CXX_COMPILER_VERSION}"
             )
-            set(SVS_URL "https://github.com/intel/ScalableVectorSearch/releases/download/nightly/svs-shared-library-nightly-2026-05-06-1253.tar.gz"
+            set(SVS_URL "https://github.com/intel/ScalableVectorSearch/releases/download/v0.4.0/svs-shared-library.tar.gz"
                 CACHE STRING "URL to download SVS shared library")
         endif()
         include(FetchContent)
+        # DOWNLOAD_EXTRACT_TIMESTAMP needs CMake 3.24+; 3.22 is still around locally.
+        set(SVS_FETCH_EXTRA_ARGS)
+        if(CMAKE_VERSION VERSION_GREATER_EQUAL "3.24")
+            list(APPEND SVS_FETCH_EXTRA_ARGS DOWNLOAD_EXTRACT_TIMESTAMP TRUE)
+        endif()
         FetchContent_Declare(
             svs
             URL ${SVS_URL}
-            DOWNLOAD_EXTRACT_TIMESTAMP TRUE
+            ${SVS_FETCH_EXTRA_ARGS}
         )
         FetchContent_MakeAvailable(svs)
         list(APPEND CMAKE_PREFIX_PATH "${svs_SOURCE_DIR}")

@@ -211,6 +211,36 @@ class IDTranslator {
     }
 
     ///
+    /// @brief Remap the external ID, keeping the same internal ID.
+    ///
+    /// @param from The existing external ID to rename.
+    /// @param to The external ID to rename it to.
+    /// @param check Check that ``from`` exists and ``to`` does not yet exist. Only safe
+    ///     to set to ``false`` if this holds true.
+    ///
+    /// Note, if ``check == true`` and either condition fails, the underlying translation
+    /// tables will not be modified.
+    ///
+    void remap_external_id(external_id_type from, external_id_type to, bool check = true) {
+        if (check) {
+            if (!has_external(from)) {
+                throw ANNEXCEPTION("Index does not contain external ID {}!", from);
+            }
+            if (has_external(to)) {
+                throw ANNEXCEPTION("Index already contains external ID {}!", to);
+            }
+        }
+
+        auto itr = external_to_internal_.find(from);
+        auto internal = itr->second;
+
+        // Updating the external-to-internal ID is easy.
+        internal_to_external_[internal] = to;
+        external_to_internal_.erase(itr);
+        external_to_internal_.insert({to, internal});
+    }
+
+    ///
     /// @brief Delete entries from internal IDs.
     ///
     /// @param internal_ids A container with the internal ids to delete. Must implement a
