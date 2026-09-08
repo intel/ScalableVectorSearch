@@ -435,10 +435,6 @@ extern "C" svs_leanvec_training_data_h svs_leanvec_training_data_build(
 
             const auto dim = builder->impl->dimension;
             EXPECT_ARG_GE_THAN(dim, leanvec_dims);
-            INVALID_ARGUMENT_IF(
-                (num_queries > 0 && x_q == nullptr),
-                "x_q should not be NULL when num_queries is greater than 0"
-            );
 
             auto data = svs::data::ConstSimpleDataView<float>(x, num_vectors, dim);
             // A zero-sized view selects the in-distribution (PCA) path.

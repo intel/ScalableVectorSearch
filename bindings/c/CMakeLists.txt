@@ -46,6 +46,7 @@ set(SVS_C_API_SOURCES
     src/svs_c.cpp
     src/dispatcher_vamana.cpp
     src/dispatcher_dynamic_vamana.cpp
+    src/leanvec_training_data.cpp
 )
 
 add_library(${TARGET_NAME} SHARED

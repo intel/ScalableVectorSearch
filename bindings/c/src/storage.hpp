@@ -63,8 +63,8 @@ struct StorageLeanVec : public Storage {
     size_t secondary_bits;
     // Pre-trained reduction matrices; when set, they are used instead of PCA
     // matrices computed at build time (enables out-of-distribution LeanVec).
-    // Fixed at construction: `leanvec_dims` is taken from the training data, so
-    // the two can never disagree.
+    // For trained storage, dimensions are read directly from these matrices;
+    // `leanvec_dims` is used only when `training_data` is null.
     std::shared_ptr<const LeanVecTrainingData> training_data = nullptr;
 
     StorageLeanVec(size_t leanvec_dims, svs_data_type_t primary, svs_data_type_t secondary)

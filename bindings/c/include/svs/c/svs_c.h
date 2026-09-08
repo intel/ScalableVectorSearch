@@ -659,7 +659,7 @@ SVS_API void svs_storage_free(svs_storage_h storage);
 /// * The training data build process depends on the index builder's dimension and thread
 /// pool configuration, so the builder must be configured with the correct dimension and
 /// thread pool before calling this function.
-/// * The training data is copied into the returned handle, so the caller may
+/// * The input arrays are consumed synchronously and are not retained, so the caller may
 /// free or modify @p x and @p x_q once this call returns.
 /// * The training data built by this function is used to create a LeanVec storage
 /// configuration via svs_storage_create_leanvec_trained(). The training data handle may be

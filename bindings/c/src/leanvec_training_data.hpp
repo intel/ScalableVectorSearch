@@ -20,8 +20,7 @@
 #include "svs/c/svs_c.h"
 
 #include <svs/core/data/simple.h>
-#include <svs/core/medioid.h>
-#include <svs/lib/static.h>
+#include <svs/cpuid.h>
 #include <svs/lib/threads/threadpool.h>
 
 #ifdef SVS_LEANVEC_HEADER
@@ -49,42 +48,22 @@ class LeanVecTrainingData {
         size_t leanvec_dims,
         svs::threads::ThreadPoolHandle& pool
     )
-        : matrices_{
-              queries.size() == 0 ? compute_pca(data, leanvec_dims, pool)
-                                  : compute_ood(data, queries, leanvec_dims, pool)} {}
+        : matrices_{compute_matrices(data, queries, leanvec_dims, pool)} {}
 
     size_t leanvec_dims() const { return matrices_.num_cols(); }
     const matrices_type& matrices() const { return matrices_; }
 
+    static bool enabled() { return svs::detail::intel_enabled(); }
+
   private:
     matrices_type matrices_;
 
-    static matrices_type compute_pca(
-        svs::data::ConstSimpleDataView<float> data,
-        size_t leanvec_dims,
-        svs::threads::ThreadPoolHandle& pool
-    ) {
-        auto means = svs::utils::compute_medioid(data, pool);
-        auto matrix = svs::leanvec::compute_leanvec_matrix<svs::Dynamic, svs::Dynamic>(
-            data, means, pool, svs::lib::MaybeStatic{leanvec_dims}
-        );
-        // A copy is used for the query matrix: in PCA mode data and query
-        // transforms are identical, and passing the same object twice trips
-        // use-after-move warnings and DenseArray double-free issues.
-        auto query_matrix = matrix;
-        return matrices_type{std::move(matrix), std::move(query_matrix)};
-    }
-
-    static matrices_type compute_ood(
+    static matrices_type compute_matrices(
         svs::data::ConstSimpleDataView<float> data,
         svs::data::ConstSimpleDataView<float> queries,
         size_t leanvec_dims,
         svs::threads::ThreadPoolHandle& pool
-    ) {
-        return svs::leanvec::compute_leanvec_matrices_ood<svs::Dynamic>(
-            data, queries, pool, svs::lib::MaybeStatic{leanvec_dims}
-        );
-    }
+    );
 };
 
 } // namespace svs::c_runtime
@@ -98,6 +77,8 @@ class LeanVecTrainingData {
             "LeanVec training is not implemented in this build"
         );
     }
+
+    static bool enabled() { return false; }
 };
 } // namespace svs::c_runtime
 
