@@ -389,7 +389,7 @@ CATCH_TEST_CASE("MutableVamana Index Relabel", "[graph_index][dynamic_index]") {
     auto datum_copy = std::vector<float>(datum_before.begin(), datum_before.end());
     auto size_before = index.size();
 
-    index.relabelVector(old_id, new_id);
+    index.replace_external_id(old_id, new_id);
 
     // The old label is gone, the new one exists, and nothing moved: same internal id,
     // same stored data, same count -- this is a pure rename, not a delete + re-add.
@@ -407,14 +407,18 @@ CATCH_TEST_CASE("MutableVamana Index Relabel", "[graph_index][dynamic_index]") {
 
     CATCH_SECTION("Renaming a non-existent ID throws") {
         // `old_id` was already renamed away above, so it no longer exists either.
-        CATCH_REQUIRE_THROWS_AS(index.relabelVector(old_id, new_id + 1), svs::ANNException);
+        CATCH_REQUIRE_THROWS_AS(
+            index.replace_external_id(old_id, new_id + 1), svs::ANNException
+        );
         CATCH_REQUIRE(!index.has_id(old_id));
         CATCH_REQUIRE(!index.has_id(new_id + 1));
     }
 
     CATCH_SECTION("Renaming onto an existing ID throws") {
         auto other_id = indices[1];
-        CATCH_REQUIRE_THROWS_AS(index.relabelVector(new_id, other_id), svs::ANNException);
+        CATCH_REQUIRE_THROWS_AS(
+            index.replace_external_id(new_id, other_id), svs::ANNException
+        );
         // State unchanged: the relabel performed above still holds.
         CATCH_REQUIRE(index.has_id(new_id));
         CATCH_REQUIRE(index.has_id(other_id));

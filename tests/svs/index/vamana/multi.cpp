@@ -449,3 +449,80 @@ CATCH_TEST_CASE(
         }
     }
 }
+
+CATCH_TEST_CASE("MultiMutableVamana Index Replace External ID", "[index][vamana][multi]") {
+    const size_t num_threads = 2;
+    using Distance = svs::distance::DistanceL2;
+
+    auto data = test_dataset::data_blocked_f32();
+    const size_t num_points = data.size();
+    std::vector<size_t> indices(num_points);
+    std::iota(indices.begin(), indices.end(), 0);
+
+    svs::index::vamana::VamanaBuildParameters parameters{1.2, 64, 10, 20, 10, true};
+    auto index = svs::index::vamana::MultiMutableVamanaIndex(
+        parameters, data, indices, Distance(), num_threads
+    );
+
+    // Shift by one and re-add: label 1 now groups two externals (its own original
+    // point and the re-added point 0), so the rename below has to move every external
+    // grouped under the label, not just the first.
+    std::vector<size_t> shifted(num_points);
+    std::iota(shifted.begin(), shifted.end(), 1);
+    index.add_points(data, shifted);
+
+    const size_t old_label = 1;
+    const size_t new_label = 999'999;
+    CATCH_REQUIRE(index.has_id(old_label));
+    CATCH_REQUIRE(!index.has_id(new_label));
+
+    auto externals_before = index.get_label_to_external_lookup().at(old_label);
+    CATCH_REQUIRE(externals_before.size() == 2);
+    auto size_before = index.size();
+    auto labelcount_before = index.labelcount();
+
+    index.replace_external_id(old_label, new_label);
+
+    // The old label is gone, the new one holds exactly the same externals, and
+    // nothing moved in the parent index or the dataset -- this is a pure rename, not
+    // a delete + re-add.
+    CATCH_REQUIRE(!index.has_id(old_label));
+    CATCH_REQUIRE(index.has_id(new_label));
+    CATCH_REQUIRE(index.size() == size_before);
+    CATCH_REQUIRE(index.labelcount() == labelcount_before);
+
+    auto externals_after = index.get_label_to_external_lookup().at(new_label);
+    CATCH_REQUIRE(
+        std::unordered_set<size_t>(externals_before.begin(), externals_before.end()) ==
+        std::unordered_set<size_t>(externals_after.begin(), externals_after.end())
+    );
+    for (auto ext : externals_after) {
+        CATCH_REQUIRE(index.get_external_to_label_lookup().at(ext) == new_label);
+    }
+
+    // Every other label is untouched.
+    for (size_t i = 0; i < num_points; ++i) {
+        if (i != old_label) {
+            CATCH_REQUIRE(index.has_id(i));
+        }
+    }
+
+    CATCH_SECTION("Renaming a non-existent label throws") {
+        // `old_label` was already renamed away above, so it no longer exists either.
+        CATCH_REQUIRE_THROWS_AS(
+            index.replace_external_id(old_label, new_label + 1), svs::ANNException
+        );
+        CATCH_REQUIRE(!index.has_id(old_label));
+        CATCH_REQUIRE(!index.has_id(new_label + 1));
+    }
+
+    CATCH_SECTION("Renaming onto an existing label throws") {
+        const size_t other_label = 2;
+        CATCH_REQUIRE_THROWS_AS(
+            index.replace_external_id(new_label, other_label), svs::ANNException
+        );
+        // State unchanged: the rename performed above still holds.
+        CATCH_REQUIRE(index.has_id(new_label));
+        CATCH_REQUIRE(index.has_id(other_label));
+    }
+}

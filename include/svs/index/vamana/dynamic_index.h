@@ -476,7 +476,7 @@ class MutableVamanaIndex {
     ///
     /// @see has_id, delete_entries
     ///
-    void relabelVector(size_t old_id, size_t new_id) {
+    void replace_external_id(size_t old_id, size_t new_id) {
         translator_.remap_external_id(old_id, new_id);
     }
 
