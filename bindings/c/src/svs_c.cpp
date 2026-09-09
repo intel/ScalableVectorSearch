@@ -20,6 +20,7 @@
 #include "error.hpp"
 #include "index.hpp"
 #include "index_builder.hpp"
+#include "leanvec_training_data.hpp"
 #include "storage.hpp"
 #include "threadpool.hpp"
 #include "types_support.hpp"
@@ -54,6 +55,10 @@ struct svs_search_params {
 
 struct svs_storage {
     std::shared_ptr<svs::c_runtime::Storage> impl;
+};
+
+struct svs_leanvec_training_data {
+    std::shared_ptr<const svs::c_runtime::LeanVecTrainingData> impl;
 };
 
 extern "C" uint32_t svs_get_version() { return SVS_C_API_VERSION; }
@@ -280,6 +285,27 @@ svs_storage_create_simple(svs_data_type_t data_type, svs_error_h out_err) {
     );
 }
 
+namespace {
+// Shared by both LeanVec storage constructors so their accepted types stay in sync.
+void validate_leanvec_data_types(svs_data_type_t primary, svs_data_type_t secondary) {
+    NOT_IMPLEMENTED_IF(
+        (primary == SVS_DATA_TYPE_FLOAT32 || primary == SVS_DATA_TYPE_FLOAT16 ||
+         secondary == SVS_DATA_TYPE_FLOAT32 || secondary == SVS_DATA_TYPE_FLOAT16),
+        "Unsupported simple data types for LeanVec primary and secondary"
+    );
+    INVALID_ARGUMENT_IF(
+        (primary != SVS_DATA_TYPE_INT4 && primary != SVS_DATA_TYPE_UINT4 &&
+         primary != SVS_DATA_TYPE_INT8 && primary != SVS_DATA_TYPE_UINT8),
+        "Unsupported data type for LeanVec primary storage"
+    );
+    INVALID_ARGUMENT_IF(
+        (secondary != SVS_DATA_TYPE_INT4 && secondary != SVS_DATA_TYPE_UINT4 &&
+         secondary != SVS_DATA_TYPE_INT8 && secondary != SVS_DATA_TYPE_UINT8),
+        "Unsupported data type for LeanVec secondary storage"
+    );
+}
+} // namespace
+
 extern "C" svs_storage_h svs_storage_create_leanvec(
     size_t leanvec_dims,
     svs_data_type_t primary,
@@ -290,24 +316,37 @@ extern "C" svs_storage_h svs_storage_create_leanvec(
     return wrap_exceptions(
         [&]() {
             EXPECT_ARG_GT_THAN(leanvec_dims, 0);
-            NOT_IMPLEMENTED_IF(
-                (primary == SVS_DATA_TYPE_FLOAT32 || primary == SVS_DATA_TYPE_FLOAT16 ||
-                 secondary == SVS_DATA_TYPE_FLOAT32 || secondary == SVS_DATA_TYPE_FLOAT16),
-                "Unsupported simple data types for LeanVec primary and secondary"
-            );
-            INVALID_ARGUMENT_IF(
-                (primary != SVS_DATA_TYPE_INT4 && primary != SVS_DATA_TYPE_UINT4 &&
-                 primary != SVS_DATA_TYPE_INT8 && primary != SVS_DATA_TYPE_UINT8),
-                "Unsupported data type for LeanVec primary storage"
-            );
-            INVALID_ARGUMENT_IF(
-                (secondary != SVS_DATA_TYPE_INT4 && secondary != SVS_DATA_TYPE_UINT4 &&
-                 secondary != SVS_DATA_TYPE_INT8 && secondary != SVS_DATA_TYPE_UINT8),
-                "Unsupported data type for LeanVec secondary storage"
-            );
+            validate_leanvec_data_types(primary, secondary);
 
             auto storage =
                 std::make_shared<StorageLeanVec>(leanvec_dims, primary, secondary);
+            auto result = new svs_storage;
+            result->impl = storage;
+            return result;
+        },
+        out_err
+    );
+}
+
+extern "C" svs_storage_h svs_storage_create_leanvec_trained(
+    svs_leanvec_training_data_h training_data,
+    svs_data_type_t primary,
+    svs_data_type_t secondary,
+    svs_error_h out_err
+) {
+    using namespace svs::c_runtime;
+    return wrap_exceptions(
+        [&]() -> svs_storage_h {
+            EXPECT_ARG_NOT_NULL(training_data);
+            INVALID_ARGUMENT_IF(
+                (training_data->impl == nullptr), "training_data holds no trained matrices"
+            );
+            validate_leanvec_data_types(primary, secondary);
+
+            // The storage shares ownership of the trained matrices, so the caller
+            // may free the training data handle as soon as this returns.
+            auto storage =
+                std::make_shared<StorageLeanVec>(training_data->impl, primary, secondary);
             auto result = new svs_storage;
             result->impl = storage;
             return result;
@@ -376,6 +415,49 @@ extern "C" SVS_API bool svs_storage_get_kind(
 }
 
 extern "C" void svs_storage_free(svs_storage_h storage) { delete storage; }
+
+extern "C" svs_leanvec_training_data_h svs_leanvec_training_data_build(
+    svs_index_builder_h builder,
+    size_t leanvec_dims,
+    size_t num_vectors,
+    const float* x,
+    size_t num_queries,
+    const float* x_q,
+    svs_error_h out_err
+) {
+    using namespace svs::c_runtime;
+    return wrap_exceptions(
+        [&]() -> svs_leanvec_training_data_h {
+            EXPECT_ARG_NOT_NULL(builder);
+            EXPECT_ARG_GT_THAN(num_vectors, 0);
+            EXPECT_ARG_NOT_NULL(x);
+            EXPECT_ARG_GT_THAN(leanvec_dims, 0);
+
+            const auto dim = builder->impl->dimension;
+            EXPECT_ARG_GE_THAN(dim, leanvec_dims);
+
+            auto data = svs::data::ConstSimpleDataView<float>(x, num_vectors, dim);
+            // A zero-sized view selects the in-distribution (PCA) path.
+            auto queries = svs::data::ConstSimpleDataView<float>(
+                x_q, (x_q == nullptr) ? 0 : num_queries, dim
+            );
+
+            auto pool = builder->impl->pool_builder.build();
+            auto training_data = std::make_shared<const LeanVecTrainingData>(
+                data, queries, leanvec_dims, pool
+            );
+
+            auto result = new svs_leanvec_training_data;
+            result->impl = std::move(training_data);
+            return result;
+        },
+        out_err
+    );
+}
+
+extern "C" void svs_leanvec_training_data_free(svs_leanvec_training_data_h training_data) {
+    delete training_data;
+}
 
 extern "C" svs_index_builder_h svs_index_builder_create(
     svs_distance_metric_t metric,
