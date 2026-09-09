@@ -354,7 +354,6 @@ class GraphConsolidator {
         for (auto d : deleted_ids) {
             const auto& neighbors = graph_.get_node(lib::narrow_cast<I>(d));
             for (auto a : neighbors) {
-                reverse_edges->remove(lib::narrow_cast<I>(d), a);
                 if (!is_deleted(a)) {
                     work.insert(a);
                 }

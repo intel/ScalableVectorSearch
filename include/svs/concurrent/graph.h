@@ -29,9 +29,6 @@
 #include "svs/lib/segmented_vector.h"
 #include "svs/lib/threads.h"
 
-// external
-#include "tsl/robin_set.h"
-
 #include <algorithm>
 #include <atomic>
 #include <cassert>
@@ -520,25 +517,32 @@ template <std::unsigned_integral Idx, data::MemoryDataset Data> class SimpleGrap
         Idx elements_to_copy =
             std::min(max_degree_, lib::narrow_cast<Idx>(new_neighbors.size()));
 
-        std::vector<Idx> edges_to_remove;
+        // [Exact list]
+        // std::vector<Idx> edges_to_remove;
         if (reverse_edges_) {
             Idx old_size = relaxed_load(raw_data[0]);
             old_size = std::min(old_size, max_degree_);
 
-            tsl::robin_set<Idx> overlap;
-            for (Idx k = 0; k < elements_to_copy; ++k) {
-                Idx idx = new_neighbors[k];
+            auto in_old = [&](Idx v) {
                 for (Idx j = 0; j < old_size; ++j) {
-                    if (relaxed_load(raw_data[1 + j]) == idx) {
-                        overlap.insert(idx);
-                        break;
+                    if (relaxed_load(raw_data[1 + j]) == v) {
+                        return true;
                     }
                 }
-            }
+                return false;
+            };
+            auto in_new = [&](Idx v) {
+                for (Idx k = 0; k < elements_to_copy; ++k) {
+                    if (new_neighbors[k] == v) {
+                        return true;
+                    }
+                }
+                return false;
+            };
 
             for (Idx k = 0; k < elements_to_copy; ++k) {
                 Idx dst = new_neighbors[k];
-                if (overlap.contains(dst))
+                if (in_old(dst))
                     continue;
 
                 reverse_edges_->record(i, dst);
@@ -556,10 +560,11 @@ template <std::unsigned_integral Idx, data::MemoryDataset Data> class SimpleGrap
 
             for (Idx j = 0; j < old_size; ++j) {
                 Idx dst = relaxed_load(raw_data[1 + j]);
-                if (overlap.contains(dst))
+                if (in_new(dst))
                     continue;
 
-                edges_to_remove.push_back(dst);
+                // [Exact list]
+                // edges_to_remove.push_back(dst);
 
                 reverse_edges_->record(dst, i);
                 // [Exact list]
@@ -580,9 +585,10 @@ template <std::unsigned_integral Idx, data::MemoryDataset Data> class SimpleGrap
         // concurent consolidation may observe the state
         // with already removed reverse edge but not updated
         // neighbors list
-        for (Idx idx : edges_to_remove) {
-            reverse_edges_->remove(i, idx);
-        }
+        // [Exact list]
+        // for (Idx idx : edges_to_remove) {
+        //     reverse_edges_->remove(i, idx);
+        // }
     }
 
     // Recover the graph's base allocator instance for the reverse-edge index, unwrapping
