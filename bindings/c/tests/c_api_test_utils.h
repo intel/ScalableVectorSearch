@@ -167,3 +167,25 @@ inline bool check_storage_support(svs_storage_h storage, svs_error_h error) {
 /// True when compressed storage is expected to be usable on this host, so callers
 /// can skip the build/search portion of a test that cannot run.
 inline bool storage_usable(svs_storage_h storage) { return storage != nullptr; }
+
+/// Same build-configuration contract as check_storage_support(), for the LeanVec
+/// training-data constructor.
+inline bool
+check_training_data_support(svs_leanvec_training_data_h training_data, svs_error_h error) {
+#ifdef SVS_TEST_EXPECT_LVQ_LEANVEC
+    if (training_data != nullptr) {
+        return svs_error_ok(error) == true;
+    }
+    return svs_error_get_code(error) == SVS_ERROR_UNSUPPORTED_HW;
+#else
+    if (training_data != nullptr) {
+        return false; // LeanVec should not be available in a public build
+    }
+    return svs_error_get_code(error) == SVS_ERROR_NOT_IMPLEMENTED;
+#endif
+}
+
+/// True when LeanVec training data is expected to be usable on this host.
+inline bool training_data_usable(svs_leanvec_training_data_h training_data) {
+    return training_data != nullptr;
+}
