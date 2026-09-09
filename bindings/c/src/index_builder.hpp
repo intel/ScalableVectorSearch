@@ -219,46 +219,63 @@ struct IndexBuilder {
         );
 
         auto params = vamana_search_params->get_search_parameters();
-        auto buffer_size =
+        size_t buffer_size =
             std::max(params.buffer_config_.get_total_capacity(), num_neighbors);
 
+        // Extra per-worker heap allocated only by filtered searches (via
+        // filtered_topk_search() and its per-worker BatchIterator).
+        size_t filter_overhead = 0;
         if (id_filter != nullptr) {
-            // Adjust the buffer size based on the filter hit rate.
-            // This is a rough estimate; the actual number of candidates that pass the
-            // filter may vary, but this gives a reasonable approximation for memory
-            // estimation.
-
-            // filtered_topk_search() utility constructs a batch iterator with the default
-            // extra buffer capacity which is set to
-            // svs::ITERATOR_EXTRA_BUFFER_CAPACITY_DEFAULT in BatchIterator.ctor()
-            size_t batch_iterator_overhead = svs::ITERATOR_EXTRA_BUFFER_CAPACITY_DEFAULT;
-
-            // Compute number of candidates that would be needed to ensure that, on average,
-            // we have `num_neighbors` candidates after filtering.
-            size_t num_candidates_needed = num_neighbors;
-            if (id_filter->filter_rate() > 0.0) {
-                num_candidates_needed = static_cast<size_t>(
-                    static_cast<float>(num_neighbors) / id_filter->filter_rate()
-                );
+            // filtered_topk_search() sizes its first batch to gather enough raw
+            // candidates to leave ~num_neighbors survivors after filtering, then adds
+            // the default batch-iterator headroom.
+            size_t candidates = num_neighbors;
+            const double rate = id_filter->filter_rate();
+            if (rate > 0.0) {
+                const double needed = static_cast<double>(num_neighbors) / rate;
+                // A very low filter rate blows up the candidate buffer, which becomes the
+                // Vamana search window and makes search() prohibitively slow. Reject such
+                // configurations instead of returning a huge, unrepresentative estimate.
+                // The cap is a heuristic: search windows beyond ~1M nodes are impractical.
+                constexpr size_t MAX_FILTERED_CANDIDATES = 1'000'000;
+                if (needed > static_cast<double>(MAX_FILTERED_CANDIDATES)) {
+                    throw std::invalid_argument(
+                        "Filter rate is too low: the estimated candidate buffer would "
+                        "exceed the practical search-window limit and make search "
+                        "prohibitively slow"
+                    );
+                }
+                candidates = static_cast<size_t>(needed);
             }
-            buffer_size = batch_iterator_overhead + num_candidates_needed;
+            buffer_size = svs::ITERATOR_EXTRA_BUFFER_CAPACITY_DEFAULT +
+                          std::max(buffer_size, candidates);
+
+            // Per-worker BatchIterator allocations bounded by buffer_size:
+            //   results_: a batch of candidate neighbors (id + distance).
+            //   yielded_: a node-based unordered_set<uint32_t> (stored key + next
+            //             pointer per node, plus one bucket pointer per node).
+            const size_t yielded_per_node = sizeof(uint32_t) + 2 * sizeof(void*);
+            filter_overhead =
+                buffer_size * (sizeof(svs::Neighbor<size_t>) + yielded_per_node);
+
+            // filtered_topk_search() allocates one per-query count vector which total size
+            // is num_queries * sizeof(size_t), but it is negligible for estimation.
         }
 
-        auto scratch_buffer_size = SearchBufferType::estimate_memory_footprint(
-            svs::index::vamana::SearchBufferConfig{buffer_size},
-            params.search_buffer_visited_set_
-        );
-
-        // There is also potential memory overhead in distance functor for 'fixed' query
-        // argument which size might in the range of [0, 3 * dimensions * sizeof(float)]
-        // depending on the distance metric and storage kind. However, given the calculation
-        // complexity, this is negligible and can be ignored for estimation purposes - at
-        // least for now.
+        // The 'fixed' query distance functor may add up to ~3 * dimension * sizeof(float)
+        // per buffer, but that is negligible for estimation and intentionally ignored.
+        const size_t per_buffer_size =
+            SearchBufferType::estimate_memory_footprint(
+                svs::index::vamana::SearchBufferConfig{buffer_size},
+                params.search_buffer_visited_set_
+            ) +
+            filter_overhead;
 
         const auto threads_num = pool_builder.get_threads_num();
         assert(threads_num > 0 && "Thread pool must have at least one thread");
-        const auto buffers_num = std::min(threads_num, num_queries);
-        return scratch_buffer_size * buffers_num;
+        const size_t buffers_num = std::min(threads_num, num_queries);
+
+        return per_buffer_size * buffers_num;
     }
 
     size_t estimate_search_memory(
