@@ -321,12 +321,12 @@ class MutableVamanaIndex {
     /// @brief Get the ``graph_max_degree`` used while mutating the graph.
     size_t get_graph_max_degree() const { return graph_.max_degree(); }
 
-    /// @brief Return the bytes allocated by each index component.
+    /// @brief Return memory breakdown for the index.
     ///
-    /// Reports the capacity-based bytes reserved by the graph adjacency lists, the vector
-    /// data, and the dynamic metadata (per-slot status, entry-point list, and the
-    /// external/internal ID translation maps). Capacity-based accounting includes the
-    /// block over-allocation so integrators can report the true memory footprint.
+    /// Reports the allocated memory for graph, data, and metadata components. Uses
+    /// capacity-based accounting for datasets that expose ``capacity()``, so that block
+    /// over-allocation is reflected. Metadata includes status array, entry points, and an
+    /// estimated size of the ID translation maps (external/internal ID translation maps).
     MemoryBreakdown get_memory_breakdown() const {
         MemoryBreakdown usage{};
         usage.graph_bytes = svs::data::detail::dataset_allocated_bytes(graph_.get_data());
@@ -460,6 +460,24 @@ class MutableVamanaIndex {
                 }
             }
         );
+    }
+
+    ///
+    /// @brief Rename external ID `old_id` to `new_id`, keeping the same stored vector
+    /// data and adjacency list.
+    ///
+    /// @param old_id The existing external ID to rename.
+    /// @param new_id The external ID to assign. Must not already exist.
+    ///
+    /// Requires that `old_id` exists in the index and `new_id` does not; throws
+    /// otherwise, leaving the index unmodified. Unlike `delete_entries` followed by
+    /// `add_points`, this is a pure bookkeeping operation on the ID translation table --
+    /// it does not touch the underlying dataset or graph.
+    ///
+    /// @see has_id, delete_entries
+    ///
+    void replace_external_id(size_t old_id, size_t new_id) {
+        translator_.remap_external_id(old_id, new_id);
     }
 
     ///
