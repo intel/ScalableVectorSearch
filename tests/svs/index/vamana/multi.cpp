@@ -49,7 +49,7 @@ template <typename Distance> float pick_alpha(Distance SVS_UNUSED(dist)) {
 
 CATCH_TEMPLATE_TEST_CASE(
     "Multi-vector dynamic vamana index",
-    "[long][index][vamana][multi]",
+    "[long][index][vamana][multi][dynamic]",
     svs::DistanceL2,
     svs::DistanceIP,
     svs::DistanceCosineSimilarity

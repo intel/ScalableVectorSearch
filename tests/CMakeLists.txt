@@ -92,6 +92,7 @@ set(TEST_SOURCES
     ${TEST_DIR}/svs/lib/version.cpp
     ${TEST_DIR}/svs/lib/uuid.cpp
     ${TEST_DIR}/svs/lib/concurrency/readwrite_protected.cpp
+    ${TEST_DIR}/svs/lib/concurrency/upgradable_mutex.cpp
     ${TEST_DIR}/svs/lib/avx_detection.cpp
     # Third Party
     ${TEST_DIR}/svs/third-party/fmt.cpp

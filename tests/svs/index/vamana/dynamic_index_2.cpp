@@ -248,7 +248,7 @@ void test_loop(
     }
 }
 
-CATCH_TEST_CASE("Testing Graph Index", "[graph_index][dynamic_index]") {
+CATCH_TEST_CASE("Testing Graph Index", "[graph_index][vamana][dynamic]") {
     // Set hyper parameters here
     const size_t max_degree = 64;
 #if defined(NDEBUG)

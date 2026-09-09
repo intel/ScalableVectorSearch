@@ -94,4 +94,109 @@ VamanaBuildAdaptor<Data, Distance> svs_invoke(
     return VamanaBuildAdaptor<Data, Distance>{adapt_for_self(data, distance)};
 }
 
+template <IsSQData Data, data::ImmutableMemoryDataset Points, IsSQData DataPoints>
+class TransactionData {
+  public:
+    using points_type = Points;
+    using const_point_type = typename Points::const_value_type;
+
+    using value_type = typename Data::value_type;
+    using const_value_type = typename Data::const_value_type;
+
+    TransactionData(
+        const Data& data,
+        const Points& points,
+        DataPoints data_points,
+        std::span<size_t> slots
+    )
+        : data_(data)
+        , points_(points)
+        , data_points_(std::move(data_points))
+        , slots_(slots.begin(), slots.end()) {
+        assert(std::is_sorted(slots_.begin(), slots_.end()) && "Slots must be sorted");
+    }
+
+    const Data& get_data() const { return data_; }
+
+    // Get the index of the point corresponding to the given index' id.
+    size_t get_point_index(size_t id) const {
+        // find id in slots
+        auto it = std::lower_bound(slots_.begin(), slots_.end(), id);
+        if (it != slots_.end() && *it == id) {
+            return std::distance(slots_.begin(), it);
+        } else {
+            throw std::out_of_range("Index not found in slots");
+        }
+    }
+
+    const_point_type get_point(size_t id) const {
+        return points_.get_datum(get_point_index(id));
+    }
+
+    const points_type& get_points() const { return points_; }
+    size_t num_points() const { return points_.size(); }
+    size_t get_slot(size_t i) const { return slots_[i]; }
+
+    size_t size() const {
+        return std::max(data_.size(), slots_.empty() ? 0 : slots_.back() + 1);
+    }
+    size_t dimensions() const { return data_.dimensions(); }
+    const_value_type get_datum(size_t i) const {
+        // find id in slots
+        auto it = std::lower_bound(slots_.begin(), slots_.end(), i);
+        if (it != slots_.end() && *it == i) {
+            return data_points_.get_datum(std::distance(slots_.begin(), it));
+        } else {
+            return data_.get_datum(i);
+        }
+    }
+    void prefetch(size_t) const {} // data_.prefetch(i); }
+
+    template <typename TargetData> void copy_points(TargetData& target_data) const {
+        assert(
+            &target_data == &data_ && "Target data must be the same as the original data"
+        );
+        // auto new_size = std::max_element(slots_.begin(), slots_.end()) + 1;
+        //  assuming, slots_ is ordered, we can just take the last element and add 1
+        auto new_size = slots_.back() + 1;
+        if (new_size > target_data.size()) {
+            target_data.resize(new_size);
+        }
+        for (size_t i = 0; i < points_.size(); ++i) {
+            target_data.set_datum(slots_[i], points_.get_datum(i));
+        }
+    }
+
+  private:
+    const Data& data_;
+    const Points& points_;
+    const DataPoints data_points_;
+    std::vector<size_t> slots_;
+};
+
+template <IsSQData Data, data::ImmutableMemoryDataset Points, threads::ThreadPool Pool>
+auto svs_invoke(
+    svs::tag_t<svs::index::vamana::extensions::transaction_data_builder>,
+    const Data& data,
+    const Points& points,
+    std::span<size_t> slots,
+    Pool& pool
+) {
+    using element_type = typename Data::element_type;
+    using points_type = SQDataset<
+        element_type,
+        Data::extent,
+        data::remove_blocked_t<typename Data::allocator_type>>;
+    using compressor_type =
+        detail::Compressor<element_type, typename points_type::data_type>;
+
+    const auto scale = data.get_scale();
+    const auto bias = data.get_bias();
+    auto compressor = compressor_type{scale, bias};
+    auto compressed = compressor(points, pool, data::remove_blocked(data.get_allocator()));
+    return TransactionData(
+        data, points, points_type{std::move(compressed), scale, bias}, slots
+    );
+}
+
 } // namespace svs::quantization::scalar

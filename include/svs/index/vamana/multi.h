@@ -183,16 +183,33 @@ class MultiMutableVamanaIndex {
     template <class Labels>
     void
     prepare_added_id_by_label(const Labels& labels, std::vector<external_id_type>& adds) {
-        for (const auto l : labels) {
+        adds = make_added_ids(labels);
+        return commit_added_id_by_label(labels, adds);
+    }
+
+    template <class Labels>
+    std::vector<external_id_type> make_added_ids(const Labels& labels) const {
+        std::vector<external_id_type> adds(labels.size());
+        std::iota(adds.begin(), adds.end(), counter_);
+        return adds;
+    }
+
+    template <class Labels>
+    void commit_added_id_by_label(
+        const Labels& labels, const std::vector<external_id_type>& adds
+    ) {
+        assert(labels.size() == adds.size());
+        for (size_t i = 0; i < labels.size(); ++i) {
+            const auto& l = labels[i];
             if (label_to_external_.find(l) == label_to_external_.end()) {
                 label_to_external_.insert({l, std::vector<external_id_type>{}});
             }
 
-            size_t new_external_id = counter_++;
+            size_t new_external_id = adds[i];
             label_to_external_[l].push_back(new_external_id);
             external_to_label_.insert({new_external_id, l});
-            adds.push_back(new_external_id);
         }
+        counter_ += labels.size();
     }
 
   public:
@@ -357,21 +374,38 @@ class MultiMutableVamanaIndex {
     template <data::ImmutableMemoryDataset Points, typename Labels>
     std::vector<external_id_type>
     add_points(const Points& points, const Labels& labels, bool reuse_empty = false) {
+        auto changes = add_points_compute_changes(points, labels, reuse_empty);
+        return add_points_commit(labels, std::move(changes));
+    }
+
+    template <data::ImmutableMemoryDataset Points, class Labels>
+    auto add_points_compute_changes(
+        const Points& points, const Labels& labels, bool reuse_empty = false
+    ) const {
         const size_t num_points = points.size();
         const size_t num_labels = labels.size();
         if (num_points != num_labels) {
             throw ANNEXCEPTION(
-                "Number of points ({}) not equal to the number of external ids ({})!",
+                "Number of points ({}) not equal to the number of labels ({})!",
                 num_points,
                 num_labels
             );
         }
 
-        std::vector<external_id_type> adds;
-        adds.reserve(num_labels);
-        prepare_added_id_by_label(labels, adds);
-        index_->add_points(points, adds, reuse_empty);
+        auto adds = make_added_ids(labels);
+        return std::make_tuple(
+            std::move(adds), index_->add_points_compute_changes(points, adds, reuse_empty)
+        );
+    }
 
+    template <class Labels, typename InternalChanges>
+    std::vector<external_id_type> add_points_commit(
+        const Labels& labels,
+        const std::tuple<std::vector<external_id_type>, InternalChanges>& changes
+    ) {
+        auto& [adds, internal_changes] = changes;
+        index_->add_points_commit(adds, internal_changes);
+        commit_added_id_by_label(labels, adds);
         return adds;
     }
 
