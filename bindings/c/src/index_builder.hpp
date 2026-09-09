@@ -74,6 +74,7 @@ struct IndexBuilder {
             auto vamana_algorithm = std::static_pointer_cast<AlgorithmVamana>(algorithm);
 
             auto index = std::make_shared<IndexVamana>(
+                vamana_algorithm,
                 dispatch_vamana_index_build(
                     vamana_algorithm->build_parameters(),
                     data,
@@ -94,6 +95,7 @@ struct IndexBuilder {
             auto vamana_algorithm = std::static_pointer_cast<AlgorithmVamana>(algorithm);
 
             auto index = std::make_shared<IndexVamana>(
+                vamana_algorithm,
                 dispatch_vamana_index_load(
                     vamana_algorithm->build_parameters(),
                     directory,
@@ -118,6 +120,7 @@ struct IndexBuilder {
             auto vamana_algorithm = std::static_pointer_cast<AlgorithmVamana>(algorithm);
 
             auto index = std::make_shared<DynamicIndexVamana>(
+                vamana_algorithm,
                 dispatch_dynamic_vamana_index_build(
                     vamana_algorithm->build_parameters(),
                     data,
@@ -141,6 +144,7 @@ struct IndexBuilder {
             auto vamana_algorithm = std::static_pointer_cast<AlgorithmVamana>(algorithm);
 
             auto index = std::make_shared<DynamicIndexVamana>(
+                vamana_algorithm,
                 dispatch_dynamic_vamana_index_load(
                     vamana_algorithm->build_parameters(),
                     directory,
@@ -201,7 +205,7 @@ struct IndexBuilder {
         size_t num_queries,
         size_t num_neighbors,
         const std::shared_ptr<Algorithm::SearchParams>& search_params,
-        const IDFilterInterface& id_filter
+        const IDFilterInterface* id_filter
     ) const {
         if (search_params && search_params->type != algorithm->type) {
             throw std::invalid_argument(
@@ -215,21 +219,33 @@ struct IndexBuilder {
         );
 
         auto params = vamana_search_params->get_search_parameters();
-        auto batch_size =
+        auto buffer_size =
             std::max(params.buffer_config_.get_total_capacity(), num_neighbors);
 
-        if (id_filter.filter_rate() > 0.0) {
+        if (id_filter != nullptr) {
             // Adjust the buffer size based on the filter hit rate.
             // This is a rough estimate; the actual number of candidates that pass the
             // filter may vary, but this gives a reasonable approximation for memory
             // estimation.
-            batch_size = static_cast<size_t>(
-                static_cast<float>(batch_size) / id_filter.filter_rate()
-            );
+
+            // filtered_topk_search() utility constructs a batch iterator with the default
+            // extra buffer capacity which is set to
+            // svs::ITERATOR_EXTRA_BUFFER_CAPACITY_DEFAULT in BatchIterator.ctor()
+            size_t batch_iterator_overhead = svs::ITERATOR_EXTRA_BUFFER_CAPACITY_DEFAULT;
+
+            // Compute number of candidates that would be needed to ensure that, on average,
+            // we have `num_neighbors` candidates after filtering.
+            size_t num_candidates_needed = num_neighbors;
+            if (id_filter->filter_rate() > 0.0) {
+                num_candidates_needed = static_cast<size_t>(
+                    static_cast<float>(num_neighbors) / id_filter->filter_rate()
+                );
+            }
+            buffer_size = batch_iterator_overhead + num_candidates_needed;
         }
 
         auto scratch_buffer_size = SearchBufferType::estimate_memory_footprint(
-            svs::index::vamana::SearchBufferConfig{batch_size},
+            svs::index::vamana::SearchBufferConfig{buffer_size},
             params.search_buffer_visited_set_
         );
 
@@ -239,14 +255,17 @@ struct IndexBuilder {
         // complexity, this is negligible and can be ignored for estimation purposes - at
         // least for now.
 
-        return num_queries * scratch_buffer_size;
+        const auto threads_num = pool_builder.get_threads_num();
+        assert(threads_num > 0 && "Thread pool must have at least one thread");
+        const auto buffers_num = std::min(threads_num, num_queries);
+        return scratch_buffer_size * buffers_num;
     }
 
     size_t estimate_search_memory(
         size_t num_queries,
         size_t num_neighbors,
         const std::shared_ptr<Algorithm::SearchParams>& search_params,
-        const IDFilterInterface& id_filter
+        const IDFilterInterface* id_filter
     ) const {
         NOT_IMPLEMENTED_IF(
             algorithm->type != SVS_ALGORITHM_TYPE_VAMANA,
@@ -262,7 +281,7 @@ struct IndexBuilder {
         size_t num_queries,
         size_t num_neighbors,
         const std::shared_ptr<Algorithm::SearchParams>& search_params,
-        const IDFilterInterface& id_filter,
+        const IDFilterInterface* id_filter,
         size_t SVS_UNUSED(blocksize_bytes)
     ) const {
         NOT_IMPLEMENTED_IF(

@@ -44,27 +44,27 @@
 
 namespace svs {
 
+namespace detail {
+// Follow the logic of svs::leanvec::detail::PickContainer which looks like:
+// "Use Turbo-encoding for 4-bit LVQ."
+template <size_t Primary, size_t Residual>
+using AutoLVQStrategy = std::conditional_t<
+    (Primary == 4),
+    svs::quantization::lvq::Turbo<16, 8>,
+    svs::quantization::lvq::Sequential>;
+} // namespace detail
+
 template <
     size_t PrimaryBits,
     size_t ResidualBits,
-    typename Allocator = svs::lib::Allocator<std::byte>>
+    typename Allocator = svs::lib::Allocator<std::byte>,
+    typename Strategy = detail::AutoLVQStrategy<PrimaryBits, ResidualBits>>
 class LVQDataBuilder {
   public:
     LVQDataBuilder() {}
 
-    // Follow the logic of svs::leanvec::detail::PickContainer which looks like:
-    // "Use Turbo-encoding for 4-bit LVQ."
-    using Sequential = svs::quantization::lvq::Sequential;
-    using Turbo16x8 = svs::quantization::lvq::Turbo<16, 8>;
-    template <size_t Primary, size_t Residual>
-    using AutoStrategy = std::conditional_t<(Primary == 4), Turbo16x8, Sequential>;
-
-    using data_type = svs::quantization::lvq::LVQDataset<
-        PrimaryBits,
-        ResidualBits,
-        svs::Dynamic,
-        AutoStrategy<PrimaryBits, ResidualBits>,
-        Allocator>;
+    using data_type = svs::quantization::lvq::
+        LVQDataset<PrimaryBits, ResidualBits, svs::Dynamic, Strategy, Allocator>;
     using allocator_type = Allocator;
 
     template <Arithmetic T>

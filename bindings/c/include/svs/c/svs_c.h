@@ -824,7 +824,8 @@ SVS_API bool svs_index_builder_estimate_search_memory(
 /// @param search_params The search parameters handle; if NULL, the builder's default search
 /// parameters are used
 /// @param id_filter An optional ID filter interface; if NULL, no filtering is applied
-/// @param blocksize_bytes The block size in bytes for dynamic search (0 for default)
+/// @param blocksize_bytes The block size in bytes for dynamic search (0 for default) -
+/// reserved for future use
 /// @param out_size Pointer to a variable to receive the estimated memory size
 /// @param out_err An optional error handle to capture errors
 /// @return true on success, false on failure

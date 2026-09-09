@@ -51,7 +51,7 @@ template <typename Idx, typename Cmp = std::less<>> class MutableBuffer {
     using iterator = typename vector_type::iterator;
     using const_iterator = typename vector_type::const_iterator;
 
-    /// A visited filter with 65,535 entries with a memory footpring of 128 kiB.
+    /// A visited filter with 65,536 entries with a memory footprint of 128 kiB.
     using set_type = VisitedFilter<Idx, 16>;
 
   private:

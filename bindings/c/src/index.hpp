@@ -38,9 +38,9 @@
 namespace svs::c_runtime {
 
 struct Index {
-    svs_algorithm_type algorithm;
+    std::shared_ptr<Algorithm> algorithm;
     ThreadPoolBuilder pool_builder;
-    Index(svs_algorithm_type algorithm, ThreadPoolBuilder pool_builder)
+    Index(const std::shared_ptr<Algorithm>& algorithm, ThreadPoolBuilder pool_builder)
         : algorithm(algorithm)
         , pool_builder(pool_builder) {}
     virtual ~Index() = default;
@@ -61,7 +61,9 @@ struct Index {
 };
 
 struct DynamicIndex : public Index {
-    DynamicIndex(svs_algorithm_type algorithm, ThreadPoolBuilder pool_builder)
+    DynamicIndex(
+        const std::shared_ptr<Algorithm>& algorithm, ThreadPoolBuilder pool_builder
+    )
         : Index(algorithm, pool_builder) {}
     ~DynamicIndex() = default;
 
@@ -76,9 +78,25 @@ struct DynamicIndex : public Index {
 
 struct IndexVamana : public Index {
     svs::Vamana index;
-    IndexVamana(svs::Vamana&& index, ThreadPoolBuilder pool_builder)
-        : Index{SVS_ALGORITHM_TYPE_VAMANA, pool_builder}
-        , index(std::move(index)) {}
+    IndexVamana(
+        const std::shared_ptr<AlgorithmVamana>& algorithm,
+        svs::Vamana&& index,
+        ThreadPoolBuilder pool_builder
+    )
+        : Index{algorithm, pool_builder}
+        , index(std::move(index)) {
+        // Apply default search parameters to the index
+        auto algorithm_parameters = std::static_pointer_cast<AlgorithmVamana::SearchParams>(
+            algorithm->get_default_search_params()
+        );
+        assert(
+            algorithm_parameters &&
+            "Default search parameters must be set for the algorithm."
+        );
+        auto params = this->index.get_search_parameters();
+        algorithm_parameters->apply_to(params);
+        this->index.set_search_parameters(params);
+    }
     ~IndexVamana() = default;
 
     std::pair<svs::QueryResult<size_t>, std::vector<size_t>> search(
@@ -93,7 +111,7 @@ struct IndexVamana : public Index {
 
         auto params = index.get_search_parameters();
         if (vamana_search_params) {
-            params = vamana_search_params->get_search_parameters();
+            vamana_search_params->apply_to(params);
         }
 
         if (id_filter == nullptr) {
@@ -146,8 +164,12 @@ struct DynamicIndexVamana : public DynamicIndex {
     svs::DynamicVamana index;
     size_t min_id = 0; // Track the minimum ID added to the index
     size_t max_id = 0; // Track the maximum ID added to the index
-    DynamicIndexVamana(svs::DynamicVamana&& index, ThreadPoolBuilder pool_builder)
-        : DynamicIndex(SVS_ALGORITHM_TYPE_VAMANA, pool_builder)
+    DynamicIndexVamana(
+        const std::shared_ptr<AlgorithmVamana>& algorithm,
+        svs::DynamicVamana&& index,
+        ThreadPoolBuilder pool_builder
+    )
+        : DynamicIndex(algorithm, pool_builder)
         , index(std::move(index)) {
         auto all_ids = this->index.all_ids();
         assert(
@@ -157,7 +179,20 @@ struct DynamicIndexVamana : public DynamicIndex {
         auto [min_it, max_it] = std::minmax_element(all_ids.begin(), all_ids.end());
         min_id = (min_it == all_ids.end()) ? 0 : *min_it;
         max_id = (max_it == all_ids.end()) ? 0 : *max_it;
+
+        // Apply default search parameters to the index
+        auto algorithm_parameters = std::static_pointer_cast<AlgorithmVamana::SearchParams>(
+            algorithm->get_default_search_params()
+        );
+        assert(
+            algorithm_parameters &&
+            "Default search parameters must be set for the algorithm."
+        );
+        auto params = this->index.get_search_parameters();
+        algorithm_parameters->apply_to(params);
+        this->index.set_search_parameters(params);
     }
+
     ~DynamicIndexVamana() = default;
 
     std::pair<svs::QueryResult<size_t>, std::vector<size_t>> search(
@@ -172,7 +207,7 @@ struct DynamicIndexVamana : public DynamicIndex {
 
         auto params = index.get_search_parameters();
         if (vamana_search_params) {
-            params = vamana_search_params->get_search_parameters();
+            vamana_search_params->apply_to(params);
         }
 
         if (id_filter == nullptr) {

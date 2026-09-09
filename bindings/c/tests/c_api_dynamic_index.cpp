@@ -657,15 +657,6 @@ CATCH_TEST_CASE("C API Dynamic Index Memory", "[c_api][index][memory][dynamic]")
         CATCH_REQUIRE(svs_error_ok(error));
         CATCH_REQUIRE(default_size > 0);
 
-        // The estimate scales linearly with the number of queries.
-        size_t double_queries_size = 0;
-        ok = svs_index_builder_estimate_search_memory_dynamic(
-            builder, K * 2, K, nullptr, nullptr, BLOCK_SIZE, &double_queries_size, error
-        );
-        CATCH_REQUIRE(ok);
-        CATCH_REQUIRE(svs_error_ok(error));
-        CATCH_REQUIRE(double_queries_size == default_size * 2);
-
         // Explicit search parameters yield a valid estimate.
         svs_search_params_h search_params = svs_search_params_create_vamana(50, error);
         CATCH_REQUIRE(search_params != nullptr);

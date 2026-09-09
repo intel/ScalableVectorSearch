@@ -540,6 +540,40 @@ extern "C" bool svs_index_builder_set_threadpool_custom(
     );
 }
 
+namespace {
+
+void set_memory_breakdown(
+    svs_memory_breakdown_t* out_breakdown,
+    size_t graph_bytes,
+    size_t data_bytes,
+    size_t metadata_bytes
+) {
+    using namespace svs::c_runtime;
+    INVALID_ARGUMENT_IF(
+        out_breakdown->version > svs_get_version(),
+        "Incompatible svs_memory_breakdown_t version"
+    );
+    INVALID_ARGUMENT_IF(
+        out_breakdown->struct_size > sizeof(svs_memory_breakdown_t),
+        "Incompatible svs_memory_breakdown_t struct_size"
+    );
+
+    if (out_breakdown->struct_size >= offsetof(svs_memory_breakdown_t, graph_bytes) +
+                                          sizeof(out_breakdown->graph_bytes)) {
+        out_breakdown->graph_bytes = graph_bytes;
+    }
+    if (out_breakdown->struct_size >=
+        offsetof(svs_memory_breakdown_t, data_bytes) + sizeof(out_breakdown->data_bytes)) {
+        out_breakdown->data_bytes = data_bytes;
+    }
+    if (out_breakdown->struct_size >= offsetof(svs_memory_breakdown_t, metadata_bytes) +
+                                          sizeof(out_breakdown->metadata_bytes)) {
+        out_breakdown->metadata_bytes = metadata_bytes;
+    }
+}
+
+} // namespace
+
 extern "C" bool svs_index_builder_estimate_memory(
     svs_index_builder_h builder,
     size_t num_vectors,
@@ -552,10 +586,15 @@ extern "C" bool svs_index_builder_estimate_memory(
             EXPECT_ARG_NOT_NULL(builder);
             EXPECT_ARG_NOT_NULL(out_breakdown);
             EXPECT_ARG_GT_THAN(num_vectors, 0);
-            auto breakdown = builder->impl->estimate_memory_breakdown(num_vectors);
-            out_breakdown->graph_bytes = breakdown.graph_bytes;
-            out_breakdown->data_bytes = breakdown.data_bytes;
-            out_breakdown->metadata_bytes = breakdown.metadata_bytes;
+            auto builder_ptr = builder->impl;
+            INVALID_ARGUMENT_IF(builder_ptr == nullptr, "Invalid index builder handle");
+            auto breakdown = builder_ptr->estimate_memory_breakdown(num_vectors);
+            set_memory_breakdown(
+                out_breakdown,
+                breakdown.graph_bytes,
+                breakdown.data_bytes,
+                breakdown.metadata_bytes
+            );
             return true;
         },
         out_err,
@@ -595,12 +634,17 @@ extern "C" bool svs_index_builder_estimate_memory_dynamic(
             EXPECT_ARG_NOT_NULL(builder);
             EXPECT_ARG_NOT_NULL(out_breakdown);
             EXPECT_ARG_GT_THAN(num_vectors, 0);
-            auto breakdown = builder->impl->estimate_memory_breakdown_dynamic(
+            auto builder_ptr = builder->impl;
+            INVALID_ARGUMENT_IF(builder_ptr == nullptr, "Invalid index builder handle");
+            auto breakdown = builder_ptr->estimate_memory_breakdown_dynamic(
                 num_vectors, blocksize_bytes
             );
-            out_breakdown->graph_bytes = breakdown.graph_bytes;
-            out_breakdown->data_bytes = breakdown.data_bytes;
-            out_breakdown->metadata_bytes = breakdown.metadata_bytes;
+            set_memory_breakdown(
+                out_breakdown,
+                breakdown.graph_bytes,
+                breakdown.data_bytes,
+                breakdown.metadata_bytes
+            );
             return true;
         },
         out_err,
@@ -629,7 +673,7 @@ SVS_API bool svs_index_builder_estimate_search_memory(
                 num_queries,
                 num_neighbors,
                 search_params ? search_params->impl : nullptr,
-                filter
+                id_filter == nullptr ? nullptr : &filter
             );
             *out_size = size;
             return true;
@@ -661,7 +705,7 @@ SVS_API bool svs_index_builder_estimate_search_memory_dynamic(
                 num_queries,
                 num_neighbors,
                 search_params ? search_params->impl : nullptr,
-                filter,
+                id_filter == nullptr ? nullptr : &filter,
                 blocksize_bytes
             );
             *out_size = size;
@@ -1191,20 +1235,15 @@ extern "C" bool svs_index_get_memory_breakdown(
         [&]() {
             EXPECT_ARG_NOT_NULL(index);
             EXPECT_ARG_NOT_NULL(out_breakdown);
-            INVALID_ARGUMENT_IF(
-                out_breakdown->version > svs_get_version(),
-                "Incompatible svs_memory_breakdown_t version"
-            );
-            INVALID_ARGUMENT_IF(
-                out_breakdown->struct_size > sizeof(svs_memory_breakdown_t),
-                "Incompatible svs_memory_breakdown_t struct_size"
-            );
             auto& index_ptr = index->impl;
             INVALID_ARGUMENT_IF(index_ptr == nullptr, "Invalid index handle");
             auto breakdown = index_ptr->get_memory_breakdown();
-            out_breakdown->graph_bytes = breakdown.graph_bytes;
-            out_breakdown->data_bytes = breakdown.data_bytes;
-            out_breakdown->metadata_bytes = breakdown.metadata_bytes;
+            set_memory_breakdown(
+                out_breakdown,
+                breakdown.graph_bytes,
+                breakdown.data_bytes,
+                breakdown.metadata_bytes
+            );
             return true;
         },
         out_err,
