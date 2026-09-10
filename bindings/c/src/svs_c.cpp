@@ -726,22 +726,7 @@ extern "C" bool svs_index_builder_set_allocator(
     return wrap_exceptions(
         [&]() {
             EXPECT_ARG_NOT_NULL(builder);
-            switch (kind) {
-                case SVS_ALLOCATOR_KIND_DEFAULT: {
-                    builder->impl->set_allocator_handle(
-                        svs::make_allocator_handle(svs::lib::Allocator<std::byte>{})
-                    );
-                    break;
-                }
-                case SVS_ALLOCATOR_KIND_HUGE_PAGE: {
-                    builder->impl->set_allocator_handle(
-                        svs::make_allocator_handle(svs::HugepageAllocator<std::byte>{})
-                    );
-                    break;
-                }
-                default:
-                    throw std::invalid_argument("Invalid allocator kind");
-            }
+            builder->impl->set_allocator_builder(AllocatorBuilder{kind});
             return true;
         },
         out_err,
@@ -757,9 +742,7 @@ extern "C" bool svs_index_builder_set_allocator_custom(
         [&]() {
             EXPECT_ARG_NOT_NULL(builder);
             EXPECT_ARG_NOT_NULL(allocator);
-            builder->impl->set_allocator_handle(
-                make_custom_allocator_handle<std::byte>(allocator)
-            );
+            builder->impl->set_allocator_builder(AllocatorBuilder{allocator});
             return true;
         },
         out_err,

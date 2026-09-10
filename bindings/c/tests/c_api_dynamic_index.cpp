@@ -764,7 +764,7 @@ CATCH_TEST_CASE("C API Dynamic Index Memory", "[c_api][index][memory][dynamic]")
 
             // Use big blocksize to avoid many HugePage allocations.
             svs_index_h index = svs_index_build_dynamic(
-                local_builder, data.data(), ids.data(), NUM_VECTORS, 1 << 30, error
+                local_builder, data.data(), ids.data(), NUM_VECTORS, 1 << 12, error
             );
             CATCH_REQUIRE(index != nullptr);
             CATCH_REQUIRE(svs_error_ok(error));

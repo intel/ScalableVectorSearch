@@ -126,6 +126,9 @@ Result wrap_exceptions(Callable&& func, svs_error_h err, Result err_res = {}) no
     } catch (const svs::lib::ANNException& ex) {
         SET_ERROR(err, SVS_ERROR_GENERIC, ex.what());
         return err_res;
+    } catch (const std::bad_alloc& ex) {
+        SET_ERROR(err, SVS_ERROR_OUT_OF_MEMORY, ex.what());
+        return err_res;
     } catch (const std::runtime_error& ex) {
         SET_ERROR(err, SVS_ERROR_RUNTIME, ex.what());
         return err_res;

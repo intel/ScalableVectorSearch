@@ -617,9 +617,6 @@ template <typename T> class AllocatorHandle {
   public:
     using value_type = T;
 
-    explicit AllocatorHandle(std::unique_ptr<AllocatorInterface> impl)
-        : impl_{std::move(impl)} {}
-
     template <detail::Allocator Impl>
     explicit AllocatorHandle(Impl&& impl)
         requires(!std::is_same_v<Impl, AllocatorHandle>) &&
@@ -641,14 +638,14 @@ template <typename T> class AllocatorHandle {
     // Enable rebinding of allocators.
     template <typename U> friend class AllocatorHandle;
 
-    template <HasDataType U>
-        requires(!std::is_same_v<T, U>) && (lib::in<U>(AllocatorInterface::rebind_types{}))
+    template <typename U>
+        requires(!std::is_same_v<T, U>) && (lib::in<T>(AllocatorInterface::rebind_types{}))
     AllocatorHandle(const AllocatorHandle<U>& other)
         : impl_{other.impl_->rebind_to(datatype_v<T>)} {}
 
-    template <HasDataType U>
+    template <typename U>
     AllocatorHandle& operator=(const AllocatorHandle<U>& other)
-        requires(!std::is_same_v<T, U>) && (lib::in<U>(AllocatorInterface::rebind_types{}))
+        requires(!std::is_same_v<T, U>) && (lib::in<T>(AllocatorInterface::rebind_types{}))
     {
         impl_.reset(other.impl_->rebind_to(datatype_v<T>));
         return *this;

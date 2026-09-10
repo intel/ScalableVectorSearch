@@ -47,7 +47,7 @@ struct IndexBuilder {
     std::shared_ptr<Algorithm> algorithm;
     std::shared_ptr<Storage> storage;
     ThreadPoolBuilder pool_builder;
-    AllocatorHandle<std::byte> allocator_handle;
+    AllocatorBuilder allocator_builder;
 
     IndexBuilder(
         svs_distance_metric_t distance_metric,
@@ -59,7 +59,7 @@ struct IndexBuilder {
         , algorithm(std::move(algorithm))
         , storage(std::make_shared<StorageSimple>(SVS_DATA_TYPE_FLOAT32))
         , pool_builder{}
-        , allocator_handle{make_allocator_handle(svs::lib::Allocator<std::byte>{})} {}
+        , allocator_builder{} {}
 
     ~IndexBuilder() {}
 
@@ -71,8 +71,8 @@ struct IndexBuilder {
         std::swap(this->pool_builder, threadpool_builder);
     }
 
-    void set_allocator_handle(AllocatorHandle<std::byte> allocator_handle) {
-        this->allocator_handle = std::move(allocator_handle);
+    void set_allocator_builder(AllocatorBuilder allocator_builder) {
+        std::swap(this->allocator_builder, allocator_builder);
     }
 
     std::shared_ptr<Index> build(const svs::data::ConstSimpleDataView<float>& data) {
@@ -87,7 +87,7 @@ struct IndexBuilder {
                     storage.get(),
                     to_distance_type(distance_metric),
                     pool_builder.build(),
-                    allocator_handle
+                    allocator_builder.build()
                 ),
                 pool_builder
             );
@@ -109,7 +109,7 @@ struct IndexBuilder {
                     storage.get(),
                     to_distance_type(distance_metric),
                     pool_builder.build(),
-                    allocator_handle
+                    allocator_builder.build()
                 ),
                 pool_builder
             );
@@ -136,7 +136,7 @@ struct IndexBuilder {
                     storage.get(),
                     to_distance_type(distance_metric),
                     pool_builder.build(),
-                    allocator_handle,
+                    allocator_builder.build(),
                     blocksize_bytes
                 ),
                 pool_builder
@@ -160,7 +160,7 @@ struct IndexBuilder {
                     storage.get(),
                     to_distance_type(distance_metric),
                     pool_builder.build(),
-                    allocator_handle,
+                    allocator_builder.build(),
                     blocksize_bytes
                 ),
                 pool_builder

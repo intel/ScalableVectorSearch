@@ -192,8 +192,9 @@ struct svs_threadpool_interface {
 /// @brief Allocators used for memory management in the SVS C API.
 enum svs_allocator_kind {
     SVS_ALLOCATOR_KIND_DEFAULT = 0,
-    SVS_ALLOCATOR_KIND_HUGE_PAGE = 1,
-    SVS_ALLOCATOR_KIND_CUSTOM = 2
+    SVS_ALLOCATOR_KIND_SIMPLE = 1,
+    SVS_ALLOCATOR_KIND_HUGE_PAGE = 2,
+    SVS_ALLOCATOR_KIND_CUSTOM = 3
 };
 
 /// @brief Operations table for a custom allocator interface
