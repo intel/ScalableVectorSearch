@@ -227,9 +227,13 @@ class MutableVamanaIndex {
         build_parameters_ = parameters;
         // Verify and set defaults before using the parameters to set other member
         // variables.
-        verify_and_set_default_index_parameters(build_parameters_, distance_function);
+        verify_and_set_default_index_parameters(build_parameters_, distance_);
 
-        assert(build_parameters_.graph_max_degree == graph_.max_degree());
+        if (build_parameters_.graph_max_degree != graph_.max_degree()) {
+            throw ANNEXCEPTION(
+                "Graph max degree does not match the build parameters' max degree!"
+            );
+        }
         alpha_ = build_parameters_.alpha;
         construction_window_size_ = build_parameters_.window_size;
         max_candidates_ = build_parameters_.max_candidate_pool_size;
