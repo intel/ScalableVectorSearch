@@ -105,8 +105,8 @@ class AllocatorBuilder {
 
     svs_allocator_kind kind_;
     // Owned copy of the user's allocator vtable; `self_` is referenced only.
-    svs_allocator_ops_t user_ops_;
-    void* user_self_;
+    svs_allocator_ops_t user_ops_{};
+    void* user_self_ = nullptr;
 
   public:
     AllocatorBuilder(svs_allocator_kind kind = SVS_ALLOCATOR_KIND_DEFAULT)
@@ -126,10 +126,11 @@ class AllocatorBuilder {
     }
 
     AllocatorBuilder(svs_allocator_i allocator)
-        : kind_(SVS_ALLOCATOR_KIND_CUSTOM)
-        , user_ops_(*allocator->ops)
-        , user_self_(allocator->self) {
+        : kind_(SVS_ALLOCATOR_KIND_CUSTOM) {
         CustomAllocator<std::byte>::validate(allocator);
+        // Copy the 'vtable' since the user may free the original.
+        user_ops_ = *allocator->ops;
+        user_self_ = allocator->self;
     }
 
     svs_allocator_kind kind() const { return kind_; }

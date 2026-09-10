@@ -279,6 +279,7 @@ class DynamicVamana : public manager::IndexManager<DynamicVamanaInterface> {
     /// @tparam DataLoader   A data loader or dataset type.
     /// @tparam Distance     Distance functor or ``svs::DistanceType`` enum.
     /// @tparam ThreadPoolProto  Thread pool type or size_t).
+    /// @tparam GraphAllocator The type of allocator used for the graph.
     ///
     /// @param parameters Build parameters controlling graph construction.
     /// @param data_loader Loader (or dataset) from which to obtain the data.
@@ -286,6 +287,7 @@ class DynamicVamana : public manager::IndexManager<DynamicVamanaInterface> {
     /// ``data.size()``.
     /// @param distance Distance functor or enum.
     /// @param threadpool_proto Thread pool or number of threads to use.
+    /// @param graph_allocator Allocator instance to use for the graph.
     ///
     template <
         manager::QueryTypeDefinition QueryTypes,
