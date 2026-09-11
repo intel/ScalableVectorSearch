@@ -321,16 +321,17 @@ class MutableVamanaIndex {
     /// @brief Get the ``graph_max_degree`` used while mutating the graph.
     size_t get_graph_max_degree() const { return graph_.max_degree(); }
 
-    /// @brief Return the bytes allocated by each index component.
+    /// @brief Return memory breakdown for the index.
     ///
-    /// Reports the capacity-based bytes reserved by the graph adjacency lists, the vector
-    /// data, and the dynamic metadata (per-slot status, entry-point list, and the
-    /// external/internal ID translation maps). Capacity-based accounting includes the
-    /// block over-allocation so integrators can report the true memory footprint.
+    /// Reports the allocated memory for graph, data, and metadata components. Uses
+    /// capacity-based accounting for datasets that expose ``capacity()``, so that block
+    /// over-allocation is reflected. Metadata includes status array, entry points, and an
+    /// estimated size of the ID translation maps (external/internal ID translation maps).
     MemoryBreakdown get_memory_breakdown() const {
+        using namespace svs::data;
         MemoryBreakdown usage{};
-        usage.graph_bytes = svs::data::detail::dataset_allocated_bytes(graph_.get_data());
-        usage.data_bytes = svs::data::detail::dataset_allocated_bytes(data_);
+        usage.graph_bytes = dataset_allocated_bytes(graph_.get_data());
+        usage.data_bytes = dataset_allocated_bytes(data_);
 
         size_t metadata_bytes = status_.capacity() * sizeof(SlotMetadata);
         metadata_bytes +=
@@ -463,6 +464,24 @@ class MutableVamanaIndex {
     }
 
     ///
+    /// @brief Rename external ID `old_id` to `new_id`, keeping the same stored vector
+    /// data and adjacency list.
+    ///
+    /// @param old_id The existing external ID to rename.
+    /// @param new_id The external ID to assign. Must not already exist.
+    ///
+    /// Requires that `old_id` exists in the index and `new_id` does not; throws
+    /// otherwise, leaving the index unmodified. Unlike `delete_entries` followed by
+    /// `add_points`, this is a pure bookkeeping operation on the ID translation table --
+    /// it does not touch the underlying dataset or graph.
+    ///
+    /// @see has_id, delete_entries
+    ///
+    void replace_external_id(size_t old_id, size_t new_id) {
+        translator_.remap_external_id(old_id, new_id);
+    }
+
+    ///
     /// @brief Get the raw data for external id `e`.
     ///
     auto get_datum(size_t e) const { return data_.get_datum(translate_external_id(e)); }
@@ -534,16 +553,17 @@ class MutableVamanaIndex {
             threads::StaticPartition{queries.size()},
             [&](const auto is, uint64_t SVS_UNUSED(tid)) {
                 size_t num_neighbors = results.n_neighbors();
-                auto buffer =
-                    search_buffer_type{sp.buffer_config_, distance::comparator(distance_)};
+                auto buffer = search_buffer_type{
+                    // Legalize search buffer for this search.
+                    sp.buffer_config_.get_total_capacity() < num_neighbors
+                        ? SearchBufferConfig{num_neighbors}
+                        : sp.buffer_config_,
+                    distance::comparator(distance_),
+                    sp.search_buffer_visited_set_};
 
                 auto prefetch_parameters = GreedySearchPrefetchParameters{
                     sp.prefetch_lookahead_, sp.prefetch_step_};
 
-                // Legalize search buffer for this search.
-                if (buffer.target_capacity() < num_neighbors) {
-                    buffer.change_maxsize(num_neighbors);
-                }
                 auto scratch = extensions::per_thread_batch_search_setup(data_, distance_);
 
                 extensions::per_thread_batch_search(

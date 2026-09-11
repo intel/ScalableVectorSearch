@@ -1,0 +1,123 @@
+# Copyright 2026 Intel Corporation
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+name: Build and test C API bindings
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# This allows a subsequently queued workflow run to interrupt previous runs
+concurrency:
+  group: '${{ github.workflow }} @ ${{ github.event.pull_request.head.label || github.head_ref || github.ref }}'
+  cancel-in-progress: true
+
+jobs:
+  build-c-api-bindings:
+    name: Build and unit tests for C API (${{ matrix.name }})
+    runs-on: ubuntu-22.04
+    strategy:
+      matrix:
+        # Mirrors build-cpp-runtime-bindings.yml.
+        include:
+          - name: "with static library"
+            enable_lvq_leanvec: "ON"
+            require_lto: "ON"
+            suffix: ""
+          - name: "public only"
+            enable_lvq_leanvec: "OFF"
+            require_lto: "OFF"
+            suffix: "-public-only"
+      fail-fast: false
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Build Docker image
+        run: docker build -t svs-manylinux228:latest -f docker/x86_64/manylinux228/Dockerfile .
+
+      - name: Build C API bindings in Docker container
+        run: |
+          docker run --rm \
+            -v ${{ github.workspace }}:/workspace \
+            -w /workspace \
+            -e ENABLE_LVQ_LEANVEC=${{ matrix.enable_lvq_leanvec }} \
+            -e REQUIRE_LTO_ARCHIVE=${{ matrix.require_lto }} \
+            -e SUFFIX=${{ matrix.suffix }} \
+            svs-manylinux228:latest \
+            /bin/bash .github/scripts/build-c-api-bindings.sh
+
+      - name: Upload C API bindings artifacts
+        uses: actions/upload-artifact@v7
+        with:
+          name: svs-c-api${{ matrix.suffix }}
+          path: svs-c-api${{ matrix.suffix }}.tar.gz
+          retention-days: 7
+
+      # Run unit tests that were built as part of this job
+      - name: Run unit tests in Docker container
+        run: |
+          docker run --rm \
+            -v ${{ github.workspace }}:/workspace \
+            -w /workspace \
+            svs-manylinux228:latest \
+            /bin/bash /workspace/.github/scripts/test-c-api-unit.sh
+
+  # Run integration tests against the packaged artifact. Eventually this should
+  # run the setup and test scope of the actual downstream integrations; for now it
+  # just confirms the tarball is functional - it installs, exports only the svs_*
+  # C ABI, and can be consumed from a standalone C project.
+  test:
+    name: Integration tests for C API (${{ matrix.name }})
+    needs: build-c-api-bindings
+    runs-on: ubuntu-22.04
+    strategy:
+      matrix:
+        include:
+          - name: "with static library"
+            suffix: ""
+          - name: "public only"
+            suffix: "-public-only"
+      fail-fast: false
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Build Docker image
+        run: docker build -t svs-manylinux228:latest -f docker/x86_64/manylinux228/Dockerfile .
+
+      # Need to download for a new job
+      - name: Download C API package
+        uses: actions/download-artifact@v8
+        with:
+          name: svs-c-api${{ matrix.suffix }}
+          path: c_api_artifact
+
+      - name: List available artifacts
+        run: ls -la c_api_artifact/
+
+      - name: Test packaged C API in Docker container
+        run: |
+          docker run --rm \
+            -v ${{ github.workspace }}:/workspace \
+            -w /workspace \
+            -e SUFFIX=${{ matrix.suffix }} \
+            svs-manylinux228:latest \
+            /bin/bash .github/scripts/test-c-api-bindings.sh

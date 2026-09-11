@@ -177,6 +177,9 @@ struct VamanaIndexParameters {
     operator==(const VamanaIndexParameters&, const VamanaIndexParameters&) = default;
 };
 
+///
+/// @brief Memory breakdown for Vamana index.
+///
 struct MemoryBreakdown {
     size_t graph_bytes = 0;
     size_t data_bytes = 0;
@@ -577,19 +580,17 @@ class VamanaIndex {
 
                 // Allocate scratchspace according to the provided search parameters.
                 auto search_buffer = search_buffer_type{
-                    SearchBufferConfig(search_parameters.buffer_config_),
+                    // Increase the search window size if the defaults are not suitable for
+                    // the requested number of neighbors.
+                    search_parameters.buffer_config_.get_total_capacity() < num_neighbors
+                        ? SearchBufferConfig{num_neighbors}
+                        : search_parameters.buffer_config_,
                     distance::comparator(distance_),
                     search_parameters.search_buffer_visited_set_};
 
                 auto prefetch_parameters = GreedySearchPrefetchParameters{
                     search_parameters.prefetch_lookahead_,
                     search_parameters.prefetch_step_};
-
-                // Increase the search window size if the defaults are not suitable for the
-                // requested number of neighbors.
-                if (search_buffer.capacity() < num_neighbors) {
-                    search_buffer.change_maxsize(SearchBufferConfig{num_neighbors});
-                }
 
                 // Pre-allocate scratch space needed by the dataset implementation.
                 auto scratch = extensions::per_thread_batch_search_setup(data_, distance_);
@@ -752,16 +753,17 @@ class VamanaIndex {
     /// @brief Get the ``graph_max_degree`` that was used for graph construction.
     size_t get_graph_max_degree() const { return graph_.max_degree(); }
 
-    /// @brief Return the bytes allocated by each index component.
+    /// @brief Return memory breakdown for the index.
     ///
-    /// Reports the capacity-based bytes reserved by the graph adjacency lists, the vector
-    /// data, and the entry-point list (the static index has no slot-status or
-    /// ID-translation metadata). Capacity-based accounting includes the block
-    /// over-allocation so integrators can report the true memory footprint.
+    /// Reports the allocated memory for graph, data, and metadata components. Uses
+    /// capacity-based accounting for datasets that expose ``capacity()``, so that block
+    /// over-allocation is reflected. Metadata includes entry points. Integrators can use
+    /// this to report the true memory footprint of the index.
     MemoryBreakdown get_memory_breakdown() const {
+        using namespace svs::data;
         MemoryBreakdown usage{};
-        usage.graph_bytes = svs::data::detail::dataset_allocated_bytes(graph_.get_data());
-        usage.data_bytes = svs::data::detail::dataset_allocated_bytes(data_);
+        usage.graph_bytes = dataset_allocated_bytes(graph_.get_data());
+        usage.data_bytes = dataset_allocated_bytes(data_);
         usage.metadata_bytes =
             entry_point_.capacity() * sizeof(typename entry_point_type::value_type);
         return usage;

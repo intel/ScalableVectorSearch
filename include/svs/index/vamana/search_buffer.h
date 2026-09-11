@@ -157,6 +157,51 @@ template <typename Idx, typename Cmp = std::less<>> class SearchBuffer {
         : SearchBuffer{SearchBufferConfig(size), std::move(compare), enable_visited} {}
 
     ///
+    /// @brief Estimate heap memory footprint of a search buffer with the given
+    /// configuration.
+    ///
+    /// @param config The configuration for the search buffer.
+    /// @param enable_visited Whether or not the visited set is enabled.
+    /// @return The estimated memory footprint in bytes.
+    static constexpr size_t estimate_memory_footprint(
+        const SearchBufferConfig& config, bool enable_visited = false
+    ) {
+        // The SearchBuffer contains a vector of candidates and an optional visited set. The
+        // size of the vector is determined by the total capacity of the buffer, plus one
+        // for the extra space used for copying neighbors.
+        const auto candidates_num = config.get_total_capacity() + 1;
+
+        // Calculate the size of the candidates vector, taking into account the alignment of
+        // the CacheAlignedAllocator.
+        constexpr size_t alignment = threads::CacheAlignedAllocator<value_type>::alignment;
+        const auto candidates_size =
+            alignment * lib::div_round_up(sizeof(value_type) * candidates_num, alignment);
+
+        auto result = candidates_size;
+
+        // VisitedFilter has a static filter capacity, which is a compile-time constant. The
+        // size of the visited set is determined by the filter capacity of the
+        // VisitedFilter, which is a compile-time constant.
+        if (enable_visited) {
+            result += set_type::filter_capacity * sizeof(typename set_type::value_type);
+        }
+
+        return result;
+    }
+
+    ///
+    /// @brief Estimate the memory footprint of a search buffer with the given size and
+    /// visited set configuration.
+    ///
+    /// @param size The number of valid elements to return from a search operation.
+    /// @param enable_visited Whether or not the visited set is enabled.
+    /// @return The estimated memory footprint in bytes.
+    static constexpr size_t
+    estimate_memory_footprint(size_t size, bool enable_visited = false) {
+        return estimate_memory_footprint(SearchBufferConfig(size), enable_visited);
+    }
+
+    ///
     /// @brief Perform an efficient copy.
     ///
     /// Copy the portions of the SearchBuffer that matter for the purposes of scratch
