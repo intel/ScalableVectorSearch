@@ -251,3 +251,18 @@ inline void tracking_allocator_deallocate(
     tracker->dealloc_count.fetch_add(1, std::memory_order_relaxed);
     std::free(ptr);
 }
+
+/// svs_allocator_interface_ops::allocate implementation that always fails: it reports an
+/// out-of-memory error and returns nullptr. Used to verify that an allocator failure
+/// aborts the build with SVS_ERROR_OUT_OF_MEMORY.
+inline void* failing_allocator_allocate(
+    void* /*self*/, size_t /*size*/, size_t /*alignment*/, svs_error_h out_err
+) {
+    svs_error_set(out_err, SVS_ERROR_OUT_OF_MEMORY, "FailingAllocator: allocation failed");
+    return nullptr;
+}
+
+/// svs_allocator_interface_ops::deallocate no-op paired with failing_allocator_allocate.
+inline void failing_allocator_deallocate(
+    void* /*self*/, void* /*ptr*/, size_t /*size*/, size_t /*alignment*/
+) {}

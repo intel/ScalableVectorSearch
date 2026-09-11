@@ -45,7 +45,7 @@ svs::DynamicVamana build_dynamic_vamana_index(
     DataBuilder builder,
     Distance D,
     svs::threads::ThreadPoolHandle pool,
-    const AllocatorHandle<std::byte>& allocator_handle,
+    const AllocatorBuilder& allocator_builder,
     size_t blocksize_bytes
 ) {
     svs::data::BlockingParameters block_params;
@@ -55,11 +55,11 @@ svs::DynamicVamana build_dynamic_vamana_index(
     using allocator_type = typename DataBuilder::allocator_type;
     using value_type = typename allocator_type::value_type;
 
-    auto data_allocator_handle = svs::lib::rebind_allocator<value_type>(allocator_handle);
+    auto data_allocator_handle = allocator_builder.build<value_type>();
     auto data_allocator = allocator_type{block_params, data_allocator_handle};
     auto data = builder.build(std::move(src_data.first), pool, data_allocator);
 
-    auto graph_allocator_handle = svs::lib::rebind_allocator<uint32_t>(allocator_handle);
+    auto graph_allocator_handle = allocator_builder.build_for_graph<uint32_t>();
     auto graph_allocator = svs::data::Blocked{block_params, graph_allocator_handle};
     return svs::DynamicVamana::build<float>(
         build_params,
@@ -78,7 +78,7 @@ svs::DynamicVamana load_dynamic_vamana_index(
     DataLoader loader,
     Distance D,
     svs::threads::ThreadPoolHandle pool,
-    const AllocatorHandle<std::byte>& allocator_handle,
+    const AllocatorBuilder& allocator_builder,
     size_t blocksize_bytes
 ) {
     svs::data::BlockingParameters block_params;
@@ -87,11 +87,11 @@ svs::DynamicVamana load_dynamic_vamana_index(
     }
     using allocator_type = typename DataLoader::allocator_type;
     using value_type = typename allocator_type::value_type;
-    auto data_allocator_handle = svs::lib::rebind_allocator<value_type>(allocator_handle);
+    auto data_allocator_handle = allocator_builder.build<value_type>();
     auto allocator = allocator_type{block_params, data_allocator_handle};
     auto data = loader.load(directory / "data", allocator);
 
-    auto graph_allocator_handle = svs::lib::rebind_allocator<uint32_t>(allocator_handle);
+    auto graph_allocator_handle = allocator_builder.build_for_graph<uint32_t>();
     auto graph_allocator = svs::data::Blocked{block_params, graph_allocator_handle};
 
     return svs::DynamicVamana::assemble<float>(
@@ -133,7 +133,7 @@ using BuildDynamicIndexDispatcher = svs::lib::Dispatcher<
     const Storage*,
     svs::DistanceType,
     svs::threads::ThreadPoolHandle,
-    const AllocatorHandle<std::byte>&,
+    const AllocatorBuilder&,
     size_t>;
 
 const BuildDynamicIndexDispatcher& build_dynamic_vamana_index_dispatcher() {
@@ -152,7 +152,7 @@ svs::DynamicVamana dispatch_dynamic_vamana_index_build(
     const Storage* storage,
     svs::DistanceType distance_type,
     svs::threads::ThreadPoolHandle pool,
-    const AllocatorHandle<std::byte>& allocator_handle,
+    const AllocatorBuilder& allocator_builder,
     size_t blocksize_bytes
 ) {
     return build_dynamic_vamana_index_dispatcher().invoke(
@@ -161,7 +161,7 @@ svs::DynamicVamana dispatch_dynamic_vamana_index_build(
         storage,
         distance_type,
         std::move(pool),
-        allocator_handle,
+        allocator_builder,
         blocksize_bytes
     );
 }
@@ -172,7 +172,7 @@ svs::DynamicVamana dispatch_dynamic_vamana_index_load(
     const Storage* storage,
     svs::DistanceType distance_type,
     svs::threads::ThreadPoolHandle pool,
-    const AllocatorHandle<std::byte>& allocator_handle,
+    const AllocatorBuilder& allocator_builder,
     size_t blocksize_bytes
 ) {
     return build_dynamic_vamana_index_dispatcher().invoke(
@@ -181,7 +181,7 @@ svs::DynamicVamana dispatch_dynamic_vamana_index_load(
         storage,
         distance_type,
         std::move(pool),
-        allocator_handle,
+        allocator_builder,
         blocksize_bytes
     );
 }

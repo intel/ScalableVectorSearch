@@ -150,6 +150,22 @@ class AllocatorBuilder {
                 throw std::invalid_argument("Unknown allocator kind.");
         }
     }
+
+    template <typename T = uint32_t> svs::AllocatorHandle<T> build_for_graph() const {
+        // Default graph allocator is hugepage allocator - can be changed in the future.
+        switch (kind_) {
+            case SVS_ALLOCATOR_KIND_SIMPLE:
+                return svs::make_allocator_handle(svs::lib::Allocator<T>{});
+            case SVS_ALLOCATOR_KIND_DEFAULT:
+            case SVS_ALLOCATOR_KIND_HUGE_PAGE:
+                return svs::make_allocator_handle(svs::HugepageAllocator<T>{});
+            case SVS_ALLOCATOR_KIND_CUSTOM:
+                return svs::make_allocator_handle(CustomAllocator<T>{user_ops_, user_self_}
+                );
+            default:
+                throw std::invalid_argument("Unknown allocator kind.");
+        }
+    }
 };
 } // namespace c_runtime
 } // namespace svs

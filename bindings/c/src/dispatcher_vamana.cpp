@@ -42,18 +42,17 @@ svs::Vamana build_vamana_index(
     DataBuilder builder,
     Distance distance,
     svs::threads::ThreadPoolHandle pool,
-    const AllocatorHandle<std::byte>& allocator_handle
+    const AllocatorBuilder& allocator_builder
 ) {
     using value_type = typename DataBuilder::allocator_type::value_type;
-    auto data = builder.build(
-        std::move(src_data), pool, svs::lib::rebind_allocator<value_type>(allocator_handle)
-    );
+    auto data =
+        builder.build(std::move(src_data), pool, allocator_builder.build<value_type>());
     return svs::Vamana::build<float>(
         build_params,
         std::move(data),
         distance,
         std::move(pool),
-        svs::lib::rebind_allocator<uint32_t>(allocator_handle)
+        allocator_builder.build_for_graph<uint32_t>()
     );
 }
 
@@ -64,16 +63,14 @@ svs::Vamana load_vamana_index(
     DataLoader loader,
     Distance distance,
     svs::threads::ThreadPoolHandle pool,
-    const AllocatorHandle<std::byte>& allocator_handle
+    const AllocatorBuilder& allocator_builder
 ) {
     using value_type = typename DataLoader::allocator_type::value_type;
-    auto data = loader.load(
-        directory / "data", svs::lib::rebind_allocator<value_type>(allocator_handle)
-    );
+    auto data = loader.load(directory / "data", allocator_builder.build<value_type>());
     return svs::Vamana::assemble<float>(
         directory / "config",
         svs::GraphLoader<uint32_t, AllocatorHandle<uint32_t>>{
-            directory / "graph", svs::lib::rebind_allocator<uint32_t>(allocator_handle)},
+            directory / "graph", allocator_builder.build_for_graph<uint32_t>()},
         std::move(data),
         distance,
         std::move(pool)
@@ -109,7 +106,7 @@ using BuildIndexDispatcher = svs::lib::Dispatcher<
     const Storage*,
     svs::DistanceType,
     svs::threads::ThreadPoolHandle,
-    const AllocatorHandle<std::byte>&>;
+    const AllocatorBuilder&>;
 
 const BuildIndexDispatcher& build_vamana_index_dispatcher() {
     static BuildIndexDispatcher dispatcher = [] {
@@ -126,7 +123,7 @@ svs::Vamana dispatch_vamana_index_build(
     const Storage* storage,
     svs::DistanceType distance_type,
     svs::threads::ThreadPoolHandle pool,
-    const AllocatorHandle<std::byte>& allocator_handle
+    const AllocatorBuilder& allocator_builder
 ) {
     return build_vamana_index_dispatcher().invoke(
         build_params,
@@ -134,7 +131,7 @@ svs::Vamana dispatch_vamana_index_build(
         storage,
         distance_type,
         std::move(pool),
-        allocator_handle
+        allocator_builder
     );
 }
 
@@ -144,7 +141,7 @@ svs::Vamana dispatch_vamana_index_load(
     const Storage* storage,
     svs::DistanceType distance_type,
     svs::threads::ThreadPoolHandle pool,
-    const AllocatorHandle<std::byte>& allocator_handle
+    const AllocatorBuilder& allocator_builder
 ) {
     return build_vamana_index_dispatcher().invoke(
         build_params,
@@ -152,7 +149,7 @@ svs::Vamana dispatch_vamana_index_load(
         storage,
         distance_type,
         std::move(pool),
-        allocator_handle
+        allocator_builder
     );
 }
 

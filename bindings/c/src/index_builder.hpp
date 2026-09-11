@@ -87,7 +87,7 @@ struct IndexBuilder {
                     storage.get(),
                     to_distance_type(distance_metric),
                     pool_builder.build(),
-                    allocator_builder.build()
+                    allocator_builder
                 ),
                 pool_builder
             );
@@ -109,7 +109,7 @@ struct IndexBuilder {
                     storage.get(),
                     to_distance_type(distance_metric),
                     pool_builder.build(),
-                    allocator_builder.build()
+                    allocator_builder
                 ),
                 pool_builder
             );
@@ -136,7 +136,7 @@ struct IndexBuilder {
                     storage.get(),
                     to_distance_type(distance_metric),
                     pool_builder.build(),
-                    allocator_builder.build(),
+                    allocator_builder,
                     blocksize_bytes
                 ),
                 pool_builder
@@ -160,7 +160,7 @@ struct IndexBuilder {
                     storage.get(),
                     to_distance_type(distance_metric),
                     pool_builder.build(),
-                    allocator_builder.build(),
+                    allocator_builder,
                     blocksize_bytes
                 ),
                 pool_builder

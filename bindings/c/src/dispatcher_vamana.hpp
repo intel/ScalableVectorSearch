@@ -15,6 +15,7 @@
  */
 #pragma once
 
+#include "allocator.hpp"
 #include "storage.hpp"
 #include "threadpool.hpp"
 
@@ -34,7 +35,7 @@ svs::Vamana dispatch_vamana_index_build(
     const Storage* storage,
     svs::DistanceType distance_type,
     svs::threads::ThreadPoolHandle pool,
-    const AllocatorHandle<std::byte>& allocator_handle
+    const AllocatorBuilder& allocator_builder
 );
 
 svs::Vamana dispatch_vamana_index_load(
@@ -43,7 +44,7 @@ svs::Vamana dispatch_vamana_index_load(
     const Storage* storage,
     svs::DistanceType distance_type,
     svs::threads::ThreadPoolHandle pool,
-    const AllocatorHandle<std::byte>& allocator_handle
+    const AllocatorBuilder& allocator_builder
 );
 
 svs::index::vamana::MemoryBreakdown dispatch_vamana_memory_estimate(

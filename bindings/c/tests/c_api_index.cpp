@@ -1329,6 +1329,45 @@ CATCH_TEST_CASE("C API Index Memory Management", "[c_api][index][memory]") {
         svs_algorithm_free(algorithm);
         svs_error_free(error);
     }
+
+    CATCH_SECTION("Custom Allocator Failure") {
+        svs_error_h error = svs_error_create();
+
+        svs_algorithm_h algorithm = svs_algorithm_create_vamana(16, 32, 50, error);
+        CATCH_REQUIRE(algorithm != nullptr);
+        CATCH_REQUIRE(svs_error_ok(error));
+
+        svs_index_builder_h builder = svs_index_builder_create(
+            SVS_DISTANCE_METRIC_EUCLIDEAN, DIMENSION, algorithm, error
+        );
+        CATCH_REQUIRE(builder != nullptr);
+        CATCH_REQUIRE(svs_error_ok(error));
+
+        bool success = svs_index_builder_set_threadpool(
+            builder, SVS_THREADPOOL_KIND_SINGLE_THREAD, 1, error
+        );
+        CATCH_REQUIRE(success);
+        CATCH_REQUIRE(svs_error_ok(error));
+
+        // A custom allocator whose allocate() always fails.
+        struct svs_allocator_interface_ops alloc_ops = SVS_INIT_ALLOCATOR_OPS(
+            failing_allocator_allocate, failing_allocator_deallocate
+        );
+        struct svs_allocator_interface allocator = SVS_MAKE_INTERFACE(nullptr, alloc_ops);
+
+        success = svs_index_builder_set_allocator_custom(builder, &allocator, error);
+        CATCH_REQUIRE(success);
+        CATCH_REQUIRE(svs_error_ok(error));
+
+        // The allocator failure must abort the build and surface as out-of-memory.
+        svs_index_h index = svs_index_build(builder, data.data(), NUM_VECTORS, error);
+        CATCH_REQUIRE(index == nullptr);
+        CATCH_REQUIRE(svs_error_get_code(error) == SVS_ERROR_OUT_OF_MEMORY);
+
+        svs_index_builder_free(builder);
+        svs_algorithm_free(algorithm);
+        svs_error_free(error);
+    }
 }
 
 namespace {
