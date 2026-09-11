@@ -1,0 +1,35 @@
+# Copyright 2026 Intel Corporation
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# abicheck configuration, picked up from the repo root by `abicheck compare`.
+# Validated against the abicheck 0.5.0 config schema.
+#
+# Kept identical to .abicheck.yml in the innersource repo: the two repos build
+# the same runtime library and must not disagree on how it is parsed.
+
+# castxml's default cc-gnu detection parses SVS's C++20 headers at the wrong
+# standard (std::span / constexpr dtor fail). The clang AST frontend handles
+# C++20 cleanly; layout-only checks fall back to the .so's DWARF.
+compile:
+  frontend: clang
+  std: c++20
+
+# Scope the compared surface to what we publish, and collapse the std/gnu_cxx
+# template-instantiation noise that leaks past --exclude-libs,ALL.
+scope:
+  public: true
+  collapse_versioned_symbols: true
+
+suppression:
+  require_justification: true
