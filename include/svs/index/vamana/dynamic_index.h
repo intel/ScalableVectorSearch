@@ -195,7 +195,7 @@ class MutableVamanaIndex {
         , distance_{std::move(distance_function)}
         , threadpool_{threads::as_threadpool(std::move(threadpool_proto))}
         , search_parameters_{vamana::construct_default_search_parameters(data_)}
-        , construction_window_size_{2 * graph.max_degree()}
+        , construction_window_size_{2 * graph_.max_degree()}
         // Ctor accept logger in parameter
         , logger_{std::move(logger)} {
         translator_.insert(external_ids, threads::UnitRange<Idx>(0, external_ids.size()));
@@ -279,7 +279,7 @@ class MutableVamanaIndex {
         , build_parameters_(parameters)
         , logger_{std::move(logger)} {
         // Verify and set defaults directly on the input parameters
-        verify_and_set_default_index_parameters(build_parameters_, distance_function);
+        verify_and_set_default_index_parameters(build_parameters_, distance_);
 
         // Set graph again as verify function might change graph_max_degree parameter
         graph_ = Graph{data_.size(), build_parameters_.graph_max_degree};
