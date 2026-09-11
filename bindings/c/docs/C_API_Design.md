@@ -41,8 +41,9 @@
   - [3. Algorithm Configuration](#3-algorithm-configuration)
   - [4. Storage Configuration](#4-storage-configuration)
   - [5. Thread Pool Configuration](#5-thread-pool-configuration)
-  - [6. Search Parameters](#6-search-parameters)
-  - [7. ID Filter (optional)](#7-id-filter-optional)
+  - [6. Allocator Configuration](#6-allocator-configuration)
+  - [7. Search Parameters](#7-search-parameters)
+  - [8. ID Filter (optional)](#8-id-filter-optional)
 - [API Overview](#api-overview)
   - [Headers](#headers)
   - [Types](#types)
@@ -263,6 +264,7 @@ Configures and creates index instances using the builder pattern.
 - Storage format (default: Simple FP32)
 - Thread pool kind and size (default: native with hardware concurrency)
 - Custom thread pool interface (for advanced use cases)
+- Allocator kind (default, simple, huge-page) or a custom allocator interface
 
 **Memory Estimation (pre-build):**
 
@@ -387,7 +389,60 @@ static svs_threadpool_ops_t my_ops =
 static svs_threadpool_t my_pool = SVS_MAKE_INTERFACE(NULL, my_ops);
 ```
 
-### 6. Search Parameters
+### 6. Allocator Configuration
+
+Controls how the builder allocates memory for the index it produces (graph, vector
+data, and metadata).
+
+| Kind | Description |
+|------|-------------|
+| **Default** | Library-chosen default allocator |
+| **Simple** | Standard heap allocation |
+| **Huge Page** | Backs large allocations with huge pages when available |
+| **Custom** | User-defined allocate / deallocate callbacks |
+
+Select a built-in kind with `svs_index_builder_set_allocator()`, or supply a custom
+allocator with `svs_index_builder_set_allocator_custom()`. Like the thread pool, the
+custom allocator is a versioned operations table plus an opaque `self` pointer,
+initialised through `SVS_INIT_ALLOCATOR_OPS()`.
+
+```c
+struct svs_allocator_interface_ops {
+    uint32_t version;      // Set by SVS_INIT_ALLOCATOR_OPS
+    size_t struct_size;    // Set by SVS_INIT_ALLOCATOR_OPS
+    void* (*allocate)(
+        void* self,
+        size_t size,           // Bytes to allocate
+        size_t alignment,      // Required alignment in bytes
+        svs_error_h out_err    // Set via svs_error_set() to report failure
+    );
+    void (*deallocate)(
+        void* self,
+        void* ptr,             // Memory previously returned by allocate()
+        size_t size,           // Same size passed to allocate()
+        size_t alignment       // Same alignment passed to allocate()
+    );
+};
+
+struct svs_allocator_interface {
+    struct svs_allocator_interface_ops* ops;
+    void* self;                // User-defined state
+};
+
+// Handy typedef used by the API surface
+typedef struct svs_allocator_interface* svs_allocator_i;
+
+// Initialisation macros
+static svs_allocator_ops_t my_ops =
+    SVS_INIT_ALLOCATOR_OPS(my_allocate_func, my_deallocate_func);
+static svs_allocator_t my_alloc = SVS_MAKE_INTERFACE(user_state, my_ops);
+```
+
+The builder copies the interface struct and its ops table by value, but the object
+referenced by `self` is not copied and must outlive the builder and every index built
+or loaded with it. The allocator implementation must be thread-safe.
+
+### 7. Search Parameters
 
 Configures runtime search behavior (algorithm-specific).
 
@@ -416,7 +471,7 @@ svs_index_search_topk(
 svs_search_results_free(&results);
 ```
 
-### 7. ID Filter (optional)
+### 8. ID Filter (optional)
 
 A caller-supplied ID filter can be passed to `svs_index_search_topk()` to restrict
 results to a subset of vector IDs. Like the thread pool, the filter is a versioned
@@ -462,9 +517,10 @@ for full signatures, parameters, and Doxygen documentation.
   `svs_algorithm_h`, `svs_storage_h`, `svs_search_params_h`
 - **Enums** (`_t`): `svs_error_code_t`, `svs_distance_metric_t`,
   `svs_algorithm_type_t`, `svs_data_type_t`, `svs_storage_kind_t`,
-  `svs_threadpool_kind_t`
-- **Custom interfaces**: `svs_threadpool_i` and `svs_id_filter_i` (versioned
-  ops-table + `self` pointer; build with `SVS_INIT_*_OPS()` / `SVS_MAKE_INTERFACE()`)
+  `svs_threadpool_kind_t`, `svs_allocator_kind_t`
+- **Custom interfaces**: `svs_threadpool_i`, `svs_allocator_i`, and `svs_id_filter_i`
+  (versioned ops-table + `self` pointer; build with `SVS_INIT_*_OPS()` /
+  `SVS_MAKE_INTERFACE()`)
 - **Value structs**: `svs_search_results_t` (CSR result buffer),
   `svs_memory_breakdown_t`
 
@@ -477,7 +533,7 @@ for full signatures, parameters, and Doxygen documentation.
 | **Algorithm** | `svs_algorithm_create_vamana`, `svs_algorithm_get_type`, `svs_algorithm_vamana_{get,set}_{alpha,graph_degree,build_window_size,use_search_history}`, `svs_algorithm_free` |
 | **Storage** | `svs_storage_create_{simple,sq,lvq,leanvec}`, `svs_storage_get_kind`, `svs_storage_free` |
 | **Search params** | `svs_search_params_create_vamana`, `svs_search_params_free` |
-| **Builder** | `svs_index_builder_create`, `svs_index_builder_set_{storage,threadpool,threadpool_custom}`, `svs_index_builder_free` |
+| **Builder** | `svs_index_builder_create`, `svs_index_builder_set_{storage,threadpool,threadpool_custom,allocator,allocator_custom}`, `svs_index_builder_free` |
 | **Memory estimation** | `svs_index_builder_estimate_memory`, `svs_index_builder_estimate_memory_dynamic`, `svs_index_builder_estimate_search_memory`, `svs_index_builder_estimate_search_memory_dynamic`, `svs_index_builder_get_default_blocksize_bytes` |
 | **Index lifecycle** | `svs_index_build`, `svs_index_build_dynamic`, `svs_index_load`, `svs_index_load_dynamic`, `svs_index_save`, `svs_index_free` |
 | **Dynamic ops** | `svs_index_dynamic_{add_points,delete_points,has_id,consolidate,compact}` |
