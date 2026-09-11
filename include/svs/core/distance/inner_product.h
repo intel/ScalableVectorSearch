@@ -46,6 +46,15 @@ class IP {
   public:
     template <typename Ea, typename Eb>
     static constexpr float compute(const Ea* a, const Eb* b, size_t N) {
+        if constexpr (has_vnni_kernel<Ea, Eb>) {
+            if (__builtin_expect(
+                    svs::detail::avx_runtime_flags.is_avx512vnni_supported(), 1
+                )) {
+                return IPImpl<Dynamic, Ea, Eb, AVX_AVAILABILITY::AVX512_VNNI>::compute(
+                    a, b, lib::MaybeStatic(N)
+                );
+            }
+        }
         if (__builtin_expect(svs::detail::avx_runtime_flags.is_avx512f_supported(), 1)) {
             return IPImpl<Dynamic, Ea, Eb, AVX_AVAILABILITY::AVX512>::compute(
                 a, b, lib::MaybeStatic(N)
@@ -63,6 +72,21 @@ class IP {
 
     template <size_t N, typename Ea, typename Eb>
     static constexpr float compute(const Ea* a, const Eb* b) {
+        if constexpr (has_vnni_kernel<Ea, Eb>) {
+            if (__builtin_expect(
+                    svs::detail::avx_runtime_flags.is_avx512vnni_supported(), 1
+                )) {
+                if constexpr (is_dim_supported<N>()) {
+                    return IPImpl<N, Ea, Eb, AVX_AVAILABILITY::AVX512_VNNI>::compute(
+                        a, b, lib::MaybeStatic<N>()
+                    );
+                } else {
+                    return IPImpl<Dynamic, Ea, Eb, AVX_AVAILABILITY::AVX512_VNNI>::compute(
+                        a, b, lib::MaybeStatic(N)
+                    );
+                }
+            }
+        }
         if (__builtin_expect(svs::detail::avx_runtime_flags.is_avx512f_supported(), 1)) {
             if constexpr (is_dim_supported<N>()) {
                 return IPImpl<N, Ea, Eb, AVX_AVAILABILITY::AVX512>::compute(
@@ -215,7 +239,7 @@ template <> struct IPFloatOp<16> : public svs::simd::ConvertToFloat<16> {
     static float reduce(__m512 x) { return _mm512_reduce_add_ps(x); }
 };
 
-// Small Integers
+// Small Integers, with VNNI
 SVS_VALIDATE_BOOL_ENV(SVS_AVX512_VNNI)
 #if SVS_AVX512_VNNI
 
@@ -243,14 +267,27 @@ template <> struct IPVNNIOp<int16_t, 32> : public svs::simd::ConvertForVNNI<int1
     }
 };
 
-// VNNI Dispatching
+template <size_t N> struct IPImpl<N, int8_t, int8_t, AVX_AVAILABILITY::AVX512_VNNI> {
+    SVS_NOINLINE static float
+    compute(const int8_t* a, const int8_t* b, lib::MaybeStatic<N> length) {
+        return simd::generic_simd_op(IPVNNIOp<int16_t, 32>(), a, b, length);
+    }
+};
+
+template <size_t N> struct IPImpl<N, uint8_t, uint8_t, AVX_AVAILABILITY::AVX512_VNNI> {
+    SVS_NOINLINE static float
+    compute(const uint8_t* a, const uint8_t* b, lib::MaybeStatic<N> length) {
+        return simd::generic_simd_op(IPVNNIOp<int16_t, 32>(), a, b, length);
+    }
+};
+
+#endif
+
+// Must stay outside the SVS_AVX512_VNNI guard: avx512.cpp compiles with that macro
+// at 0, and hiding this specialization there would silently select the generic kernel.
 template <size_t N> struct IPImpl<N, int8_t, int8_t, AVX_AVAILABILITY::AVX512> {
     SVS_NOINLINE static float
     compute(const int8_t* a, const int8_t* b, lib::MaybeStatic<N> length) {
-        if (__builtin_expect(svs::detail::avx_runtime_flags.is_avx512vnni_supported(), 1)) {
-            return simd::generic_simd_op(IPVNNIOp<int16_t, 32>(), a, b, length);
-        }
-        // fallback to AVX512
         return svs::simd::generic_simd_op(IPFloatOp<16>{}, a, b, length);
     }
 };
@@ -258,15 +295,9 @@ template <size_t N> struct IPImpl<N, int8_t, int8_t, AVX_AVAILABILITY::AVX512> {
 template <size_t N> struct IPImpl<N, uint8_t, uint8_t, AVX_AVAILABILITY::AVX512> {
     SVS_NOINLINE static float
     compute(const uint8_t* a, const uint8_t* b, lib::MaybeStatic<N> length) {
-        if (__builtin_expect(svs::detail::avx_runtime_flags.is_avx512vnni_supported(), 1)) {
-            return simd::generic_simd_op(IPVNNIOp<int16_t, 32>(), a, b, length);
-        }
-        // fallback to AVX512
         return svs::simd::generic_simd_op(IPFloatOp<16>{}, a, b, length);
     }
 };
-
-#endif
 
 // Floating and Mixed Types
 template <size_t N> struct IPImpl<N, float, float, AVX_AVAILABILITY::AVX512> {
@@ -388,26 +419,12 @@ template <size_t N> struct IPImpl<N, uint8_t, uint8_t, AVX_AVAILABILITY::AVX2> {
 #if defined(__x86_64__)
 
 #include "svs/multi-arch/x86/preprocessor.h"
-// TODO: connect with dim_supported_list
-DISTANCE_IP_EXTERN_TEMPLATE(64, AVX_AVAILABILITY::AVX512);
-DISTANCE_IP_EXTERN_TEMPLATE(96, AVX_AVAILABILITY::AVX512);
-DISTANCE_IP_EXTERN_TEMPLATE(100, AVX_AVAILABILITY::AVX512);
-DISTANCE_IP_EXTERN_TEMPLATE(128, AVX_AVAILABILITY::AVX512);
-DISTANCE_IP_EXTERN_TEMPLATE(160, AVX_AVAILABILITY::AVX512);
-DISTANCE_IP_EXTERN_TEMPLATE(200, AVX_AVAILABILITY::AVX512);
-DISTANCE_IP_EXTERN_TEMPLATE(512, AVX_AVAILABILITY::AVX512);
-DISTANCE_IP_EXTERN_TEMPLATE(768, AVX_AVAILABILITY::AVX512);
-DISTANCE_IP_EXTERN_TEMPLATE(Dynamic, AVX_AVAILABILITY::AVX512);
 
-DISTANCE_IP_EXTERN_TEMPLATE(64, AVX_AVAILABILITY::AVX2);
-DISTANCE_IP_EXTERN_TEMPLATE(96, AVX_AVAILABILITY::AVX2);
-DISTANCE_IP_EXTERN_TEMPLATE(100, AVX_AVAILABILITY::AVX2);
-DISTANCE_IP_EXTERN_TEMPLATE(128, AVX_AVAILABILITY::AVX2);
-DISTANCE_IP_EXTERN_TEMPLATE(160, AVX_AVAILABILITY::AVX2);
-DISTANCE_IP_EXTERN_TEMPLATE(200, AVX_AVAILABILITY::AVX2);
-DISTANCE_IP_EXTERN_TEMPLATE(512, AVX_AVAILABILITY::AVX2);
-DISTANCE_IP_EXTERN_TEMPLATE(768, AVX_AVAILABILITY::AVX2);
-DISTANCE_IP_EXTERN_TEMPLATE(Dynamic, AVX_AVAILABILITY::AVX2);
+// Declare every kernel the library compiles ahead of time. Missing an entry here
+// makes a consumer instantiate it locally, at the consumer's own -march.
+#define SVS_IP_EXTERN(DIM, LEVEL) SVS_INSTANTIATE_IP(extern template, DIM, LEVEL)
+SVS_FOR_EACH_DISPATCH_TARGET(SVS_IP_EXTERN)
+#undef SVS_IP_EXTERN
 #endif
 
 } // namespace svs::distance

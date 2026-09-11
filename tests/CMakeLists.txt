@@ -237,3 +237,9 @@ list(APPEND CMAKE_MODULE_PATH ${catch2_SOURCE_DIR}/extras)
 include(CTest)
 include(Catch)
 catch_discover_tests(tests ADD_TAGS_AS_LABELS SKIP_IS_FAILURE)
+
+# Checks the x86 dispatch surface. The target only exists where the multi-arch
+# build ran, which is the same condition that makes the surface meaningful.
+if(TARGET svs_x86_objects)
+    add_subdirectory(multi-arch)
+endif()

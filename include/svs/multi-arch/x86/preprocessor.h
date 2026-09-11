@@ -16,74 +16,78 @@
 
 #pragma once
 
-#define DISTANCE_L2_TEMPLATE_HELPER(SPEC, N, AVX)               \
-    SPEC struct L2Impl<N, float, float, AVX>;                   \
-    SPEC struct L2Impl<N, float, int8_t, AVX>;                  \
-    SPEC struct L2Impl<N, float, uint8_t, AVX>;                 \
-    SPEC struct L2Impl<N, float, svs::float16::Float16, AVX>;   \
-    SPEC struct L2Impl<N, int8_t, float, AVX>;                  \
-    SPEC struct L2Impl<N, int8_t, int8_t, AVX>;                 \
-    SPEC struct L2Impl<N, int8_t, uint8_t, AVX>;                \
-    SPEC struct L2Impl<N, int8_t, svs::float16::Float16, AVX>;  \
-    SPEC struct L2Impl<N, uint8_t, float, AVX>;                 \
-    SPEC struct L2Impl<N, uint8_t, int8_t, AVX>;                \
-    SPEC struct L2Impl<N, uint8_t, uint8_t, AVX>;               \
-    SPEC struct L2Impl<N, uint8_t, svs::float16::Float16, AVX>; \
-    SPEC struct L2Impl<N, svs::float16::Float16, float, AVX>;   \
-    SPEC struct L2Impl<N, svs::float16::Float16, int8_t, AVX>;  \
-    SPEC struct L2Impl<N, svs::float16::Float16, uint8_t, AVX>; \
-    SPEC struct L2Impl<N, svs::float16::Float16, svs::float16::Float16, AVX>;
+#include "svs/core/distance/dispatch_surface.h"
 
-#define DISTANCE_L2_INSTANTIATE_TEMPLATE(N, AVX) \
-    DISTANCE_L2_TEMPLATE_HELPER(template, N, AVX);
+/////
+///// Element-type pairs.
+/////
+///// Every (query, dataset) combination of float, int8_t, uint8_t and Float16.
+///// Each pair costs one instantiation per extent, ISA level and distance.
+/////
 
-#define DISTANCE_L2_EXTERN_TEMPLATE(N, AVX) \
-    DISTANCE_L2_TEMPLATE_HELPER(extern template, N, AVX);
+// Invokes M(query_type, dataset_type, ...) once per type pair.
+#define SVS_FOR_EACH_TYPE_PAIR(M, ...)             \
+    M(float, float, __VA_ARGS__)                   \
+    M(float, int8_t, __VA_ARGS__)                  \
+    M(float, uint8_t, __VA_ARGS__)                 \
+    M(float, svs::float16::Float16, __VA_ARGS__)   \
+    M(int8_t, float, __VA_ARGS__)                  \
+    M(int8_t, int8_t, __VA_ARGS__)                 \
+    M(int8_t, uint8_t, __VA_ARGS__)                \
+    M(int8_t, svs::float16::Float16, __VA_ARGS__)  \
+    M(uint8_t, float, __VA_ARGS__)                 \
+    M(uint8_t, int8_t, __VA_ARGS__)                \
+    M(uint8_t, uint8_t, __VA_ARGS__)               \
+    M(uint8_t, svs::float16::Float16, __VA_ARGS__) \
+    M(svs::float16::Float16, float, __VA_ARGS__)   \
+    M(svs::float16::Float16, int8_t, __VA_ARGS__)  \
+    M(svs::float16::Float16, uint8_t, __VA_ARGS__) \
+    M(svs::float16::Float16, svs::float16::Float16, __VA_ARGS__)
 
-#define DISTANCE_IP_TEMPLATE_HELPER(SPEC, N, AVX)               \
-    SPEC struct IPImpl<N, float, float, AVX>;                   \
-    SPEC struct IPImpl<N, float, int8_t, AVX>;                  \
-    SPEC struct IPImpl<N, float, uint8_t, AVX>;                 \
-    SPEC struct IPImpl<N, float, svs::float16::Float16, AVX>;   \
-    SPEC struct IPImpl<N, int8_t, float, AVX>;                  \
-    SPEC struct IPImpl<N, int8_t, int8_t, AVX>;                 \
-    SPEC struct IPImpl<N, int8_t, uint8_t, AVX>;                \
-    SPEC struct IPImpl<N, int8_t, svs::float16::Float16, AVX>;  \
-    SPEC struct IPImpl<N, uint8_t, float, AVX>;                 \
-    SPEC struct IPImpl<N, uint8_t, int8_t, AVX>;                \
-    SPEC struct IPImpl<N, uint8_t, uint8_t, AVX>;               \
-    SPEC struct IPImpl<N, uint8_t, svs::float16::Float16, AVX>; \
-    SPEC struct IPImpl<N, svs::float16::Float16, float, AVX>;   \
-    SPEC struct IPImpl<N, svs::float16::Float16, int8_t, AVX>;  \
-    SPEC struct IPImpl<N, svs::float16::Float16, uint8_t, AVX>; \
-    SPEC struct IPImpl<N, svs::float16::Float16, svs::float16::Float16, AVX>;
+/////
+///// Which type pairs each ISA level has kernels for.
+/////
+///// One line per level in SVS_ISA_LEVELS. A level with no entry here is a
+///// compile error rather than a silently empty instantiation list.
+/////
 
-#define DISTANCE_IP_INSTANTIATE_TEMPLATE(N, AVX) \
-    DISTANCE_IP_TEMPLATE_HELPER(template, N, AVX);
+#define SVS_TYPE_PAIRS_NONE SVS_FOR_EACH_TYPE_PAIR
+#define SVS_TYPE_PAIRS_AVX2 SVS_FOR_EACH_TYPE_PAIR
+#define SVS_TYPE_PAIRS_AVX512 SVS_FOR_EACH_TYPE_PAIR
 
-#define DISTANCE_IP_EXTERN_TEMPLATE(N, AVX) \
-    DISTANCE_IP_TEMPLATE_HELPER(extern template, N, AVX);
+// Only these two: every other pair promotes to float, where VNNI has nothing to
+// offer. svs::distance::has_vnni_kernel is generated from this same list.
+#define SVS_TYPE_PAIRS_AVX512_VNNI(M, ...) \
+    M(int8_t, int8_t, __VA_ARGS__)         \
+    M(uint8_t, uint8_t, __VA_ARGS__)
 
-#define DISTANCE_CS_TEMPLATE_HELPER(SPEC, N, AVX)                             \
-    SPEC struct CosineSimilarityImpl<N, float, float, AVX>;                   \
-    SPEC struct CosineSimilarityImpl<N, float, int8_t, AVX>;                  \
-    SPEC struct CosineSimilarityImpl<N, float, uint8_t, AVX>;                 \
-    SPEC struct CosineSimilarityImpl<N, float, svs::float16::Float16, AVX>;   \
-    SPEC struct CosineSimilarityImpl<N, int8_t, float, AVX>;                  \
-    SPEC struct CosineSimilarityImpl<N, int8_t, int8_t, AVX>;                 \
-    SPEC struct CosineSimilarityImpl<N, int8_t, uint8_t, AVX>;                \
-    SPEC struct CosineSimilarityImpl<N, int8_t, svs::float16::Float16, AVX>;  \
-    SPEC struct CosineSimilarityImpl<N, uint8_t, float, AVX>;                 \
-    SPEC struct CosineSimilarityImpl<N, uint8_t, int8_t, AVX>;                \
-    SPEC struct CosineSimilarityImpl<N, uint8_t, uint8_t, AVX>;               \
-    SPEC struct CosineSimilarityImpl<N, uint8_t, svs::float16::Float16, AVX>; \
-    SPEC struct CosineSimilarityImpl<N, svs::float16::Float16, float, AVX>;   \
-    SPEC struct CosineSimilarityImpl<N, svs::float16::Float16, int8_t, AVX>;  \
-    SPEC struct CosineSimilarityImpl<N, svs::float16::Float16, uint8_t, AVX>; \
-    SPEC struct CosineSimilarityImpl<N, svs::float16::Float16, svs::float16::Float16, AVX>;
+/////
+///// Instantiation.
+/////
 
-#define DISTANCE_CS_INSTANTIATE_TEMPLATE(N, AVX) \
-    DISTANCE_CS_TEMPLATE_HELPER(template, N, AVX);
+// Resolve LEVEL to its type-pair list. The indirection is required so that
+// LEVEL is expanded before being pasted.
+#define SVS_TYPE_PAIRS_FOR_(LEVEL) SVS_TYPE_PAIRS_##LEVEL
+#define SVS_TYPE_PAIRS_FOR(LEVEL, M, ...) SVS_TYPE_PAIRS_FOR_(LEVEL)(M, __VA_ARGS__)
 
-#define DISTANCE_CS_EXTERN_TEMPLATE(N, AVX) \
-    DISTANCE_CS_TEMPLATE_HELPER(extern template, N, AVX);
+#define SVS_DECLARE_ONE_L2(Ea, Eb, SPEC, N, LEVEL) \
+    SPEC struct L2Impl<N, Ea, Eb, AVX_AVAILABILITY::LEVEL>;
+#define SVS_DECLARE_ONE_IP(Ea, Eb, SPEC, N, LEVEL) \
+    SPEC struct IPImpl<N, Ea, Eb, AVX_AVAILABILITY::LEVEL>;
+#define SVS_DECLARE_ONE_CS(Ea, Eb, SPEC, N, LEVEL) \
+    SPEC struct CosineSimilarityImpl<N, Ea, Eb, AVX_AVAILABILITY::LEVEL>;
+
+// SPEC is `template` for a definition or `extern template` for a declaration.
+#define SVS_INSTANTIATE_L2(SPEC, N, LEVEL) \
+    SVS_TYPE_PAIRS_FOR(LEVEL, SVS_DECLARE_ONE_L2, SPEC, N, LEVEL)
+#define SVS_INSTANTIATE_IP(SPEC, N, LEVEL) \
+    SVS_TYPE_PAIRS_FOR(LEVEL, SVS_DECLARE_ONE_IP, SPEC, N, LEVEL)
+#define SVS_INSTANTIATE_CS(SPEC, N, LEVEL) \
+    SVS_TYPE_PAIRS_FOR(LEVEL, SVS_DECLARE_ONE_CS, SPEC, N, LEVEL)
+
+// All three distances at once. Only usable where all three are declared, i.e.
+// in a generated translation unit.
+#define SVS_INSTANTIATE_DISTANCES(SPEC, N, LEVEL) \
+    SVS_INSTANTIATE_L2(SPEC, N, LEVEL)            \
+    SVS_INSTANTIATE_IP(SPEC, N, LEVEL)            \
+    SVS_INSTANTIATE_CS(SPEC, N, LEVEL)
