@@ -1,0 +1,21 @@
+# abicheck configuration, picked up from the repo root by `abicheck compare`.
+# Validated against the abicheck 0.5.0 config schema.
+#
+# Kept identical to .abicheck.yml in the innersource repo: the two repos build
+# the same runtime library and must not disagree on how it is parsed.
+
+# castxml's default cc-gnu detection parses SVS's C++20 headers at the wrong
+# standard (std::span / constexpr dtor fail). The clang AST frontend handles
+# C++20 cleanly; layout-only checks fall back to the .so's DWARF.
+compile:
+  frontend: clang
+  std: c++20
+
+# Scope the compared surface to what we publish, and collapse the std/gnu_cxx
+# template-instantiation noise that leaks past --exclude-libs,ALL.
+scope:
+  public: true
+  collapse_versioned_symbols: true
+
+suppression:
+  require_justification: true

@@ -1,0 +1,68 @@
+# ABI check suppression rules for the SVS C++ runtime bindings, used by
+# napetrov/abicheck. Owned here rather than in the innersource repo so that both
+# repos measure libsvs_runtime.so against the same rules -- a suppression present
+# on one side only would make the innersource-vs-public equivalence check report
+# a difference that is really just an asymmetric filter.
+#
+# Scope is the runtime bindings alone. The innersource repo keeps its own file
+# for libsvs_shared_library.so, which leaks a far larger third-party surface.
+#
+# Measured on libsvs_runtime.so v0.4.0: 253 exported symbols, of which 55 are the
+# declared svs::runtime::v0 API. Nearly everything suppressed below is a
+# libstdc++ template instantiation that reached the export table because the
+# bindings are built without -fvisibility=hidden.
+
+version: 1
+suppressions:
+  # --- C++ standard library / runtime (never part of the SVS API) ---
+  - symbol_pattern: "^_ZNSt.*"
+    reason: "C++ standard library symbols (leaked template instantiations)"
+    label: "stdlib"
+
+  - symbol_pattern: "^_ZSt.*"
+    reason: "C++ standard library functions"
+    label: "stdlib"
+
+  - symbol_pattern: "^_ZN9__gnu_cxx.*"
+    reason: "libstdc++ __gnu_cxx internals (numeric_traits etc.), leaked"
+    label: "stdlib"
+
+  # RTTI/vtable/VTT for std types mangle as _ZTI/_ZTS/_ZTV/_ZTT, not _ZNSt.
+  - symbol_pattern: "^_ZT[VIST]N?St.*"
+    reason: "RTTI/vtable/VTT for std:: types (e.g. thread::_State_impl, future)"
+    label: "stdlib"
+
+  - symbol_pattern: "^_ZT[VIST].*__gnu_cxx.*"
+    reason: "RTTI/vtable for __gnu_cxx types, leaked"
+    label: "stdlib"
+
+  - symbol_pattern: "^__cxa_.*"
+    reason: "C++ ABI runtime symbols"
+    label: "cxx-abi"
+
+  - symbol_pattern: "^__gxx_.*"
+    reason: "GCC C++ runtime symbols"
+    label: "cxx-abi"
+
+  # --- Header-only third-party deps that leak via template instantiation ---
+  - symbol_pattern: "^_ZN[0-9]+toml.*"
+    reason: "toml++ header-only symbols leaked via instantiation"
+    label: "third-party"
+
+  - symbol_pattern: "^_ZN3fmt.*"
+    reason: "fmt header-only symbols leaked via instantiation"
+    label: "third-party"
+
+  - symbol_pattern: "^_ZN3tsl.*"
+    reason: "tsl::robin_map header-only symbols leaked via instantiation"
+    label: "third-party"
+
+  - symbol_pattern: "^_ZN6spdlog.*"
+    reason: "spdlog header-only symbols leaked via instantiation"
+    label: "third-party"
+
+  # --- svs::runtime::v0 and svs::...detail...: deliberately NOT suppressed ---
+  # The 55 declared v0 functions are the whole point of the check. `detail`
+  # symbols are not suppressed either: users reach them transitively through
+  # template instantiation, so a vtable or layout change there is a real break.
+  # See the same note in the innersource suppression file.

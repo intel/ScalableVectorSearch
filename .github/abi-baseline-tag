@@ -1,0 +1,13 @@
+# The released tag that runtime-bindings ABI compatibility is measured against.
+# Assets are pulled from this repo's GitHub releases at check time.
+#
+# Bumped deliberately as part of cutting a release, so that resetting the ABI
+# baseline is a reviewable act rather than a side effect of tagging. Pinning also
+# keeps a new release from silently moving the target under already-open PRs.
+#
+# `latest` is accepted and resolves dynamically, but is not the default: patch
+# tags can land out of order (v0.3.1 and v0.3.2 were both tagged after v0.4.0),
+# so "newest tag" is not always "current release line".
+#
+# Keep in sync with .github/abi-baseline-tag in the innersource repo.
+v0.4.0

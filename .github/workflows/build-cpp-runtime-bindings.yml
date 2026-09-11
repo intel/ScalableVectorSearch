@@ -126,3 +126,102 @@ jobs:
             -e SUFFIX=${{ matrix.suffix }} \
             svs-manylinux228:latest \
             /bin/bash .github/scripts/test-faiss.sh
+
+  # Check the built runtime bindings against the last published release.
+  #
+  # Only the default variant is checked: releases publish
+  # svs-cpp-runtime-bindings.tar.gz but no -public-only asset, so that variant has
+  # nothing to compare against. It is covered indirectly -- both variants build
+  # from the same headers.
+  #
+  # The comparison primitive is .github/scripts/abi-check.sh, which the
+  # innersource repo also calls through its submodule path so the two repos cannot
+  # drift on how the same library is measured.
+  abi-check:
+    name: ABI check against the last release
+    needs: build-cpp-runtime-bindings
+    runs-on: ubuntu-22.04
+    # An intentionally-breaking PR still gets a full report: the label downgrades
+    # this job from blocking to informational rather than skipping it, so the
+    # break is recorded on the PR instead of going unmeasured.
+    continue-on-error: ${{ contains(toJson(github.event.pull_request.labels.*.name), '"API/ABI breaking change"') }}
+
+    steps:
+      - uses: actions/checkout@v6
+
+      # The hosted ubuntu-22.04 image ships only clang-13/14, which degrades
+      # abicheck's clang AST frontend to ELF-tier and drops constrained-template
+      # diffs. innersource gets a c++20-capable clang from its self-hosted
+      # toolchain; this keeps the two repos measuring at the same fidelity.
+      - name: Install clang for the AST frontend
+        run: |
+          wget -qO /tmp/llvm.sh https://apt.llvm.org/llvm.sh
+          chmod +x /tmp/llvm.sh
+          sudo /tmp/llvm.sh 18
+          sudo apt-get install -y --no-install-recommends libclang-18-dev llvm-18-dev
+          sudo update-alternatives --install /usr/bin/clang   clang   /usr/bin/clang-18   100
+          sudo update-alternatives --install /usr/bin/clang++ clang++ /usr/bin/clang++-18 100
+
+      - name: Install abicheck
+        run: pip install 'abicheck==0.5.*'
+
+      - name: Resolve baseline release tag
+        id: baseline
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tag=$(grep -v '^#' .github/abi-baseline-tag | tr -d '[:space:]')
+          if [ "$tag" = 'latest' ]; then
+            tag=$(gh release view --json tagName --jq '.tagName')
+          fi
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+
+      # A missing baseline is a hard failure: a green check that silently skipped
+      # the comparison is worse than a red one.
+      - name: Download release baseline
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.baseline.outputs.tag }}
+        run: |
+          mkdir -p baseline
+          if ! gh release download "$TAG" --pattern svs-cpp-runtime-bindings.tar.gz \
+                 --dir baseline; then
+            echo "::error::Release $TAG has no svs-cpp-runtime-bindings.tar.gz asset." \
+                 "Fix the pin in .github/abi-baseline-tag."
+            exit 1
+          fi
+
+      - name: Download this build
+        uses: actions/download-artifact@v8
+        with:
+          name: svs-cpp-runtime-bindings
+          path: current
+
+      - name: Compare
+        env:
+          LIBRARY: libsvs_runtime.so
+          HEADER_SUBDIR: include/svs/runtime
+          SUPPRESSIONS: .github/abi-suppressions.yml
+          POLICY: strict_abi
+        run: |
+          chmod +x .github/scripts/abi-check.sh
+          label='${{ github.event.pull_request.number && format('PR {0}', github.event.pull_request.number) || github.ref_name }}'
+          rc=0
+          .github/scripts/abi-check.sh \
+            '${{ steps.baseline.outputs.tag }}' baseline/svs-cpp-runtime-bindings.tar.gz \
+            "$label" current/svs-cpp-runtime-bindings.tar.gz || rc=$?
+
+          if [ -s abi-report.md ]; then
+            {
+              echo "## ABI vs ${{ steps.baseline.outputs.tag }}"
+              cat abi-report.md
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+          # 77 means an input tarball was missing; that is a harness/plumbing
+          # problem and must fail loudly rather than pass as "no findings".
+          if [ "$rc" -eq 77 ] || [ "$rc" -eq 64 ]; then
+            echo "::error::ABI check could not run (rc=$rc)."
+            exit 1
+          fi
+          exit "$rc"
