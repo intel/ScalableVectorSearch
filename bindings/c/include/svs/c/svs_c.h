@@ -755,6 +755,7 @@ SVS_API bool svs_index_builder_set_threadpool_custom(
 /// @param out_breakdown Pointer to a structure to hold the memory breakdown
 /// @param out_err An optional error handle to capture errors
 /// @return true on success, false on failure
+/// @remarks The estimated memory size is approximate.
 SVS_API bool svs_index_builder_estimate_memory(
     svs_index_builder_h builder,
     size_t num_vectors,
@@ -782,6 +783,7 @@ SVS_API bool svs_index_builder_get_default_blocksize_bytes(
 /// @param out_breakdown Pointer to a structure to hold the memory breakdown
 /// @param out_err An optional error handle to capture errors
 /// @return true on success, false on failure
+/// @remarks The estimated memory size is approximate.
 SVS_API bool svs_index_builder_estimate_memory_dynamic(
     svs_index_builder_h builder,
     size_t num_vectors,
@@ -804,7 +806,9 @@ SVS_API bool svs_index_builder_estimate_memory_dynamic(
 /// @remarks If @p id_filter is provided with `filter_rate > 0.0` then the function will
 /// account for the filter hit rate during the search, elsewhere it assumes all candidates
 /// pass the filter. The estimated memory size is for the search operation itself and does
-/// not include the memory used by the index, the query data and the results structure.
+/// not include the memory used by the index, the query data and the results structure. The
+/// estimated memory size is approximate. Actual memory consumption may vary depending on
+/// the actual @id_filter behaviour, allocators configuration, etc.
 SVS_API bool svs_index_builder_estimate_search_memory(
     svs_index_builder_h builder,
     size_t num_queries,
@@ -829,10 +833,13 @@ SVS_API bool svs_index_builder_estimate_search_memory(
 /// @param out_size Pointer to a variable to receive the estimated memory size
 /// @param out_err An optional error handle to capture errors
 /// @return true on success, false on failure
-/// @remarks If @p id_filter is provided with `filter_rate > 0.0` then the function will
-/// account for the filter hit rate during the search, elsewhere it assumes all candidates
-/// pass the filter. The estimated memory size is for the search operation itself and does
-/// not include the memory used by the index, the query data and the results structure.
+/// @remarks If @p id_filter is provided with `filter_rate > 0.0` then the
+/// function will account for the filter hit rate during the search, elsewhere it assumes
+/// all candidates pass the filter. The estimated memory size is for the search operation
+/// itself and does not include the memory used by the index, the query data and the results
+/// structure. The estimated memory size is approximate. Actual memory consumption may vary
+/// depending on the actual @id_filter behaviour, number of deleted vectors, allocators
+/// configuration, etc.
 SVS_API bool svs_index_builder_estimate_search_memory_dynamic(
     svs_index_builder_h builder,
     size_t num_queries,

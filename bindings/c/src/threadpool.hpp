@@ -41,6 +41,11 @@ class ThreadPoolBuilder {
                     "Custom threadpool interface has null function pointers."
                 );
             }
+            if (impl->ops->size(impl->self) == 0) {
+                throw std::invalid_argument(
+                    "Custom threadpool must have at least one thread."
+                );
+            }
         }
 
         // Holds a value copy of the user's ops table; only `self` is referenced and
