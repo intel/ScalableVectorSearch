@@ -88,6 +88,7 @@ class VamanaIndexImpl {
         out.graph_bytes = breakdown.graph_bytes;
         out.data_bytes = breakdown.data_bytes;
         out.metadata_bytes = breakdown.metadata_bytes;
+        out.reverse_edges_bytes = breakdown.reverse_edges_bytes;
     }
 
     size_t dimensions() const { return dim_; }

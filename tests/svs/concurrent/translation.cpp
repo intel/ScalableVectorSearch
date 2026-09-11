@@ -1,0 +1,288 @@
+/*
+ * Copyright 2023 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+// header under test.
+#include "svs/concurrent/translation.h"
+
+// misc utilities
+#include "svs/lib/narrow.h"
+
+// Test utils
+#include "tests/utils/generators.h"
+
+// Catch2
+#include "catch2/catch_test_macros.hpp"
+
+// stl
+#include <iterator>
+
+// The concurrent index carries its own ID translator (transactional
+// `replace_stale_and_insert` plus the non-throwing `_or` lookups). It is a
+// distinct type from `svs::IDTranslator`, which is left untouched.
+using IDTranslator = svs::index::vamana::concurrent::IDTranslator;
+
+namespace {
+template <typename Begin, typename End, typename External, typename Internal>
+void check_contents(
+    const Begin& begin, const End& end, const External& external, const Internal& internal
+) {
+    int64_t dist = std::distance(begin, end);
+    CATCH_REQUIRE(dist == svs::lib::narrow<int64_t>(external.size()));
+    CATCH_REQUIRE(dist == svs::lib::narrow<int64_t>(internal.size()));
+
+    size_t count = 0;
+    for (auto i = begin; i != end; ++i, ++count) {
+        CATCH_REQUIRE(i->first == external[count]);
+        CATCH_REQUIRE(i->second == internal[count]);
+    }
+}
+
+template <typename External, typename Internal>
+void check_contents(
+    const IDTranslator& translator, const External& external, const Internal& internal
+) {
+    check_contents(translator.begin(), translator.end(), external, internal);
+}
+
+template <typename External, typename Internal>
+void check_translation(
+    const IDTranslator& translator, const External& external, const Internal& internal
+) {
+    CATCH_REQUIRE(translator.size() == external.size());
+    CATCH_REQUIRE(translator.size() == internal.size());
+
+    for (size_t i = 0, imax = translator.size(); i < imax; ++i) {
+        CATCH_REQUIRE(translator.get_internal(external[i]) == internal[i]);
+        CATCH_REQUIRE(translator.get_external(internal[i]) == external[i]);
+    }
+}
+
+void check(
+    const IDTranslator& translator,
+    std::vector<uint64_t>& external_ids,
+    std::vector<uint32_t>& internal_ids
+) {
+    check_translation(translator, external_ids, internal_ids);
+    check_contents(translator, external_ids, internal_ids);
+}
+
+} // namespace
+
+CATCH_TEST_CASE("Concurrent Translation Table", "[concurrent][translation]") {
+    CATCH_SECTION("Identity Constructor") {
+        auto translator = IDTranslator(IDTranslator::Identity(10));
+        CATCH_REQUIRE(translator.size() == 10);
+        for (size_t i = 0; i < 10; ++i) {
+            CATCH_REQUIRE(translator.has_external(i));
+            CATCH_REQUIRE(translator.has_internal(i));
+            CATCH_REQUIRE(translator.get_external(i) == i);
+            CATCH_REQUIRE(translator.get_internal(i) == i);
+        }
+    }
+
+    CATCH_SECTION("Basic Tests") {
+        auto translator = IDTranslator();
+        CATCH_REQUIRE(translator.size() == 0);
+
+        auto external_ids = std::vector<uint64_t>{0, 2, 4, 6, 8};
+        auto internal_ids = std::vector<uint32_t>{0, 10, 20, 30, 40};
+
+        CATCH_REQUIRE(external_ids.size() == internal_ids.size());
+        translator.insert(external_ids, internal_ids);
+
+        check(translator, external_ids, internal_ids);
+
+        ///
+        /// Adding more IDs
+        ///
+        CATCH_SECTION("Adding more entries") {
+            auto extra_external_ids = std::vector<uint64_t>{10, 12, 14};
+            auto extra_internal_ids = std::vector<uint32_t>{50, 60, 70};
+            translator.insert(extra_external_ids, extra_internal_ids);
+            external_ids.insert(
+                external_ids.end(), extra_external_ids.begin(), extra_external_ids.end()
+            );
+            internal_ids.insert(
+                internal_ids.end(), extra_internal_ids.begin(), extra_internal_ids.end()
+            );
+
+            check(translator, external_ids, internal_ids);
+        }
+
+        ///
+        /// Error Handling
+        ///
+        CATCH_SECTION("Mismatched number of entries") {
+            // Mismatched number of internal and external IDs.
+            auto external_mismatch_ids = std::vector<uint64_t>{10, 12, 14};
+            auto internal_mismatch_ids = std::vector<uint32_t>{50, 60};
+            CATCH_REQUIRE_THROWS_AS(
+                translator.insert(external_mismatch_ids, internal_mismatch_ids),
+                svs::ANNException
+            );
+
+            // State of the translator should be unchanged.
+            check(translator, external_ids, internal_ids);
+        }
+
+        CATCH_SECTION("Repeat External IDs") {
+            auto external_mismatch_ids = std::vector<uint64_t>{10, 12, 8};
+            auto internal_mismatch_ids = std::vector<uint32_t>{50, 60, 70};
+
+            CATCH_REQUIRE_THROWS_AS(
+                translator.insert(external_mismatch_ids, internal_mismatch_ids),
+                svs::ANNException
+            );
+
+            // State of the translator should be unchanged.
+            check(translator, external_ids, internal_ids);
+        }
+
+        CATCH_SECTION("Non-unique External IDs") {
+            auto external_mismatch_ids = std::vector<uint64_t>{10, 12, 10};
+            auto internal_mismatch_ids = std::vector<uint32_t>{50, 60, 70};
+
+            CATCH_REQUIRE_THROWS_AS(
+                translator.insert(external_mismatch_ids, internal_mismatch_ids),
+                svs::ANNException
+            );
+
+            // State of the translator should be unchanged.
+            check(translator, external_ids, internal_ids);
+        }
+
+        CATCH_SECTION("replace_stale_and_insert is transactional on a live duplicate") {
+            // Batch: a fresh external id followed by a live (non-stale) duplicate.
+            // The whole batch must be validated before any mutation, so the throw
+            // leaves the translator byte-for-byte unchanged — in particular the
+            // fresh id `100` must NOT have been committed.
+            auto add_external = std::vector<uint64_t>{100, 8}; // 8 already exists
+            auto add_internal = std::vector<uint32_t>{50, 60};
+            auto never_stale = [](uint32_t) { return false; };
+
+            CATCH_REQUIRE_THROWS_AS(
+                translator.replace_stale_and_insert(
+                    add_external, add_internal, never_stale
+                ),
+                svs::ANNException
+            );
+
+            CATCH_REQUIRE_FALSE(translator.has_external(100)); // not committed
+            CATCH_REQUIRE_FALSE(translator.has_internal(50));
+            check(translator, external_ids, internal_ids); // unchanged
+        }
+
+        CATCH_SECTION("replace_stale_and_insert replaces a stale mapping") {
+            // Mark internal 20 (external 4) stale; re-add external 4 at a new
+            // internal id plus a genuinely fresh id. Both should commit.
+            auto add_external = std::vector<uint64_t>{4, 100};
+            auto add_internal = std::vector<uint32_t>{50, 60};
+            auto stale_if_20 = [](uint32_t i) { return i == 20; };
+
+            CATCH_REQUIRE_NOTHROW(
+                translator.replace_stale_and_insert(add_external, add_internal, stale_if_20)
+            );
+
+            CATCH_REQUIRE(translator.get_internal(4) == 50);
+            CATCH_REQUIRE(translator.get_internal(100) == 60);
+            CATCH_REQUIRE(translator.get_external(50) == 4);
+            CATCH_REQUIRE(translator.get_external(60) == 100);
+            // Old internal 20 no longer maps back to any external.
+            CATCH_REQUIRE_FALSE(translator.has_internal(20));
+        }
+
+        CATCH_SECTION("Repeat Internal IDs") {
+            auto external_mismatch_ids = std::vector<uint64_t>{10, 12, 14};
+            auto internal_mismatch_ids = std::vector<uint32_t>{50, 10, 70};
+
+            CATCH_REQUIRE_THROWS_AS(
+                translator.insert(external_mismatch_ids, internal_mismatch_ids),
+                svs::ANNException
+            );
+
+            // State of the translator should be unchanged.
+            check(translator, external_ids, internal_ids);
+        }
+
+        CATCH_SECTION("Repeat Internal IDs") {
+            auto external_mismatch_ids = std::vector<uint64_t>{10, 12, 14};
+            auto internal_mismatch_ids = std::vector<uint32_t>{50, 60, 60};
+
+            CATCH_REQUIRE_THROWS_AS(
+                translator.insert(external_mismatch_ids, internal_mismatch_ids),
+                svs::ANNException
+            );
+
+            // State of the translator should be unchanged.
+            check(translator, external_ids, internal_ids);
+        }
+
+        ///
+        /// Deletion
+        ///
+
+        CATCH_SECTION("Delete External") {
+            auto external_id_delete = std::vector<uint64_t>{2, 6};
+            translator.delete_external(external_id_delete);
+
+            external_ids = {0, 4, 8};
+            internal_ids = {0, 20, 40};
+            check(translator, external_ids, internal_ids);
+        }
+
+        CATCH_SECTION("Delete External Error") {
+            // The external id `10` doesn't exist.
+            // We should get an error without modifying the underlying container.
+            auto external_id_delete = std::vector<uint64_t>{2, 10};
+            CATCH_REQUIRE_THROWS_AS(
+                translator.delete_external(external_id_delete), svs::ANNException
+            );
+            check(translator, external_ids, internal_ids);
+        }
+
+        CATCH_SECTION("Delete Internal") {
+            auto internal_id_delete = std::vector<uint64_t>{0, 20, 40};
+            translator.delete_internal(internal_id_delete);
+
+            external_ids = {2, 6};
+            internal_ids = {10, 30};
+            check(translator, external_ids, internal_ids);
+        }
+
+        CATCH_SECTION("Delete Internal Error") {
+            auto internal_id_delete = std::vector<uint64_t>{0, 20, 2};
+            CATCH_REQUIRE_THROWS_AS(
+                translator.delete_internal(internal_id_delete), svs::ANNException
+            );
+            check(translator, external_ids, internal_ids);
+        }
+
+        ///
+        /// Saving and loading
+        ///
+
+        CATCH_SECTION("Saving and Reloading") {
+            svs_test::prepare_temp_directory();
+            auto tempdir = svs_test::temp_directory();
+
+            svs::lib::save_to_disk(translator, tempdir);
+            auto reloaded = svs::lib::load_from_disk<IDTranslator>(tempdir);
+
+            check(translator, external_ids, internal_ids);
+            check(reloaded, external_ids, internal_ids);
+        }
+    }
+}

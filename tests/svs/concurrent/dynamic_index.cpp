@@ -1,0 +1,562 @@
+/*
+ * Copyright 2023 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+// header under test.
+#include "svs/concurrent/dynamic_index.h"
+#include "svs/concurrent/consolidate.h"
+
+// stl
+#include <cstdint>
+#include <filesystem>
+#include <iostream>
+#include <memory>
+#include <numeric>
+#include <sstream>
+#include <string>
+#include <unordered_map>
+
+// svs
+#include "svs/core/recall.h"
+#include "svs/lib/timing.h"
+
+// catch2
+#include "catch2/catch_test_macros.hpp"
+#include <catch2/catch_approx.hpp>
+
+// tests
+#include "tests/utils/test_dataset.h"
+#include "tests/utils/utils.h"
+
+// The concurrent index is a separate type from `svs::index::vamana::MutableVamanaIndex`;
+// the pre-existing static and dynamic indexes are untouched by these tests.
+namespace cc = svs::index::vamana::concurrent;
+namespace ccg = svs::index::vamana::concurrent::graphs;
+
+namespace {
+
+// `test_dataset::data_blocked_f32()` returns `svs::data::BlockedData<float>`. The
+// concurrent index is built on the grow-stable variant of the same storage, so load
+// the same file into that type instead.
+cc::SegmentedBlockedData<float> data_segmented_f32() {
+    return cc::SegmentedBlockedData<float>::load(test_dataset::data_svs_file());
+}
+
+using ConcurrentGraph = ccg::SimpleBlockedGraph<uint32_t>;
+using ConcurrentData = cc::SegmentedBlockedData<float>;
+
+} // namespace
+
+// The MutableVamanaIndex "Soft Deletion" test uses outdated API.
+#if 0
+namespace {
+template <typename T> auto copy_dataset(const T& data) {
+    auto copy = svs::data::SimplePolymorphicData<typename T::element_type, T::extent>{
+        data.size(), data.dimensions()};
+    for (size_t i = 0; i < data.size(); ++i) {
+        copy.set_datum(i, data.get_datum(i));
+    }
+    return copy;
+}
+
+template <typename T, typename U> void check_results(const T& results, const U& deleted) {
+    for (size_t i = 0; i < svs::getsize<0>(results); ++i) {
+        for (size_t j = 0; j < svs::getsize<1>(results); ++j) {
+            CATCH_REQUIRE(!deleted.contains(results.at(i, j)));
+        }
+    }
+}
+
+template <typename T, typename U>
+void check_deleted(const T& index, const U& deleted, size_t imax) {
+    for (size_t i = 0; i < imax; ++i) {
+        if (deleted.contains(i)) {
+            CATCH_REQUIRE(index.is_deleted(i));
+        } else {
+            CATCH_REQUIRE(!index.is_deleted(i));
+        }
+    }
+}
+
+template <typename Left, typename Right>
+void check_equal(const Left& left, const Right& right) {
+    CATCH_REQUIRE(left.size() == right.size());
+    CATCH_REQUIRE(left.dimensions() == right.dimensions());
+
+    for (size_t i = 0, imax = left.size(); i < imax; ++i) {
+        const auto& datum_left = left.get_datum(i);
+        const auto& datum_right = right.get_datum(i);
+        CATCH_REQUIRE(std::equal(datum_left.begin(), datum_left.end(), datum_right.begin())
+        );
+    }
+}
+
+} // namespace
+
+#if defined(NDEBUG)
+const double DELETE_PERCENT = 0.3;
+#else
+const double DELETE_PERCENT = 0.05;
+#endif
+
+CATCH_TEST_CASE("Concurrent MutableVamanaIndex", "[concurrent][graph_index]") {
+    const size_t num_threads = 2;
+    const size_t num_neighbors = 10;
+
+    const auto base_data = test_dataset::data_blocked_f32();
+    // const auto base_data = test_dataset::data_f32();
+    const auto queries = test_dataset::queries();
+    const auto groundtruth = test_dataset::groundtruth_euclidean();
+
+    CATCH_SECTION("Soft Deletion") {
+        // In this section, we test soft deletion.
+        // The idea is as follows:
+        //
+        // (1) Load the test index.
+        // (2) Run a round of queries to ensure that everything loading correctly.
+        // (3) Set a target deletion percentage where all the neighbors returned by
+        //     all results returned by the previous query plus a random collection of extras
+        //     are deleted.
+        //
+        // (4) Rerun queries, make sure accuracy is still high and that no deleted indices
+        //     are present in the results.
+        auto entry_point = svs::index::load_entry_point(test_dataset::metadata_file());
+
+        auto index = svs::index::MutableVamanaIndex{
+            test_dataset::graph_blocked(),
+            base_data.copy(),
+            entry_point,
+            svs::distance::DistanceL2(),
+            svs::threads::UnitRange<size_t>(0, base_data.size()),
+            num_threads};
+
+        check_equal(base_data, index);
+        index.debug_check_graph_consistency(false);
+
+        auto results = svs::QueryResult<size_t>(queries.size(), num_neighbors);
+        index.set_search_window_size(num_neighbors);
+
+        auto tic = svs::lib::now();
+        index.search(queries.view(), num_neighbors, results.view());
+        auto original_time = svs::lib::time_difference(svs::lib::now(), tic);
+        auto original_recall = svs::k_recall_at_n(groundtruth, results);
+        CATCH_REQUIRE(index.entry_point() == entry_point);
+
+        std::unordered_set<uint32_t> ids_to_delete{};
+        double delete_percent = DELETE_PERCENT;
+        for (size_t i = 0; i < groundtruth.size(); ++i) {
+            auto slice = groundtruth.get_datum(i);
+            for (size_t j = 0; j < num_neighbors; ++j) {
+                auto id = slice[j];
+
+                // For now - don't delete the entry point.
+                if (id != entry_point) {
+                    ids_to_delete.insert(slice[j]);
+                }
+            }
+
+            if (ids_to_delete.size() > delete_percent * base_data.size()) {
+                break;
+            }
+        }
+
+        index.set_threadpool(threads::CppAsyncThreadPool(num_threads));
+
+        std::cout << "Deleting " << ids_to_delete.size() << " entries!" << std::endl;
+        index.delete_entries(ids_to_delete);
+        check_deleted(index, ids_to_delete, base_data.size());
+        index.debug_check_graph_consistency(true);
+        CATCH_REQUIRE_THROWS_AS(
+            index.debug_check_graph_consistency(false), svs::ANNException
+        );
+        CATCH_REQUIRE(index.entry_point() == entry_point);
+        // Make sure the correct points were deleted.
+        tic = svs::lib::now();
+        index.search(queries.view(), num_neighbors, results.view());
+        auto new_time = svs::lib::time_difference(tic);
+
+        // Make sure none of the returned results are in the deleted list.
+        check_results(results.indices(), ids_to_delete);
+
+        index.set_threadpool(threads::QueueThreadPoolWrapper(num_threads));
+
+        auto results_reference = svs::QueryResult<size_t>(queries.size(), num_neighbors);
+        index.exhaustive_search(queries.view(), num_neighbors, results_reference.view());
+        auto new_recall = svs::k_recall_at_n(results_reference.indices(), results);
+
+        // Perform graph consolidation and see how the results are effected.
+        index.set_alpha(1.2);
+        index.consolidate();
+        index.debug_check_graph_consistency(false);
+        tic = svs::lib::now();
+        index.search(queries.view(), num_neighbors, results.view());
+        auto post_consolidate_time = svs::lib::time_difference(tic);
+        auto post_consolidate_recall =
+            svs::k_recall_at_n(results_reference.indices(), results);
+
+        // Check deletion again.
+        check_deleted(index, ids_to_delete, base_data.size());
+        CATCH_REQUIRE(index.entry_point() == entry_point);
+
+        std::cout << "Original recall: " << original_recall
+                  << ", New Recall: " << new_recall
+                  << ", Post Recall: " << post_consolidate_recall << std::endl;
+        std::cout << "Original Time: " << original_time << " (s), New Time: " << new_time
+                  << " (s) Post Time: " << post_consolidate_time << std::endl;
+        CATCH_REQUIRE(new_recall > original_recall);
+        check_results(results.indices(), ids_to_delete);
+
+        // Now - delete the entry point and consolidate.
+        ids_to_delete.insert(entry_point);
+        std::vector<size_t> entry_point_vector{};
+        entry_point_vector.push_back(entry_point);
+        index.delete_entries(entry_point_vector);
+        index.set_alpha(1.2);
+        index.consolidate();
+        index.debug_check_graph_consistency(false);
+
+        auto& threadpool =
+            index.get_threadpool_handle().get<threads::CppAsyncThreadPool>.get();
+        threadpool.resize(3);
+        CATCH_REQUIRE(index.get_num_threads() == 3);
+        threadpool.resize(num_threads);
+        CATCH_REQUIRE(index.get_num_threads() == num_threads);
+
+        CATCH_REQUIRE(index.entry_point() != entry_point);
+        index.search(queries.view(), num_neighbors, results.view());
+        auto post_entrypoint_recall =
+            svs::k_recall_at_n(results_reference.indices(), results);
+        std::cout << "Post entry-point deletion recall: " << post_entrypoint_recall
+                  << std::endl;
+
+        // Add the deleted points back in.
+        auto points = svs::data::SimpleData<float, svs::Dynamic>(
+            ids_to_delete.size(), base_data.dimensions()
+        );
+
+        size_t i = 0;
+        for (const auto& j : ids_to_delete) {
+            points.set_datum(i, base_data.get_datum(j));
+            ++i;
+        }
+
+        index.set_threadpool(threads::DefaultThreadPool(num_threads));
+        tic = svs::lib::now();
+        index.add_points(points, ids_to_delete);
+        auto insert_time = svs::lib::time_difference(tic);
+        std::cout << "Insertion took: " << insert_time << " seconds!" << std::endl;
+
+        // Check that the stored dataset and the original dataset are equal.
+        check_equal(base_data, index);
+        index.debug_check_graph_consistency(false);
+
+        tic = svs::lib::now();
+        index.search(queries.view(), num_neighbors, results.view());
+        auto post_add_time = svs::lib::time_difference(tic);
+        auto post_reinsertion_recall = svs::k_recall_at_n(groundtruth, results);
+        std::cout << "Post reinsertion recall: " << post_reinsertion_recall << " in "
+                  << post_add_time << " seconds." << std::endl;
+    }
+}
+#endif
+
+namespace {
+
+// Build a one-row dataset holding a copy of `source[row]`, to feed add_points.
+svs::data::SimpleData<float, svs::Dynamic>
+one_point_from(const cc::SegmentedBlockedData<float>& source, size_t row) {
+    auto points = svs::data::SimpleData<float, svs::Dynamic>(1, source.dimensions());
+    points.set_datum(0, source.get_datum(row));
+    return points;
+}
+
+} // namespace
+
+// Re-adding an external ID that already exists must throw *without mutating the
+// index*. These tests pin the two failure modes the transactional-insert +
+// Phase-1-rollback fix addresses: a leaked reserved slot (Defect A) and a
+// half-inserted "ghost" ID that would later hang delete (Defect B).
+CATCH_TEST_CASE(
+    "Concurrent MutableVamana add_points duplicate external IDs",
+    "[concurrent][graph_index][dynamic_index]"
+) {
+    const size_t num_threads = 2;
+    using Distance = svs::distance::DistanceL2;
+
+    auto base = data_segmented_f32();
+    const size_t n = base.size();
+    std::vector<size_t> indices(n);
+    std::iota(indices.begin(), indices.end(), 0);
+
+    svs::index::vamana::VamanaBuildParameters parameters{1.2, 64, 10, 20, 10, true};
+    auto index =
+        cc::MutableVamanaIndex(parameters, base.copy(), indices, Distance(), num_threads);
+
+    CATCH_SECTION("Re-adding a live ID throws and leaks no slot") {
+        // All n slots are Valid, so a re-add must grow to reserve a slot, then
+        // throw. With the fix that slot is rolled back to Empty and reused by the
+        // next add — the physical footprint grows by exactly one across both
+        // operations. Without the fix the reserved slot leaks (stuck Pending) and
+        // the footprint grows by two.
+        const size_t footprint_before = index.view_data().size();
+        CATCH_REQUIRE(index.size() == n);
+
+        auto dup = one_point_from(base, 0);
+        CATCH_REQUIRE_THROWS_AS(
+            index.add_points(dup, std::vector<size_t>{0}), svs::ANNException
+        );
+        // Throw left the live mapping intact and added nothing.
+        CATCH_REQUIRE(index.size() == n);
+        CATCH_REQUIRE(index.has_id(0));
+
+        // A subsequent fresh add must reuse the rolled-back slot.
+        const size_t fresh_id = n + 100;
+        auto fresh = one_point_from(base, 1);
+        index.add_points(fresh, std::vector<size_t>{fresh_id});
+        CATCH_REQUIRE(index.has_id(fresh_id));
+        CATCH_REQUIRE(index.size() == n + 1);
+        CATCH_REQUIRE(index.view_data().size() == footprint_before + 1);
+        index.debug_check_invariants(false);
+    }
+
+    CATCH_SECTION("Mixed [fresh, live] batch throws without a ghost ID") {
+        // The batch validates fully before mutating the translator, so the fresh
+        // ID is never committed. It must not be searchable, and a later delete of
+        // it must be a prompt no-op (not spin forever on a Pending slot).
+        const size_t fresh_id = n + 100;
+        auto points = svs::data::SimpleData<float, svs::Dynamic>(2, base.dimensions());
+        points.set_datum(0, base.get_datum(1)); // fresh_id
+        points.set_datum(1, base.get_datum(0)); // live id 0 -> triggers throw
+
+        CATCH_REQUIRE_THROWS_AS(
+            index.add_points(points, std::vector<size_t>{fresh_id, 0}), svs::ANNException
+        );
+
+        CATCH_REQUIRE_FALSE(index.has_id(fresh_id)); // no ghost mapping
+        CATCH_REQUIRE(index.size() == n);
+        // Deleting the never-added ID resolves nothing and returns immediately.
+        CATCH_REQUIRE(index.delete_entries(std::vector<size_t>{fresh_id}) == 0);
+        index.debug_check_invariants(false);
+    }
+
+    CATCH_SECTION("Re-adding a soft-deleted (stale) ID still succeeds") {
+        // The stale-replacement path must be unaffected by the transactional split.
+        index.delete_entries(std::vector<size_t>{0});
+        CATCH_REQUIRE(index.size() == n - 1);
+
+        auto readd = one_point_from(base, 0);
+        CATCH_REQUIRE_NOTHROW(index.add_points(readd, std::vector<size_t>{0}));
+        CATCH_REQUIRE(index.has_id(0));
+        CATCH_REQUIRE(index.size() == n);
+        index.debug_check_invariants(true);
+    }
+}
+
+CATCH_TEST_CASE(
+    "Concurrent MutableVamana Index Save and Load",
+    "[concurrent][graph_index][dynamic_index][saveload]"
+) {
+    const size_t num_threads = 2;
+    using Distance = svs::distance::DistanceL2;
+
+    auto data = data_segmented_f32();
+    std::vector<size_t> indices(data.size());
+    std::iota(indices.begin(), indices.end(), 0);
+
+    svs::index::vamana::VamanaBuildParameters parameters{1.2, 64, 10, 20, 10, true};
+    auto index = cc::MutableVamanaIndex(
+        parameters, std::move(data), indices, Distance(), num_threads
+    );
+
+    const size_t num_neighbors = 10;
+    auto queries = test_dataset::queries();
+    auto search_params = svs::index::vamana::VamanaSearchParameters{};
+    search_params.buffer_config_ = svs::index::vamana::SearchBufferConfig{num_neighbors};
+    auto results = svs::QueryResult<size_t>(queries.size(), num_neighbors);
+    index.search(results.view(), queries.cview(), search_params);
+
+    CATCH_SECTION("Load MutableVamana Index being serialized natively to stream") {
+        std::stringstream stream;
+        index.save(stream);
+        {
+            // `svs::DynamicVamana::assemble(stream, ...)` peels the archive header off the
+            // stream before delegating, and `auto_dynamic_assemble` expects a stream
+            // positioned just past it. Do the same here.
+            auto deserializer = svs::lib::detail::Deserializer::build(stream);
+            CATCH_REQUIRE(deserializer.is_native());
+
+            // Reassembled directly through the concurrent index's own loader rather
+            // than through `svs::DynamicVamana`: the type-erased orchestrator wraps the
+            // pre-existing dynamic index, which this stack deliberately leaves alone.
+            auto loaded = cc::auto_dynamic_assemble(
+                stream,
+                [&]() -> ConcurrentGraph { return ConcurrentGraph::load(stream); },
+                [&]() -> ConcurrentData {
+                    return svs::lib::load_from_stream<ConcurrentData>(stream);
+                },
+                Distance(),
+                num_threads
+            );
+
+            CATCH_REQUIRE(loaded.size() == index.size());
+            CATCH_REQUIRE(loaded.dimensions() == index.dimensions());
+            CATCH_REQUIRE(loaded.get_alpha() == index.get_alpha());
+            CATCH_REQUIRE(loaded.get_graph_max_degree() == index.get_graph_max_degree());
+            CATCH_REQUIRE(loaded.get_max_candidates() == index.get_max_candidates());
+            CATCH_REQUIRE(
+                loaded.get_construction_window_size() ==
+                index.get_construction_window_size()
+            );
+            CATCH_REQUIRE(loaded.get_prune_to() == index.get_prune_to());
+            CATCH_REQUIRE(
+                loaded.get_full_search_history() == index.get_full_search_history()
+            );
+            index.on_ids([&](size_t e) { CATCH_REQUIRE(loaded.has_id(e)); });
+
+            auto loaded_results = svs::QueryResult<size_t>(queries.size(), num_neighbors);
+            loaded.search(loaded_results.view(), queries.cview(), search_params);
+            for (size_t q = 0; q < queries.size(); ++q) {
+                for (size_t i = 0; i < num_neighbors; ++i) {
+                    CATCH_REQUIRE(loaded_results.index(q, i) == results.index(q, i));
+                    CATCH_REQUIRE(
+                        loaded_results.distance(q, i) ==
+                        Catch::Approx(results.distance(q, i)).epsilon(1e-5)
+                    );
+                }
+            }
+        }
+    }
+
+    CATCH_SECTION("Load MutableVamana Index being serialized with intermediate files") {
+        std::stringstream stream;
+        {
+            svs::lib::UniqueTempDirectory tempdir{"svs_dynvamana_save"};
+            const auto config_dir = tempdir.get() / "config";
+            const auto graph_dir = tempdir.get() / "graph";
+            const auto data_dir = tempdir.get() / "data";
+            std::filesystem::create_directories(config_dir);
+            std::filesystem::create_directories(graph_dir);
+            std::filesystem::create_directories(data_dir);
+            index.save(config_dir, graph_dir, data_dir);
+            svs::lib::DirectoryArchiver::pack(tempdir, stream);
+        }
+        {
+            svs::lib::UniqueTempDirectory tempdir{"svs_concurrent_dynvamana_load"};
+            // Read the archive header first: `unpack` consumes the rest of the stream.
+            auto deserializer = svs::lib::detail::Deserializer::build(stream);
+            svs::lib::DirectoryArchiver::unpack(stream, tempdir, deserializer.magic());
+
+            auto loaded = cc::auto_dynamic_assemble(
+                tempdir.get() / "config",
+                svs::lib::Lazy([&]() {
+                    return ConcurrentGraph::load(tempdir.get() / "graph");
+                }),
+                svs::lib::Lazy([&]() {
+                    return ConcurrentData::load(tempdir.get() / "data");
+                }),
+                Distance(),
+                num_threads
+            );
+
+            CATCH_REQUIRE(loaded.size() == index.size());
+            CATCH_REQUIRE(loaded.dimensions() == index.dimensions());
+            CATCH_REQUIRE(loaded.get_alpha() == index.get_alpha());
+            CATCH_REQUIRE(loaded.get_graph_max_degree() == index.get_graph_max_degree());
+            CATCH_REQUIRE(loaded.get_max_candidates() == index.get_max_candidates());
+            CATCH_REQUIRE(
+                loaded.get_construction_window_size() ==
+                index.get_construction_window_size()
+            );
+            CATCH_REQUIRE(loaded.get_prune_to() == index.get_prune_to());
+            CATCH_REQUIRE(
+                loaded.get_full_search_history() == index.get_full_search_history()
+            );
+            index.on_ids([&](size_t e) { CATCH_REQUIRE(loaded.has_id(e)); });
+
+            auto loaded_results = svs::QueryResult<size_t>(queries.size(), num_neighbors);
+            loaded.search(loaded_results.view(), queries.cview(), search_params);
+            for (size_t q = 0; q < queries.size(); ++q) {
+                for (size_t i = 0; i < num_neighbors; ++i) {
+                    CATCH_REQUIRE(loaded_results.index(q, i) == results.index(q, i));
+                    CATCH_REQUIRE(
+                        loaded_results.distance(q, i) ==
+                        Catch::Approx(results.distance(q, i)).epsilon(1e-5)
+                    );
+                }
+            }
+        }
+    }
+}
+
+CATCH_TEST_CASE(
+    "Concurrent MutableVamana Index Memory Usage",
+    "[concurrent][graph_index][dynamic_index]"
+) {
+    const size_t num_threads = 2;
+    using Distance = svs::distance::DistanceL2;
+
+    auto data = data_segmented_f32();
+    const size_t data_size = data.size();
+    // Expected data bytes are capacity-based; capture them before the dataset is moved
+    // into the index so the test can pin the exact value.
+    const size_t expected_data_bytes = data.capacity() * data.element_size();
+    std::vector<size_t> indices(data_size);
+    std::iota(indices.begin(), indices.end(), 0);
+
+    svs::index::vamana::VamanaBuildParameters parameters{1.2, 64, 10, 20, 10, true};
+    auto index = cc::MutableVamanaIndex(
+        parameters, std::move(data), indices, Distance(), num_threads
+    );
+
+    const size_t expected_graph_bytes = index.view_graph().get_data().capacity() *
+                                        index.view_graph().get_data().element_size();
+    using Index = decltype(index);
+    // Both the per-slot status array and the reverse-edge directories are
+    // `SegmentedVector`s sized by the number of slots, whose capacity rounds up to the
+    // power-of-two bucket layout rather than tracking size() exactly.
+    const size_t segmented_capacity =
+        svs::lib::SegmentedVector<cc::SlotMetadata>(data_size).capacity();
+    const size_t expected_status_bytes = segmented_capacity * sizeof(cc::SlotMetadata);
+    const size_t expected_metadata_bytes = expected_status_bytes +
+                                           sizeof(typename Index::internal_id_type) +
+                                           2 * indices.size() *
+                                               (sizeof(typename Index::external_id_type) +
+                                                sizeof(typename Index::internal_id_type));
+
+    // The reverse-edge index holds one in-neighbor list plus one lock per slot, so its
+    // directory overhead is deterministic. The payload is not: the index only records
+    // *asymmetric* in-edges, whose count depends on the (thread-order dependent) graph,
+    // and the per-node lists are `std::vector`s with an implementation-defined growth
+    // policy. So pin the directory and require a non-empty payload on top of it.
+    using ReverseList = typename ConcurrentGraph::reverse_edges_type::list_type;
+    const size_t expected_reverse_directory_bytes =
+        segmented_capacity * (sizeof(ReverseList) + sizeof(cc::SpinLock));
+
+    // Dynamic get_memory_usage() should exactly match the capacity-based graph and data
+    // bytes plus the deterministic metadata implied by the input ids, plus the
+    // reverse-edge index.
+    const auto breakdown = index.get_memory_breakdown();
+    CATCH_REQUIRE(breakdown.graph_bytes == expected_graph_bytes);
+    CATCH_REQUIRE(breakdown.data_bytes == expected_data_bytes);
+    CATCH_REQUIRE(breakdown.metadata_bytes == expected_metadata_bytes);
+    CATCH_REQUIRE(breakdown.reverse_edges_bytes > expected_reverse_directory_bytes);
+
+    const size_t expected_total_bytes = expected_data_bytes + expected_graph_bytes +
+                                        expected_metadata_bytes +
+                                        breakdown.reverse_edges_bytes;
+    CATCH_REQUIRE(breakdown.total() == expected_total_bytes);
+    const size_t usage = index.get_memory_breakdown().total();
+    CATCH_REQUIRE(usage == expected_total_bytes);
+}
