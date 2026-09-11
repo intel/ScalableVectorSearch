@@ -44,4 +44,12 @@ svs::Vamana dispatch_vamana_index_load(
     svs::threads::ThreadPoolHandle pool
 );
 
+svs::index::vamana::MemoryBreakdown dispatch_vamana_memory_estimate(
+    const svs::index::vamana::VamanaBuildParameters& build_params,
+    size_t num_vectors,
+    size_t dimension,
+    const Storage* storage,
+    svs::DistanceType distance_type
+);
+
 } // namespace svs::c_runtime

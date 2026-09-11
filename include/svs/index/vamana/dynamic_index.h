@@ -328,9 +328,10 @@ class MutableVamanaIndex {
     /// over-allocation is reflected. Metadata includes status array, entry points, and an
     /// estimated size of the ID translation maps (external/internal ID translation maps).
     MemoryBreakdown get_memory_breakdown() const {
+        using namespace svs::data;
         MemoryBreakdown usage{};
-        usage.graph_bytes = svs::data::detail::dataset_allocated_bytes(graph_.get_data());
-        usage.data_bytes = svs::data::detail::dataset_allocated_bytes(data_);
+        usage.graph_bytes = dataset_allocated_bytes(graph_.get_data());
+        usage.data_bytes = dataset_allocated_bytes(data_);
 
         size_t metadata_bytes = status_.capacity() * sizeof(SlotMetadata);
         metadata_bytes +=
@@ -552,16 +553,17 @@ class MutableVamanaIndex {
             threads::StaticPartition{queries.size()},
             [&](const auto is, uint64_t SVS_UNUSED(tid)) {
                 size_t num_neighbors = results.n_neighbors();
-                auto buffer =
-                    search_buffer_type{sp.buffer_config_, distance::comparator(distance_)};
+                auto buffer = search_buffer_type{
+                    // Legalize search buffer for this search.
+                    sp.buffer_config_.get_total_capacity() < num_neighbors
+                        ? SearchBufferConfig{num_neighbors}
+                        : sp.buffer_config_,
+                    distance::comparator(distance_),
+                    sp.search_buffer_visited_set_};
 
                 auto prefetch_parameters = GreedySearchPrefetchParameters{
                     sp.prefetch_lookahead_, sp.prefetch_step_};
 
-                // Legalize search buffer for this search.
-                if (buffer.target_capacity() < num_neighbors) {
-                    buffer.change_maxsize(num_neighbors);
-                }
                 auto scratch = extensions::per_thread_batch_search_setup(data_, distance_);
 
                 extensions::per_thread_batch_search(

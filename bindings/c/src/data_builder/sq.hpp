@@ -57,6 +57,21 @@ template <Arithmetic T, typename Allocator = svs::lib::Allocator<T>> class SQDat
     load(const std::filesystem::path& path, const allocator_type& allocator = {}) {
         return svs::lib::load_from_disk<data_type>(path, allocator);
     }
+
+    size_t estimate_size(
+        size_t num_vectors, size_t dimension, const allocator_type& allocator = {}
+    ) const {
+        const auto element_size = sizeof(typename data_type::element_type) * dimension;
+        const auto data_size =
+            svs::c_runtime::adjust_blocked_size(num_vectors, element_size, allocator);
+
+        // Note: the following size is not included in the current estimate as it is
+        // not included in memory breakdown calculations in the current implementation. It
+        // can be added if needed.
+
+        const size_t scale_bias_size = 0; // sizeof(float) * 2;
+        return data_size + scale_bias_size;
+    }
 };
 
 template <Arithmetic T, typename Alloc>

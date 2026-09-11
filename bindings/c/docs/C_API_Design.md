@@ -264,6 +264,22 @@ Configures and creates index instances using the builder pattern.
 - Thread pool kind and size (default: native with hardware concurrency)
 - Custom thread pool interface (for advanced use cases)
 
+**Memory Estimation (pre-build):**
+
+The builder can estimate memory consumption before an index is built, so callers can
+plan capacity up front:
+- `svs_index_builder_estimate_memory` / `svs_index_builder_estimate_memory_dynamic` —
+  estimate the index footprint (graph / data / metadata) into a
+  `svs_memory_breakdown_t` for a given vector count. The dynamic variant also accounts
+  for the block size; `svs_index_builder_get_default_blocksize_bytes` returns the
+  default block size (`blocksize_bytes = 0` selects it).
+- `svs_index_builder_estimate_search_memory` /
+  `svs_index_builder_estimate_search_memory_dynamic` — estimate the scratch memory a
+  search would use for a given query count, neighbor count, search parameters, and
+  optional ID filter (a non-zero `filter_rate` is factored into the estimate).
+
+Estimates are approximate and currently supported for the Vamana algorithm.
+
 ### 3. Algorithm Configuration
 
 Defines the search algorithm and its parameters.
@@ -462,6 +478,7 @@ for full signatures, parameters, and Doxygen documentation.
 | **Storage** | `svs_storage_create_{simple,sq,lvq,leanvec}`, `svs_storage_get_kind`, `svs_storage_free` |
 | **Search params** | `svs_search_params_create_vamana`, `svs_search_params_free` |
 | **Builder** | `svs_index_builder_create`, `svs_index_builder_set_{storage,threadpool,threadpool_custom}`, `svs_index_builder_free` |
+| **Memory estimation** | `svs_index_builder_estimate_memory`, `svs_index_builder_estimate_memory_dynamic`, `svs_index_builder_estimate_search_memory`, `svs_index_builder_estimate_search_memory_dynamic`, `svs_index_builder_get_default_blocksize_bytes` |
 | **Index lifecycle** | `svs_index_build`, `svs_index_build_dynamic`, `svs_index_load`, `svs_index_load_dynamic`, `svs_index_save`, `svs_index_free` |
 | **Dynamic ops** | `svs_index_dynamic_{add_points,delete_points,has_id,consolidate,compact}` |
 | **Introspection** | `svs_index_get_num_threads` / `set_num_threads`, `svs_index_get_distance`, `svs_index_reconstruct`, `svs_index_get_memory_usage`, `svs_index_get_memory_breakdown` |

@@ -129,4 +129,27 @@ svs::Vamana dispatch_vamana_index_load(
         build_params, VamanaSource{directory}, storage, distance_type, std::move(pool)
     );
 }
+
+svs::index::vamana::MemoryBreakdown dispatch_vamana_memory_estimate(
+    const svs::index::vamana::VamanaBuildParameters& build_params,
+    size_t num_vectors,
+    size_t dimension,
+    const Storage* storage,
+    svs::DistanceType SVS_UNUSED(distance_type)
+) {
+    svs::index::vamana::MemoryBreakdown breakdown{};
+
+    // Graph: SimpleData<uint32_t> with num_vectors rows and (max_degree + 1) cols;
+    // the +1 slot stores the per-node neighbor count.
+    using index_type = uint32_t;
+    const size_t max_degree = build_params.graph_max_degree;
+    auto graph_data_builder = SimpleDataBuilder<index_type>{};
+    breakdown.graph_bytes = graph_data_builder.estimate_size(num_vectors, (max_degree + 1));
+
+    // Data: SimpleData<T> with num_vectors rows and `dimension` cols.
+    breakdown.data_bytes = estimate_data_size(storage, num_vectors, dimension);
+    // Metadata: single entry point held as Idx.
+    breakdown.metadata_bytes = sizeof(index_type);
+    return breakdown;
+}
 } // namespace svs::c_runtime

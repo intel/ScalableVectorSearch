@@ -748,6 +748,109 @@ SVS_API bool svs_index_builder_set_threadpool_custom(
     svs_index_builder_h builder, svs_threadpool_i pool, svs_error_h out_err /*=NULL*/
 );
 
+/// @brief Estimate the memory usage of an index based on the builder configuration and
+/// number of vectors
+/// @param builder The index builder handle
+/// @param num_vectors The number of vectors to be indexed
+/// @param out_breakdown Pointer to a structure to hold the memory breakdown
+/// @param out_err An optional error handle to capture errors
+/// @return true on success, false on failure
+/// @remarks The estimated memory size is approximate.
+SVS_API bool svs_index_builder_estimate_memory(
+    svs_index_builder_h builder,
+    size_t num_vectors,
+    svs_memory_breakdown_t* out_breakdown,
+    svs_error_h out_err /*=NULL*/
+);
+
+/// @brief Returns default block size in bytes for dynamic index building based on the
+/// builder configuration
+/// @param builder The index builder handle
+/// @param out_blocksize_bytes Pointer to a variable to receive the default block size in
+/// bytes
+/// @param out_err An optional error handle to capture errors
+/// @return true on success, false on failure
+SVS_API bool svs_index_builder_get_default_blocksize_bytes(
+    svs_index_builder_h builder, size_t* out_blocksize_bytes, svs_error_h out_err /*=NULL*/
+);
+
+/// @brief Estimate the memory usage of a dynamic index based on the builder configuration,
+/// number of vectors, and block size
+/// @param builder The index builder handle
+/// @param num_vectors The number of vectors to be indexed
+/// @param blocksize_bytes The block size in bytes for dynamic index building (0 for
+/// default)
+/// @param out_breakdown Pointer to a structure to hold the memory breakdown
+/// @param out_err An optional error handle to capture errors
+/// @return true on success, false on failure
+/// @remarks The estimated memory size is approximate.
+SVS_API bool svs_index_builder_estimate_memory_dynamic(
+    svs_index_builder_h builder,
+    size_t num_vectors,
+    size_t blocksize_bytes,
+    svs_memory_breakdown_t* out_breakdown,
+    svs_error_h out_err /*=NULL*/
+);
+
+/// @brief Estimate the memory usage of a search operation based on the builder
+/// configuration, search parameters, number of queries, and nearest neighbors to retrieve
+/// @param builder The index builder handle
+/// @param num_queries The number of queries to be performed
+/// @param num_neighbors The number of nearest neighbors to retrieve per query
+/// @param search_params The search parameters handle; if NULL, the builder's default search
+/// parameters are used
+/// @param id_filter An optional ID filter interface; if NULL, no filtering is applied
+/// @param out_size Pointer to a variable to receive the estimated memory size
+/// @param out_err An optional error handle to capture errors
+/// @return true on success, false on failure
+/// @remarks If @p id_filter is provided with `filter_rate > 0.0` then the function will
+/// account for the filter hit rate during the search, elsewhere it assumes all candidates
+/// pass the filter. The estimated memory size is for the search operation itself and does
+/// not include the memory used by the index, the query data and the results structure. The
+/// estimated memory size is approximate. Actual memory consumption may vary depending on
+/// the actual @id_filter behaviour, allocators configuration, etc.
+SVS_API bool svs_index_builder_estimate_search_memory(
+    svs_index_builder_h builder,
+    size_t num_queries,
+    size_t num_neighbors,
+    svs_search_params_h search_params,
+    svs_id_filter_i id_filter /*=NULL*/,
+    size_t* out_size,
+    svs_error_h out_err /*=NULL*/
+);
+
+/// @brief Estimate the memory usage of a dynamic search operation based on the builder
+/// configuration, search parameters, number of queries, nearest neighbors to retrieve, and
+/// block size
+/// @param builder The index builder handle
+/// @param num_queries The number of queries to be performed
+/// @param num_neighbors The number of nearest neighbors to retrieve per query
+/// @param search_params The search parameters handle; if NULL, the builder's default search
+/// parameters are used
+/// @param id_filter An optional ID filter interface; if NULL, no filtering is applied
+/// @param blocksize_bytes The block size in bytes for dynamic search (0 for default) -
+/// reserved for future use
+/// @param out_size Pointer to a variable to receive the estimated memory size
+/// @param out_err An optional error handle to capture errors
+/// @return true on success, false on failure
+/// @remarks If @p id_filter is provided with `filter_rate > 0.0` then the
+/// function will account for the filter hit rate during the search, elsewhere it assumes
+/// all candidates pass the filter. The estimated memory size is for the search operation
+/// itself and does not include the memory used by the index, the query data and the results
+/// structure. The estimated memory size is approximate. Actual memory consumption may vary
+/// depending on the actual @id_filter behaviour, number of deleted vectors, allocators
+/// configuration, etc.
+SVS_API bool svs_index_builder_estimate_search_memory_dynamic(
+    svs_index_builder_h builder,
+    size_t num_queries,
+    size_t num_neighbors,
+    svs_search_params_h search_params,
+    svs_id_filter_i id_filter /*=NULL*/,
+    size_t blocksize_bytes,
+    size_t* out_size,
+    svs_error_h out_err /*=NULL*/
+);
+
 /// @brief Build an index from the provided data
 /// @param builder The index builder handle
 /// @param data Pointer to the vector data (float array)
