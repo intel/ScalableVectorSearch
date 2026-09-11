@@ -20,6 +20,7 @@
 
 #include <atomic>
 #include <memory>
+#include <optional>
 #include <shared_mutex>
 
 namespace svs::index::vamana::concurrent {
@@ -73,7 +74,11 @@ template <typename Index, typename QueryType> class MultiBatchIterator {
                 throw error;
             }
             for (auto& result : batch_iterator_) {
-                auto label = index_.external_to_label(result.id());
+                auto found_label = index_.find_label(result.id());
+                if (!found_label.has_value()) {
+                    continue;
+                }
+                auto label = *found_label;
                 auto found_in_returned = returned_.find(label);
                 auto new_result = Neighbor<label_type>{label, result.distance()};
 
@@ -417,12 +422,7 @@ class MultiMutableVamanaIndex {
                 if (it != label_to_external_.end()) {
                     auto& externals = (*it).second;
                     deletes.insert(deletes.end(), externals.begin(), externals.end());
-                    {
-                        std::lock_guard e2l_lock{*e2l_mutex_};
-                        for (auto& ext : externals) {
-                            external_to_label_.erase(ext);
-                        }
-                    }
+
                     // Remember the soft-deleted externals under their label so a
                     // later consolidate(labels) can consolidate just these points.
                     auto& pending = pending_deletes_[label];
@@ -432,6 +432,11 @@ class MultiMutableVamanaIndex {
             }
         }
         index_->delete_entries(deletes);
+
+        std::lock_guard e2l_lock{*e2l_mutex_};
+        for (auto& ext : deletes) {
+            external_to_label_.erase(ext);
+        }
         return deletes.size();
     }
 
@@ -574,14 +579,21 @@ class MultiMutableVamanaIndex {
 
     // translate internal id -> external id -> label
     label_type translate_internal_id(Idx i) const {
-        std::shared_lock e2l_lock{*e2l_mutex_};
-        return external_to_label_.at(index_->translate_internal_id(i));
+        auto external_id = index_->translate_internal_id(i);
+        // Mirrors the parent's get_external_or: fall back to the external id when the
+        // label mapping is already gone.
+        return find_label(external_id).value_or(external_id);
     }
 
-    // Thread-safe external id -> label lookup.
-    label_type external_to_label(external_id_type external_id) const {
+    /// @brief The label owning `external_id`, or ``std::nullopt`` if it has none.
+    ///
+    std::optional<label_type> find_label(external_id_type external_id) const {
         std::shared_lock e2l_lock{*e2l_mutex_};
-        return external_to_label_.at(external_id);
+        auto it = external_to_label_.find(external_id);
+        if (it == external_to_label_.end()) {
+            return std::nullopt;
+        }
+        return it->second;
     }
 
     /// @brief Call the functor with all labels in the index.
