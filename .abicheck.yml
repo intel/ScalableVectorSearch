@@ -13,10 +13,13 @@
 # limitations under the License.
 
 # abicheck configuration, picked up from the repo root by `abicheck compare`.
-# Validated against the abicheck 0.5.0 config schema.
+# Validated against the abicheck 0.6.0 config schema.
 #
 # Kept identical to .abicheck.yml in the innersource repo: the two repos build
 # the same runtime library and must not disagree on how it is parsed.
+#
+# 0.6 removed the --ast-frontend and --gcc-options flags, so these keys are the
+# only way to set them; abi-check.sh relies on this file being found.
 
 # castxml's default cc-gnu detection parses SVS's C++20 headers at the wrong
 # standard (std::span / constexpr dtor fail). The clang AST frontend handles
@@ -24,6 +27,7 @@
 compile:
   frontend: clang
   std: c++20
+  options: [-include, cstddef]
 
 # Scope the compared surface to what we publish, and collapse the std/gnu_cxx
 # template-instantiation noise that leaks past --exclude-libs,ALL.

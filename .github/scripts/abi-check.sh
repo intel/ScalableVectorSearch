@@ -92,9 +92,9 @@ suppress_args=()
 rc=0
 # Without pipefail the pipe into tee masks abicheck's exit status.
 set -o pipefail
-# castxml is not installed on the runners; clang is. `auto` does not fall back to
-# clang on its own. If header parsing degrades, abicheck still reports from the
-# ELF tier -- which is where vtable-size findings come from anyway.
+# The clang AST frontend and the C++20 standard come from .abicheck.yml. abicheck
+# 0.6 dropped the --ast-frontend/--gcc-options flags, so that file is now the only
+# place to set them -- do not reintroduce them here.
 abicheck compare \
     "$OLD_LIB" \
     "$NEW_LIB" \
@@ -104,22 +104,24 @@ abicheck compare \
     --include new="$NEW_DIR/include" \
     --version old="$OLD_LABEL" \
     --version new="$NEW_LABEL" \
-    --ast-frontend clang \
-    --gcc-options "-std=c++20 -include cstddef" \
     --policy "$POLICY" \
     "${suppress_args[@]}" \
-    --format markdown | tee "$REPORT" || rc=$?
+    --output markdown=- | tee "$REPORT" || rc=$?
 
+# Only 2 and 4 are findings. Anything else -- a removed flag, an unparseable
+# header, a crash -- means the comparison did not happen, and reporting that as an
+# ABI break is worse than reporting nothing: it teaches reviewers to ignore a red
+# ABI check.
 case "$rc" in
     0)
         echo "ABI compatible: $OLD_LABEL -> $NEW_LABEL"
         ;;
-    64)
-        echo "::error::abicheck rejected the invocation (exit 64) comparing" \
-             "$OLD_LABEL -> $NEW_LABEL. This is a harness bug, not an ABI finding."
+    2 | 4)
+        echo "::warning::ABI incompatibility: $NEW_LABEL differs from $OLD_LABEL (rc=$rc)"
         ;;
     *)
-        echo "::warning::ABI incompatibility: $NEW_LABEL differs from $OLD_LABEL (rc=$rc)"
+        echo "::error::abicheck could not complete the comparison of $OLD_LABEL ->" \
+             "$NEW_LABEL (rc=$rc). This is a harness bug, not an ABI finding."
         ;;
 esac
 
