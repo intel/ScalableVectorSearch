@@ -679,6 +679,21 @@ template <typename Alloc> class Blocked : public Alloc {
 template <typename Alloc> inline constexpr bool is_blocked_v = false;
 template <typename Alloc> inline constexpr bool is_blocked_v<Blocked<Alloc>> = true;
 
+// Helper function to compute blocksize value.
+// If blocking parameters have defined blocksize_elements, use it
+// directly. Otherwise, compute blocksize based on blocksize_bytes.
+template <typename Alloc>
+inline lib::PowerOfTwo compute_blocksize(const Blocked<Alloc>& alloc, size_t dim) {
+    if (alloc.parameters().blocksize_elements.has_value()) {
+        return alloc.parameters().blocksize_elements.value();
+    } else {
+        using T = typename std::allocator_traits<Alloc>::value_type;
+        return lib::prevpow2(
+            alloc.parameters().blocksize_bytes.value() / (sizeof(T) * dim)
+        );
+    }
+}
+
 } // namespace data
 
 namespace lib::detail {
@@ -948,20 +963,6 @@ class SimpleData<T, Extent, Blocked<Alloc>> {
                 return SimpleData(n_elements, n_dimensions, allocator);
             })
         );
-    }
-
-  private:
-    // Helper static function to compute blocksize value.
-    // If blocking parameters have defined blocksize_elements, use it
-    // directly. Otherwise, compute blocksize based on blocksize_bytes.
-    static lib::PowerOfTwo compute_blocksize(const Blocked<Alloc>& alloc, size_t dim) {
-        if (alloc.parameters().blocksize_elements.has_value()) {
-            return alloc.parameters().blocksize_elements.value();
-        } else {
-            return lib::prevpow2(
-                alloc.parameters().blocksize_bytes.value() / (sizeof(T) * dim)
-            );
-        }
     }
 
   private:
