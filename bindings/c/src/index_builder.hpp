@@ -47,6 +47,7 @@ struct IndexBuilder {
     std::shared_ptr<Algorithm> algorithm;
     std::shared_ptr<Storage> storage;
     ThreadPoolBuilder pool_builder;
+    AllocatorBuilder allocator_builder;
 
     IndexBuilder(
         svs_distance_metric_t distance_metric,
@@ -57,7 +58,8 @@ struct IndexBuilder {
         , dimension(dimension)
         , algorithm(std::move(algorithm))
         , storage(std::make_shared<StorageSimple>(SVS_DATA_TYPE_FLOAT32))
-        , pool_builder{} {}
+        , pool_builder{}
+        , allocator_builder{} {}
 
     ~IndexBuilder() {}
 
@@ -67,6 +69,10 @@ struct IndexBuilder {
 
     void set_threadpool_builder(ThreadPoolBuilder threadpool_builder) {
         std::swap(this->pool_builder, threadpool_builder);
+    }
+
+    void set_allocator_builder(AllocatorBuilder allocator_builder) {
+        std::swap(this->allocator_builder, allocator_builder);
     }
 
     std::shared_ptr<Index> build(const svs::data::ConstSimpleDataView<float>& data) {
@@ -80,7 +86,8 @@ struct IndexBuilder {
                     data,
                     storage.get(),
                     to_distance_type(distance_metric),
-                    pool_builder.build()
+                    pool_builder.build(),
+                    allocator_builder
                 ),
                 pool_builder
             );
@@ -101,7 +108,8 @@ struct IndexBuilder {
                     directory,
                     storage.get(),
                     to_distance_type(distance_metric),
-                    pool_builder.build()
+                    pool_builder.build(),
+                    allocator_builder
                 ),
                 pool_builder
             );
@@ -128,6 +136,7 @@ struct IndexBuilder {
                     storage.get(),
                     to_distance_type(distance_metric),
                     pool_builder.build(),
+                    allocator_builder,
                     blocksize_bytes
                 ),
                 pool_builder
@@ -151,6 +160,7 @@ struct IndexBuilder {
                     storage.get(),
                     to_distance_type(distance_metric),
                     pool_builder.build(),
+                    allocator_builder,
                     blocksize_bytes
                 ),
                 pool_builder

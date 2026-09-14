@@ -17,6 +17,7 @@
 #include "svs/c/svs_c.h"
 
 #include "algorithm.hpp"
+#include "allocator.hpp"
 #include "error.hpp"
 #include "index.hpp"
 #include "index_builder.hpp"
@@ -32,8 +33,10 @@
 #include <span>
 #include <vector>
 
+#include <svs/core/allocator.h>
 #include <svs/core/data.h>
 #include <svs/core/query_result.h>
+#include <svs/lib/memory.h>
 #include <svs/orchestrators/vamana.h>
 
 // C API implementation
@@ -709,6 +712,37 @@ SVS_API bool svs_index_builder_estimate_search_memory_dynamic(
                 blocksize_bytes
             );
             *out_size = size;
+            return true;
+        },
+        out_err,
+        false
+    );
+}
+
+extern "C" bool svs_index_builder_set_allocator(
+    svs_index_builder_h builder, svs_allocator_kind_t kind, svs_error_h out_err
+) {
+    using namespace svs::c_runtime;
+    return wrap_exceptions(
+        [&]() {
+            EXPECT_ARG_NOT_NULL(builder);
+            builder->impl->set_allocator_builder(AllocatorBuilder{kind});
+            return true;
+        },
+        out_err,
+        false
+    );
+}
+
+extern "C" bool svs_index_builder_set_allocator_custom(
+    svs_index_builder_h builder, svs_allocator_i allocator, svs_error_h out_err
+) {
+    using namespace svs::c_runtime;
+    return wrap_exceptions(
+        [&]() {
+            EXPECT_ARG_NOT_NULL(builder);
+            EXPECT_ARG_NOT_NULL(allocator);
+            builder->impl->set_allocator_builder(AllocatorBuilder{allocator});
             return true;
         },
         out_err,
