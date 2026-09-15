@@ -189,6 +189,66 @@ struct svs_threadpool_interface {
     void* self;
 };
 
+/// @brief Allocators used for memory management in the SVS C API.
+enum svs_allocator_kind {
+    SVS_ALLOCATOR_KIND_DEFAULT = 0,
+    SVS_ALLOCATOR_KIND_SIMPLE = 1,
+    SVS_ALLOCATOR_KIND_HUGE_PAGE = 2,
+    SVS_ALLOCATOR_KIND_CUSTOM = 3
+};
+
+/// @brief Operations table for a custom allocator interface
+/// @remarks The user must ensure that the allocator implementation is thread-safe and
+/// that the provided function pointers remain valid for the lifetime of the allocator
+/// interface.
+/// @var svs_allocator_interface_ops::version
+///   Version of the allocator interface.
+/// @var svs_allocator_interface_ops::struct_size
+///   Size of the structure, used for versioning and compatibility checks.
+/// @var svs_allocator_interface_ops::allocate
+///   Function pointer to allocate memory with the specified size and alignment.
+///   @param self Pointer to the allocator instance.
+///   @param size Size of the memory to allocate in bytes.
+///   @param alignment Alignment requirement for the allocated memory in bytes.
+///   @param out_err Handle to capture any error that occurs during allocation. User code
+///   may call svs_error_set() to set the error code and message if an error occurs.
+///   @return Pointer to the allocated memory, or NULL if allocation fails.
+/// @var svs_allocator_interface_ops::deallocate
+///   Function pointer to deallocate memory previously allocated by the allocator.
+///   @param self Pointer to the allocator instance.
+///   @param ptr Pointer to the memory to deallocate.
+///   @param size Size of the memory to deallocate in bytes.
+///   @param alignment Alignment requirement for the allocated memory in bytes.
+struct svs_allocator_interface_ops {
+    uint32_t version;
+    size_t struct_size;
+    void* (*allocate)(void* self, size_t size, size_t alignment, svs_error_h out_err);
+    void (*deallocate)(void* self, void* ptr, size_t size, size_t alignment);
+};
+
+/// @brief Macro to create a user-defined allocator interface operations structure
+/// @param allocate_func Function pointer to allocate memory with the specified size and
+/// alignment
+/// @param deallocate_func Function pointer to deallocate memory previously allocated by the
+/// allocator
+#define SVS_INIT_ALLOCATOR_OPS(allocate_func, deallocate_func)     \
+    {                                                              \
+        .version = SVS_C_API_VERSION,                              \
+        .struct_size = sizeof(struct svs_allocator_interface_ops), \
+        .allocate = &allocate_func, .deallocate = &deallocate_func \
+    }
+
+/// @brief Structure representing a custom allocator interface
+/// @var svs_allocator_interface::ops
+///   Function pointers for the allocator operations.
+/// @var svs_allocator_interface::self
+///   Pointer to the user-defined allocator instance. This pointer is passed to the
+///   function pointers in @p ops when they are called.
+struct svs_allocator_interface {
+    struct svs_allocator_interface_ops* ops;
+    void* self;
+};
+
 /// @brief Operations table for a custom ID filter interface
 /// @remarks The user must ensure that the ID filter implementation is thread-safe and
 /// that the provided function pointers remain valid for the lifetime of the ID filter
@@ -416,6 +476,7 @@ typedef struct svs_index_builder* svs_index_builder_h;
 typedef struct svs_algorithm* svs_algorithm_h;
 typedef struct svs_storage* svs_storage_h;
 typedef struct svs_search_params* svs_search_params_h;
+typedef struct svs_leanvec_training_data* svs_leanvec_training_data_h;
 
 // Fully defined types; "_t" suffix indicates a fully defined struct
 typedef enum svs_error_code svs_error_code_t;
@@ -424,10 +485,14 @@ typedef enum svs_algorithm_type svs_algorithm_type_t;
 typedef enum svs_data_type svs_data_type_t;
 typedef enum svs_storage_kind svs_storage_kind_t;
 typedef enum svs_threadpool_kind svs_threadpool_kind_t;
+typedef enum svs_allocator_kind svs_allocator_kind_t;
 
 typedef struct svs_threadpool_interface_ops svs_threadpool_ops_t;
 typedef struct svs_threadpool_interface svs_threadpool_t;
 typedef struct svs_threadpool_interface* svs_threadpool_i;
+typedef struct svs_allocator_interface_ops svs_allocator_ops_t;
+typedef struct svs_allocator_interface svs_allocator_t;
+typedef struct svs_allocator_interface* svs_allocator_i;
 
 typedef struct svs_id_filter_interface_ops svs_id_filter_ops_t;
 typedef struct svs_id_filter_interface svs_id_filter_t;
@@ -643,6 +708,57 @@ SVS_API bool svs_storage_get_kind(
 /// @param storage The storage handle to free
 SVS_API void svs_storage_free(svs_storage_h storage);
 
+/// @brief Train LeanVec dimensionality-reduction matrices from a data sample
+/// @param builder The index builder handle
+/// @param leanvec_dims The reduced number of LeanVec dimensions
+/// @param num_vectors The number of data vectors in x
+/// @param x Pointer to the data vectors [num_vectors x dim] (float array)
+/// @param num_queries The number of training queries in x_q (0 for in-distribution)
+/// @param x_q Pointer to the training queries [num_queries x dim], or NULL. When
+/// provided, matrices are trained out-of-distribution (OOD) using these queries;
+/// when num_queries is 0 or x_q is NULL, in-distribution (PCA) matrices are computed.
+/// @param out_err An optional error handle to capture errors
+/// @return A handle to the trained LeanVec matrices
+/// @remarks
+/// * The training data build process depends on the index builder's dimension and thread
+/// pool configuration, so the builder must be configured with the correct dimension and
+/// thread pool before calling this function.
+/// * The input arrays are consumed synchronously and are not retained, so the caller may
+/// free or modify @p x and @p x_q once this call returns.
+/// * The training data built by this function is used to create a LeanVec storage
+/// configuration via svs_storage_create_leanvec_trained(). The training data handle may be
+/// freed once svs_storage_create_leanvec_trained() returns, as the storage retains a
+/// reference to the trained matrices.
+SVS_API svs_leanvec_training_data_h svs_leanvec_training_data_build(
+    svs_index_builder_h builder,
+    size_t leanvec_dims,
+    size_t num_vectors,
+    const float* x,
+    size_t num_queries,
+    const float* x_q,   /*=NULL*/
+    svs_error_h out_err /*=NULL*/
+);
+
+/// @brief Free the LeanVec training data handle
+/// @param training_data The training data handle to free
+SVS_API void svs_leanvec_training_data_free(svs_leanvec_training_data_h training_data);
+
+/// @brief Create a LeanVec storage configuration from pre-trained matrices
+/// @param training_data The trained LeanVec matrices to use when reducing the data,
+/// instead of computing PCA matrices at build time. The number of LeanVec dimensions
+/// is taken from the training data. The storage retains a reference to the trained
+/// matrices, so the training data handle may be freed once this call returns.
+/// @param primary The data type of the primary quantization
+/// @param secondary The data type of the secondary quantization
+/// @param out_err An optional error handle to capture errors
+/// @return A handle to the created LeanVec storage
+SVS_API svs_storage_h svs_storage_create_leanvec_trained(
+    svs_leanvec_training_data_h training_data,
+    svs_data_type_t primary,
+    svs_data_type_t secondary,
+    svs_error_h out_err /*=NULL*/
+);
+
 /// @brief Create an index builder configuration
 /// @param metric The distance metric to use
 /// @param dimension The dimensionality of the vectors
@@ -694,6 +810,131 @@ SVS_API bool svs_index_builder_set_threadpool(
 /// call returns.
 SVS_API bool svs_index_builder_set_threadpool_custom(
     svs_index_builder_h builder, svs_threadpool_i pool, svs_error_h out_err /*=NULL*/
+);
+
+/// @brief Set the allocator configuration for the index builder
+/// @param builder The index builder handle
+/// @param kind The kind of allocator to use
+/// @param out_err An optional error handle to capture errors
+/// @return true on success, false on failure
+SVS_API bool svs_index_builder_set_allocator(
+    svs_index_builder_h builder, svs_allocator_kind_t kind, svs_error_h out_err /*=NULL*/
+);
+
+/// @brief Set the custom allocator for the index builder
+/// @param builder The index builder handle
+/// @param allocator The custom allocator interface
+/// @param out_err An optional error handle to capture errors
+/// @return true on success, false on failure
+/// @remarks The builder copies @p allocator and its ops table by value, so those two
+/// objects may be freed or modified after this call returns. The object referenced by
+/// @p allocator->self is not copied and must outlive the builder and every index built or
+/// loaded with it.
+SVS_API bool svs_index_builder_set_allocator_custom(
+    svs_index_builder_h builder, svs_allocator_i allocator, svs_error_h out_err /*=NULL*/
+);
+
+/// @brief Estimate the memory usage of an index based on the builder configuration and
+/// number of vectors
+/// @param builder The index builder handle
+/// @param num_vectors The number of vectors to be indexed
+/// @param out_breakdown Pointer to a structure to hold the memory breakdown
+/// @param out_err An optional error handle to capture errors
+/// @return true on success, false on failure
+/// @remarks The estimated memory size is approximate.
+SVS_API bool svs_index_builder_estimate_memory(
+    svs_index_builder_h builder,
+    size_t num_vectors,
+    svs_memory_breakdown_t* out_breakdown,
+    svs_error_h out_err /*=NULL*/
+);
+
+/// @brief Returns default block size in bytes for dynamic index building based on the
+/// builder configuration
+/// @param builder The index builder handle
+/// @param out_blocksize_bytes Pointer to a variable to receive the default block size in
+/// bytes
+/// @param out_err An optional error handle to capture errors
+/// @return true on success, false on failure
+SVS_API bool svs_index_builder_get_default_blocksize_bytes(
+    svs_index_builder_h builder, size_t* out_blocksize_bytes, svs_error_h out_err /*=NULL*/
+);
+
+/// @brief Estimate the memory usage of a dynamic index based on the builder configuration,
+/// number of vectors, and block size
+/// @param builder The index builder handle
+/// @param num_vectors The number of vectors to be indexed
+/// @param blocksize_bytes The block size in bytes for dynamic index building (0 for
+/// default)
+/// @param out_breakdown Pointer to a structure to hold the memory breakdown
+/// @param out_err An optional error handle to capture errors
+/// @return true on success, false on failure
+/// @remarks The estimated memory size is approximate.
+SVS_API bool svs_index_builder_estimate_memory_dynamic(
+    svs_index_builder_h builder,
+    size_t num_vectors,
+    size_t blocksize_bytes,
+    svs_memory_breakdown_t* out_breakdown,
+    svs_error_h out_err /*=NULL*/
+);
+
+/// @brief Estimate the memory usage of a search operation based on the builder
+/// configuration, search parameters, number of queries, and nearest neighbors to retrieve
+/// @param builder The index builder handle
+/// @param num_queries The number of queries to be performed
+/// @param num_neighbors The number of nearest neighbors to retrieve per query
+/// @param search_params The search parameters handle; if NULL, the builder's default search
+/// parameters are used
+/// @param id_filter An optional ID filter interface; if NULL, no filtering is applied
+/// @param out_size Pointer to a variable to receive the estimated memory size
+/// @param out_err An optional error handle to capture errors
+/// @return true on success, false on failure
+/// @remarks If @p id_filter is provided with `filter_rate > 0.0` then the function will
+/// account for the filter hit rate during the search, elsewhere it assumes all candidates
+/// pass the filter. The estimated memory size is for the search operation itself and does
+/// not include the memory used by the index, the query data and the results structure. The
+/// estimated memory size is approximate. Actual memory consumption may vary depending on
+/// the actual @id_filter behaviour, allocators configuration, etc.
+SVS_API bool svs_index_builder_estimate_search_memory(
+    svs_index_builder_h builder,
+    size_t num_queries,
+    size_t num_neighbors,
+    svs_search_params_h search_params,
+    svs_id_filter_i id_filter /*=NULL*/,
+    size_t* out_size,
+    svs_error_h out_err /*=NULL*/
+);
+
+/// @brief Estimate the memory usage of a dynamic search operation based on the builder
+/// configuration, search parameters, number of queries, nearest neighbors to retrieve, and
+/// block size
+/// @param builder The index builder handle
+/// @param num_queries The number of queries to be performed
+/// @param num_neighbors The number of nearest neighbors to retrieve per query
+/// @param search_params The search parameters handle; if NULL, the builder's default search
+/// parameters are used
+/// @param id_filter An optional ID filter interface; if NULL, no filtering is applied
+/// @param blocksize_bytes The block size in bytes for dynamic search (0 for default) -
+/// reserved for future use
+/// @param out_size Pointer to a variable to receive the estimated memory size
+/// @param out_err An optional error handle to capture errors
+/// @return true on success, false on failure
+/// @remarks If @p id_filter is provided with `filter_rate > 0.0` then the
+/// function will account for the filter hit rate during the search, elsewhere it assumes
+/// all candidates pass the filter. The estimated memory size is for the search operation
+/// itself and does not include the memory used by the index, the query data and the results
+/// structure. The estimated memory size is approximate. Actual memory consumption may vary
+/// depending on the actual @id_filter behaviour, number of deleted vectors, allocators
+/// configuration, etc.
+SVS_API bool svs_index_builder_estimate_search_memory_dynamic(
+    svs_index_builder_h builder,
+    size_t num_queries,
+    size_t num_neighbors,
+    svs_search_params_h search_params,
+    svs_id_filter_i id_filter /*=NULL*/,
+    size_t blocksize_bytes,
+    size_t* out_size,
+    svs_error_h out_err /*=NULL*/
 );
 
 /// @brief Build an index from the provided data

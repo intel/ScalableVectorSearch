@@ -19,6 +19,8 @@
 
 #include "svs/c/svs_c.h"
 
+#include "data_builder/lvq.hpp"
+#include "leanvec_training_data.hpp"
 #include "storage.hpp"
 #include "types_support.hpp"
 
@@ -40,17 +42,26 @@
 #endif // SVS_LEANVEC_HEADER
 
 #include <filesystem>
+#include <optional>
 #include <stdexcept>
+#include <utility>
 
 namespace svs {
 
 template <size_t I1, size_t I2, typename Allocator = svs::lib::Allocator<std::byte>>
 class LeanVecDataBuilder {
     size_t leanvec_dims_;
+    // Pre-trained (e.g. out-of-distribution) matrices; empty for PCA reduction.
+    std::optional<svs::leanvec::LeanVecMatrices<svs::Dynamic>> matrices_;
 
   public:
     LeanVecDataBuilder(size_t leanvec_dims)
-        : leanvec_dims_(leanvec_dims) {}
+        : leanvec_dims_(leanvec_dims)
+        , matrices_(std::nullopt) {}
+
+    LeanVecDataBuilder(svs::leanvec::LeanVecMatrices<svs::Dynamic> matrices)
+        : leanvec_dims_(matrices.num_cols())
+        , matrices_(std::move(matrices)) {}
 
     using data_type = svs::leanvec::LeanDataset<
         svs::leanvec::UsingLVQ<I1>,
@@ -67,13 +78,52 @@ class LeanVecDataBuilder {
         const allocator_type& allocator = {}
     ) {
         return data_type::reduce(
-            view, std::nullopt, pool, 0, svs::lib::MaybeStatic{leanvec_dims_}, allocator
+            view, matrices_, pool, 0, svs::lib::MaybeStatic{leanvec_dims_}, allocator
         );
     }
 
     data_type
     load(const std::filesystem::path& path, const allocator_type& allocator = {}) {
         return svs::lib::load_from_disk<data_type>(path, allocator);
+    }
+
+    size_t estimate_size(
+        size_t num_vectors, size_t dimension, const allocator_type& allocator = {}
+    ) const {
+        // Current version of LeanVecDataBuilder supports LVQ-only datasets, so we can
+        // directly reuse LVQDataBuilder::estimate_size()
+        //
+        // LeanDataset uses primary-only LVQ (ResidualBits == 0), so we can use
+        // LVQDataBuilder<I1, 0> and LVQDataBuilder<I2, 0> to estimate sizes for primary and
+        // secondary datasets.
+
+        // Estimate primary size
+        using primary_data_builder = LVQDataBuilder<I1, 0, allocator_type>;
+        const auto primary_size =
+            primary_data_builder{}.estimate_size(num_vectors, leanvec_dims_, allocator);
+
+        // Estimate secondary size
+        using secondary_data_builder = LVQDataBuilder<I2, 0, allocator_type>;
+        const auto secondary_size =
+            secondary_data_builder{}.estimate_size(num_vectors, dimension, allocator);
+
+        // Note: the following sizes are not included in the current estimate as they are
+        // not included in memory breakdown calculations in the current implementation. They
+        // can be added if needed.
+
+        // LeanVec matrices are 2 SimpleData matrices of float, each of size (dimension x
+        // leanvec_dims)
+        const size_t matrices_size = 0; // 2 * dimension * leanvec_dims_ * sizeof(float);
+
+        // LeanVec means is the vector of double of size (dimension)
+        const size_t means_size = 0; // dimension * sizeof(double);
+
+        // is_pca_ flag is a boolean, so it takes 1 byte
+        const size_t is_pca_size = 0; // sizeof(bool);
+
+        const auto total_size =
+            primary_size + secondary_size + matrices_size + means_size + is_pca_size;
+        return total_size;
     }
 };
 
@@ -95,12 +145,19 @@ struct lib::
 
     static To convert(From from) {
         auto leanvec = static_cast<const c_runtime::StorageLeanVec*>(from);
-        return To{leanvec->lenavec_dims};
+        // `leanvec_dims` is taken from the training data at storage construction,
+        // so it is authoritative in both cases.
+        if (leanvec->training_data) {
+            return To{leanvec->training_data->matrices()};
+        }
+        assert(leanvec->leanvec_dims > 0);
+        return To{leanvec->leanvec_dims};
     }
 };
 
 template <bool UseBlocked, typename F> void for_leanvec_specializations(F&& f) {
-    using byte_alloc = svs::c_runtime::MaybeBlockedAlloc<std::byte, UseBlocked>;
+    using byte_alloc = svs::c_runtime::
+        MaybeBlockedAlloc<std::byte, UseBlocked, AllocatorHandle<std::byte>>;
 
 #define X(P, S, D) f.template operator()<LeanVecDataBuilder<P, S, byte_alloc>, D>();
 #define XX(P, S) X(P, S, DistanceL2) X(P, S, DistanceIP) X(P, S, DistanceCosineSimilarity)

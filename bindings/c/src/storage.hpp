@@ -29,6 +29,7 @@
 #endif
 
 #include <filesystem>
+#include <memory>
 #include <stdexcept>
 
 namespace svs {
@@ -55,14 +56,20 @@ struct StorageSimple : public Storage {
     }
 };
 
+class LeanVecTrainingData;
 struct StorageLeanVec : public Storage {
-    size_t lenavec_dims;
+    size_t leanvec_dims;
     size_t primary_bits;
     size_t secondary_bits;
+    // Pre-trained reduction matrices; when set, they are used instead of PCA
+    // matrices computed at build time (enables out-of-distribution LeanVec).
+    // For trained storage, dimensions are read directly from these matrices;
+    // `leanvec_dims` is used only when `training_data` is null.
+    std::shared_ptr<const LeanVecTrainingData> training_data = nullptr;
 
-    StorageLeanVec(size_t lenavec_dims, svs_data_type_t primary, svs_data_type_t secondary)
+    StorageLeanVec(size_t leanvec_dims, svs_data_type_t primary, svs_data_type_t secondary)
         : Storage{SVS_STORAGE_KIND_LEANVEC}
-        , lenavec_dims(lenavec_dims)
+        , leanvec_dims(leanvec_dims)
         , primary_bits(to_bits_number(primary))
         , secondary_bits(to_bits_number(secondary)) {
 #ifdef SVS_RUNTIME_ENABLE_LVQ_LEANVEC
@@ -76,6 +83,17 @@ struct StorageLeanVec : public Storage {
             "LeanVec storage is not implemented in this build"
         );
 #endif
+    }
+
+    // Construct from pre-trained matrices. `leanvec_dims` is the single value
+    // carried by the training data, so no reconciliation is needed.
+    StorageLeanVec(
+        std::shared_ptr<const LeanVecTrainingData> training_data,
+        svs_data_type_t primary,
+        svs_data_type_t secondary
+    )
+        : StorageLeanVec(0, primary, secondary) {
+        this->training_data = std::move(training_data);
     }
 
     static size_t to_bits_number(svs_data_type_t data_type) {

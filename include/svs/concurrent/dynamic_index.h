@@ -430,8 +430,8 @@ class MutableVamanaIndex {
     /// block over-allocation so integrators can report the true memory footprint.
     MemoryBreakdown get_memory_breakdown() const {
         MemoryBreakdown usage{};
-        usage.graph_bytes = svs::data::detail::dataset_allocated_bytes(graph_.get_data());
-        usage.data_bytes = svs::data::detail::dataset_allocated_bytes(data_);
+        usage.graph_bytes = svs::data::dataset_allocated_bytes(graph_.get_data());
+        usage.data_bytes = svs::data::dataset_allocated_bytes(data_);
 
         size_t metadata_bytes = status_.capacity() * sizeof(SlotMetadata);
         metadata_bytes +=
