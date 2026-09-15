@@ -15,6 +15,7 @@ This file is the canonical instruction set for Copilot behavior in this reposito
 - Use source-of-truth files for mutable details.
 - Do not invent or hardcode versions/flags/matrices.
 - Avoid `std::iostream` in performance-critical headers.
+- Add a file only where the nearest `AGENTS.md` purpose line covers its kind and its role; otherwise it belongs in the directory whose purpose line matches.
 
 ## Contribution expectations
 - Preserve backward compatibility for public API (`include/svs/`)
