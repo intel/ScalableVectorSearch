@@ -130,6 +130,13 @@ should use the plain form. Calling a self-locking accessor from a context that a
 holds the lock is a latent deadlock, not merely slow: a writer arriving between the two
 shared acquisitions blocks the second one.
 
+`MultiMutableVamanaIndex` adds two mutexes of its own for the label maps it layers on top
+of the parent index — `l2e_mutex_` (`label_to_external_`, `pending_deletes_`) and
+`e2l_mutex_` (`external_to_label_`) — with the order `l2e_mutex_ -> e2l_mutex_`. Only
+`replace_external_id` holds both at once, so that no reader can observe an external id
+naming a label whose bucket is already gone; `add_points` and `delete_entries` take them
+sequentially. These are independent of the parent's three, which the parent takes itself.
+
 ### Slot lifecycle
 
 `SlotMetadata` gains a fourth state, `Pending`: a slot reserved by an in-flight

@@ -131,6 +131,13 @@ inline constexpr std::string_view name(SlotMetadata metadata) {
 }
 // clang-format on
 
+/// Outcome of `replace_external_id`.
+enum class ReplaceExternalIdResult : uint8_t {
+    Ok,
+    OldIdMissing,
+    NewIdExists,
+};
+
 class ValidBuilder {
   public:
     ValidBuilder(const lib::SegmentedVector<SlotMetadata>& status)
@@ -638,6 +645,28 @@ class MutableVamanaIndex {
                 }
             }
         );
+    }
+
+    ///
+    /// @brief Rename external ID `old_id` to `new_id`, keeping the same stored vector
+    /// data and adjacency list.
+    ///
+    /// @param old_id The existing external ID to rename. Must be live (``has_id``).
+    /// @param new_id The external ID to assign. Must not be mapped at all.
+    ///
+    ReplaceExternalIdResult replace_external_id(size_t old_id, size_t new_id) {
+        std::shared_lock compact_lock{*compact_mutex_};
+        std::lock_guard lock{*translator_mutex_};
+
+        // The translator's own check only asks whether a mapping exists. A soft-deleted or
+        // Pending slot still has one, so screen the source against the slot status here.
+        if (!unsafe_has_id(old_id)) {
+            return ReplaceExternalIdResult::OldIdMissing;
+        }
+        try {
+            translator_.remap_external_id(old_id, new_id);
+        } catch (const ANNException&) { return ReplaceExternalIdResult::NewIdExists; }
+        return ReplaceExternalIdResult::Ok;
     }
 
     ///

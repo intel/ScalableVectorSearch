@@ -199,6 +199,9 @@ class MultiMutableVamanaIndex {
     // Guarded by l2e_mutex_.
     label_to_external_type pending_deletes_;
     // Guard the label<->external id translation maps for concurrent add/delete/search.
+    //
+    // The locking order is:
+    // l2e_mutex_ -> e2l_mutex_
     std::unique_ptr<std::shared_mutex> l2e_mutex_{std::make_unique<std::shared_mutex>()};
     std::unique_ptr<std::shared_mutex> e2l_mutex_{std::make_unique<std::shared_mutex>()};
 
@@ -438,6 +441,45 @@ class MultiMutableVamanaIndex {
             external_to_label_.erase(ext);
         }
         return deletes.size();
+    }
+
+    ///
+    /// @brief Rename label `old_label` to `new_label`, keeping every vector already
+    /// grouped under `old_label` -- and its placement in the parent index -- unchanged.
+    ///
+    /// @param old_label The existing label to rename.
+    /// @param new_label The label to assign. Must not already exist.
+    ///
+    ReplaceExternalIdResult
+    replace_external_id(label_type old_label, label_type new_label) {
+        // Lock order: l2e_mutex_ then e2l_mutex_ (see the mutex members).
+        std::lock_guard l2e_lock{*l2e_mutex_};
+        std::lock_guard e2l_lock{*e2l_mutex_};
+
+        auto it = label_to_external_.find(old_label);
+        if (it == label_to_external_.end()) {
+            return ReplaceExternalIdResult::OldIdMissing;
+        }
+        if (label_to_external_.find(new_label) != label_to_external_.end()) {
+            return ReplaceExternalIdResult::NewIdExists;
+        }
+
+        auto externals = std::move(it->second);
+        label_to_external_.erase(it);
+        for (const auto& ext : externals) {
+            external_to_label_.at(ext) = new_label;
+        }
+        label_to_external_.insert({new_label, std::move(externals)});
+
+        // Vectors soft-deleted under the old label follow it
+        auto pending = pending_deletes_.find(old_label);
+        if (pending != pending_deletes_.end()) {
+            auto moved = std::move(pending->second);
+            pending_deletes_.erase(pending);
+            auto& destination = pending_deletes_[new_label];
+            destination.insert(destination.end(), moved.begin(), moved.end());
+        }
+        return ReplaceExternalIdResult::Ok;
     }
 
     template <typename Query>

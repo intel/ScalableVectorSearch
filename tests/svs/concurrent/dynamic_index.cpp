@@ -19,6 +19,7 @@
 #include "svs/concurrent/consolidate.h"
 
 // stl
+#include <algorithm>
 #include <cstdint>
 #include <filesystem>
 #include <iostream>
@@ -361,6 +362,71 @@ CATCH_TEST_CASE(
         CATCH_REQUIRE(index.has_id(0));
         CATCH_REQUIRE(index.size() == n);
         index.debug_check_invariants(true);
+    }
+}
+
+CATCH_TEST_CASE(
+    "Concurrent MutableVamana Index Relabel", "[concurrent][graph_index][dynamic_index]"
+) {
+    const size_t num_threads = 2;
+    using Distance = svs::distance::DistanceL2;
+
+    auto data = data_segmented_f32();
+    std::vector<size_t> indices(data.size());
+    std::iota(indices.begin(), indices.end(), 0);
+
+    svs::index::vamana::VamanaBuildParameters parameters{1.2, 64, 10, 20, 10, true};
+    auto index = cc::MutableVamanaIndex(
+        parameters, std::move(data), indices, Distance(), num_threads
+    );
+
+    const size_t old_id = indices.front();
+    const size_t new_id = 999'999;
+    CATCH_REQUIRE(index.has_id(old_id));
+    CATCH_REQUIRE(!index.has_id(new_id));
+
+    auto internal_id_before = index.translate_external_id(old_id);
+    auto datum_before = index.get_datum(old_id);
+    auto datum_copy = std::vector<float>(datum_before.begin(), datum_before.end());
+    auto size_before = index.size();
+
+    CATCH_REQUIRE(
+        index.replace_external_id(old_id, new_id) == cc::ReplaceExternalIdResult::Ok
+    );
+
+    // The old label is gone, the new one exists, and nothing moved: same internal id,
+    // same stored data, same count -- this is a pure rename, not a delete + re-add.
+    CATCH_REQUIRE(!index.has_id(old_id));
+    CATCH_REQUIRE(index.has_id(new_id));
+    CATCH_REQUIRE(index.size() == size_before);
+    CATCH_REQUIRE(index.translate_external_id(new_id) == internal_id_before);
+    auto datum_after = index.get_datum(new_id);
+    CATCH_REQUIRE(std::equal(datum_after.begin(), datum_after.end(), datum_copy.begin()));
+
+    // Every other id is untouched.
+    for (size_t i = 1; i < indices.size(); ++i) {
+        CATCH_REQUIRE(index.has_id(indices[i]));
+    }
+
+    CATCH_SECTION("Renaming a non-existent ID reports OldIdMissing") {
+        // `old_id` was already renamed away above, so it no longer exists either.
+        CATCH_REQUIRE(
+            index.replace_external_id(old_id, new_id + 1) ==
+            cc::ReplaceExternalIdResult::OldIdMissing
+        );
+        CATCH_REQUIRE(!index.has_id(old_id));
+        CATCH_REQUIRE(!index.has_id(new_id + 1));
+    }
+
+    CATCH_SECTION("Renaming onto an existing ID reports NewIdExists") {
+        auto other_id = indices[1];
+        CATCH_REQUIRE(
+            index.replace_external_id(new_id, other_id) ==
+            cc::ReplaceExternalIdResult::NewIdExists
+        );
+        // State unchanged: the relabel performed above still holds.
+        CATCH_REQUIRE(index.has_id(new_id));
+        CATCH_REQUIRE(index.has_id(other_id));
     }
 }
 
