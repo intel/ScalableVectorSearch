@@ -54,8 +54,11 @@ struct MemoryBreakdown {
     size_t graph_bytes = 0;
     size_t data_bytes = 0;
     size_t metadata_bytes = 0;
+    size_t reverse_edges_bytes = 0;
 
-    size_t total() const { return graph_bytes + data_bytes + metadata_bytes; }
+    size_t total() const {
+        return graph_bytes + data_bytes + metadata_bytes + reverse_edges_bytes;
+    }
 };
 
 // Abstract interface for Vamana-based indices.

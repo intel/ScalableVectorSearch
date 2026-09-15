@@ -92,6 +92,7 @@ set(TEST_SOURCES
     ${TEST_DIR}/svs/lib/version.cpp
     ${TEST_DIR}/svs/lib/uuid.cpp
     ${TEST_DIR}/svs/lib/concurrency/readwrite_protected.cpp
+    ${TEST_DIR}/svs/lib/segmented_vector.cpp
     ${TEST_DIR}/svs/lib/avx_detection.cpp
     # Third Party
     ${TEST_DIR}/svs/third-party/fmt.cpp
@@ -150,6 +151,19 @@ set(TEST_SOURCES
     ${TEST_DIR}/svs/quantization/scalar/scalar.cpp
 
     ${TEST_DIR}/svs/index/vamana/dynamic_index.cpp
+
+    # Concurrent (lock-free search / concurrent mutation) Vamana index.
+    ${TEST_DIR}/svs/concurrent/translation.cpp
+    ${TEST_DIR}/svs/concurrent/graph.cpp
+    ${TEST_DIR}/svs/concurrent/prune.cpp
+    ${TEST_DIR}/svs/concurrent/consolidate.cpp
+    ${TEST_DIR}/svs/concurrent/iterator.cpp
+    ${TEST_DIR}/svs/concurrent/multi.cpp
+    ${TEST_DIR}/svs/concurrent/concurrency.cpp
+    ${TEST_DIR}/svs/concurrent/dynamic_index.cpp
+    # Guards against defects only visible from outside the tree: the include order a
+    # downstream consumer uses, and quantized storage with the concurrent allocator tag.
+    ${TEST_DIR}/svs/concurrent/downstream.cpp
 )
 
 #####
@@ -158,6 +172,7 @@ set(TEST_SOURCES
 
 SET(INTEGRATION_TESTS
     ${TEST_DIR}/svs/index/vamana/dynamic_index_2.cpp
+    ${TEST_DIR}/svs/concurrent/dynamic_index_2.cpp
     # Higher level constructs
     ${TEST_DIR}/svs/orchestrators/vamana.cpp
     ${TEST_DIR}/svs/orchestrators/dynamic_vamana.cpp
@@ -237,3 +252,66 @@ list(APPEND CMAKE_MODULE_PATH ${catch2_SOURCE_DIR}/extras)
 include(CTest)
 include(Catch)
 catch_discover_tests(tests ADD_TAGS_AS_LABELS SKIP_IS_FAILURE)
+
+#####
+##### ThreadSanitizer targets for the concurrent index
+#####
+
+# The correctness of `svs::index::vamana::concurrent` rests almost entirely on memory
+# ordering, which a non-instrumented test can only fail to disprove. These targets are
+# opt-in because TSan costs roughly an order of magnitude in both time and memory:
+#
+#   cmake -DSVS_EXPERIMENTAL_ENABLE_CONCURRENT_TSAN=YES ...
+#   ctest -L tsan
+#
+# `svs::svs` and Catch2 are not instrumented here, only the test translation units. That is
+# enough: the concurrent index is header-only, so the accesses under test -- the adjacency
+# lists, the sequence-lock counters, the slot metadata -- are all inlined into the
+# instrumented TUs.
+option(SVS_EXPERIMENTAL_ENABLE_CONCURRENT_TSAN
+    "Build ThreadSanitizer targets for the concurrent Vamana index (slow)" OFF
+)
+
+if (SVS_EXPERIMENTAL_ENABLE_CONCURRENT_TSAN)
+    message("Enabling ThreadSanitizer targets for the concurrent Vamana index!")
+
+    set(CONCURRENT_TSAN_SOURCES
+        ${TEST_DIR}/svs/concurrent/graph.cpp
+        ${TEST_DIR}/svs/concurrent/concurrency.cpp
+    )
+
+    add_executable(concurrent_tsan ${CONCURRENT_TSAN_SOURCES})
+    target_compile_options(concurrent_tsan PRIVATE -fsanitize=thread -g -O1)
+    target_link_options(concurrent_tsan PRIVATE -fsanitize=thread)
+    target_compile_definitions(concurrent_tsan PRIVATE SVS_THREAD_SANITIZER)
+    target_compile_definitions(concurrent_tsan PRIVATE SVS_TEST_DATA_DIR="${DATA_DIRECTORY}")
+    target_link_libraries(concurrent_tsan PRIVATE svs::svs Catch2::Catch2WithMain)
+    target_link_libraries(
+      concurrent_tsan PRIVATE svs_compile_options svs_x86_options_base
+    )
+    target_include_directories(concurrent_tsan PRIVATE ${PROJECT_SOURCE_DIR})
+    add_test(NAME concurrent_tsan COMMAND concurrent_tsan)
+    set_tests_properties(concurrent_tsan PROPERTIES LABELS "tsan")
+
+    # Negative control. Building the graph's adjacency-slot accessors as plain (non-atomic)
+    # loads and stores must make TSan complain -- otherwise a clean run above proves nothing
+    # about whether TSan was watching the right memory at all.
+    add_executable(concurrent_tsan_negative ${CONCURRENT_TSAN_SOURCES})
+    target_compile_options(concurrent_tsan_negative PRIVATE -fsanitize=thread -g -O1)
+    target_link_options(concurrent_tsan_negative PRIVATE -fsanitize=thread)
+    target_compile_definitions(concurrent_tsan_negative
+        PRIVATE SVS_THREAD_SANITIZER SVS_CONCURRENT_UNSAFE_PLAIN_GRAPH_ACCESS
+    )
+    target_compile_definitions(concurrent_tsan_negative
+        PRIVATE SVS_TEST_DATA_DIR="${DATA_DIRECTORY}"
+    )
+    target_link_libraries(
+        concurrent_tsan_negative PRIVATE svs::svs Catch2::Catch2WithMain
+    )
+    target_link_libraries(
+      concurrent_tsan_negative PRIVATE svs_compile_options svs_x86_options_base
+    )
+    target_include_directories(concurrent_tsan_negative PRIVATE ${PROJECT_SOURCE_DIR})
+    add_test(NAME concurrent_tsan_negative COMMAND concurrent_tsan_negative)
+    set_tests_properties(concurrent_tsan_negative PROPERTIES WILL_FAIL TRUE LABELS "tsan")
+endif()
