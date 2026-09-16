@@ -16,6 +16,10 @@ This file is the canonical instruction set for Copilot behavior in this reposito
 - Do not invent or hardcode versions/flags/matrices.
 - Avoid `std::iostream` in performance-critical headers.
 - Add a file only where the nearest `AGENTS.md` purpose line covers its kind and its role; otherwise it belongs in the directory whose purpose line matches.
+- A comment states why the code has to be this way and what breaks if it changes, not what the line does; a documentation block on a public entity states that entity's contract. When a change alters code a comment describes, fix or delete that comment in the same change.
+- Where code encodes a constraint a reader cannot infer — a platform-specific guard, a derived numeric bound, a warning suppression — comment the reason and what breaks without it. Standard idioms such as a floating-point tolerance need no justification.
+- Delete code a change makes dead rather than committing it disabled: commented-out statements, unused variables, branches the change makes unreachable. A conditional-compilation path is not dead merely because no CI job selects it. Code deliberately left inert carries a comment saying why.
+- A path that cannot satisfy a request fails with a diagnostic naming the unsupported input and the bound or set it violated, rather than substituting a different configuration; a preprocessor or dispatch chain ends in a catch-all that errors instead of assuming the last case holds.
 
 ## Contribution expectations
 - Preserve backward compatibility for public API (`include/svs/`)
