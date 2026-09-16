@@ -89,6 +89,47 @@ echo "Comparing $LIBRARY: [$OLD_LABEL] -> [$NEW_LABEL]"
 suppress_args=()
 [ -f "$SUPPRESSIONS" ] && suppress_args=(--suppress "$SUPPRESSIONS")
 
+# Vendored deps ship under a versioned root (include/eve-2023.2.15/eve/...), so
+# -I include alone cannot resolve their own `#include <eve/...>`.
+#
+# Only roots present on BOTH sides are added, in one sorted order. abicheck
+# fingerprints the include sequence and refuses to compare (rc=16) when the two
+# sides differ, so a root added to one side only voids the whole run -- and the
+# private-source and public tarballs genuinely disagree about shipping eve.
+include_args=(--include old="$OLD_DIR/include" --include new="$NEW_DIR/include")
+for dir in "$OLD_DIR"/include/*-[0-9]*/; do
+    [ -d "$dir" ] || continue
+    vendored=$(basename "$dir")
+    [ -d "$NEW_DIR/include/$vendored" ] || continue
+    include_args+=(--include old="$OLD_DIR/include/$vendored" \
+                   --include new="$NEW_DIR/include/$vendored")
+done
+
+# Headers that cannot be parsed as a translation unit, so they are never part of
+# the compared surface. Only reachable when HEADER_SUBDIR is broad (the shared
+# library legs); a no-op for the runtime bindings.
+#   core.h / lib.h  documentation umbrellas, literally `static_assert(false, ...)`
+#   cpuid.h         abicheck puts each parsed header's own directory on the
+#                   include path, so include/svs shadows the system <cpuid.h>
+#                   that svs/cpuid.h itself includes -- #pragma once then makes
+#                   it a no-op and __cpuid is undeclared. Costs two inline
+#                   svs::detail functions.
+#   vendored trees  parsed transitively via -I where svs actually uses them; eve
+#                   sweeps in ARM SVE headers that cannot compile on x86.
+#   ivf             svs/index/ivf/common.h includes <mkl.h> *unconditionally* --
+#                   no SVS_HAVE_MKL guard -- and no tarball ships MKL headers. So
+#                   IVF is compared at symbol level only, not header-aware. To
+#                   restore it, install MKL headers on the runner and drop these
+#                   three patterns; SVS_HAVE_MKL will not do it.
+exclude_args=()
+# Every pattern is leading-* so it matches the full path, not just a path relative
+# to HEADER_SUBDIR, which varies per leg.
+for pattern in '*svs/core/core.h' '*svs/lib/lib.h' '*svs/cpuid.h' \
+               '*svs/index/ivf/*' '*svs/extensions/ivf/*' '*svs/orchestrators/*ivf*' \
+               '*/eve-*/*' '*/fmt/*' '*/spdlog/*' '*/tsl/*' '*/toml++/*'; do
+    exclude_args+=(--exclude-header "$pattern")
+done
+
 rc=0
 # Without pipefail the pipe into tee masks abicheck's exit status.
 set -o pipefail
@@ -100,8 +141,8 @@ abicheck compare \
     "$NEW_LIB" \
     --header old="$OLD_DIR/$HEADER_SUBDIR" \
     --header new="$NEW_DIR/$HEADER_SUBDIR" \
-    --include old="$OLD_DIR/include" \
-    --include new="$NEW_DIR/include" \
+    "${include_args[@]}" \
+    "${exclude_args[@]}" \
     --version old="$OLD_LABEL" \
     --version new="$NEW_LABEL" \
     --policy "$POLICY" \

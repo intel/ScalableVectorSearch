@@ -69,7 +69,10 @@ jobs:
         with:
           name: svs-cpp-runtime-bindings${{ matrix.suffix }}
           path: svs-cpp-runtime-bindings${{ matrix.suffix }}.tar.gz
-          retention-days: 7  # Reduce retention due to size
+          # Reduced due to size, but kept longer on main: those artifacts are the
+          # ABI baseline every open PR is measured against, so expiring them in a
+          # week makes the check fail on any quiet stretch.
+          retention-days: ${{ github.ref == 'refs/heads/main' && 30 || 7 }}
 
       - name: Upload conda package artifacts
         uses: actions/upload-artifact@v7
@@ -134,20 +137,33 @@ jobs:
             svs-manylinux228:latest \
             /bin/bash .github/scripts/test-faiss.sh
 
-  # Check the built runtime bindings against the last published release.
+  # Check the built runtime bindings against the newest build on main.
   #
-  # Only the default variant is checked: releases publish
-  # svs-cpp-runtime-bindings.tar.gz but no -public-only asset, so that variant has
-  # nothing to compare against. It is covered indirectly -- both variants build
-  # from the same headers.
+  # Deliberately not against a published release: release assets are produced by
+  # the innersource private-source build, which compiles svs in-tree with
+  # IVF/LeanVec, while this repo's CI links the prebuilt LTO archive. Those two
+  # paths export genuinely different symbol sets (253 vs 138 on v0.4.0), so a
+  # release baseline reports build-path divergence as ABI findings and needs
+  # standing waivers to stay green. main-vs-PR is like-for-like by construction.
+  #
+  # The trade-off is real and accepted: this measures drift since main, not
+  # compatibility with what users have installed. Nothing checks the latter per-PR
+  # any more -- it is a release-time comparison against the previous release's
+  # assets, and has to be run deliberately when cutting one.
+  #
+  # Only the default variant is checked; -public-only is covered indirectly since
+  # both variants build from the same headers.
   #
   # The comparison primitive is .github/scripts/abi-check.sh, which the
   # innersource repo also calls through its submodule path so the two repos cannot
   # drift on how the same library is measured.
   abi-check:
-    name: ABI check against the last release
+    name: ABI check against main
     needs: build-cpp-runtime-bindings
     runs-on: ubuntu-22.04
+    permissions:
+      contents: read
+      actions: read  # gh run list/download, to fetch main's artifact as baseline
     # An intentionally-breaking PR still gets a full report: the label downgrades
     # this job from blocking to informational rather than skipping it, so the
     # break is recorded on the PR instead of going unmeasured.
@@ -172,31 +188,45 @@ jobs:
       - name: Install abicheck
         run: pip install 'abicheck==0.6.*'
 
-      - name: Resolve baseline release tag
+      # The newest main run that still has a downloadable artifact. This is main's
+      # tip rather than the PR's true merge-base: a PR far behind main will also
+      # see main's own changes, which is noisy but never a false "compatible".
+      #
+      # A missing baseline is a hard failure: a green check that silently skipped
+      # the comparison is worse than a red one.
+      - name: Download baseline build from main
         id: baseline
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          tag=$(grep -v '^#' .github/abi-baseline-tag | tr -d '[:space:]')
-          if [ "$tag" = 'latest' ]; then
-            tag=$(gh release view --json tagName --jq '.tagName')
-          fi
-          echo "tag=$tag" >> "$GITHUB_OUTPUT"
-
-      # A missing baseline is a hard failure: a green check that silently skipped
-      # the comparison is worse than a red one.
-      - name: Download release baseline
-        env:
-          GH_TOKEN: ${{ github.token }}
-          TAG: ${{ steps.baseline.outputs.tag }}
-        run: |
           mkdir -p baseline
-          if ! gh release download "$TAG" --pattern svs-cpp-runtime-bindings.tar.gz \
-                 --dir baseline; then
-            echo "::error::Release $TAG has no svs-cpp-runtime-bindings.tar.gz asset." \
-                 "Fix the pin in .github/abi-baseline-tag."
+          # Not filtered on conclusion: a run whose tests failed still produced a
+          # valid tarball, and a run that produced none just fails to download and
+          # falls through to the next candidate.
+          candidates=$(gh run list --repo "$GITHUB_REPOSITORY" \
+            --workflow build-cpp-runtime-bindings.yml \
+            --branch main --event push --limit 20 \
+            --json databaseId,headSha --jq '.[] | "\(.databaseId) \(.headSha)"')
+
+          label=
+          while read -r run_id sha; do
+            [ -n "$run_id" ] || continue
+            [ "$run_id" != "$GITHUB_RUN_ID" ] || continue
+            if gh run download "$run_id" --repo "$GITHUB_REPOSITORY" \
+                 --name svs-cpp-runtime-bindings --dir baseline; then
+              label="main@${sha:0:12}"
+              echo "Baseline: run $run_id ($label)"
+              break
+            fi
+          done <<< "$candidates"
+
+          if [ -z "$label" ]; then
+            echo "::error::No recent main run has a downloadable" \
+                 "svs-cpp-runtime-bindings artifact. Re-run this workflow on main" \
+                 "to refresh the baseline."
             exit 1
           fi
+          echo "label=$label" >> "$GITHUB_OUTPUT"
 
       - name: Download this build
         uses: actions/download-artifact@v8
@@ -215,12 +245,12 @@ jobs:
           label='${{ github.event.pull_request.number && format('PR {0}', github.event.pull_request.number) || github.ref_name }}'
           rc=0
           .github/scripts/abi-check.sh \
-            '${{ steps.baseline.outputs.tag }}' baseline/svs-cpp-runtime-bindings.tar.gz \
+            '${{ steps.baseline.outputs.label }}' baseline/svs-cpp-runtime-bindings.tar.gz \
             "$label" current/svs-cpp-runtime-bindings.tar.gz || rc=$?
 
           if [ -s abi-report.md ]; then
             {
-              echo "## ABI vs ${{ steps.baseline.outputs.tag }}"
+              echo "## ABI vs ${{ steps.baseline.outputs.label }}"
               cat abi-report.md
             } >> "$GITHUB_STEP_SUMMARY"
           fi

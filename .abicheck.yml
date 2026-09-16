@@ -24,10 +24,36 @@
 # castxml's default cc-gnu detection parses SVS's C++20 headers at the wrong
 # standard (std::span / constexpr dtor fail). The clang AST frontend handles
 # C++20 cleanly; layout-only checks fall back to the .so's DWARF.
+#
+# The options below reproduce build assumptions the headers make but do not state.
+# They are one fixed set applied to BOTH sides on purpose, not derived per side:
+# abicheck's profile_fingerprint hashes compiler + macros + include content and
+# refuses to compare (rc=16) when the two sides disagree, and the tarballs do
+# disagree -- the private-source build declares SVS_ENABLE_IVF=1, the public one 0.
+# So this list is a reviewed contract. Changing it changes what is compared.
+#
+#   -fsized-deallocation   svs::lib::Allocator calls the sized+aligned
+#                          `::operator delete`; clang leaves the feature off, so
+#                          libstdc++ hides that overload and the header fails.
+#   -DSPDLOG_FMT_EXTERNAL  the shipped spdlog has no fmt/bundled/.
+#   -DSVS_*                svs/lib/preprocessor.h static_asserts that each of
+#                          these is exactly 0 or 1, so they cannot be left unset.
+#   -DSVS_VERSION_*        svs/lib/version.h needs them defined. Deliberately 0/0/0
+#                          rather than the real version: they are constructor
+#                          arguments, not types, so they cannot move the ABI, and
+#                          the two sides must be given identical macros anyway.
+#
+# SVS_HAVE_MKL=0 matches how the compared surface is scoped, but note it does NOT
+# by itself avoid MKL: svs/index/ivf/common.h includes <mkl.h> unguarded, so the
+# IVF headers are excluded in abi-check.sh instead. Revisit both together, by
+# installing MKL headers on the runner, if these legs ever become blocking.
 compile:
   frontend: clang
   std: c++20
-  options: [-include, cstddef]
+  options: [-include, cstddef, -fsized-deallocation, -DSPDLOG_FMT_EXTERNAL,
+            -DSVS_CHECK_BOUNDS=0, -DSVS_ENABLE_NUMA=0, -DSVS_INITIALIZE_LOGGER=1,
+            -DSVS_ENABLE_IVF=0, -DSVS_HAVE_MKL=0,
+            -DSVS_VERSION_MAJOR=0, -DSVS_VERSION_MINOR=0, -DSVS_VERSION_PATCH=0]
 
 # Scope the compared surface to what we publish, and collapse the std/gnu_cxx
 # template-instantiation noise that leaks past --exclude-libs,ALL.
