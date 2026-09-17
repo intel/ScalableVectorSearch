@@ -116,3 +116,38 @@ jobs:
         CTEST_OUTPUT_ON_FAILURE: 1
       working-directory: ${{ runner.temp }}/build/examples/cpp
       run: ctest -C ${{ matrix.build_type }}
+
+  # SVS_NO_AVX512=YES is a supported configuration (cmake/options.cmake) that no
+  # other leg exercises -- the matrix above hardcodes NO -- and it changes which
+  # instructions each ISA level's object is allowed to contain, so it gets its
+  # own minimal job rather than a silently-untested option.
+  dispatch-no-avx512:
+    name: dispatch surface, SVS_NO_AVX512=YES
+    runs-on: ubuntu-22.04
+    steps:
+    - uses: actions/checkout@v6
+
+    - name: Configure build
+      working-directory: ${{ runner.temp }}
+      env:
+        CXX: g++-11
+        CC: gcc-11
+        TEMP_WORKSPACE: ${{ runner.temp }}
+      run: |
+        cmake -B${TEMP_WORKSPACE}/build -S${GITHUB_WORKSPACE} \
+              -DCMAKE_BUILD_TYPE=Release \
+              -DSVS_BUILD_TESTS=YES \
+              -DSVS_NO_AVX512=YES
+
+    # Only the dispatch surface probes, not the full suite: this job exists to
+    # catch a regression in the instruction-budget check, not to duplicate the
+    # matrix build above.
+    - name: Build dispatch surface probes
+      working-directory: ${{ runner.temp }}/build
+      run: make -j$(nproc) svs_x86_objects link_probe entry_probe
+
+    - name: Run dispatch surface checks
+      env:
+        CTEST_OUTPUT_ON_FAILURE: 1
+      working-directory: ${{ runner.temp }}/build/tests/multi-arch
+      run: ctest -R dispatch

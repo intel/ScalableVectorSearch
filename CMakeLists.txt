@@ -135,6 +135,16 @@ install(
     DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}"
     FILES_MATCHING PATTERN "*.h"
 )
+
+# The generated dispatch-surface header is not part of the include/ tree the
+# directory install above copies, so this is declared after it purely to keep
+# related install() calls together, not to win a conflict.
+if(DEFINED SVS_GENERATED_DISPATCH_HEADER)
+    install(
+        FILES "${SVS_GENERATED_DISPATCH_HEADER}"
+        DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/svs/core/distance"
+    )
+endif()
 install(
     EXPORT svs-targets
     NAMESPACE "svs::"
