@@ -1,0 +1,58 @@
+# Copyright 2026 Intel Corporation
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# abicheck configuration, picked up from the repo root by `abicheck compare`.
+# Validated against the abicheck 0.6.0 config schema.
+#
+# Kept identical to .abicheck.yml in the innersource repo: the two repos build
+# the same runtime library and must not disagree on how it is parsed.
+#
+# 0.6 removed the --ast-frontend and --gcc-options flags, so these keys are the
+# only way to set them; abi-check.sh relies on this file being found.
+
+# castxml's default cc-gnu detection parses SVS's C++20 headers at the wrong
+# standard (std::span / constexpr dtor fail). The clang AST frontend handles
+# C++20 cleanly; layout-only checks fall back to the .so's DWARF.
+#
+# The options below reproduce build assumptions the headers make but do not state.
+# One fixed set applied to BOTH sides on purpose, not derived per side: abicheck's
+# profile_fingerprint hashes compiler + macros + include content and refuses to
+# compare (rc=16) when the two sides disagree. Changing this list changes what is
+# compared, so keep it a reviewed contract.
+#
+#   -fsized-deallocation   svs::lib::Allocator calls the sized+aligned
+#                          `::operator delete`; clang leaves the feature off, so
+#                          libstdc++ hides that overload and the header fails.
+#   -DSPDLOG_FMT_EXTERNAL  the shipped spdlog has no fmt/bundled/.
+#   -DSVS_*                svs/lib/preprocessor.h static_asserts that each of
+#                          these is exactly 0 or 1, so they cannot be left unset.
+#   -DSVS_VERSION_*        svs/lib/version.h needs them defined. Deliberately 0/0/0
+#                          rather than the real version: they are constructor
+#                          arguments, not types, so they cannot move the ABI, and
+#                          the two sides must be given identical macros anyway.
+compile:
+  frontend: clang
+  std: c++20
+  options: [-include, cstddef, -fsized-deallocation, -DSPDLOG_FMT_EXTERNAL,
+            -DSVS_CHECK_BOUNDS=0, -DSVS_ENABLE_NUMA=0, -DSVS_INITIALIZE_LOGGER=1,
+            -DSVS_VERSION_MAJOR=0, -DSVS_VERSION_MINOR=0, -DSVS_VERSION_PATCH=0]
+
+# Scope the compared surface to what we publish, and collapse the std/gnu_cxx
+# template-instantiation noise that leaks past --exclude-libs,ALL.
+scope:
+  public: true
+  collapse_versioned_symbols: true
+
+suppression:
+  require_justification: true

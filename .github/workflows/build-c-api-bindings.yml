@@ -69,7 +69,10 @@ jobs:
         with:
           name: svs-c-api${{ matrix.suffix }}
           path: svs-c-api${{ matrix.suffix }}.tar.gz
-          retention-days: 7
+          # Reduced due to size, but kept longer on main: those artifacts are the ABI
+          # baseline every open PR is measured against, so expiring them in a week
+          # makes the check fail on any quiet stretch.
+          retention-days: ${{ github.ref == 'refs/heads/main' && 30 || 7 }}
 
       # Run unit tests that were built as part of this job
       - name: Run unit tests in Docker container
@@ -121,3 +124,129 @@ jobs:
             -e SUFFIX=${{ matrix.suffix }} \
             svs-manylinux228:latest \
             /bin/bash .github/scripts/test-c-api-bindings.sh
+
+  # Check the built C API against the newest build on main.
+  #
+  # Deliberately not against a published release: no release ships a C API yet, so
+  # there is nothing to compare against. Once svs-c-api.tar.gz is a release asset
+  # that becomes a release-time comparison, run when cutting one, the same way the
+  # runtime bindings are handled -- see the note in build-cpp-runtime-bindings.yml.
+  #
+  # The best-conditioned of the libraries checked here. Pure C behind
+  # -fvisibility=hidden, so the exported set is already exactly the intended ABI,
+  # which the integration test above independently asserts; and svs_c.h reaches only
+  # stdbool/stddef/stdint plus its own generated version header. Hence full header
+  # depth and an empty suppression file.
+  #
+  # Only the default variant is checked; -public-only is covered indirectly since
+  # both variants build from the same headers.
+  #
+  # The comparison primitive is .github/scripts/abi-check.sh, which the innersource
+  # repo also calls through its submodule path so the two repos cannot drift on how
+  # the same library is measured.
+  abi-check:
+    name: ABI check against main
+    needs: build-c-api-bindings
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: read
+      actions: read  # list runs and download artifacts, to fetch main's as baseline
+    # An intentionally-breaking PR still gets a full report: the label downgrades
+    # this job from blocking to informational rather than skipping it, so the
+    # break is recorded on the PR instead of going unmeasured.
+    continue-on-error: ${{ contains(toJson(github.event.pull_request.labels.*.name), '"API/ABI breaking change"') }}
+
+    steps:
+      - uses: actions/checkout@v6
+
+      # Same reason as in build-cpp-runtime-bindings.yml: the hosted image's
+      # clang-13/14 degrades abicheck's AST frontend, and innersource measures with a
+      # c++20-capable clang from its self-hosted toolchain.
+      - name: Install clang for the AST frontend
+        run: |
+          wget -qO /tmp/llvm.sh https://apt.llvm.org/llvm.sh
+          chmod +x /tmp/llvm.sh
+          sudo /tmp/llvm.sh 18
+          sudo apt-get install -y --no-install-recommends libclang-18-dev llvm-18-dev
+          sudo update-alternatives --install /usr/bin/clang   clang   /usr/bin/clang-18   100
+          sudo update-alternatives --install /usr/bin/clang++ clang++ /usr/bin/clang++-18 100
+
+      - name: Install abicheck
+        run: pip install 'abicheck==0.6.*'
+
+      # The newest main run that still has a downloadable artifact. This is main's
+      # tip rather than the PR's true merge-base: a PR far behind main will also
+      # see main's own changes, which is noisy but never a false "compatible".
+      #
+      # A missing baseline is a hard failure: a green check that silently skipped
+      # the comparison is worse than a red one.
+      - name: Download baseline build from main
+        id: baseline
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p baseline
+          # Not filtered on conclusion: a run whose tests failed still produced a
+          # valid tarball, and a run that produced none just fails to download and
+          # falls through to the next candidate.
+          #
+          # The REST endpoint rather than `gh run list`: the latter was observed
+          # returning stale pages (all candidates months-expired, newest run
+          # missing), which burns every attempt and fails the leg spuriously.
+          candidates=$(gh api \
+            "repos/$GITHUB_REPOSITORY/actions/workflows/build-c-api-bindings.yml/runs?branch=main&event=push&per_page=20" \
+            --jq '.workflow_runs[] | "\(.id) \(.head_sha)"')
+
+          label=
+          while read -r run_id sha; do
+            [ -n "$run_id" ] || continue
+            [ "$run_id" != "$GITHUB_RUN_ID" ] || continue
+            if gh run download "$run_id" --repo "$GITHUB_REPOSITORY" \
+                 --name svs-c-api --dir baseline; then
+              label="main@${sha:0:12}"
+              echo "Baseline: run $run_id ($label)"
+              break
+            fi
+          done <<< "$candidates"
+
+          if [ -z "$label" ]; then
+            echo "::error::No recent main run has a downloadable svs-c-api" \
+                 "artifact. Re-run this workflow on main to refresh the baseline."
+            exit 1
+          fi
+          echo "label=$label" >> "$GITHUB_OUTPUT"
+
+      - name: Download this build
+        uses: actions/download-artifact@v8
+        with:
+          name: svs-c-api
+          path: current
+
+      - name: Compare
+        env:
+          LIBRARY: libsvs_c_api.so
+          HEADER_SUBDIR: include/svs/c
+          SUPPRESSIONS: .github/abi-suppressions-c-api.yml
+          POLICY: strict_abi
+        run: |
+          chmod +x .github/scripts/abi-check.sh
+          label='${{ github.event.pull_request.number && format('PR {0}', github.event.pull_request.number) || github.ref_name }}'
+          rc=0
+          .github/scripts/abi-check.sh \
+            '${{ steps.baseline.outputs.label }}' baseline/svs-c-api.tar.gz \
+            "$label" current/svs-c-api.tar.gz || rc=$?
+
+          if [ -s abi-report.md ]; then
+            {
+              echo "## ABI vs ${{ steps.baseline.outputs.label }}"
+              cat abi-report.md
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+          # 77 means an input tarball was missing; that is a harness/plumbing
+          # problem and must fail loudly rather than pass as "no findings".
+          if [ "$rc" -eq 77 ] || [ "$rc" -eq 64 ]; then
+            echo "::error::ABI check could not run (rc=$rc)."
+            exit 1
+          fi
+          exit "$rc"

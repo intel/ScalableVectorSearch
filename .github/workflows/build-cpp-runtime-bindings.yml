@@ -69,7 +69,10 @@ jobs:
         with:
           name: svs-cpp-runtime-bindings${{ matrix.suffix }}
           path: svs-cpp-runtime-bindings${{ matrix.suffix }}.tar.gz
-          retention-days: 7  # Reduce retention due to size
+          # Reduced due to size, but kept longer on main: those artifacts are the
+          # ABI baseline every open PR is measured against, so expiring them in a
+          # week makes the check fail on any quiet stretch.
+          retention-days: ${{ github.ref == 'refs/heads/main' && 30 || 7 }}
 
       - name: Upload conda package artifacts
         uses: actions/upload-artifact@v7
@@ -133,3 +136,132 @@ jobs:
             -e ENABLE_LVQ_LEANVEC=${{ matrix.enable_lvq_leanvec }} \
             svs-manylinux228:latest \
             /bin/bash .github/scripts/test-faiss.sh
+
+  # Check the built runtime bindings against the newest build on main.
+  #
+  # Deliberately not against a published release: release assets are produced by
+  # the innersource private-source build, which compiles svs in-tree with
+  # IVF/LeanVec, while this repo's CI links the prebuilt LTO archive. Those two
+  # paths export genuinely different symbol sets (253 vs 138 on v0.4.0), so a
+  # release baseline reports build-path divergence as ABI findings and needs
+  # standing waivers to stay green. main-vs-PR is like-for-like by construction.
+  #
+  # The trade-off is real and accepted: this measures drift since main, not
+  # compatibility with what users have installed. Nothing checks the latter per-PR
+  # any more -- it is a release-time comparison against the previous release's
+  # assets, and has to be run deliberately when cutting one.
+  #
+  # Only the default variant is checked; -public-only is covered indirectly since
+  # both variants build from the same headers.
+  #
+  # The comparison primitive is .github/scripts/abi-check.sh, which the
+  # innersource repo also calls through its submodule path so the two repos cannot
+  # drift on how the same library is measured.
+  abi-check:
+    name: ABI check against main
+    needs: build-cpp-runtime-bindings
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: read
+      actions: read  # list runs and download artifacts, to fetch main's as baseline
+    # An intentionally-breaking PR still gets a full report: the label downgrades
+    # this job from blocking to informational rather than skipping it, so the
+    # break is recorded on the PR instead of going unmeasured.
+    continue-on-error: ${{ contains(toJson(github.event.pull_request.labels.*.name), '"API/ABI breaking change"') }}
+
+    steps:
+      - uses: actions/checkout@v6
+
+      # The hosted ubuntu-22.04 image ships only clang-13/14, which degrades
+      # abicheck's clang AST frontend to ELF-tier and drops constrained-template
+      # diffs. innersource gets a c++20-capable clang from its self-hosted
+      # toolchain; this keeps the two repos measuring at the same fidelity.
+      - name: Install clang for the AST frontend
+        run: |
+          wget -qO /tmp/llvm.sh https://apt.llvm.org/llvm.sh
+          chmod +x /tmp/llvm.sh
+          sudo /tmp/llvm.sh 18
+          sudo apt-get install -y --no-install-recommends libclang-18-dev llvm-18-dev
+          sudo update-alternatives --install /usr/bin/clang   clang   /usr/bin/clang-18   100
+          sudo update-alternatives --install /usr/bin/clang++ clang++ /usr/bin/clang++-18 100
+
+      - name: Install abicheck
+        run: pip install 'abicheck==0.6.*'
+
+      # The newest main run that still has a downloadable artifact. This is main's
+      # tip rather than the PR's true merge-base: a PR far behind main will also
+      # see main's own changes, which is noisy but never a false "compatible".
+      #
+      # A missing baseline is a hard failure: a green check that silently skipped
+      # the comparison is worse than a red one.
+      - name: Download baseline build from main
+        id: baseline
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p baseline
+          # Not filtered on conclusion: a run whose tests failed still produced a
+          # valid tarball, and a run that produced none just fails to download and
+          # falls through to the next candidate.
+          #
+          # The REST endpoint rather than `gh run list`: the latter was observed
+          # returning stale pages (all candidates months-expired, newest run
+          # missing), which burns every attempt and fails the leg spuriously.
+          candidates=$(gh api \
+            "repos/$GITHUB_REPOSITORY/actions/workflows/build-cpp-runtime-bindings.yml/runs?branch=main&event=push&per_page=20" \
+            --jq '.workflow_runs[] | "\(.id) \(.head_sha)"')
+
+          label=
+          while read -r run_id sha; do
+            [ -n "$run_id" ] || continue
+            [ "$run_id" != "$GITHUB_RUN_ID" ] || continue
+            if gh run download "$run_id" --repo "$GITHUB_REPOSITORY" \
+                 --name svs-cpp-runtime-bindings --dir baseline; then
+              label="main@${sha:0:12}"
+              echo "Baseline: run $run_id ($label)"
+              break
+            fi
+          done <<< "$candidates"
+
+          if [ -z "$label" ]; then
+            echo "::error::No recent main run has a downloadable" \
+                 "svs-cpp-runtime-bindings artifact. Re-run this workflow on main" \
+                 "to refresh the baseline."
+            exit 1
+          fi
+          echo "label=$label" >> "$GITHUB_OUTPUT"
+
+      - name: Download this build
+        uses: actions/download-artifact@v8
+        with:
+          name: svs-cpp-runtime-bindings
+          path: current
+
+      - name: Compare
+        env:
+          LIBRARY: libsvs_runtime.so
+          HEADER_SUBDIR: include/svs/runtime
+          SUPPRESSIONS: .github/abi-suppressions.yml
+          POLICY: strict_abi
+        run: |
+          chmod +x .github/scripts/abi-check.sh
+          label='${{ github.event.pull_request.number && format('PR {0}', github.event.pull_request.number) || github.ref_name }}'
+          rc=0
+          .github/scripts/abi-check.sh \
+            '${{ steps.baseline.outputs.label }}' baseline/svs-cpp-runtime-bindings.tar.gz \
+            "$label" current/svs-cpp-runtime-bindings.tar.gz || rc=$?
+
+          if [ -s abi-report.md ]; then
+            {
+              echo "## ABI vs ${{ steps.baseline.outputs.label }}"
+              cat abi-report.md
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+          # 77 means an input tarball was missing; that is a harness/plumbing
+          # problem and must fail loudly rather than pass as "no findings".
+          if [ "$rc" -eq 77 ] || [ "$rc" -eq 64 ]; then
+            echo "::error::ABI check could not run (rc=$rc)."
+            exit 1
+          fi
+          exit "$rc"
