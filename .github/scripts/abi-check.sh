@@ -15,24 +15,28 @@
 
 # Compare the ABI of two SVS build tarballs with napetrov/abicheck.
 #
-# One primitive, three callers, all asking the same temporal question -- is `new`
-# a drop-in replacement for `old`? Only the baseline differs:
+# One primitive, every caller asking the same temporal question -- is `new` a
+# drop-in replacement for `old`? Only the baseline differs:
 #   per-PR      old = the newest main build, new = this build (both repos)
 #   nightly     old = the last release asset, new = today's main build
 # The distinction is entirely in what the caller passes, so this lives in one
-# place: this repo's build-cpp-runtime-bindings.yml and build-share-lib.yml in
-# the innersource repo, which reaches it through the submodule path.
+# place. Callers: build-cpp-runtime-bindings.yml and build-c-api-bindings.yml in
+# this repo; build-share-lib.yml and build-c-api.yml in the innersource repo,
+# which reach it through the submodule path.
 #
 # Usage: abi-check.sh <old-label> <old-tarball> <new-label> <new-tarball>
 #
 # Overridable via environment:
 #   LIBRARY        library basename to compare (default libsvs_runtime.so)
 #   HEADER_SUBDIR  header root inside the tarball (default include/svs/runtime)
-#   SUPPRESSIONS   suppression file (default .github/abi-suppressions.yml)
+#   SUPPRESSIONS   suppression file (default .github/abi-suppressions.yml).
+#                  A missing file is skipped silently, so callers that mean to
+#                  suppress nothing should still point at a real empty one.
 #   POLICY         abicheck policy (default strict_abi)
 #   DEPTH          abicheck --depth (default: unset, i.e. abicheck's own
-#                  'headers'). Set to 'binary' for the shared library, whose
-#                  header set does not finish parsing in any usable time.
+#                  'headers'). 'binary' is the escape hatch for a header set that
+#                  does not finish parsing in any usable time, as the shared
+#                  library's does not; no current caller needs it.
 #   REPORT         markdown report path (default abi-report.md)
 #   WORKDIR        scratch directory (default abi-work)
 #
@@ -117,8 +121,9 @@ for dir in "$OLD_DIR"/include/*-[0-9]*/; do
 done
 
 # Headers that cannot be parsed as a translation unit, so they are never part of
-# the compared surface. Only reachable when HEADER_SUBDIR is broad (the shared
-# library legs); a no-op for the runtime bindings.
+# the compared surface. Only reachable when HEADER_SUBDIR is broad, which no
+# current caller's is -- a no-op for the runtime bindings and the C API, kept for
+# whenever a whole-of-svs header root is compared again.
 #   core.h / lib.h  documentation umbrellas, literally `static_assert(false, ...)`
 #   cpuid.h         abicheck puts each parsed header's own directory on the
 #                   include path, so include/svs shadows the system <cpuid.h>
