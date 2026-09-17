@@ -127,11 +127,9 @@ done
 #                   svs::detail functions.
 #   vendored trees  parsed transitively via -I where svs actually uses them; eve
 #                   sweeps in ARM SVE headers that cannot compile on x86.
-#   ivf             svs/index/ivf/common.h includes <mkl.h> *unconditionally* --
-#                   no SVS_HAVE_MKL guard -- and no tarball ships MKL headers. So
-#                   IVF is compared at symbol level only, not header-aware. To
-#                   restore it, install MKL headers on the runner and drop these
-#                   three patterns; SVS_HAVE_MKL will not do it.
+#   ivf             svs/index/ivf/common.h includes <mkl.h> unguarded and no
+#                   tarball ships MKL headers, so IVF is compared at symbol level
+#                   only. Install MKL headers on the runner to restore it.
 exclude_args=()
 # Every pattern is leading-* so it matches the full path, not just a path relative
 # to HEADER_SUBDIR, which varies per leg.
