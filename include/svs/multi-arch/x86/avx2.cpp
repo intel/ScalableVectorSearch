@@ -16,8 +16,10 @@
 
 #if defined(__x86_64__)
 #include "svs/core/distance/cosine.h"
+#include "svs/core/distance/dispatch_surface.h"
 #include "svs/core/distance/euclidean.h"
 #include "svs/core/distance/inner_product.h"
+#include "svs/multi-arch/x86/preprocessor.h"
 
 namespace svs::distance {
 

@@ -12,8 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# The smallest declaration that is still a library: one fixed extent, one ISA
-# level. Every other dimensionality is served by the svs::Dynamic kernel.
+# The smallest declaration that is still a library: one fixed extent and the
+# two mandatory ISA levels. Every other dimensionality is served by the
+# svs::Dynamic kernel.
 
 set(SVS_SUPPORTED_DIMS 128)
-set(SVS_ISA_LEVELS "AVX2|haswell|avx2")
+set(SVS_ISA_LEVELS
+    "AVX2|haswell|avx2"
+    "AVX512|skylake-avx512|avx512"
+)

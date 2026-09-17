@@ -112,8 +112,8 @@ int main(int argc, char** argv) {
         // breaks on this extent's kernels to see which level the call enters.
         std::printf("expect-level %d\n", svs_test::expected_level());
         std::printf("probe-extent %zu\n", entry_report_dim);
-        // int8/int8, mangled `aa` and matched in cmake/check-dispatch-execution.cmake:
-        // a float-promoting pair has no AVX512_VNNI kernel and routes a level lower.
+        // int8/int8, mangled `aa`, is one of the only two pairs with an AVX512_VNNI
+        // kernel, so it is the pair whose reported level distinguishes VNNI from AVX512.
         std::printf(
             "one-call %f\n",
             static_cast<double>(entry_one<entry_report_dim, std::int8_t, std::int8_t>())

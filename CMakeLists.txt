@@ -136,10 +136,9 @@ install(
     FILES_MATCHING PATTERN "*.h"
 )
 
-# Install the generated dispatch-surface header over the committed one. They are
-# identical for the default declaration; if the surface was overridden, the
-# installed headers must describe what the library was actually built with. This
-# must be declared after the directory install above so that it wins.
+# The generated dispatch-surface header is not part of the include/ tree the
+# directory install above copies, so this is declared after it purely to keep
+# related install() calls together, not to win a conflict.
 if(DEFINED SVS_GENERATED_DISPATCH_HEADER)
     install(
         FILES "${SVS_GENERATED_DISPATCH_HEADER}"

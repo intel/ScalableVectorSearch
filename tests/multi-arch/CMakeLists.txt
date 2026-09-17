@@ -115,6 +115,7 @@ if(svs_objdump)
             "-DSVS_LEVEL=${svs_level}"
             "-DSVS_ARCH=${svs_arch}"
             "-DSVS_OBJDUMP=${svs_objdump}"
+            "-DSVS_NO_AVX512=${SVS_NO_AVX512}"
             -P "${svs_dispatch_cmake_dir}/check-dispatch-instructions.cmake"
         )
     endforeach()

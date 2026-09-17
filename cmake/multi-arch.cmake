@@ -18,6 +18,7 @@
 # cmake/dispatch-surface.cmake.
 include("${CMAKE_CURRENT_LIST_DIR}/dispatch-levels.cmake")
 include("${CMAKE_CURRENT_LIST_DIR}/generate-dispatch-surface.cmake")
+svs_generate_dispatch_surface(SVS_DISPATCH_TU_SPECS SVS_GENERATED_DISPATCH_HEADER)
 
 set(SVS_X86_OBJECT_FILES)
 foreach(tu_spec IN LISTS SVS_DISPATCH_TU_SPECS)

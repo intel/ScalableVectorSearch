@@ -106,6 +106,32 @@ if(NOT SVS_ISA_LEVELS)
     message(FATAL_ERROR "SVS_ISA_LEVELS is empty in ${SVS_DISPATCH_SURFACE_FILE}.")
 endif()
 
+# The legal level names are the enumerators of svs::distance::AVX_AVAILABILITY,
+# read from the header rather than hand-copied here: a declared level the enum
+# does not name would only fail once the generated C++ tries to compile it,
+# which is exactly the late failure this validator exists to catch early.
+set(svs_distance_core_header
+    "${CMAKE_CURRENT_LIST_DIR}/../include/svs/core/distance/distance_core.h"
+)
+if(NOT EXISTS "${svs_distance_core_header}")
+    message(FATAL_ERROR
+        "Cannot find ${svs_distance_core_header} to read AVX_AVAILABILITY from."
+    )
+endif()
+file(READ "${svs_distance_core_header}" svs_distance_core_text)
+if(NOT svs_distance_core_text MATCHES "enum class AVX_AVAILABILITY[ \t\r\n]*{([^}]*)}")
+    message(FATAL_ERROR
+        "Cannot find 'enum class AVX_AVAILABILITY { ... }' in "
+        "${svs_distance_core_header}."
+    )
+endif()
+string(REPLACE "," ";" svs_legal_levels "${CMAKE_MATCH_1}")
+list(TRANSFORM svs_legal_levels STRIP)
+# NONE means "no level is present" and is never itself a row: it has no
+# translation unit and no object library, so declaring it would name files
+# that must not exist.
+list(REMOVE_ITEM svs_legal_levels "NONE")
+
 set(svs_seen_levels)
 set(svs_seen_infixes)
 set(svs_seen_archs)
@@ -118,6 +144,21 @@ foreach(level_spec IN LISTS SVS_ISA_LEVELS)
             )
         endif()
     endforeach()
+    if(level STREQUAL "NONE")
+        message(FATAL_ERROR
+            "ISA level 'NONE' in SVS_ISA_LEVELS is not declarable: it means no "
+            "level is present, so it has no translation unit and no object "
+            "library for a row to name."
+        )
+    endif()
+    if(NOT level IN_LIST svs_legal_levels)
+        string(REPLACE ";" ", " svs_legal_levels_display "${svs_legal_levels}")
+        message(FATAL_ERROR
+            "Unknown ISA level '${level}' in SVS_ISA_LEVELS: not an enumerator "
+            "of svs::distance::AVX_AVAILABILITY in ${svs_distance_core_header} "
+            "(legal levels: ${svs_legal_levels_display})."
+        )
+    endif()
     if(level IN_LIST svs_seen_levels)
         message(FATAL_ERROR "Duplicate ISA level '${level}' in SVS_ISA_LEVELS.")
     endif()
@@ -145,6 +186,17 @@ foreach(level_spec IN LISTS SVS_ISA_LEVELS)
     list(APPEND svs_seen_levels ${level})
     list(APPEND svs_seen_infixes ${infix})
     list(APPEND svs_seen_archs ${arch})
+endforeach()
+
+# distance_core.h #errors on x86_64 unless both are present, so a surface
+# omitting either is not a smaller build: it cannot compile.
+foreach(svs_mandatory_level AVX2 AVX512)
+    if(NOT svs_mandatory_level IN_LIST svs_seen_levels)
+        message(FATAL_ERROR
+            "SVS_ISA_LEVELS omits mandatory level '${svs_mandatory_level}'; "
+            "distance_core.h requires both AVX2 and AVX512 to be present."
+        )
+    endif()
 endforeach()
 
 cmake_policy(POP)

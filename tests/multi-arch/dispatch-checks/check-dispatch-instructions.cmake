@@ -20,11 +20,17 @@
 #####   cmake -DSVS_OBJECT=<avx2.cpp.o> \
 #####         -DSVS_LEVEL=AVX2 -DSVS_ARCH=haswell \
 #####         -DSVS_OBJDUMP=<objdump> \
+#####         [-DSVS_NO_AVX512=<bool>] \
 #####         -P tests/multi-arch/dispatch-checks/check-dispatch-instructions.cmake
 #####
 ##### A level promises the host satisfies its runtime predicate and nothing more,
 ##### so an instruction the predicate does not guarantee is an illegal-instruction
 ##### fault on a host the dispatcher considers supported.
+#####
+##### SVS_NO_AVX512 mirrors the build's own option of that name (cmake/options.cmake):
+##### -mno-avx512f beats a level's later -march= on GCC, so an AVX-512-bearing level
+##### then gets the generic scalar fallback instead of its wide kernels, and the
+##### budget below has to flip from requiring AVX-512 to forbidding it.
 #####
 
 # Without it, CMP0007 is unset in script mode and the empty "forbids nothing"
@@ -35,6 +41,12 @@ include("${CMAKE_CURRENT_LIST_DIR}/lib.cmake")
 
 svs_require(SVS_OBJECT SVS_LEVEL SVS_ARCH SVS_OBJDUMP)
 svs_require_files(SVS_OBJECT)
+
+# Optional: absent callers (and any caller predating this option) get the
+# default build's budget, matching cmake/options.cmake's own OFF default.
+if(NOT DEFINED SVS_NO_AVX512)
+    set(SVS_NO_AVX512 OFF)
+endif()
 
 # What each instruction class looks like in AT&T disassembly. Register classes are
 # matched with their `%` sigil so that a mangled name can never look like one.
@@ -54,17 +66,40 @@ set(svs_budget_table
     "cascadelake|zmm vnni|"
 )
 
+# Only the arches whose default budget above requires AVX-512: -mno-avx512f
+# does not touch haswell, so AVX2 keeps its normal row and has no entry here.
+set(svs_noavx512_budget_table
+    "skylake-avx512||zmm mask vnni"
+    "cascadelake||zmm mask vnni"
+)
+
 set(svs_budget_found FALSE)
-foreach(row IN LISTS svs_budget_table)
-    string(REPLACE "|" ";" fields "${row}")
-    list(GET fields 0 arch)
-    if(arch STREQUAL SVS_ARCH)
-        list(GET fields 1 svs_required)
-        list(GET fields 2 svs_forbidden)
-        set(svs_budget_found TRUE)
-        break()
-    endif()
-endforeach()
+set(svs_noavx512_active FALSE)
+if(SVS_NO_AVX512)
+    foreach(row IN LISTS svs_noavx512_budget_table)
+        string(REPLACE "|" ";" fields "${row}")
+        list(GET fields 0 arch)
+        if(arch STREQUAL SVS_ARCH)
+            list(GET fields 1 svs_required)
+            list(GET fields 2 svs_forbidden)
+            set(svs_budget_found TRUE)
+            set(svs_noavx512_active TRUE)
+            break()
+        endif()
+    endforeach()
+endif()
+if(NOT svs_budget_found)
+    foreach(row IN LISTS svs_budget_table)
+        string(REPLACE "|" ";" fields "${row}")
+        list(GET fields 0 arch)
+        if(arch STREQUAL SVS_ARCH)
+            list(GET fields 1 svs_required)
+            list(GET fields 2 svs_forbidden)
+            set(svs_budget_found TRUE)
+            break()
+        endif()
+    endforeach()
+endif()
 if(NOT svs_budget_found)
     message(FATAL_ERROR
         "No instruction budget is known for -march=${SVS_ARCH} (ISA level "
@@ -119,10 +154,17 @@ foreach(class IN LISTS svs_forbidden)
     svs_count_class(count "${class}")
     if(NOT count EQUAL 0)
         message("${SVS_OBJECT} contains ${count} ${class} instructions.")
-        message("ISA level ${SVS_LEVEL} guarantees only what its runtime predicate")
-        message("tests, so a host the dispatcher routes here faults on them. Either")
-        message("lower -march=${SVS_ARCH} in cmake/dispatch-surface.cmake, or give")
-        message("these kernels their own level with a predicate that covers them.")
+        if(svs_noavx512_active)
+            message("SVS_NO_AVX512 is set, so -mno-avx512f is supposed to keep AVX-512")
+            message("out of every level regardless of -march=${SVS_ARCH}. A hit here means")
+            message("that flag lost to something -- most likely flag order or a per-TU")
+            message("override -- and this object still faults on a non-AVX-512 host.")
+        else()
+            message("ISA level ${SVS_LEVEL} guarantees only what its runtime predicate")
+            message("tests, so a host the dispatcher routes here faults on them. Either")
+            message("lower -march=${SVS_ARCH} in cmake/dispatch-surface.cmake, or give")
+            message("these kernels their own level with a predicate that covers them.")
+        endif()
         math(EXPR errors "${errors} + 1")
     endif()
 endforeach()
@@ -131,14 +173,25 @@ if(NOT errors EQUAL 0)
     message(FATAL_ERROR "dispatch instruction check failed for level ${SVS_LEVEL}")
 endif()
 
-string(REPLACE ";" ", " summary_display "${summary}")
+if(svs_required STREQUAL "")
+    set(summary_display "nothing required")
+else()
+    string(REPLACE ";" ", " summary_display "${summary}")
+endif()
 if(svs_forbidden STREQUAL "")
     set(forbidden_display "nothing forbidden")
 else()
     string(REPLACE ";" ", " forbidden_display "${svs_forbidden}")
     set(forbidden_display "no ${forbidden_display}")
 endif()
-message(
-    "dispatch instructions: level ${SVS_LEVEL} at -march=${SVS_ARCH} has "
-    "${summary_display}, and ${forbidden_display}"
-)
+if(svs_noavx512_active)
+    message(
+        "dispatch instructions: level ${SVS_LEVEL} at -march=${SVS_ARCH} with "
+        "SVS_NO_AVX512 set requires no wide instructions, and confirms ${forbidden_display}"
+    )
+else()
+    message(
+        "dispatch instructions: level ${SVS_LEVEL} at -march=${SVS_ARCH} has "
+        "${summary_display}, and ${forbidden_display}"
+    )
+endif()

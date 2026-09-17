@@ -15,173 +15,230 @@
 #####
 ##### Derives the dispatch surface declared in cmake/dispatch-surface.cmake.
 #####
-##### Produces:
-#####   include/svs/core/distance/dispatch_surface.h  (source tree, committed)
+##### Defines svs_generate_dispatch_surface(), which produces:
+#####   <build>/generated/include/svs/core/distance/dispatch_surface.h  (build tree only)
 #####   SVS_DISPATCH_TU_SPECS -- "<src>|<level>|<arch>|<infix>", one per ISA level
+#####
+##### cmake/multi-arch.cmake calls the function and receives both.
 #####
 
 include_guard(GLOBAL)
 
 include("${CMAKE_CURRENT_LIST_DIR}/dispatch-levels.cmake")
 
+# Captured while CMAKE_CURRENT_LIST_DIR unambiguously means this directory, so the
+# functions below can reference sibling files after control has passed into them.
+set(SVS_DISPATCH_GEN_CMAKE_DIR "${CMAKE_CURRENT_LIST_DIR}")
+
 set(SVS_DEFAULT_DISPATCH_SURFACE_FILE "${CMAKE_CURRENT_LIST_DIR}/dispatch-surface.cmake")
+# Lets validate-dispatch-surface.cmake and check_dispatch_surface.sh point this at a
+# tests/cmake/dispatch-surface fixture instead of editing the real declaration.
 set(SVS_DISPATCH_SURFACE_FILE "${SVS_DEFAULT_DISPATCH_SURFACE_FILE}"
     CACHE FILEPATH
     "Declaration of the ahead-of-time distance-kernel dispatch surface"
 )
 
-# Reads the declaration and rejects it if it is malformed. Also runnable on its
-# own -- see .github/scripts/check_dispatch_surface.sh.
-set(SVS_X86_SRC_DIR "${PROJECT_SOURCE_DIR}/include/svs/multi-arch/x86")
-include("${CMAKE_CURRENT_LIST_DIR}/validate-dispatch-surface.cmake")
+#####
+##### Read and validate the declaration
+#####
 
-file(REAL_PATH "${SVS_DISPATCH_SURFACE_FILE}" svs_surface_real)
-file(REAL_PATH "${SVS_DEFAULT_DISPATCH_SURFACE_FILE}" svs_default_surface_real)
-if(svs_surface_real STREQUAL svs_default_surface_real)
-    set(svs_surface_is_default TRUE)
-else()
-    set(svs_surface_is_default FALSE)
-    message(STATUS
-        "Dispatch surface overridden by ${SVS_DISPATCH_SURFACE_FILE}; the "
-        "committed header will not be refreshed"
-    )
-endif()
-
-# Re-run configure when the declaration changes, so the generated header and the
-# translation units cannot go stale.
-set_property(
-    DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS
-    "${SVS_DISPATCH_SURFACE_FILE}"
-)
+# Includes validate-dispatch-surface.cmake, which rejects a malformed declaration
+# with FATAL_ERROR and otherwise sets SVS_SUPPORTED_DIMS, SVS_DIM_LIST,
+# SVS_DIM_COUNT and SVS_ISA_LEVELS. Also runnable on its own -- see
+# .github/scripts/check_dispatch_surface.sh.
+function(svs_dispatch_read_declaration surface_file x86_src_dir
+         out_supported_dims out_dim_list out_dim_count out_isa_levels)
+    set(SVS_DISPATCH_SURFACE_FILE "${surface_file}")
+    set(SVS_X86_SRC_DIR "${x86_src_dir}")
+    include("${SVS_DISPATCH_GEN_CMAKE_DIR}/validate-dispatch-surface.cmake")
+    set(${out_supported_dims} "${SVS_SUPPORTED_DIMS}" PARENT_SCOPE)
+    set(${out_dim_list} "${SVS_DIM_LIST}" PARENT_SCOPE)
+    set(${out_dim_count} "${SVS_DIM_COUNT}" PARENT_SCOPE)
+    set(${out_isa_levels} "${SVS_ISA_LEVELS}" PARENT_SCOPE)
+endfunction()
 
 #####
 ##### Build the macro bodies
 #####
 
-# Line continuations are emitted with a trailing backslash; the generated macros
-# are one logical line each.
-set(SVS_GEN_DIM_COUNT ${SVS_DIM_COUNT})
-
-set(SVS_GEN_DIM_LOOP "\\\n")
-foreach(dim IN LISTS SVS_DIM_LIST)
-    string(APPEND SVS_GEN_DIM_LOOP "    M(${dim}) \\\n")
-endforeach()
-string(APPEND SVS_GEN_DIM_LOOP "    /* end */")
-
-set(SVS_GEN_TARGET_LOOP "\\\n")
-set(SVS_GEN_LEVEL_LOOP "\\\n")
-set(SVS_GEN_LEVEL_DEFINES "")
-set(SVS_DISPATCH_TU_SPECS)
-foreach(level_spec IN LISTS SVS_ISA_LEVELS)
-    svs_parse_isa_level("${level_spec}" level arch infix)
-
-    string(APPEND SVS_GEN_LEVEL_LOOP "    M(${level}) \\\n")
-    string(APPEND SVS_GEN_LEVEL_DEFINES "#define SVS_ISA_LEVEL_${level} 1\n")
-
-    foreach(dim IN LISTS SVS_DIM_LIST)
-        string(APPEND SVS_GEN_TARGET_LOOP "    M(${dim}, ${level}) \\\n")
+# Builds the escaped-newline macro bodies that substitute into the header
+# template's @SVS_GEN_*@ placeholders -- see
+# cmake/templates/dispatch_surface.h.in for what each one expands into.
+function(svs_dispatch_build_expansions dim_list isa_levels
+         out_dim_loop out_target_loop out_level_loop out_level_defines)
+    set(dim_loop "\\\n")
+    foreach(dim IN LISTS dim_list)
+        string(APPEND dim_loop "    M(${dim}) \\\n")
     endforeach()
+    string(APPEND dim_loop "    /* end */")
 
-    # One translation unit per level, committed rather than generated because the
-    # downstream repository compiles these sources by path. Validation checks it exists.
-    list(APPEND SVS_DISPATCH_TU_SPECS
-        "${SVS_X86_SRC_DIR}/${infix}.cpp|${level}|${arch}|${infix}"
-    )
-    list(APPEND svs_level_report
-        "AVX_AVAILABILITY::${level} -march=${arch} ${infix}.cpp"
-    )
-endforeach()
-string(APPEND SVS_GEN_TARGET_LOOP "    /* end */")
-string(APPEND SVS_GEN_LEVEL_LOOP "    /* end */")
-string(STRIP "${SVS_GEN_LEVEL_DEFINES}" SVS_GEN_LEVEL_DEFINES)
+    set(target_loop "\\\n")
+    set(level_loop "\\\n")
+    set(level_defines "")
+    foreach(level_spec IN LISTS isa_levels)
+        svs_parse_isa_level("${level_spec}" level _ _)
+        string(APPEND level_loop "    M(${level}) \\\n")
+        string(APPEND level_defines "#define SVS_ISA_LEVEL_${level} 1\n")
+        foreach(dim IN LISTS dim_list)
+            string(APPEND target_loop "    M(${dim}, ${level}) \\\n")
+        endforeach()
+    endforeach()
+    string(APPEND target_loop "    /* end */")
+    string(APPEND level_loop "    /* end */")
+    string(STRIP "${level_defines}" level_defines)
+
+    set(${out_dim_loop} "${dim_loop}" PARENT_SCOPE)
+    set(${out_target_loop} "${target_loop}" PARENT_SCOPE)
+    set(${out_level_loop} "${level_loop}" PARENT_SCOPE)
+    set(${out_level_defines} "${level_defines}" PARENT_SCOPE)
+endfunction()
+
+#####
+##### Derive the translation-unit specs
+#####
+
+# One translation unit per level, committed rather than generated because the
+# downstream repository compiles these sources by path (validation checks each
+# exists). Also returns the plain level list and the human-readable report lines
+# the caller's message(STATUS ...) prints, since both come from this same walk.
+function(svs_dispatch_derive_tu_specs isa_levels x86_src_dir
+         out_tu_specs out_levels out_level_report)
+    set(tu_specs)
+    set(levels)
+    set(level_report)
+    foreach(level_spec IN LISTS isa_levels)
+        svs_parse_isa_level("${level_spec}" level arch infix)
+        list(APPEND tu_specs "${x86_src_dir}/${infix}.cpp|${level}|${arch}|${infix}")
+        list(APPEND levels "${level}")
+        list(APPEND level_report "AVX_AVAILABILITY::${level} -march=${arch} ${infix}.cpp")
+    endforeach()
+    set(${out_tu_specs} "${tu_specs}" PARENT_SCOPE)
+    set(${out_levels} "${levels}" PARENT_SCOPE)
+    set(${out_level_report} "${level_report}" PARENT_SCOPE)
+endfunction()
 
 #####
 ##### Emit the header
 #####
 
-# The build always compiles against the build-tree copy, and it is placed ahead
-# of the source include directory so that it wins.
-set(SVS_GENERATED_INCLUDE_DIR "${CMAKE_CURRENT_BINARY_DIR}/generated/include")
-set(SVS_GENERATED_DISPATCH_HEADER
-    "${SVS_GENERATED_INCLUDE_DIR}/svs/core/distance/dispatch_surface.h"
-)
-configure_file(
-    "${CMAKE_CURRENT_LIST_DIR}/templates/dispatch_surface.h.in"
-    "${SVS_GENERATED_DISPATCH_HEADER}"
-    @ONLY
-)
-target_include_directories(
-    ${SVS_LIB} BEFORE INTERFACE $<BUILD_INTERFACE:${SVS_GENERATED_INCLUDE_DIR}>
-)
-
-# Refresh the committed copy too, but only for the default declaration: the
-# committed header exists so that a bare `-I include` compile works without
-# CMake, and a one-off build with an overridden surface must not rewrite it.
-# configure_file only touches the file when the content changes, so this neither
-# dirties the tree nor forces rebuilds.
-if(svs_surface_is_default)
-    configure_file(
-        "${CMAKE_CURRENT_LIST_DIR}/templates/dispatch_surface.h.in"
-        "${PROJECT_SOURCE_DIR}/include/svs/core/distance/dispatch_surface.h"
-        @ONLY
-    )
-endif()
+# Writes the build-tree header from the template and the expansion strings above.
+function(svs_dispatch_emit_header template_file dim_count dim_loop target_loop
+         level_loop level_defines include_dir out_header)
+    set(SVS_GEN_DIM_COUNT "${dim_count}")
+    set(SVS_GEN_DIM_LOOP "${dim_loop}")
+    set(SVS_GEN_TARGET_LOOP "${target_loop}")
+    set(SVS_GEN_LEVEL_LOOP "${level_loop}")
+    set(SVS_GEN_LEVEL_DEFINES "${level_defines}")
+    set(header "${include_dir}/svs/core/distance/dispatch_surface.h")
+    configure_file("${template_file}" "${header}" @ONLY)
+    set(${out_header} "${header}" PARENT_SCOPE)
+endfunction()
 
 #####
 ##### Emit the manifest
 #####
 
-# The ctest checks read this rather than including the declaration, so they depend on the
-# surface's contents and not on that file's format, its location, or what else it sets.
-set(svs_manifest_levels)
-foreach(level_spec IN LISTS SVS_ISA_LEVELS)
-    svs_parse_isa_level("${level_spec}" svs_manifest_level _ _)
-    list(APPEND svs_manifest_levels "${svs_manifest_level}")
-endforeach()
-string(REPLACE ";" " " svs_manifest_levels_text "${svs_manifest_levels}")
-string(REPLACE ";" " " svs_manifest_extents_text "${SVS_SUPPORTED_DIMS}")
-file(GENERATE
-    OUTPUT "${CMAKE_BINARY_DIR}/dispatch_surface.manifest.cmake"
-    CONTENT "set(SVS_MANIFEST_FIXED_EXTENTS ${svs_manifest_extents_text})
-set(SVS_MANIFEST_LEVELS ${svs_manifest_levels_text})
+# The ctest checks read this rather than including the declaration, so they depend
+# on the surface's contents and not on that file's format, its location, or what
+# else it sets.
+function(svs_dispatch_emit_manifest supported_dims levels manifest_file)
+    string(REPLACE ";" " " levels_text "${levels}")
+    string(REPLACE ";" " " extents_text "${supported_dims}")
+    file(GENERATE
+        OUTPUT "${manifest_file}"
+        CONTENT "set(SVS_MANIFEST_FIXED_EXTENTS ${extents_text})
+set(SVS_MANIFEST_LEVELS ${levels_text})
 "
-)
+    )
+endfunction()
 
 #####
-##### Report the surface
+##### Orchestrate
 #####
 
-list(LENGTH SVS_ISA_LEVELS svs_level_count)
-string(REPLACE ";" " " svs_dims_display "${SVS_SUPPORTED_DIMS}")
-message(STATUS
-    "Dispatch surface: ${SVS_DIM_COUNT} extents x ${svs_level_count} ISA levels"
-)
-message(STATUS "  extents: ${svs_dims_display} svs::Dynamic")
-foreach(entry IN LISTS svs_level_report)
-    message(STATUS "  level:   ${entry}")
-endforeach()
+# Reads the declaration, writes the build-tree header and the ctest manifest, and
+# reports the surface. Returns the TU specs and the generated header path, which is
+# how cmake/multi-arch.cmake receives them; nothing here escapes via a bare
+# file-scope set().
+function(svs_generate_dispatch_surface out_tu_specs out_header)
+    set(x86_src_dir "${PROJECT_SOURCE_DIR}/include/svs/multi-arch/x86")
 
-# Every enumerator without a translation unit is still reachable -- the entry
-# points fall back to it -- so its kernels are built by each consumer instead.
-set(svs_enum_header "${PROJECT_SOURCE_DIR}/include/svs/core/distance/distance_core.h")
-if(EXISTS "${svs_enum_header}")
-    file(READ "${svs_enum_header}" svs_enum_text)
-    if(svs_enum_text MATCHES "enum class AVX_AVAILABILITY[ \t\r\n]*{([^}]*)}")
-        string(REPLACE "," ";" svs_enumerators "${CMAKE_MATCH_1}")
-        set(svs_undeclared)
-        foreach(enumerator IN LISTS svs_enumerators)
-            string(STRIP "${enumerator}" enumerator)
-            if(enumerator AND NOT enumerator IN_LIST svs_seen_levels)
-                list(APPEND svs_undeclared "${enumerator}")
+    svs_dispatch_read_declaration(
+        "${SVS_DISPATCH_SURFACE_FILE}" "${x86_src_dir}"
+        supported_dims dim_list dim_count isa_levels
+    )
+
+    # Re-run configure when the declaration changes, so the generated header and
+    # the translation units cannot go stale.
+    set_property(
+        DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS
+        "${SVS_DISPATCH_SURFACE_FILE}"
+    )
+
+    svs_dispatch_build_expansions(
+        "${dim_list}" "${isa_levels}"
+        dim_loop target_loop level_loop level_defines
+    )
+    svs_dispatch_derive_tu_specs(
+        "${isa_levels}" "${x86_src_dir}"
+        tu_specs levels level_report
+    )
+
+    # The build always compiles against the build-tree copy, and it is placed
+    # ahead of the source include directory so that it wins.
+    set(generated_include_dir "${CMAKE_CURRENT_BINARY_DIR}/generated/include")
+    svs_dispatch_emit_header(
+        "${SVS_DISPATCH_GEN_CMAKE_DIR}/templates/dispatch_surface.h.in"
+        "${dim_count}" "${dim_loop}" "${target_loop}" "${level_loop}" "${level_defines}"
+        "${generated_include_dir}"
+        header
+    )
+    target_include_directories(
+        ${SVS_LIB} BEFORE INTERFACE $<BUILD_INTERFACE:${generated_include_dir}>
+    )
+
+    svs_dispatch_emit_manifest(
+        "${supported_dims}" "${levels}"
+        "${CMAKE_BINARY_DIR}/dispatch_surface.manifest.cmake"
+    )
+
+    #####
+    ##### Report the surface
+    #####
+
+    list(LENGTH isa_levels level_count)
+    string(REPLACE ";" " " dims_display "${supported_dims}")
+    message(STATUS "Dispatch surface: ${dim_count} extents x ${level_count} ISA levels")
+    message(STATUS "  extents: ${dims_display} svs::Dynamic")
+    foreach(entry IN LISTS level_report)
+        message(STATUS "  level:   ${entry}")
+    endforeach()
+
+    # Every enumerator without a translation unit is still reachable -- the entry
+    # points fall back to it -- so its kernels are built by each consumer instead.
+    set(enum_header "${PROJECT_SOURCE_DIR}/include/svs/core/distance/distance_core.h")
+    if(EXISTS "${enum_header}")
+        file(READ "${enum_header}" enum_text)
+        if(enum_text MATCHES "enum class AVX_AVAILABILITY[ \t\r\n]*{([^}]*)}")
+            string(REPLACE "," ";" enumerators "${CMAKE_MATCH_1}")
+            set(undeclared)
+            foreach(enumerator IN LISTS enumerators)
+                string(STRIP "${enumerator}" enumerator)
+                if(enumerator AND NOT enumerator IN_LIST levels)
+                    list(APPEND undeclared "${enumerator}")
+                endif()
+            endforeach()
+            if(undeclared)
+                string(REPLACE ";" ", " undeclared_display "${undeclared}")
+                message(STATUS "  not in the surface: ${undeclared_display}")
+                message(STATUS
+                    "           dispatched to, but compiled by no translation unit, so "
+                    "every consumer instantiates those kernels itself, at its own -march"
+                )
             endif()
-        endforeach()
-        if(svs_undeclared)
-            string(REPLACE ";" ", " svs_undeclared_display "${svs_undeclared}")
-            message(STATUS "  not in the surface: ${svs_undeclared_display}")
-            message(STATUS
-                "           dispatched to, but compiled by no translation unit, so "
-                "every consumer instantiates those kernels itself, at its own -march"
-            )
         endif()
     endif()
-endif()
+
+    set(${out_tu_specs} "${tu_specs}" PARENT_SCOPE)
+    set(${out_header} "${header}" PARENT_SCOPE)
+endfunction()

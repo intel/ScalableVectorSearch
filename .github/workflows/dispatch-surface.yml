@@ -36,7 +36,7 @@ concurrency:
 
 jobs:
   declaration:
-    name: declaration is checked, committed header is current
+    name: declaration is checked, default surface configures
     runs-on: ubuntu-22.04
     steps:
     - uses: actions/checkout@v6
@@ -46,25 +46,15 @@ jobs:
     - name: Accept and reject declarations
       run: .github/scripts/check_dispatch_surface.sh
 
-    # include/svs/core/distance/dispatch_surface.h is generated but committed, so
-    # that a bare `-I include` compile works without cmake. A configure refreshes
-    # it; if that produces a diff, either the declaration changed without a
-    # reconfigure or the header was edited by hand.
+    # The header is generated into the build tree only, so this just confirms the
+    # default declaration configures; the non-default-surface job below covers an
+    # override.
     - name: Configure with the default surface
       run: |
         cmake -B "${{ runner.temp }}/build" -S "${GITHUB_WORKSPACE}" \
               -DCMAKE_BUILD_TYPE=Release \
               -DSVS_BUILD_TESTS=NO \
               -DSVS_BUILD_BINARIES=NO
-
-    - name: Committed header matches the declaration
-      run: |
-        if ! git diff --exit-code -- include/svs/core/distance/dispatch_surface.h; then
-            echo "::error::include/svs/core/distance/dispatch_surface.h is stale." \
-                 "It is generated from cmake/dispatch-surface.cmake -- re-run cmake" \
-                 "and commit the result. Do not edit it by hand."
-            exit 1
-        fi
 
   non-default-surface:
     name: builds and tests with a non-default surface
@@ -73,8 +63,8 @@ jobs:
     - uses: actions/checkout@v6
 
     # valid-reduced.cmake shares no extent with the default declaration, so a
-    # build that silently fell back to the committed header would fail to
-    # compile rather than pass by accident.
+    # build that silently used the default surface instead of the override would
+    # fail to compile rather than pass by accident.
     - name: Configure
       run: |
         cmake -B "${{ runner.temp }}/build" -S "${GITHUB_WORKSPACE}" \
@@ -95,12 +85,3 @@ jobs:
         CTEST_OUTPUT_ON_FAILURE: 1
       working-directory: ${{ runner.temp }}/build/tests
       run: ctest -C Release -LE long
-
-    # Overriding the surface for one build must not rewrite the committed header.
-    - name: Committed header was left alone
-      run: |
-        if ! git diff --exit-code -- include/svs/core/distance/dispatch_surface.h; then
-            echo "::error::A build with an overridden dispatch surface rewrote the" \
-                 "committed header. Only the default declaration may refresh it."
-            exit 1
-        fi

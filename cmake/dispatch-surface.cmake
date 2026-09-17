@@ -18,17 +18,16 @@
 ##### This file is the single place the extent list and the ISA levels are
 ##### written down. Everything derived from them is generated:
 #####
-#####   - include/svs/core/distance/dispatch_surface.h, which drives every
-#####     `extern template` and explicit instantiation, and `supported_dim_list`
+#####   - svs/core/distance/dispatch_surface.h, which drives every `extern
+#####     template` and explicit instantiation, and `supported_dim_list`
 #####   - the object library each ISA level's translation unit is compiled into,
 #####     and the instruction budget it is compiled at
 #####
-##### Edit this file. Do not edit the generated header; it is regenerated on
-##### every configure and your changes there will be overwritten.
+##### Edit this file. The header is not in the source tree at all: it is written
+##### into the build directory on every configure and installed from there.
 #####
 ##### A build may point somewhere else with -DSVS_DISPATCH_SURFACE_FILE=<file>,
-##### in which case the committed header is left alone and only the build tree
-##### describes that surface.
+##### in which case only that build tree describes the overridden surface.
 #####
 ##### Bookkeeping
 #####
@@ -115,5 +114,5 @@ set(SVS_SUPPORTED_DIMS 64 96 100 128 160 200 512 768)
 set(SVS_ISA_LEVELS
     "AVX2|haswell|avx2"
     "AVX512|skylake-avx512|avx512"
-    "AVX512_VNNI|cascadelake|vnni"
+    "AVX512_VNNI|cascadelake|avx512_vnni"
 )

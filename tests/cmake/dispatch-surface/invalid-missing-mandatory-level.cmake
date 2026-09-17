@@ -12,11 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Adding a level means adding the translation unit that defines its kernels.
-# Without this check the level would silently contribute nothing.
-# EXPECT-ERROR: has no translation unit
+# distance_core.h #errors on x86_64 unless both AVX2 and AVX512 are present, so
+# a surface declaring only one of them cannot compile.
+# EXPECT-ERROR: SVS_ISA_LEVELS omits mandatory level 'AVX512'
 set(SVS_SUPPORTED_DIMS 128)
-set(SVS_ISA_LEVELS
-    "AVX2|haswell|avx2"
-    "AVX512_VNNI|sapphirerapids|avx512vnni"
-)
+set(SVS_ISA_LEVELS "AVX2|haswell|avx2")

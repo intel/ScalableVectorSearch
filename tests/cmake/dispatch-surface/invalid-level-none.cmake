@@ -12,19 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# A surface that shares no extent with the default declaration, so a build using
-# it cannot accidentally pass by reusing a committed header.
-#
-# The extent list is what this fixture varies. The ISA levels are copied from the
-# default declaration verbatim, instruction budgets included: they are not
-# configuration, and a build with a different level set would be testing a library
-# nobody ships.
-#
-# Built and tested by the `non-default surface` CI job.
-
-set(SVS_SUPPORTED_DIMS 32 384)
+# NONE means "no level is present"; it has no translation unit and no object
+# library, so a row for it names files that must not exist.
+# EXPECT-ERROR: ISA level 'NONE' in SVS_ISA_LEVELS is not declarable
+set(SVS_SUPPORTED_DIMS 128)
 set(SVS_ISA_LEVELS
-    "AVX2|haswell|avx2"
+    "NONE|haswell|avx2"
     "AVX512|skylake-avx512|avx512"
-    "AVX512_VNNI|cascadelake|avx512_vnni"
 )
