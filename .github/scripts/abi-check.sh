@@ -15,13 +15,13 @@
 
 # Compare the ABI of two SVS build tarballs with napetrov/abicheck.
 #
-# One primitive serves both questions asked of it:
-#   temporal    old = a release tarball, new = this build -- did we break users?
-#   equivalence old and new are the same source revision built two ways -- did
-#               the build paths diverge?
-# The distinction is in what the caller passes, not in the logic, so this lives
-# in one place. It is called from this repo's build-cpp-runtime-bindings.yml and
-# from build-share-lib.yml in the innersource repo via the submodule path.
+# One primitive, three callers, all asking the same temporal question -- is `new`
+# a drop-in replacement for `old`? Only the baseline differs:
+#   per-PR      old = the newest main build, new = this build (both repos)
+#   nightly     old = the last release asset, new = today's main build
+# The distinction is entirely in what the caller passes, so this lives in one
+# place: this repo's build-cpp-runtime-bindings.yml and build-share-lib.yml in
+# the innersource repo, which reaches it through the submodule path.
 #
 # Usage: abi-check.sh <old-label> <old-tarball> <new-label> <new-tarball>
 #
@@ -30,12 +30,16 @@
 #   HEADER_SUBDIR  header root inside the tarball (default include/svs/runtime)
 #   SUPPRESSIONS   suppression file (default .github/abi-suppressions.yml)
 #   POLICY         abicheck policy (default strict_abi)
+#   DEPTH          abicheck --depth (default: unset, i.e. abicheck's own
+#                  'headers'). Set to 'binary' for the shared library, whose
+#                  header set does not finish parsing in any usable time.
 #   REPORT         markdown report path (default abi-report.md)
 #   WORKDIR        scratch directory (default abi-work)
 #
 # Exit status is abicheck's: 0 compatible, 2 source-level API break, 4 binary
-# ABI break, 64 invalid invocation. 77 is added to mean "an input was missing",
-# which is not a finding and must never be reported as one.
+# ABI break, 5 budget exceeded, 16 not comparable, 64 invalid invocation. 77 is
+# added to mean "an input was missing", which is not a finding and must never be
+# reported as one.
 
 set -euo pipefail
 
@@ -48,6 +52,7 @@ LIBRARY="${LIBRARY:-libsvs_runtime.so}"
 HEADER_SUBDIR="${HEADER_SUBDIR:-include/svs/runtime}"
 SUPPRESSIONS="${SUPPRESSIONS:-.github/abi-suppressions.yml}"
 POLICY="${POLICY:-strict_abi}"
+DEPTH="${DEPTH:-}"
 REPORT="${REPORT:-abi-report.md}"
 WORKDIR="${WORKDIR:-abi-work}"
 
@@ -88,6 +93,12 @@ echo "Comparing $LIBRARY: [$OLD_LABEL] -> [$NEW_LABEL]"
 
 suppress_args=()
 [ -f "$SUPPRESSIONS" ] && suppress_args=(--suppress "$SUPPRESSIONS")
+
+# Left unset by default so .abicheck.yml stays the single place that configures
+# depth. The --header/--include arguments below are still passed at binary depth,
+# where they are simply unused, so nothing here is conditional on this.
+depth_args=()
+[ -n "$DEPTH" ] && depth_args=(--depth "$DEPTH")
 
 # Vendored deps ship under a versioned root (include/eve-2023.2.15/eve/...), so
 # -I include alone cannot resolve their own `#include <eve/...>`.
@@ -146,18 +157,19 @@ abicheck compare \
     --version old="$OLD_LABEL" \
     --version new="$NEW_LABEL" \
     --policy "$POLICY" \
+    "${depth_args[@]}" \
     "${suppress_args[@]}" \
     --output markdown=- | tee "$REPORT" || rc=$?
 
-# Only 2 and 4 are findings. Anything else -- a removed flag, an unparseable
-# header, a crash -- means the comparison did not happen, and reporting that as an
-# ABI break is worse than reporting nothing: it teaches reviewers to ignore a red
-# ABI check.
+# Only 2, 4 and 5 are findings. Anything else -- a removed flag, an unparseable
+# header, a fingerprint mismatch (16), a crash -- means the comparison did not
+# happen, and reporting that as an ABI break is worse than reporting nothing: it
+# teaches reviewers to ignore a red ABI check.
 case "$rc" in
     0)
         echo "ABI compatible: $OLD_LABEL -> $NEW_LABEL"
         ;;
-    2 | 4)
+    2 | 4 | 5)
         echo "::warning::ABI incompatibility: $NEW_LABEL differs from $OLD_LABEL (rc=$rc)"
         ;;
     *)

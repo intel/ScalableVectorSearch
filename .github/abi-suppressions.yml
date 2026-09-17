@@ -13,10 +13,10 @@
 # limitations under the License.
 
 # ABI check suppression rules for the SVS C++ runtime bindings, used by
-# napetrov/abicheck. Owned here rather than in the innersource repo so that both
-# repos measure libsvs_runtime.so against the same rules -- a suppression present
-# on one side only would make the innersource-vs-public equivalence check report
-# a difference that is really just an asymmetric filter.
+# napetrov/abicheck. Owned here rather than in the innersource repo because both
+# repos build and check libsvs_runtime.so: with one rule set their verdicts mean
+# the same thing, and a break cannot be reported in one repo and filtered out in
+# the other.
 #
 # Scope is the runtime bindings alone. The innersource repo keeps its own file
 # for libsvs_shared_library.so, which leaks a far larger third-party surface.
@@ -70,9 +70,10 @@ suppressions:
   # --- No finding_id waivers ---
   # There were four, all justified against the v0.4.0 release baseline: two for the
   # #345/#385 VamanaIndex vtable append, two for DynamicVamanaIndex::add appearing
-  # on one side only. Both checks now compare a PR against the newest build on main
-  # instead of a release, so neither situation can arise -- the vtable changes are
-  # already on main, and both sides are built the same way.
+  # on one side only. Every check that uses this file compares against the newest
+  # build on main, so neither situation can arise -- the vtable changes are already
+  # on main, and both sides are built the same way. Release-baseline skew is the
+  # innersource nightly's problem and has its own file there.
   #
   # If a real finding ever needs waiving, add it here as a finding_id rule (copy the
   # id from the report) with a reason and an `expires`. finding_id matches one
