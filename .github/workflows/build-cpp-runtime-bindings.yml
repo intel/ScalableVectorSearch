@@ -163,7 +163,7 @@ jobs:
     runs-on: ubuntu-22.04
     permissions:
       contents: read
-      actions: read  # gh run list/download, to fetch main's artifact as baseline
+      actions: read  # list runs and download artifacts, to fetch main's as baseline
     # An intentionally-breaking PR still gets a full report: the label downgrades
     # this job from blocking to informational rather than skipping it, so the
     # break is recorded on the PR instead of going unmeasured.
