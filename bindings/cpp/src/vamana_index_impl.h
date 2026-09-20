@@ -624,6 +624,18 @@ struct VamanaIndexLeanVecImpl : public VamanaIndexImpl {
                     storage::StorageType<StorageKind::LeanVec8x8, allocator_type>{},
                     std::forward<Args>(args)...
                 );
+            case StorageKind::LeanVecLVQ4PrimaryOnly:
+                return f(
+                    storage::
+                        StorageType<StorageKind::LeanVecLVQ4PrimaryOnly, allocator_type>{},
+                    std::forward<Args>(args)...
+                );
+            case StorageKind::LeanVecLVQ8PrimaryOnly:
+                return f(
+                    storage::
+                        StorageType<StorageKind::LeanVecLVQ8PrimaryOnly, allocator_type>{},
+                    std::forward<Args>(args)...
+                );
             default:
                 throw StatusException{
                     ErrorCode::INVALID_ARGUMENT, "SVS LeanVec storage kind required"};
