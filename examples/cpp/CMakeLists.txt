@@ -128,3 +128,18 @@ set_property(TEST test_dispatcher_5
     PROPERTY
     PASS_REGULAR_EXPRESSION "Specialized with flag: float32, float32, dynamic with arg \"false\""
 )
+
+#####
+##### Concurrency latency harness
+#####
+
+# A measurement instrument (not exercised by ctest: it needs an external, multi-GB
+# dataset that is not part of the repository or CI fixtures).
+add_executable(concurrency_latency_harness concurrency_latency_harness.cpp)
+target_include_directories(
+    concurrency_latency_harness
+    PRIVATE ${CMAKE_CURRENT_LIST_DIR} ${CMAKE_CURRENT_LIST_DIR}/../../benchmark/include
+)
+target_link_libraries(
+    concurrency_latency_harness svs::svs svs_compile_options svs_x86_options_base
+)
