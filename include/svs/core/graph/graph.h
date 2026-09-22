@@ -22,6 +22,7 @@
 #include "svs/lib/boundscheck.h"
 #include "svs/lib/saveload.h"
 
+#include <atomic>
 #include <cassert>
 #include <cstdint>
 #include <span>
@@ -63,6 +64,32 @@ template <std::unsigned_integral Idx, data::MemoryDataset Data> class SimpleGrap
     using reference = std::span<Idx>;
     /// Type used to represent constant adjacency lists externally.
     using const_reference = std::span<const Idx>;
+
+    ///
+    /// @brief A row view for the concurrent search path, backed by atomic element loads.
+    ///
+    /// Exposes only ``size()`` and an ``operator[]`` returning ``Idx`` by value, never a
+    /// pointer, so a row a writer is concurrently rewriting cannot be read non-atomically.
+    ///
+    class AtomicRowView {
+      public:
+        AtomicRowView(Idx* base, Idx count) noexcept
+            : base_{base}
+            , count_{count} {}
+
+        size_t size() const noexcept { return count_; }
+
+        Idx operator[](size_t i) const noexcept {
+            return std::atomic_ref<Idx>(base_[i + 1]).load(std::memory_order_relaxed);
+        }
+
+      private:
+        Idx* base_;
+        Idx count_;
+    };
+
+    /// Type used to represent an adjacency list for the concurrent search path.
+    using atomic_reference = AtomicRowView;
 
     ///
     /// @brief Construct an empty graph of the desired size.
@@ -114,6 +141,19 @@ template <std::unsigned_integral Idx, data::MemoryDataset Data> class SimpleGrap
     }
 
     ///
+    /// @brief Return an atomic view of vertex ``i``'s adjacency list for concurrent search.
+    ///
+    /// The count load is acquire because ``add_edge`` and ``replace_node`` release the id
+    /// words before releasing the count; a relaxed load could observe a stale length.
+    ///
+    atomic_reference get_node_atomic(Idx i) const {
+        std::span<const Idx> raw_data = data_.get_datum(i);
+        Idx* base = const_cast<Idx*>(raw_data.data());
+        Idx num_neighbors = std::atomic_ref<Idx>(base[0]).load(std::memory_order_acquire);
+        return atomic_reference{base, num_neighbors};
+    }
+
+    ///
     /// @brief Return whether or not the adjacency list has an edge from ``src`` to ``dst``.
     ///
     /// Complexity: Linear in the maximum degree.
@@ -145,7 +185,9 @@ template <std::unsigned_integral Idx, data::MemoryDataset Data> class SimpleGrap
     ///
     void clear_node(Idx i) {
         Idx& num_neighbors = data_.get_datum(i).front();
-        num_neighbors = 0;
+        // Release so the count word alone never mixes atomic and non-atomic access
+        // with a concurrent get_node_atomic(), independent of when that is reachable.
+        std::atomic_ref<Idx>(num_neighbors).store(0, std::memory_order_release);
     }
 
     ///
@@ -189,10 +231,14 @@ template <std::unsigned_integral Idx, data::MemoryDataset Data> class SimpleGrap
         std::span<const Idx> adjusted_neighbors = new_neighbors.first(elements_to_copy);
         value_type adjacency_list = raw_data.subspan(1, elements_to_copy);
 
-        std::copy(
-            adjusted_neighbors.begin(), adjusted_neighbors.end(), adjacency_list.begin()
-        );
-        raw_data.front() = elements_to_copy;
+        // Id words store relaxed because a concurrent reader only needs them visible
+        // before the count below, which publishes them with a release store.
+        for (Idx j = 0; j < elements_to_copy; ++j) {
+            std::atomic_ref<Idx>(adjacency_list[j])
+                .store(adjusted_neighbors[j], std::memory_order_relaxed);
+        }
+        std::atomic_ref<Idx>(raw_data.front())
+            .store(elements_to_copy, std::memory_order_release);
     }
 
     ///
@@ -253,11 +299,13 @@ template <std::unsigned_integral Idx, data::MemoryDataset Data> class SimpleGrap
 
         // Insert at the new location.
         std::copy_backward(it, end - 1, end);
-        (*it) = dst;
+        // Id word stores relaxed; the count store below is release so a concurrent
+        // reader that acquires the count is guaranteed to see this id.
+        std::atomic_ref<Idx>(*it).store(dst, std::memory_order_relaxed);
 
         // // Assign the new edge and update the number of neighbors.
         // adjacency_list.back() = dst;
-        raw_data.front() = new_size;
+        std::atomic_ref<Idx>(raw_data.front()).store(new_size, std::memory_order_release);
         return new_size;
     }
 

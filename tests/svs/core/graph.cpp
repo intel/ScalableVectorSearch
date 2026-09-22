@@ -27,8 +27,17 @@
 // stdlib
 #include <algorithm>
 #include <array>
+#include <concepts>
 #include <cstdint>
 #include <vector>
+
+namespace {
+// Detection idiom: true only if `T` exposes a way to obtain a raw pointer into its
+// storage, which the concurrent row view must not.
+template <typename T>
+concept ExposesPointerAccess = requires(T t) { t.data(); } ||
+                               requires(T t) { t.begin(); } || requires(T t) { t.end(); };
+} // namespace
 
 CATCH_TEST_CASE("Simple Graph", "[graphs][simple]") {
     using Idx = uint32_t;
@@ -120,5 +129,28 @@ CATCH_TEST_CASE("Simple Graph", "[graphs][simple]") {
         auto s = graph.get_node(last);
         CATCH_REQUIRE(s.size() == replacement.size());
         CATCH_REQUIRE(std::equal(s.begin(), s.end(), replacement.begin()));
+    }
+}
+
+CATCH_TEST_CASE("Atomic Row View", "[graphs][simple]") {
+    using Idx = uint32_t;
+    using Graph = svs::graphs::SimpleGraph<Idx>;
+    using AtomicRow = typename Graph::atomic_reference;
+
+    // A non-atomic read requires a pointer into the row; verify at compile time that
+    // the concurrent view cannot yield one.
+    static_assert(!ExposesPointerAccess<AtomicRow>);
+
+    size_t n_nodes = 4;
+    size_t max_degree = 3;
+    auto graph = Graph(n_nodes, max_degree);
+    graph.add_edge(0, 1);
+    graph.add_edge(0, 2);
+
+    auto view = graph.get_node_atomic(Idx{0});
+    auto row = graph.get_node(Idx{0});
+    CATCH_REQUIRE(view.size() == row.size());
+    for (size_t i = 0; i < view.size(); ++i) {
+        CATCH_REQUIRE(view[i] == row[i]);
     }
 }

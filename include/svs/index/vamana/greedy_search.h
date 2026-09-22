@@ -160,7 +160,9 @@ void greedy_search(
         auto node_id = node.id();
 
         // Get the adjacency list for this vertex and prepare prefetching logic.
-        auto neighbors = graph.get_node(node_id);
+        // Read through the atomic view: a concurrent writer may be rewriting this row,
+        // and only atomic loads of its id and count words are well-defined here.
+        auto neighbors = graph.get_node_atomic(node_id);
         const size_t num_neighbors = neighbors.size();
         search_tracker.visited(Neighbor<I>{node}, neighbors.size());
 
@@ -186,8 +188,11 @@ void greedy_search(
         );
 
         ///// Neighbor expansion.
+        // Indexed rather than range-based: the atomic view has no begin()/end(), by
+        // design, since either would hand out a pointer into a row being rewritten.
         prefetcher();
-        for (auto id : neighbors) {
+        for (size_t i = 0; i < num_neighbors; ++i) {
+            auto id = neighbors[i];
             if (search_buffer.emplace_visited(id)) {
                 continue;
             }
