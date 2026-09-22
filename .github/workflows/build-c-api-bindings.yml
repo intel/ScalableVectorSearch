@@ -139,6 +139,9 @@ jobs:
 
       # The hosted image's clang-13/14 degrades abicheck's AST frontend to ELF-tier
       # and drops constrained-template diffs, so install a C++20-capable clang.
+      #
+      # TODO: drop this step after either bumping to ubuntu-24.04 (which preinstalls clang-18)
+      # or run the compare inside svs-manylinux228. Broader change outside this PR scope.
       - name: Install clang for the AST frontend
         run: |
           wget -qO /tmp/llvm.sh https://apt.llvm.org/llvm.sh

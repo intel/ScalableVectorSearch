@@ -15,10 +15,10 @@
 # ABI check suppression rules for the SVS C++ runtime bindings.
 #
 # Measured on libsvs_runtime.so as this repo's CI builds it: of 138 exported
-# symbols, 35 are leaked libstdc++ template instantiations, which is what the rules
-# below cover. Another 31 are std::once_flag guard thunks for local statics inside
-# svs::index::ivf instantiations; they mangle as _ZZ..., so `^_ZNSt` deliberately
-# does not reach them -- they are svs code despite the std:: in the name.
+# symbols the rules below suppress 66 leaked libstdc++ instantiations, leaving 72 --
+# 56 svs::runtime::v0 functions/objects and 16 svs vtable/RTTI entries. Every one of
+# the 72 names an svs type, so the compared surface is SVS's own symbols and nothing
+# else. Re-verify with nm before trusting these counts after a toolchain change.
 #
 # The leak is not a missing -fvisibility=hidden (that is set in
 # bindings/cpp/CMakeLists.txt); it tracks the build path. Linking the prebuilt LTO
@@ -42,12 +42,17 @@ suppressions:
     reason: "RTTI/vtable/VTT for std:: types (e.g. thread::_State_impl, future)"
     label: "stdlib"
 
-  # 2 of these are exported (verified with nm), so this rule is load-bearing even
-  # on runs where it matches nothing.
-  - symbol_pattern: "^_ZT[VIST].*__gnu_cxx.*"
-    reason: "RTTI/vtable for __gnu_cxx types, leaked"
+  # Emitted for the local statics that std::call_once creates. Mangled in function
+  # scope as _ZZ..., which none of the rules above reach: they are libstdc++
+  # entities instantiated over svs types, not svs code.
+  - symbol_pattern: "^_ZZNSt9once_flag18_Prepare_execution.*"
+    reason: "std::call_once local-static thunks (leaked template instantiations)"
     label: "stdlib"
 
+  # No rule for __gnu_cxx RTTI. The obvious `^_ZT[VIST].*__gnu_cxx.*` is unanchored,
+  # so it matches std:: types that merely take __gnu_cxx::_Lock_policy as a template
+  # argument -- already covered above. nm finds no RTTI for an actual __gnu_cxx type.
+  #
   # No rules for third-party (fmt/spdlog/tsl/toml++) or __cxa_*: the vendored deps
   # ship as static archives that -Wl,--exclude-libs,ALL keeps out, and __cxa_* are
   # imports, never defined here. libstdc++ is a shared library, hence the std:: rules.
