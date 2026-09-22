@@ -130,29 +130,13 @@ jobs:
     permissions:
       contents: read
       actions: read  # list runs and download artifacts, to fetch main's as baseline
+      pull-requests: write  # sticky ABI report comment; not granted on fork PRs, where it no-ops
     # The label downgrades this job to informational rather than skipping it, so an
     # intentional break is still reported rather than going unmeasured.
     continue-on-error: ${{ contains(toJson(github.event.pull_request.labels.*.name), '"API/ABI breaking change"') }}
 
     steps:
       - uses: actions/checkout@v6
-
-      # The hosted image's clang-13/14 degrades abicheck's AST frontend to ELF-tier
-      # and drops constrained-template diffs, so install a C++20-capable clang.
-      #
-      # TODO: drop this step after either bumping to ubuntu-24.04 (which preinstalls clang-18)
-      # or run the compare inside svs-manylinux228. Broader change outside this PR scope.
-      - name: Install clang for the AST frontend
-        run: |
-          wget -qO /tmp/llvm.sh https://apt.llvm.org/llvm.sh
-          chmod +x /tmp/llvm.sh
-          sudo /tmp/llvm.sh 18
-          sudo apt-get install -y --no-install-recommends libclang-18-dev llvm-18-dev
-          sudo update-alternatives --install /usr/bin/clang   clang   /usr/bin/clang-18   100
-          sudo update-alternatives --install /usr/bin/clang++ clang++ /usr/bin/clang++-18 100
-
-      - name: Install abicheck
-        run: pip install -r .github/scripts/abi-requirements.txt
 
       # Baseline is main's tip, not the PR's merge-base: a PR far behind main also
       # sees main's own changes, which is noisy but never a false "compatible".
@@ -198,29 +182,46 @@ jobs:
           name: svs-c-api
           path: current
 
-      - name: Compare
+      - name: Stage artifacts for comparison
+        id: stage
         env:
           LIBRARY: libsvs_c_api.so
           HEADER_SUBDIR: include/svs/c
-          SUPPRESSIONS: .github/abi-suppressions-c-api.yml
-          POLICY: strict_abi
         run: |
-          label='${{ github.event.pull_request.number && format('PR {0}', github.event.pull_request.number) || github.ref_name }}'
-          rc=0
-          .github/scripts/abi-check.sh \
-            '${{ steps.baseline.outputs.label }}' baseline/svs-c-api.tar.gz \
-            "$label" current/svs-c-api.tar.gz || rc=$?
+          .github/scripts/abi-stage.sh \
+            baseline/svs-c-api.tar.gz \
+            current/svs-c-api.tar.gz
 
-          if [ -s abi-report.md ]; then
-            {
-              echo "## ABI vs ${{ steps.baseline.outputs.label }}"
-              cat abi-report.md
-            } >> "$GITHUB_STEP_SUMMARY"
-          fi
+      - name: Compare
+        id: compare
+        uses: abicheck/abicheck@v0.6.0
+        with:
+          # The only conda-forge source that ships clang, which .abicheck.yml's
+          # compile.frontend needs; the default source provides castxml and gcc only.
+          dependency-source: conda-forge-clang20
+          build-config: .abicheck.yml
+          old-library: ${{ steps.stage.outputs.old-library }}
+          new-library: ${{ steps.stage.outputs.new-library }}
+          old-header: ${{ steps.stage.outputs.old-header }}
+          new-header: ${{ steps.stage.outputs.new-header }}
+          old-include: ${{ steps.stage.outputs.old-include }}
+          new-include: ${{ steps.stage.outputs.new-include }}
+          old-version: ${{ steps.baseline.outputs.label }}
+          new-version: ${{ github.event.pull_request.number && format('PR {0}', github.event.pull_request.number) || github.ref_name }}
+          extra-args: ${{ steps.stage.outputs.extra-args }}
+          suppress: .github/abi-suppressions-c-api.yml
+          policy: strict_abi
+          # A source-level break is a break for us too; the action only gates on binary.
+          fail-on-api-break: true
+          annotate: true
+          annotate-additions: true  # the added-API table is the point, not just the breaks
 
-          # Only 2/4/5 are ABI findings. Any other non-zero code means the comparison
-          # never happened, which must fail as plumbing rather than read as a break.
-          case "$rc" in
-            0 | 2 | 4 | 5) exit "$rc" ;;
-            *) echo "::error::ABI check could not run (rc=$rc)."; exit 1 ;;
+      # Exit 1/16/64 means the comparison never happened. The step is already red;
+      # this only stops a harness bug from being read in the log as an ABI break.
+      - name: Report a failed comparison as plumbing
+        if: failure() && steps.compare.outputs.exit-code != ''
+        run: |
+          case '${{ steps.compare.outputs.exit-code }}' in
+            2 | 4 | 5) ;;
+            *) echo "::error::ABI check could not run (rc=${{ steps.compare.outputs.exit-code }})." ;;
           esac

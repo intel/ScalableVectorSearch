@@ -19,9 +19,9 @@
 # template instantiations from header-only dependencies, and no std:: internals to
 # waive -- unlike the C++ libraries, whose exported set leaks all three.
 #
-# The file exists rather than being omitted so the --suppress path the workflows
-# pass is a real one. abi-check.sh skips a missing file silently, which would make
-# a typo in that path indistinguishable from this deliberate emptiness.
+# The file exists rather than being omitted so the `suppress` path the workflow
+# passes is a real one, keeping a typo in it distinguishable from this deliberate
+# emptiness.
 
 version: 1
 suppressions: []
