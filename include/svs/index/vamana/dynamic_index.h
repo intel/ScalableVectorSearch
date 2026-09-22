@@ -58,13 +58,20 @@ class MultiMutableVamanaIndex;
 /// The following states have the given meaning for their corresponding slot:
 ///
 /// * Valid: Valid and present in the associated dataset.
-/// * Deleted: Exists in the associated dataset, but should be considered as "deleted"
-/// and not returned from any search algorithms.
+/// * DeletedA, DeletedB: Exists in the associated dataset, but should be considered as
+/// "deleted" and not returned from any search algorithms. The two alternating states let
+/// the rolling repair cursor tell this revolution's deletions from the previous
+/// revolution's, so only slots that have survived a full revolution are freed.
 /// * Empty: Non-existent and unreachable from standard entry points.
 ///
 /// Only used for `MutableVamanaIndex`.
 ///
-enum class SlotMetadata : uint8_t { Empty = 0x00, Valid = 0x01, Deleted = 0x02 };
+enum class SlotMetadata : uint8_t {
+    Empty = 0x00,
+    Valid = 0x01,
+    DeletedA = 0x02,
+    DeletedB = 0x03
+};
 
 template <SlotMetadata Metadata> inline constexpr std::string_view name();
 template <> inline constexpr std::string_view name<SlotMetadata::Empty>() {
@@ -73,8 +80,11 @@ template <> inline constexpr std::string_view name<SlotMetadata::Empty>() {
 template <> inline constexpr std::string_view name<SlotMetadata::Valid>() {
     return "Valid";
 }
-template <> inline constexpr std::string_view name<SlotMetadata::Deleted>() {
-    return "Deleted";
+template <> inline constexpr std::string_view name<SlotMetadata::DeletedA>() {
+    return "DeletedA";
+}
+template <> inline constexpr std::string_view name<SlotMetadata::DeletedB>() {
+    return "DeletedB";
 }
 
 // clang-format off
@@ -83,7 +93,8 @@ inline constexpr std::string_view name(SlotMetadata metadata) {
     switch (metadata) {
         SVS_SWITCH_RETURN(SlotMetadata::Empty)
         SVS_SWITCH_RETURN(SlotMetadata::Valid)
-        SVS_SWITCH_RETURN(SlotMetadata::Deleted)
+        SVS_SWITCH_RETURN(SlotMetadata::DeletedA)
+        SVS_SWITCH_RETURN(SlotMetadata::DeletedB)
     }
     #undef SVS_SWITCH_RETURN
     throw ANNEXCEPTION("Unreachable!");
@@ -97,9 +108,9 @@ class ValidBuilder {
 
     template <typename I>
     constexpr PredicatedSearchNeighbor<I> operator()(I i, float distance) const {
-        bool invalid = getindex(status_, i) == SlotMetadata::Deleted;
+        bool invalid = getindex(status_, i) != SlotMetadata::Valid;
         // This neighbor should be skipped if the metadata corresponding to the given index
-        // marks this slot as deleted.
+        // marks this slot as anything other than valid.
         return PredicatedSearchNeighbor<I>(i, distance, !invalid);
     }
 
@@ -152,6 +163,13 @@ class MutableVamanaIndex {
     entry_point_type entry_point_;
     std::vector<SlotMetadata> status_;
     size_t first_empty_ = 0;
+    // The state new deletions are marked with during the current repair revolution.
+    SlotMetadata deletion_state_ = SlotMetadata::DeletedA;
+    // Position of the rolling repair sweep; wraps to 0 on completing a revolution.
+    size_t repair_cursor_ = 0;
+    // Deletions since the last full sweep; only a full sweep (never a partial slice)
+    // clears it, since only a full sweep repairs every edge into a deleted slot.
+    size_t deletions_since_sweep_ = 0;
     IDTranslator translator_;
 
     // Thread local data structures.
@@ -856,7 +874,8 @@ class MutableVamanaIndex {
     void delete_entry(size_t i) {
         SlotMetadata& meta = getindex(status_, i);
         assert(meta == SlotMetadata::Valid);
-        meta = SlotMetadata::Deleted;
+        meta = deletion_state_;
+        ++deletions_since_sweep_;
     }
 
     bool is_deleted(size_t i) const { return status_[i] != SlotMetadata::Valid; }
@@ -867,9 +886,9 @@ class MutableVamanaIndex {
     }
 
     ///
-    /// @brief Return all the non-missing internal IDs.
+    /// @brief Return the internal IDs of all `Valid` slots.
     ///
-    /// This includes both valid and soft-deleted entries.
+    /// Excludes both `Deleted` and `Empty` slots.
     ///
     std::vector<Idx> nonmissing_indices() const {
         auto indices = std::vector<Idx>();
@@ -889,6 +908,10 @@ class MutableVamanaIndex {
     ///     improve performance but requires more working memory.
     ///
     void compact(Idx batch_size = 1'000) {
+        // Compaction renumbers every node, which would strand the repair cursor at a
+        // now-meaningless position; draining first also repairs the entry point.
+        drain_repair();
+
         // Step 1: Compute a prefix-sum matching each valid internal index to its new
         // internal index.
         //
@@ -932,15 +955,16 @@ class MutableVamanaIndex {
                         const auto& list = graph_.get_node(old_id);
                         buffer.resize(list.size());
 
-                        // Transform the adjacency list from old to new.
-                        std::transform(
-                            list.begin(),
-                            list.end(),
-                            buffer.begin(),
-                            [&old_to_new_id_map](Idx old_id) {
-                                return old_to_new_id_map.at(old_id);
+                        // A missing key means a stale edge into a slot deleted without
+                        // an intervening `consolidate()`; drop it rather than aborting.
+                        size_t num_neighbors = 0;
+                        for (auto old_neighbor_id : list) {
+                            auto itr = old_to_new_id_map.find(old_neighbor_id);
+                            if (itr != old_to_new_id_map.end()) {
+                                buffer[num_neighbors++] = itr->second;
                             }
-                        );
+                        }
+                        buffer.resize(num_neighbors);
 
                         temp_graph.replace_node(batch_id, buffer);
                     }
@@ -1047,17 +1071,17 @@ class MutableVamanaIndex {
     }
 
     ///// Mutation
-    void consolidate() {
-        auto check_is_deleted = [&](size_t i) { return this->is_deleted(i); };
+
+    /// Replace the entry point with a valid slot if it is currently deleted.
+    /// Must run before any step that may free the entry point's slot to `Empty`.
+    void replace_entry_point_if_deleted() {
         std::function<bool(size_t)> valid = [&](size_t i) {
             return !(this->is_deleted(i));
         };
 
-        // Determine if the entry point is deleted.
-        // If so - we need to pick a new one.
         assert(entry_point_.size() == 1);
         auto entry_point = entry_point_[0];
-        if (status_.at(entry_point) == SlotMetadata::Deleted) {
+        if (is_deleted(entry_point)) {
             svs::logging::debug(logger_, "Replacing entry point.");
             auto new_entry_point =
                 extensions::compute_entry_point(data_, threadpool_, valid);
@@ -1065,6 +1089,88 @@ class MutableVamanaIndex {
             assert(!is_deleted(new_entry_point));
             entry_point_[0] = new_entry_point;
         }
+    }
+
+  private:
+    ///
+    /// @brief Free the previous revolution's deletions and start a new one.
+    ///
+    /// Safe because a full revolution of sweeping has passed since those slots were
+    /// marked, so every in-edge pointing at them has already been repaired. Not safe to
+    /// call directly: it frees slots on the strength of the cursor position alone, so an
+    /// external caller could free slots nothing has actually swept.
+    ///
+    void complete_revolution() {
+        replace_entry_point_if_deleted();
+        SlotMetadata stale = deletion_state_ == SlotMetadata::DeletedA
+                                 ? SlotMetadata::DeletedB
+                                 : SlotMetadata::DeletedA;
+        for (auto& status : status_) {
+            if (status == stale) {
+                status = SlotMetadata::Empty;
+            }
+        }
+        deletion_state_ = stale;
+        repair_cursor_ = 0;
+    }
+
+    ///
+    /// @brief Repair every edge left by deletions since the last full sweep.
+    ///
+    /// A slice sweep only repairs edges into slots that were already deleted when the
+    /// sweep passed them, so completing the current revolution is not enough: a slot
+    /// deleted after being swept this revolution needs a sweep that starts over from
+    /// node 0, which is what this does. Skipped when nothing has been deleted since
+    /// the last full sweep, so `compact()` does not pay for a second one on top of a
+    /// `consolidate()` that already ran. Its only legitimate caller is `compact()`.
+    ///
+    void drain_repair() {
+        if (deletions_since_sweep_ == 0) {
+            return;
+        }
+        consolidate();
+    }
+
+  public:
+    ///
+    /// @brief Advance the rolling repair cursor over up to `batch_size` nodes.
+    ///
+    /// Completes the current revolution when the cursor reaches the end of the node
+    /// range, freeing the previous revolution's deletions.
+    ///
+    void consolidate_slice(size_t batch_size) {
+        const size_t num_nodes = graph_.n_nodes();
+        if (num_nodes == 0 || batch_size == 0) {
+            return;
+        }
+        replace_entry_point_if_deleted();
+
+        auto check_is_deleted = [&](size_t i) { return this->is_deleted(i); };
+        size_t stop = std::min(num_nodes, repair_cursor_ + batch_size);
+
+        svs::index::vamana::consolidate(
+            graph_,
+            data_,
+            threadpool_,
+            prune_to_,
+            max_candidates_,
+            alpha_,
+            distance_,
+            check_is_deleted,
+            repair_cursor_,
+            stop
+        );
+
+        repair_cursor_ = stop;
+        if (repair_cursor_ >= num_nodes) {
+            complete_revolution();
+        }
+    }
+
+    void consolidate() {
+        auto check_is_deleted = [&](size_t i) { return this->is_deleted(i); };
+
+        replace_entry_point_if_deleted();
 
         // Perform graph consolidation.
         svs::index::vamana::consolidate(
@@ -1078,12 +1184,15 @@ class MutableVamanaIndex {
             check_is_deleted
         );
 
-        // After consolidation - set all `Deleted` slots to `Empty`.
+        // A full sweep repairs every in-edge to every currently-deleted slot, so both
+        // deletion states may be freed regardless of the rolling cursor's position.
         for (auto& status : status_) {
-            if (status == SlotMetadata::Deleted) {
+            if (status != SlotMetadata::Valid && status != SlotMetadata::Empty) {
                 status = SlotMetadata::Empty;
             }
         }
+        repair_cursor_ = 0;
+        deletions_since_sweep_ = 0;
     }
 
     ///// Saving
@@ -1333,7 +1442,10 @@ class MutableVamanaIndex {
                 case SlotMetadata::Valid: {
                     return true;
                 }
-                case SlotMetadata::Deleted: {
+                case SlotMetadata::DeletedA: {
+                    return allow_deleted;
+                }
+                case SlotMetadata::DeletedB: {
                     return allow_deleted;
                 }
                 case SlotMetadata::Empty: {

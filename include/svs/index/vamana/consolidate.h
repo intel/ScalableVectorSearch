@@ -303,17 +303,29 @@ class GraphConsolidator {
     }
 
     template <typename Delete> void operator()(const Delete& is_deleted) {
+        (*this)(is_deleted, 0, graph_.n_nodes());
+    }
+
+    template <typename Delete>
+    void operator()(const Delete& is_deleted, size_t range_start, size_t range_stop) {
+        if (range_start >= range_stop) {
+            return;
+        }
+
+        // Sized to the swept range rather than the whole graph, so a small slice does
+        // not pay for scratch space proportional to `params_.update_batch_size`.
+        const size_t update_batch_size =
+            std::min(params_.update_batch_size, range_stop - range_start);
+
         // Allocate necessary scratch space.
-        BulkUpdate<I> update_buffer{params_.update_batch_size, params_.prune_to};
+        BulkUpdate<I> update_buffer{update_batch_size, params_.prune_to};
         threads::SequentialTLS<ConsolidateThreadLocal<I>> tls{threadpool_.size()};
 
-        const size_t num_nodes = graph_.n_nodes();
-        const size_t update_batch_size = std::min(params_.update_batch_size, num_nodes);
         const size_t thread_batch_size = 500;
 
-        size_t start = 0;
-        while (start < num_nodes) {
-            size_t stop = std::min(num_nodes, start + update_batch_size);
+        size_t start = range_start;
+        while (start < range_stop) {
+            size_t stop = std::min(range_stop, start + update_batch_size);
 
             // Generate updates.
             update_buffer.prepare();
@@ -348,6 +360,31 @@ class GraphConsolidator {
     }
 };
 
+/// Sweep only `[range_start, range_stop)`. The full-range overload below delegates
+/// here so the two can never construct `ConsolidationParameters` differently.
+template <
+    graphs::MemoryGraph Graph,
+    data::ImmutableMemoryDataset Data,
+    threads::ThreadPool Pool,
+    typename Distance,
+    typename Deleted>
+void consolidate(
+    Graph& graph,
+    const Data& data,
+    Pool& threadpool,
+    size_t prune_to,
+    size_t max_candidate_pool_size,
+    float alpha,
+    const Distance& distance,
+    Deleted&& is_deleted,
+    size_t range_start,
+    size_t range_stop
+) {
+    ConsolidationParameters params{200'000, prune_to, max_candidate_pool_size, alpha};
+    auto consolidator = GraphConsolidator{graph, data, threadpool, distance, params};
+    consolidator(is_deleted, range_start, range_stop);
+}
+
 template <
     graphs::MemoryGraph Graph,
     data::ImmutableMemoryDataset Data,
@@ -364,9 +401,18 @@ void consolidate(
     const Distance& distance,
     Deleted&& is_deleted
 ) {
-    ConsolidationParameters params{200'000, prune_to, max_candidate_pool_size, alpha};
-    auto consolidator = GraphConsolidator{graph, data, threadpool, distance, params};
-    consolidator(is_deleted);
+    consolidate(
+        graph,
+        data,
+        threadpool,
+        prune_to,
+        max_candidate_pool_size,
+        alpha,
+        distance,
+        is_deleted,
+        0,
+        graph.n_nodes()
+    );
 }
 
 } // namespace svs::index::vamana

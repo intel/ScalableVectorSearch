@@ -28,6 +28,7 @@
 #include <sstream>
 #include <string>
 #include <unordered_map>
+#include <unordered_set>
 
 // svs
 #include "svs/core/recall.h"
@@ -463,4 +464,317 @@ CATCH_TEST_CASE("MutableVamana Index Memory Usage", "[graph_index][dynamic_index
     CATCH_REQUIRE(breakdown.total() == expected_total_bytes);
     const size_t usage = index.get_memory_breakdown().total();
     CATCH_REQUIRE(usage == expected_total_bytes);
+}
+
+CATCH_TEST_CASE(
+    "MutableVamana Index Compact Tolerates Stale Edges",
+    "[graph_index][dynamic_index][compact]"
+) {
+    const size_t num_threads = 2;
+    const size_t num_neighbors = 10;
+    using Distance = svs::distance::DistanceL2;
+
+    auto reference_data = test_dataset::data_blocked_f32();
+    auto data = test_dataset::data_blocked_f32();
+    const size_t data_size = data.size();
+    std::vector<size_t> indices(data_size);
+    std::iota(indices.begin(), indices.end(), 0);
+
+    svs::index::vamana::VamanaBuildParameters parameters{1.2, 64, 10, 20, 10, true};
+    auto index = svs::index::vamana::MutableVamanaIndex(
+        parameters, std::move(data), indices, Distance(), num_threads
+    );
+    const size_t entry_point = index.entry_point();
+
+    // Delete a fifth of the ids (skipping the entry point, which is a separate,
+    // unfixed defect at line 988) so surviving nodes are left with stale edges
+    // once no consolidate() runs before compact().
+    std::vector<size_t> ids_to_delete{};
+    for (size_t i = 0; i < data_size; i += 5) {
+        if (i != entry_point) {
+            ids_to_delete.push_back(i);
+        }
+    }
+    index.delete_entries(ids_to_delete);
+    std::unordered_set<size_t> deleted_set(ids_to_delete.begin(), ids_to_delete.end());
+
+    // Confirm the pathological precondition actually holds instead of assuming it:
+    // at least one surviving node's adjacency list still references a deleted slot.
+    auto has_stale_edge = [&]() {
+        for (size_t i = 0; i < data_size; ++i) {
+            if (index.is_deleted(i)) {
+                continue;
+            }
+            for (auto j : index.view_graph().get_node(i)) {
+                if (index.is_deleted(j)) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    };
+    CATCH_REQUIRE(has_stale_edge());
+
+    auto queries = test_dataset::queries();
+    auto search_params = svs::index::vamana::VamanaSearchParameters{};
+    search_params.buffer_config_ = svs::index::vamana::SearchBufferConfig{num_neighbors};
+
+    CATCH_SECTION("Compact without consolidate tolerates stale edges") {
+        CATCH_REQUIRE_NOTHROW(index.compact());
+
+        // Every surviving node's adjacency must now reference only valid slots.
+        index.debug_check_graph_consistency(false);
+        CATCH_REQUIRE(index.size() == data_size - ids_to_delete.size());
+
+        for (size_t id = 0; id < data_size; ++id) {
+            CATCH_REQUIRE(index.has_id(id) == !deleted_set.contains(id));
+        }
+        // Surviving ids must still translate to their original vector contents.
+        for (size_t id = 0; id < data_size; id += 7) {
+            if (deleted_set.contains(id)) {
+                continue;
+            }
+            auto datum = index.get_datum(id);
+            auto ref = reference_data.get_datum(id);
+            CATCH_REQUIRE(std::equal(datum.begin(), datum.end(), ref.begin()));
+        }
+
+        auto results = svs::QueryResult<size_t>(queries.size(), num_neighbors);
+        CATCH_REQUIRE_NOTHROW(index.search(results.view(), queries.cview(), search_params));
+        for (size_t q = 0; q < queries.size(); ++q) {
+            for (size_t i = 0; i < num_neighbors; ++i) {
+                CATCH_REQUIRE(!deleted_set.contains(results.index(q, i)));
+            }
+        }
+    }
+
+    CATCH_SECTION("Consolidate before compact is unaffected by the stale-edge fix") {
+        index.consolidate();
+        index.debug_check_graph_consistency(false);
+
+        // Capture pre-compact adjacency lengths (post-consolidate, so no stale
+        // edges remain) to prove the new filtering drops nothing when it is a
+        // no-op: every remapped list must keep its pre-compact length.
+        auto surviving = index.nonmissing_indices();
+        std::unordered_map<size_t, size_t> pre_sizes;
+        for (auto old_id : surviving) {
+            pre_sizes[old_id] = index.view_graph().get_node(old_id).size();
+        }
+
+        CATCH_REQUIRE_NOTHROW(index.compact());
+        index.debug_check_graph_consistency(false);
+        CATCH_REQUIRE(index.size() == surviving.size());
+
+        size_t new_id = 0;
+        for (auto old_id : surviving) {
+            CATCH_REQUIRE(
+                index.view_graph().get_node(new_id).size() == pre_sizes.at(old_id)
+            );
+            ++new_id;
+        }
+
+        for (auto id : ids_to_delete) {
+            CATCH_REQUIRE(!index.has_id(id));
+        }
+
+        auto results = svs::QueryResult<size_t>(queries.size(), num_neighbors);
+        CATCH_REQUIRE_NOTHROW(index.search(results.view(), queries.cview(), search_params));
+        for (size_t q = 0; q < queries.size(); ++q) {
+            for (size_t i = 0; i < num_neighbors; ++i) {
+                CATCH_REQUIRE(!deleted_set.contains(results.index(q, i)));
+            }
+        }
+    }
+}
+
+namespace {
+// Build a fresh index over the standard test dataset. External ids are assigned
+// `0..data_size` in order, so a slot's external and internal id coincide until the
+// index is mutated.
+template <typename Distance>
+auto build_dynamic_index(const Distance& distance, size_t num_threads) {
+    auto data = test_dataset::data_blocked_f32();
+    const size_t data_size = data.size();
+    std::vector<size_t> indices(data_size);
+    std::iota(indices.begin(), indices.end(), 0);
+
+    svs::index::vamana::VamanaBuildParameters parameters{1.2, 64, 10, 20, 10, true};
+    return svs::index::vamana::MutableVamanaIndex(
+        parameters, std::move(data), indices, distance, num_threads
+    );
+}
+
+// Every fifth id, skipping the entry point so deletion never has to special-case it.
+template <typename Index> std::vector<size_t> pick_ids_to_delete(const Index& index) {
+    const size_t entry_point = index.entry_point();
+    const size_t data_size = index.view_graph().n_nodes();
+    std::vector<size_t> ids;
+    for (size_t i = 0; i < data_size; i += 5) {
+        if (i != entry_point) {
+            ids.push_back(i);
+        }
+    }
+    return ids;
+}
+} // namespace
+
+CATCH_TEST_CASE(
+    "MutableVamana Index Rolling Consolidation", "[graph_index][dynamic_index][consolidate]"
+) {
+    const size_t num_threads = 2;
+    using Distance = svs::distance::DistanceL2;
+    const Distance distance{};
+
+    CATCH_SECTION("Slices sweeping the full range match one full consolidate()") {
+        // Single-threaded builds so the two graphs start out bit-identical; the
+        // initial build's edge set is not conserved across parallel runs.
+        auto index_a = build_dynamic_index(distance, 1);
+        auto index_b = build_dynamic_index(distance, 1);
+        CATCH_REQUIRE(index_a.entry_point() == index_b.entry_point());
+
+        auto ids_to_delete = pick_ids_to_delete(index_a);
+        index_a.delete_entries(ids_to_delete);
+        index_b.delete_entries(ids_to_delete);
+
+        index_a.consolidate();
+
+        // A batch size that does not evenly divide the node count, so the last slice
+        // is a short one and the sweep still must land exactly on the end.
+        const size_t batch_size = 37;
+        const size_t num_nodes = index_b.view_graph().n_nodes();
+        size_t swept = 0;
+        while (swept < num_nodes) {
+            index_b.consolidate_slice(batch_size);
+            swept += batch_size;
+        }
+
+        CATCH_REQUIRE_NOTHROW(index_a.debug_check_graph_consistency(false));
+        CATCH_REQUIRE_NOTHROW(index_b.debug_check_graph_consistency(false));
+
+        CATCH_REQUIRE(index_a.view_graph().n_nodes() == index_b.view_graph().n_nodes());
+        size_t mismatched_nodes = 0;
+        for (size_t i = 0; i < num_nodes; ++i) {
+            auto list_a = index_a.view_graph().get_node(i);
+            auto list_b = index_b.view_graph().get_node(i);
+            std::vector<uint32_t> sorted_a(list_a.begin(), list_a.end());
+            std::vector<uint32_t> sorted_b(list_b.begin(), list_b.end());
+            std::sort(sorted_a.begin(), sorted_a.end());
+            std::sort(sorted_b.begin(), sorted_b.end());
+            if (sorted_a != sorted_b) {
+                ++mismatched_nodes;
+            }
+        }
+        // Greedy pruning breaks exact distance ties by candidate-set iteration
+        // order, which depends on the scratch set's capacity history; splitting a
+        // sweep into many freshly-scoped calls can thus disagree with one big call
+        // on the rare exactly-tied candidate. Almost all nodes must still match.
+        CATCH_REQUIRE(mismatched_nodes < num_nodes / 100);
+    }
+
+    CATCH_SECTION("A slot is reused only after the reclamation delay") {
+        auto index = build_dynamic_index(distance, num_threads);
+        auto ids_to_delete = pick_ids_to_delete(index);
+        const size_t victim = ids_to_delete.front();
+        const size_t victim_slot = index.translate_external_id(victim);
+        index.delete_entries(ids_to_delete);
+
+        const size_t batch_size = 41;
+        auto sweep_one_revolution = [&]() {
+            const size_t total = index.view_graph().n_nodes();
+            size_t swept = 0;
+            while (swept < total) {
+                index.consolidate_slice(batch_size);
+                swept += batch_size;
+            }
+        };
+
+        auto add_one_point = [&](size_t external_id) {
+            auto point = svs::data::SimpleData<float, svs::Dynamic>(1, index.dimensions());
+            point.set_datum(0, std::vector<float>(index.dimensions(), 0.0f));
+            std::vector<size_t> ids{external_id};
+            return index.add_points(point, ids, true);
+        };
+
+        // One revolution: the victim's own deletion state is still current, so it is
+        // not the one freed; the reclamation rule requires a second revolution.
+        sweep_one_revolution();
+        auto first_slots = add_one_point(1'000'000);
+        CATCH_REQUIRE(first_slots.front() != victim_slot);
+
+        sweep_one_revolution();
+        auto second_slots = add_one_point(1'000'001);
+        CATCH_REQUIRE(second_slots.front() == victim_slot);
+    }
+
+    CATCH_SECTION("compact() after a partial set of slices does not throw") {
+        auto index = build_dynamic_index(distance, num_threads);
+        auto ids_to_delete = pick_ids_to_delete(index);
+        index.delete_entries(ids_to_delete);
+
+        // Sweep less than one full revolution, leaving the cursor mid-way.
+        index.consolidate_slice(index.view_graph().n_nodes() / 3);
+
+        CATCH_REQUIRE_NOTHROW(index.compact());
+        CATCH_REQUIRE_NOTHROW(index.debug_check_graph_consistency(false));
+
+        const size_t num_neighbors = 10;
+        auto queries = test_dataset::queries();
+        auto search_params = svs::index::vamana::VamanaSearchParameters{};
+        search_params.buffer_config_ =
+            svs::index::vamana::SearchBufferConfig{num_neighbors};
+        auto results = svs::QueryResult<size_t>(queries.size(), num_neighbors);
+        CATCH_REQUIRE_NOTHROW(index.search(results.view(), queries.cview(), search_params));
+
+        std::unordered_set<size_t> deleted_set(ids_to_delete.begin(), ids_to_delete.end());
+        for (size_t q = 0; q < queries.size(); ++q) {
+            for (size_t i = 0; i < num_neighbors; ++i) {
+                CATCH_REQUIRE(!deleted_set.contains(results.index(q, i)));
+            }
+        }
+    }
+
+    CATCH_SECTION("compact() repairs an edge deleted after its source was swept") {
+        auto index = build_dynamic_index(distance, num_threads);
+        const size_t entry_point = index.entry_point();
+
+        // A node whose entire neighbor list can be deleted without touching the
+        // entry point, so every one of its edges becomes a stale edge below.
+        size_t witness = 0;
+        bool found = false;
+        for (size_t i = 0; i < index.view_graph().n_nodes(); ++i) {
+            if (i == entry_point) {
+                continue;
+            }
+            auto neighbors = index.view_graph().get_node(i);
+            bool has_entry_point =
+                std::find(neighbors.begin(), neighbors.end(), entry_point) !=
+                neighbors.end();
+            if (!neighbors.empty() && !has_entry_point) {
+                witness = i;
+                found = true;
+                break;
+            }
+        }
+        CATCH_REQUIRE(found);
+        CATCH_REQUIRE(witness + 1 < index.view_graph().n_nodes());
+
+        auto neighbors = index.view_graph().get_node(witness);
+        std::vector<size_t> victims(neighbors.begin(), neighbors.end());
+
+        // Sweep past `witness` while every one of its neighbors is still `Valid`, so
+        // this revolution will not revisit it: this is the witness from the AR-9
+        // follow-up, where a slot deleted after its source was already swept escapes
+        // a drain that only covers `[cursor, n_nodes)`.
+        index.consolidate_slice(witness + 1);
+        index.delete_entries(victims);
+
+        index.compact();
+        CATCH_REQUIRE_NOTHROW(index.debug_check_graph_consistency(false));
+
+        // Every original neighbor was deleted, so a repaired witness must have been
+        // given a fresh, live replacement list; a dropped-not-repaired witness has
+        // none, since compact()'s stale-edge filter removes rather than replaces.
+        size_t new_witness = index.translate_external_id(witness);
+        CATCH_REQUIRE(!index.view_graph().get_node(new_witness).empty());
+    }
 }
