@@ -98,6 +98,7 @@ set(TEST_SOURCES
     ${TEST_DIR}/svs/third-party/toml.cpp
     # Benchmark
     ${TEST_DIR}/benchmark/benchmark.cpp
+    ${TEST_DIR}/benchmark/latency.cpp
     # Concepts
     ${TEST_DIR}/svs/concepts/distance.cpp
     # Core
