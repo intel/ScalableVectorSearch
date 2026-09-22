@@ -69,9 +69,7 @@ jobs:
         with:
           name: svs-cpp-runtime-bindings${{ matrix.suffix }}
           path: svs-cpp-runtime-bindings${{ matrix.suffix }}.tar.gz
-          # Reduced due to size, but kept longer on main: those artifacts are the
-          # ABI baseline every open PR is measured against, so expiring them in a
-          # week makes the check fail on any quiet stretch.
+          # Extend main retention for ABI comparison; keep PR builds short-lived.
           retention-days: ${{ github.ref == 'refs/heads/main' && 30 || 7 }}
 
       - name: Upload conda package artifacts
@@ -137,26 +135,6 @@ jobs:
             svs-manylinux228:latest \
             /bin/bash .github/scripts/test-faiss.sh
 
-  # Check the built runtime bindings against the newest build on main.
-  #
-  # Deliberately not against a published release: release assets are produced by
-  # the innersource private-source build, which compiles svs in-tree with
-  # IVF/LeanVec, while this repo's CI links the prebuilt LTO archive. Those two
-  # paths export genuinely different symbol sets (253 vs 138 on v0.4.0), so a
-  # release baseline reports build-path divergence as ABI findings and needs
-  # standing waivers to stay green. main-vs-PR is like-for-like by construction.
-  #
-  # The trade-off is real and accepted: this measures drift since main, not
-  # compatibility with what users have installed. Nothing checks the latter per-PR
-  # any more -- it is a release-time comparison against the previous release's
-  # assets, and has to be run deliberately when cutting one.
-  #
-  # Only the default variant is checked; -public-only is covered indirectly since
-  # both variants build from the same headers.
-  #
-  # The comparison primitive is .github/scripts/abi-check.sh, which the
-  # innersource repo also calls through its submodule path so the two repos cannot
-  # drift on how the same library is measured.
   abi-check:
     name: ABI check against main
     needs: build-cpp-runtime-bindings
@@ -164,18 +142,15 @@ jobs:
     permissions:
       contents: read
       actions: read  # list runs and download artifacts, to fetch main's as baseline
-    # An intentionally-breaking PR still gets a full report: the label downgrades
-    # this job from blocking to informational rather than skipping it, so the
-    # break is recorded on the PR instead of going unmeasured.
+    # The label downgrades this job to informational rather than skipping it, so an
+    # intentional break is still reported rather than going unmeasured.
     continue-on-error: ${{ contains(toJson(github.event.pull_request.labels.*.name), '"API/ABI breaking change"') }}
 
     steps:
       - uses: actions/checkout@v6
 
-      # The hosted ubuntu-22.04 image ships only clang-13/14, which degrades
-      # abicheck's clang AST frontend to ELF-tier and drops constrained-template
-      # diffs. innersource gets a c++20-capable clang from its self-hosted
-      # toolchain; this keeps the two repos measuring at the same fidelity.
+      # The hosted image's clang-13/14 degrades abicheck's AST frontend to ELF-tier
+      # and drops constrained-template diffs, so install a C++20-capable clang.
       - name: Install clang for the AST frontend
         run: |
           wget -qO /tmp/llvm.sh https://apt.llvm.org/llvm.sh
@@ -186,14 +161,10 @@ jobs:
           sudo update-alternatives --install /usr/bin/clang++ clang++ /usr/bin/clang++-18 100
 
       - name: Install abicheck
-        run: pip install 'abicheck==0.6.*'
+        run: pip install -r .github/scripts/abi-requirements.txt
 
-      # The newest main run that still has a downloadable artifact. This is main's
-      # tip rather than the PR's true merge-base: a PR far behind main will also
-      # see main's own changes, which is noisy but never a false "compatible".
-      #
-      # A missing baseline is a hard failure: a green check that silently skipped
-      # the comparison is worse than a red one.
+      # Baseline is main's tip, not the PR's merge-base: a PR far behind main also
+      # sees main's own changes, which is noisy but never a false "compatible".
       - name: Download baseline build from main
         id: baseline
         env:
@@ -204,9 +175,8 @@ jobs:
           # valid tarball, and a run that produced none just fails to download and
           # falls through to the next candidate.
           #
-          # The REST endpoint rather than `gh run list`: the latter was observed
-          # returning stale pages (all candidates months-expired, newest run
-          # missing), which burns every attempt and fails the leg spuriously.
+          # REST rather than `gh run list`, which was observed returning stale pages
+          # that omitted the newest run and burned every candidate on expired ones.
           candidates=$(gh api \
             "repos/$GITHUB_REPOSITORY/actions/workflows/build-cpp-runtime-bindings.yml/runs?branch=main&event=push&per_page=20" \
             --jq '.workflow_runs[] | "\(.id) \(.head_sha)"')
@@ -231,6 +201,7 @@ jobs:
           fi
           echo "label=$label" >> "$GITHUB_OUTPUT"
 
+      # Default variant only; -public-only builds from the same headers.
       - name: Download this build
         uses: actions/download-artifact@v8
         with:
@@ -244,7 +215,6 @@ jobs:
           SUPPRESSIONS: .github/abi-suppressions.yml
           POLICY: strict_abi
         run: |
-          chmod +x .github/scripts/abi-check.sh
           label='${{ github.event.pull_request.number && format('PR {0}', github.event.pull_request.number) || github.ref_name }}'
           rc=0
           .github/scripts/abi-check.sh \
@@ -258,10 +228,9 @@ jobs:
             } >> "$GITHUB_STEP_SUMMARY"
           fi
 
-          # 77 means an input tarball was missing; that is a harness/plumbing
-          # problem and must fail loudly rather than pass as "no findings".
-          if [ "$rc" -eq 77 ] || [ "$rc" -eq 64 ]; then
-            echo "::error::ABI check could not run (rc=$rc)."
-            exit 1
-          fi
-          exit "$rc"
+          # Only 2/4/5 are ABI findings. Any other non-zero code means the comparison
+          # never happened, which must fail as plumbing rather than read as a break.
+          case "$rc" in
+            0 | 2 | 4 | 5) exit "$rc" ;;
+            *) echo "::error::ABI check could not run (rc=$rc)."; exit 1 ;;
+          esac

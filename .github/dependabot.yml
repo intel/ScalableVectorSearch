@@ -27,3 +27,14 @@ updates:
       github-actions:
         patterns:
           - "*"
+
+  # A bump PR runs the ABI check under the new abicheck, so tool-level behaviour
+  # changes show up as a diff in the report rather than as a surprise on main.
+  - package-ecosystem: "pip"
+    directory: "/.github/scripts"
+    schedule:
+      interval: "monthly"
+    commit-message:
+      prefix: "chore(abicheck)"
+    labels:
+      - dependencies

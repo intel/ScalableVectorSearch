@@ -13,34 +13,21 @@
 # limitations under the License.
 
 # abicheck configuration, picked up from the repo root by `abicheck compare`.
-# Validated against the abicheck 0.6.0 config schema.
-#
-# Kept identical to .abicheck.yml in the innersource repo: the two repos build
-# the same runtime library and must not disagree on how it is parsed.
-#
-# 0.6 removed the --ast-frontend and --gcc-options flags, so these keys are the
-# only way to set them; abi-check.sh relies on this file being found.
 
-# castxml's default cc-gnu detection parses SVS's C++20 headers at the wrong
-# standard (std::span / constexpr dtor fail). The clang AST frontend handles
-# C++20 cleanly; layout-only checks fall back to the .so's DWARF.
+# frontend: clang because castxml's cc-gnu detection parses SVS's C++20 headers at
+# the wrong standard. Layout-only checks fall back to the .so's DWARF.
 #
-# The options below reproduce build assumptions the headers make but do not state.
-# One fixed set applied to BOTH sides on purpose, not derived per side: abicheck's
-# profile_fingerprint hashes compiler + macros + include content and refuses to
-# compare (rc=16) when the two sides disagree. Changing this list changes what is
-# compared, so keep it a reviewed contract.
+# The options reproduce build assumptions the headers make but do not state. One
+# fixed set applied to BOTH sides on purpose: abicheck fingerprints compiler +
+# macros + includes and refuses to compare (rc=16) if the two sides disagree.
 #
 #   -fsized-deallocation   svs::lib::Allocator calls the sized+aligned
-#                          `::operator delete`; clang leaves the feature off, so
-#                          libstdc++ hides that overload and the header fails.
+#                          `::operator delete`, which clang leaves off by default.
 #   -DSPDLOG_FMT_EXTERNAL  the shipped spdlog has no fmt/bundled/.
-#   -DSVS_*                svs/lib/preprocessor.h static_asserts that each of
-#                          these is exactly 0 or 1, so they cannot be left unset.
-#   -DSVS_VERSION_*        svs/lib/version.h needs them defined. Deliberately 0/0/0
-#                          rather than the real version: they are constructor
-#                          arguments, not types, so they cannot move the ABI, and
-#                          the two sides must be given identical macros anyway.
+#   -DSVS_*                svs/lib/preprocessor.h static_asserts each is 0 or 1.
+#   -DSVS_VERSION_*        svs/lib/version.h needs them defined; 0/0/0 because they
+#                          are constructor arguments, not types, so they cannot
+#                          move the ABI and must match on both sides anyway.
 compile:
   frontend: clang
   std: c++20

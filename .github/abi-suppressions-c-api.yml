@@ -12,22 +12,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# ABI check suppression rules for libsvs_c_api.so, used by napetrov/abicheck in
-# both this repo and the innersource one, so the same library is measured against
-# the same rules wherever it is built.
+# ABI check suppression rules for libsvs_c_api.so.
 #
-# Intentionally empty, and expected to stay that way. The C API is compiled with
-# -fvisibility=hidden and exports only `svs_*`, which bindings/c's own integration
-# test already asserts, so there is no leaked-symbol class to waive: unlike the
-# C++ libraries there are no mangled names, no template instantiations from
-# header-only dependencies, and no std:: internals in the exported set.
+# Intentionally empty, and expected to stay that way: the C API is compiled with
+# -fvisibility=hidden and exports only `svs_*`, so there are no mangled names, no
+# template instantiations from header-only dependencies, and no std:: internals to
+# waive -- unlike the C++ libraries, whose exported set leaks all three.
 #
 # The file exists rather than being omitted so the --suppress path the workflows
 # pass is a real one. abi-check.sh skips a missing file silently, which would make
-# a future typo in that path indistinguishable from this deliberate emptiness.
-#
-# If something does need waiving here, that is a signal worth reading: either a
-# symbol escaped the visibility annotations, or the C surface grew a C++ type.
+# a typo in that path indistinguishable from this deliberate emptiness.
 
 version: 1
 suppressions: []

@@ -12,29 +12,19 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# ABI check suppression rules for the SVS C++ runtime bindings, used by
-# napetrov/abicheck. Owned here rather than in the innersource repo because both
-# repos build and check libsvs_runtime.so: with one rule set their verdicts mean
-# the same thing, and a break cannot be reported in one repo and filtered out in
-# the other.
+# ABI check suppression rules for the SVS C++ runtime bindings.
 #
-# Scope is the runtime bindings alone. The innersource repo keeps its own file
-# for libsvs_shared_library.so, which leaks a far larger third-party surface.
+# Measured on libsvs_runtime.so as this repo's CI builds it: of 138 exported
+# symbols, 35 are leaked libstdc++ template instantiations, which is what the rules
+# below cover. Another 31 are std::once_flag guard thunks for local statics inside
+# svs::index::ivf instantiations; they mangle as _ZZ..., so `^_ZNSt` deliberately
+# does not reach them -- they are svs code despite the std:: in the name.
 #
-# Measured on libsvs_runtime.so as this repo's CI builds it: 138 exported symbols
-# -- 55 svs::runtime::v0 functions/objects, 17 svs vtable/RTTI entries, 35 leaked
-# libstdc++ symbols (what the rules below cover), and 31 std::once_flag guard
-# thunks emitted for local statics inside svs::index::ivf instantiations. Those 31
-# mangle as _ZZ..., so the ^_ZNSt rule does not reach them, deliberately: they are
-# svs code, not libstdc++, even though the enclosing name is std::.
-#
-# The leak is not a missing -fvisibility=hidden -- that is set in
-# bindings/cpp/CMakeLists.txt. It tracks the build path: linking the prebuilt LTO
-# archive (this repo's CI) exports 138, compiling svs in-tree (innersource, and the
-# release assets) exports 276. Same compiler on both sides -- verified after the
-# bindings build was pinned to gcc-11 -- so this is configuration, not toolchain.
-# No pattern here can close that gap; a linker version script defining the
-# intended surface would.
+# The leak is not a missing -fvisibility=hidden (that is set in
+# bindings/cpp/CMakeLists.txt); it tracks the build path. Linking the prebuilt LTO
+# archive exports 138 symbols, compiling svs in-tree exports 276, with the same
+# compiler either way. No pattern here can close that gap; a linker version script
+# defining the intended surface would.
 
 version: 1
 suppressions:
@@ -58,35 +48,20 @@ suppressions:
     reason: "RTTI/vtable for __gnu_cxx types, leaked"
     label: "stdlib"
 
-  # No rules for third-party (fmt/spdlog/tsl/toml++) or __cxa_*: neither appears in
-  # this library's dynamic symbol table. The vendored deps ship as static archives
-  # and -Wl,--exclude-libs,ALL keeps them out; __cxa_* are imports, never defined
-  # here. libstdc++ is a shared library, which is why the std:: rules above stay.
+  # No rules for third-party (fmt/spdlog/tsl/toml++) or __cxa_*: the vendored deps
+  # ship as static archives that -Wl,--exclude-libs,ALL keeps out, and __cxa_* are
+  # imports, never defined here. libstdc++ is a shared library, hence the std:: rules.
   #
-  # abicheck lists every rule that matched nothing under "Stale rules", but that
-  # means "no change touched it this run" -- not "delete it". A rule is only dead
-  # once nm confirms the symbols it covers are absent from both sides.
+  # abicheck lists rules that matched nothing under "Stale rules", which means "no
+  # change touched it this run", not "delete it".
 
-  # --- No finding_id waivers ---
-  # There were four, all justified against the v0.4.0 release baseline: two for the
-  # #345/#385 VamanaIndex vtable append, two for DynamicVamanaIndex::add appearing
-  # on one side only. Every check that uses this file compares against the newest
-  # build on main, so neither situation can arise -- the vtable changes are already
-  # on main, and both sides are built the same way. Release-baseline skew is the
-  # innersource nightly's problem and has its own file there.
-  #
-  # If a real finding ever needs waiving, add it here as a finding_id rule (copy the
-  # id from the report) with a reason and an `expires`. finding_id matches one
-  # finding kind on one symbol but does NOT pin the old->new values, so a different
-  # future change to the same symbol would be waived too -- hence the expiry.
-  #
-  # Two things the old waivers were tracking are still open and no longer have a
-  # rule to remind us: the VamanaIndex vtable append is a break for anyone deriving
-  # from it, so v0.5.0 should bump SOVERSION; and DynamicVamanaIndex still emits its
-  # virtual dtor inline, which is why LTO can internalize it.
+  # --- Waivers ---
+  # None. To waive a real finding, add a finding_id rule (id copied from the report)
+  # with a reason and an `expires`. finding_id matches one finding kind on one symbol
+  # but does not pin the old->new values, so a later unrelated change to the same
+  # symbol would be waived silently too -- hence the expiry.
 
   # --- svs::runtime::v0 and svs::...detail...: deliberately NOT suppressed ---
-  # The 55 declared v0 functions are the whole point of the check. `detail`
-  # symbols are not suppressed either: users reach them transitively through
-  # template instantiation, so a vtable or layout change there is a real break.
-  # See the same note in the innersource suppression file.
+  # The 55 declared v0 functions are the whole point of the check. `detail` symbols
+  # are not suppressed either: users reach them transitively through template
+  # instantiation, so a vtable or layout change there is a real break.

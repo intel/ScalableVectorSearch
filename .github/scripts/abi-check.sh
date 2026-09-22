@@ -13,37 +13,29 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Compare the ABI of two SVS build tarballs with napetrov/abicheck.
+# Compare the ABI of two SVS build tarballs with abicheck.
 #
-# One primitive, every caller asking the same temporal question -- is `new` a
-# drop-in replacement for `old`? Only the baseline differs:
-#   per-PR      old = the newest main build, new = this build (both repos)
-#   nightly     old = the last release asset, new = today's main build
-# The distinction is entirely in what the caller passes, so this lives in one
-# place. Callers: build-cpp-runtime-bindings.yml and build-c-api-bindings.yml in
-# this repo; build-share-lib.yml and build-c-api.yml in the innersource repo,
-# which reach it through the submodule path.
+# Every caller asks the same question -- is `new` a drop-in replacement for `old`?
+# -- and differs only in the baseline it passes (newest main build per PR, previous
+# release asset when cutting one), so the comparison lives in one place.
 #
 # Usage: abi-check.sh <old-label> <old-tarball> <new-label> <new-tarball>
 #
 # Overridable via environment:
 #   LIBRARY        library basename to compare (default libsvs_runtime.so)
 #   HEADER_SUBDIR  header root inside the tarball (default include/svs/runtime)
-#   SUPPRESSIONS   suppression file (default .github/abi-suppressions.yml).
-#                  A missing file is skipped silently, so callers that mean to
-#                  suppress nothing should still point at a real empty one.
+#   SUPPRESSIONS   suppression file (default .github/abi-suppressions.yml); a
+#                  missing file is skipped silently, so callers that suppress
+#                  nothing should still point at a real empty one
 #   POLICY         abicheck policy (default strict_abi)
-#   DEPTH          abicheck --depth (default: unset, i.e. abicheck's own
-#                  'headers'). 'binary' is the escape hatch for a header set that
-#                  does not finish parsing in any usable time, as the shared
-#                  library's does not; no current caller needs it.
+#   DEPTH          abicheck --depth (default unset, i.e. abicheck's 'headers');
+#                  'binary' is the escape hatch for a header set too large to parse
 #   REPORT         markdown report path (default abi-report.md)
 #   WORKDIR        scratch directory (default abi-work)
 #
-# Exit status is abicheck's: 0 compatible, 2 source-level API break, 4 binary
-# ABI break, 5 budget exceeded, 16 not comparable, 64 invalid invocation. 77 is
-# added to mean "an input was missing", which is not a finding and must never be
-# reported as one.
+# Exit status is abicheck's: 0 compatible, 2 source-level API break, 4 binary ABI
+# break, 5 budget exceeded, 16 not comparable, 64 invalid invocation. 77 is added
+# to mean "an input was missing", which is not a finding.
 
 set -euo pipefail
 
@@ -98,19 +90,17 @@ echo "Comparing $LIBRARY: [$OLD_LABEL] -> [$NEW_LABEL]"
 suppress_args=()
 [ -f "$SUPPRESSIONS" ] && suppress_args=(--suppress "$SUPPRESSIONS")
 
-# Left unset by default so .abicheck.yml stays the single place that configures
-# depth. The --header/--include arguments below are still passed at binary depth,
-# where they are simply unused, so nothing here is conditional on this.
+# Left unset by default so .abicheck.yml stays the single place that sets depth.
 depth_args=()
 [ -n "$DEPTH" ] && depth_args=(--depth "$DEPTH")
 
 # Vendored deps ship under a versioned root (include/eve-2023.2.15/eve/...), so
 # -I include alone cannot resolve their own `#include <eve/...>`.
 #
-# Only roots present on BOTH sides are added, in one sorted order. abicheck
+# Only roots present on BOTH sides are added, in one sorted order: abicheck
 # fingerprints the include sequence and refuses to compare (rc=16) when the two
-# sides differ, so a root added to one side only voids the whole run -- and the
-# private-source and public tarballs genuinely disagree about shipping eve.
+# sides differ, so a root added to one side only voids the whole run. Tarballs do
+# genuinely disagree about shipping eve, hence the intersection rather than a union.
 include_args=(--include old="$OLD_DIR/include" --include new="$NEW_DIR/include")
 for dir in "$OLD_DIR"/include/*-[0-9]*/; do
     [ -d "$dir" ] || continue
@@ -120,24 +110,19 @@ for dir in "$OLD_DIR"/include/*-[0-9]*/; do
                    --include new="$NEW_DIR/include/$vendored")
 done
 
-# Headers that cannot be parsed as a translation unit, so they are never part of
-# the compared surface. Only reachable when HEADER_SUBDIR is broad, which no
-# current caller's is -- a no-op for the runtime bindings and the C API, kept for
-# whenever a whole-of-svs header root is compared again.
+# Headers that cannot be parsed as a translation unit. Inert for the narrow header
+# roots the current callers pass; needed as soon as a whole-of-svs root is compared.
 #   core.h / lib.h  documentation umbrellas, literally `static_assert(false, ...)`
-#   cpuid.h         abicheck puts each parsed header's own directory on the
-#                   include path, so include/svs shadows the system <cpuid.h>
-#                   that svs/cpuid.h itself includes -- #pragma once then makes
-#                   it a no-op and __cpuid is undeclared. Costs two inline
-#                   svs::detail functions.
-#   vendored trees  parsed transitively via -I where svs actually uses them; eve
-#                   sweeps in ARM SVE headers that cannot compile on x86.
-#   ivf             svs/index/ivf/common.h includes <mkl.h> unguarded and no
-#                   tarball ships MKL headers, so IVF is compared at symbol level
-#                   only. Install MKL headers on the runner to restore it.
+#   cpuid.h         abicheck puts each parsed header's own directory on the include
+#                   path, so include/svs shadows the system <cpuid.h> that
+#                   svs/cpuid.h includes; #pragma once then makes it a no-op and
+#                   __cpuid is undeclared. Costs two inline svs::detail functions.
+#   vendored trees  parsed transitively via -I where svs uses them; eve sweeps in
+#                   ARM SVE headers that cannot compile on x86.
+#   ivf             svs/index/ivf/common.h includes <mkl.h> unguarded and no tarball
+#                   ships MKL headers, so IVF is compared at symbol level only.
 exclude_args=()
-# Every pattern is leading-* so it matches the full path, not just a path relative
-# to HEADER_SUBDIR, which varies per leg.
+# Leading-* so each pattern matches the full path, not one relative to HEADER_SUBDIR.
 for pattern in '*svs/core/core.h' '*svs/lib/lib.h' '*svs/cpuid.h' \
                '*svs/index/ivf/*' '*svs/extensions/ivf/*' '*svs/orchestrators/*ivf*' \
                '*/eve-*/*' '*/fmt/*' '*/spdlog/*' '*/tsl/*' '*/toml++/*'; do
@@ -145,11 +130,8 @@ for pattern in '*svs/core/core.h' '*svs/lib/lib.h' '*svs/cpuid.h' \
 done
 
 rc=0
-# Without pipefail the pipe into tee masks abicheck's exit status.
-set -o pipefail
-# The clang AST frontend and the C++20 standard come from .abicheck.yml. abicheck
-# 0.6 dropped the --ast-frontend/--gcc-options flags, so that file is now the only
-# place to set them -- do not reintroduce them here.
+# The AST frontend, C++20 standard and compile options come from .abicheck.yml;
+# abicheck 0.6 dropped the equivalent flags, so do not reintroduce them here.
 abicheck compare \
     "$OLD_LIB" \
     "$NEW_LIB" \
@@ -164,10 +146,9 @@ abicheck compare \
     "${suppress_args[@]}" \
     --output markdown=- | tee "$REPORT" || rc=$?
 
-# Only 2, 4 and 5 are findings. Anything else -- a removed flag, an unparseable
-# header, a fingerprint mismatch (16), a crash -- means the comparison did not
-# happen, and reporting that as an ABI break is worse than reporting nothing: it
-# teaches reviewers to ignore a red ABI check.
+# Only 2, 4 and 5 are findings. Anything else -- an unparseable header, a
+# fingerprint mismatch (16), a crash -- means the comparison did not happen, and
+# must not be reported as an ABI break.
 case "$rc" in
     0)
         echo "ABI compatible: $OLD_LABEL -> $NEW_LABEL"
