@@ -18,7 +18,6 @@
 #include "algorithm.hpp"
 #include "allocator.hpp"
 #include "data_builder.hpp"
-#include "index.hpp"
 #include "storage.hpp"
 #include "threadpool.hpp"
 #include "types_support.hpp"

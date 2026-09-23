@@ -44,9 +44,9 @@ class SimpleDataBuilder {
     using data_type = svs::data::SimpleData<T, svs::Dynamic, Allocator>;
     using allocator_type = Allocator;
 
-    template <Arithmetic U>
+    template <svs::data::ImmutableMemoryDataset Dataset>
     data_type build(
-        svs::data::ConstSimpleDataView<U> view,
+        const Dataset& view,
         svs::threads::ThreadPoolHandle& SVS_UNUSED(pool),
         const allocator_type& allocator = {}
     ) {
@@ -68,6 +68,8 @@ class SimpleDataBuilder {
             svs::c_runtime::adjust_blocked_size(num_vectors, element_size, allocator);
         return total_size;
     }
+
+    auto get_dataset(const data_type& data) const { return data; }
 };
 
 template <Arithmetic T, typename Alloc>

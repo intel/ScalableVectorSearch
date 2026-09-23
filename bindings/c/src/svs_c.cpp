@@ -882,6 +882,59 @@ svs_index_load(svs_index_builder_h builder, const char* directory, svs_error_h o
     );
 }
 
+extern "C" svs_index_h
+svs_index_convert(svs_index_builder_h builder, svs_index_h src_index, svs_error_h out_err) {
+    using namespace svs::c_runtime;
+    return wrap_exceptions(
+        [&]() {
+            EXPECT_ARG_NOT_NULL(builder);
+            EXPECT_ARG_NOT_NULL(src_index);
+            NOT_IMPLEMENTED_IF(
+                (builder->impl->algorithm->type != SVS_ALGORITHM_TYPE_VAMANA),
+                "Only Vamana algorithm is currently supported for index conversion"
+            );
+            auto index = builder->impl->copy(src_index->impl);
+            if (index == nullptr) {
+                SET_ERROR(out_err, SVS_ERROR_RUNTIME, "Index conversion failed");
+                return svs_index_h{nullptr};
+            }
+            auto result = new svs_index;
+            result->impl = index;
+            return result;
+        },
+        out_err
+    );
+}
+
+extern "C" svs_index_h svs_index_convert_dynamic(
+    svs_index_builder_h builder,
+    svs_index_h src_index,
+    size_t blocksize_bytes /*=0*/,
+    svs_error_h out_err /*=NULL*/
+) {
+    using namespace svs::c_runtime;
+    return wrap_exceptions(
+        [&]() {
+            EXPECT_ARG_NOT_NULL(builder);
+            EXPECT_ARG_NOT_NULL(src_index);
+            NOT_IMPLEMENTED_IF(
+                (builder->impl->algorithm->type != SVS_ALGORITHM_TYPE_VAMANA),
+                "Only Vamana algorithm is currently supported for dynamic index conversion"
+            );
+
+            (void)blocksize_bytes;
+            throw not_implemented("Dynamic index conversion is not implemented yet");
+            return svs_index_h{nullptr};
+            // TODO: Implement dynamic index conversion when supported.
+            // auto index = builder->impl->copy_dynamic(src_index->impl, blocksize_bytes);
+            // auto result = new svs_index;
+            // result->impl = index;
+            // return result;
+        },
+        out_err
+    );
+}
+
 extern "C" void svs_index_free(svs_index_h index) { delete index; }
 
 namespace {
