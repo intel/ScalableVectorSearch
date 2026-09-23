@@ -342,6 +342,7 @@ class Decompressor {
         , bias_(bias) {}
 
     template <typename T> std::span<const float> operator()(const T& y) {
+        buffer_.resize(y.size());
         std::transform(y.begin(), y.end(), buffer_.begin(), [&](auto v) {
             return detail::decompress<float>(v, scale_, bias_);
         });

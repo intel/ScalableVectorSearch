@@ -996,6 +996,29 @@ SVS_API svs_index_h svs_index_load_dynamic(
     svs_error_h out_err /*=NULL*/
 );
 
+/// @brief Convert an index using new builder configuration
+/// @param builder The index builder handle (used for configuration)
+/// @param src_index The source index handle to convert from
+/// @param out_err An optional error handle to capture errors
+/// @return A handle to the newly converted index
+SVS_API svs_index_h svs_index_convert(
+    svs_index_builder_h builder, svs_index_h src_index, svs_error_h out_err /*=NULL*/
+);
+
+/// @brief Convert dynamic index using new builder configuration
+/// @param builder The index builder handle (used for configuration)
+/// @param src_index The source dynamic index handle to convert from
+/// @param blocksize_bytes The block size in bytes for dynamic index conversion (0 for
+/// default)
+/// @param out_err An optional error handle to capture errors
+/// @return A handle to the newly converted dynamic index
+SVS_API svs_index_h svs_index_convert_dynamic(
+    svs_index_builder_h builder,
+    svs_index_h src_index,
+    size_t blocksize_bytes /*=0*/,
+    svs_error_h out_err /*=NULL*/
+);
+
 /// @brief Free the index handle
 /// @param index The index handle to free
 SVS_API void svs_index_free(svs_index_h index);

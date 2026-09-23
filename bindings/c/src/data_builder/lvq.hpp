@@ -39,8 +39,10 @@
 #include <svs/extensions/vamana/lvq.h>
 #endif // SVS_LVQ_HEADER
 
+#include <cstddef>
 #include <filesystem>
 #include <stdexcept>
+#include <type_traits>
 
 namespace svs {
 
@@ -67,9 +69,9 @@ class LVQDataBuilder {
         LVQDataset<PrimaryBits, ResidualBits, svs::Dynamic, Strategy, Allocator>;
     using allocator_type = Allocator;
 
-    template <Arithmetic T>
+    template <svs::data::ImmutableMemoryDataset Dataset>
     data_type build(
-        svs::data::ConstSimpleDataView<T> view,
+        const Dataset& view,
         svs::threads::ThreadPoolHandle& pool,
         const allocator_type& allocator = {}
     ) {
@@ -129,6 +131,12 @@ class LVQDataBuilder {
         const auto total_size =
             primary_size + residual_size + num_centroids * centroid_size;
         return total_size;
+    }
+
+    auto get_dataset(const data_type& data) const {
+        return svs::c_runtime::decompressed_dataset(
+            data, svs::quantization::lvq::DecompressionAccessor(data)
+        );
     }
 };
 
