@@ -28,9 +28,9 @@
 #include <svs/cpuid.h>
 #endif
 
-#include <filesystem>
 #include <memory>
 #include <stdexcept>
+#include <utility>
 
 namespace svs {
 namespace c_runtime {
@@ -40,6 +40,7 @@ struct Storage {
     Storage(svs_storage_kind kind)
         : kind(kind) {}
     virtual ~Storage() = default;
+    virtual std::unique_ptr<Storage> clone() const = 0;
 };
 
 struct StorageSimple : public Storage {
@@ -53,6 +54,10 @@ struct StorageSimple : public Storage {
                 "Simple storage only supports float32 and float16 data types"
             );
         }
+    }
+
+    std::unique_ptr<Storage> clone() const override {
+        return std::make_unique<StorageSimple>(*this);
     }
 };
 
@@ -118,6 +123,10 @@ struct StorageLeanVec : public Storage {
         return false;
 #endif
     }
+
+    std::unique_ptr<Storage> clone() const override {
+        return std::make_unique<StorageLeanVec>(*this);
+    }
 };
 
 struct StorageLVQ : public Storage {
@@ -162,6 +171,10 @@ struct StorageLVQ : public Storage {
         return false;
 #endif
     }
+
+    std::unique_ptr<Storage> clone() const override {
+        return std::make_unique<StorageLVQ>(*this);
+    }
 };
 
 struct StorageSQ : public Storage {
@@ -174,6 +187,10 @@ struct StorageSQ : public Storage {
             throw std::invalid_argument("Scalar quantization only supports 8-bit data types"
             );
         }
+    }
+
+    std::unique_ptr<Storage> clone() const override {
+        return std::make_unique<StorageSQ>(*this);
     }
 };
 

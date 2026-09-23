@@ -107,6 +107,7 @@ class VamanaInterface {
     // later vtable slot, and a consumer built against the old header then dispatches
     // through the wrong slot with no link-time diagnostic.
     virtual svs::index::vamana::MemoryBreakdown get_memory_breakdown() const = 0;
+    virtual svs::index::vamana::VamanaIndexParameters parameters() const = 0;
 };
 
 template <lib::TypeList QueryTypes, typename Impl, typename IFace = VamanaInterface>
@@ -278,6 +279,10 @@ class VamanaImpl : public manager::ManagerImpl<QueryTypes, Impl, IFace> {
     svs::index::vamana::MemoryBreakdown get_memory_breakdown() const override {
         return impl().get_memory_breakdown();
     }
+
+    svs::index::vamana::VamanaIndexParameters parameters() const override {
+        return impl().parameters();
+    }
 };
 
 ///// Forward declarations
@@ -429,12 +434,13 @@ class Vamana : public manager::IndexManager<VamanaInterface> {
     ///
     template <
         manager::QueryTypeDefinition QueryTypes,
+        typename ConfigLoaderProto,
         typename GraphLoaderType,
         typename DataLoader,
         typename Distance,
         typename ThreadPoolProto>
     static Vamana assemble(
-        const std::filesystem::path& config_path,
+        ConfigLoaderProto config_proto,
         const GraphLoaderType& graph_loader,
         DataLoader&& data_loader,
         const Distance& distance,
@@ -450,7 +456,7 @@ class Vamana : public manager::IndexManager<VamanaInterface> {
             return dispatcher([&](auto distance_function) {
                 return make_vamana<manager::as_typelist<QueryTypes>>(
                     AssembleTag(),
-                    config_path,
+                    std::forward<ConfigLoaderProto>(config_proto),
                     graph_loader,
                     std::forward<DataLoader>(data_loader),
                     distance_function,
@@ -460,7 +466,7 @@ class Vamana : public manager::IndexManager<VamanaInterface> {
         } else {
             return make_vamana<manager::as_typelist<QueryTypes>>(
                 AssembleTag(),
-                config_path,
+                std::forward<ConfigLoaderProto>(config_proto),
                 graph_loader,
                 std::forward<DataLoader>(data_loader),
                 distance,
@@ -695,6 +701,10 @@ class Vamana : public manager::IndexManager<VamanaInterface> {
         // Create AnonymousArray from the query
         AnonymousArray<1> query_array{query.data(), query.size()};
         return impl_->get_distance(id, query_array);
+    }
+
+    svs::index::vamana::VamanaIndexParameters parameters() const {
+        return impl_->parameters();
     }
 };
 

@@ -41,6 +41,7 @@
 #include <svs/extensions/vamana/leanvec.h>
 #endif // SVS_LEANVEC_HEADER
 
+#include <cstddef>
 #include <filesystem>
 #include <optional>
 #include <stdexcept>
@@ -71,9 +72,9 @@ class LeanVecDataBuilder {
         Allocator>;
     using allocator_type = Allocator;
 
-    template <Arithmetic T>
+    template <svs::data::ImmutableMemoryDataset Dataset>
     data_type build(
-        svs::data::ConstSimpleDataView<T> view,
+        const Dataset& view,
         svs::threads::ThreadPoolHandle& pool,
         const allocator_type& allocator = {}
     ) {
@@ -124,6 +125,22 @@ class LeanVecDataBuilder {
         const auto total_size =
             primary_size + secondary_size + matrices_size + means_size + is_pca_size;
         return total_size;
+    }
+
+    template <typename T, size_t N, typename Alloc>
+    static auto make_dataset(const data::SimpleData<T, N, Alloc>& data) {
+        return data;
+    }
+
+    template <quantization::lvq::IsLVQDataset Data>
+    static auto make_dataset(const Data& data) {
+        return svs::c_runtime::decompressed_dataset(
+            data, svs::quantization::lvq::DecompressionAccessor(data)
+        );
+    }
+
+    auto get_dataset(const data_type& data) const {
+        return make_dataset(data.view_secondary_dataset());
     }
 };
 

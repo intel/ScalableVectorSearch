@@ -25,6 +25,7 @@
 
 // Standard library
 #include <algorithm>
+#include <cmath>
 #include <vector>
 
 CATCH_TEST_CASE("C API Index Build and Search", "[c_api][index][build][search]") {
@@ -626,6 +627,219 @@ CATCH_TEST_CASE("C API Index Build and Search", "[c_api][index][build][search]")
         svs_search_results_free(&results);
         svs_index_free(loaded_index);
         svs_index_free(index);
+        svs_index_builder_free(builder);
+        svs_algorithm_free(algorithm);
+        svs_error_free(error);
+    }
+
+    CATCH_SECTION("Index Convert") {
+        svs_error_h error = svs_error_create();
+
+        svs_search_params_h search_params = svs_search_params_create_vamana(50, error);
+        CATCH_REQUIRE(search_params != nullptr);
+        CATCH_REQUIRE(svs_error_ok(error));
+
+        // Storage factories. A null handle selects the default fp32 simple storage.
+        auto simple_fp32 = [&]() {
+            svs_storage_h s = svs_storage_create_simple(SVS_DATA_TYPE_FLOAT32, error);
+            CATCH_REQUIRE(s != nullptr);
+            return s;
+        };
+        auto simple_fp16 = [&]() {
+            svs_storage_h s = svs_storage_create_simple(SVS_DATA_TYPE_FLOAT16, error);
+            CATCH_REQUIRE(s != nullptr);
+            return s;
+        };
+        auto scalar_int8 = [&]() {
+            svs_storage_h s = svs_storage_create_sq(SVS_DATA_TYPE_INT8, error);
+            CATCH_REQUIRE(s != nullptr);
+            return s;
+        };
+        auto lvq_4x8 = [&]() {
+            svs_storage_h s =
+                svs_storage_create_lvq(SVS_DATA_TYPE_INT4, SVS_DATA_TYPE_INT8, error);
+            CATCH_REQUIRE(check_storage_support(s, error) == true);
+            return s;
+        };
+        auto leanvec_4x8 = [&]() {
+            svs_storage_h s = svs_storage_create_leanvec(
+                DIMENSION / 2, SVS_DATA_TYPE_INT4, SVS_DATA_TYPE_INT8, error
+            );
+            CATCH_REQUIRE(check_storage_support(s, error) == true);
+            return s;
+        };
+
+        auto search_index = [&](svs_index_h index, svs_search_results_t& out) {
+            CATCH_REQUIRE(svs_index_search_topk(
+                index, queries.data(), NUM_QUERIES, K, &out, search_params, nullptr, error
+            ));
+            CATCH_REQUIRE(svs_error_ok(error));
+        };
+
+        // Mean per-query recall@K of the copy's neighbors against the source's.
+        auto mean_recall = [&](const svs_search_results_t& src,
+                               const svs_search_results_t& copy) {
+            double total = 0.0;
+            for (size_t q = 0; q < NUM_QUERIES; ++q) {
+                size_t matches = 0;
+                for (size_t i = src.offsets[q]; i < src.offsets[q + 1]; ++i) {
+                    for (size_t j = copy.offsets[q]; j < copy.offsets[q + 1]; ++j) {
+                        if (src.indices[i] == copy.indices[j]) {
+                            ++matches;
+                            break;
+                        }
+                    }
+                }
+                size_t k = src.offsets[q + 1] - src.offsets[q];
+                total += (k == 0) ? 1.0 : static_cast<double>(matches) / k;
+            }
+            return total / NUM_QUERIES;
+        };
+
+        // Builds a source index using `src_storage`, copies it into a fresh builder
+        // configured with `dst_storage`, then checks the copy reproduces the source's
+        // neighbors to within `min_recall`. Takes ownership of both storage handles.
+        auto run_copy_case = [&](svs_storage_h src_storage,
+                                 svs_storage_h dst_storage,
+                                 double min_recall) {
+            // Skip the test case if either the source or destination storage is not usable.
+            // E.g. LVQ/Leanvec is not available on this platform
+            if (!storage_usable(src_storage) || !storage_usable(dst_storage)) {
+                return;
+            }
+            svs_algorithm_h algorithm = svs_algorithm_create_vamana(16, 32, 50, error);
+            CATCH_REQUIRE(algorithm != nullptr);
+
+            svs_index_builder_h builder = svs_index_builder_create(
+                SVS_DISTANCE_METRIC_EUCLIDEAN, DIMENSION, algorithm, error
+            );
+            CATCH_REQUIRE(builder != nullptr);
+            CATCH_REQUIRE(svs_index_builder_set_threadpool(
+                builder, SVS_THREADPOOL_KIND_NATIVE, NUM_THREADS, error
+            ));
+            CATCH_REQUIRE(svs_index_builder_set_storage(builder, src_storage, error));
+
+            svs_index_h src_index =
+                svs_index_build(builder, data.data(), NUM_VECTORS, error);
+            CATCH_REQUIRE(src_index != nullptr);
+            CATCH_REQUIRE(svs_error_ok(error));
+
+            // Reuse the same builder for the copy, swapping in the destination storage.
+            CATCH_REQUIRE(svs_index_builder_set_storage(builder, dst_storage, error));
+            svs_index_h copy_index = svs_index_convert(builder, src_index, error);
+            CATCH_REQUIRE(copy_index != nullptr);
+            CATCH_REQUIRE(svs_error_ok(error));
+
+            svs_search_results_t src_results = SVS_INIT_SEARCH_RESULTS();
+            svs_search_results_t copy_results = SVS_INIT_SEARCH_RESULTS();
+            search_index(src_index, src_results);
+            search_index(copy_index, copy_results);
+
+            CATCH_REQUIRE(copy_results.num_queries == src_results.num_queries);
+            for (size_t q = 0; q < NUM_QUERIES; ++q) {
+                CATCH_REQUIRE(copy_results.offsets[q + 1] - copy_results.offsets[q] == K);
+            }
+            CATCH_REQUIRE(mean_recall(src_results, copy_results) >= min_recall);
+
+            svs_search_results_free(&copy_results);
+            svs_search_results_free(&src_results);
+            svs_index_free(copy_index);
+            svs_index_free(src_index);
+            svs_index_builder_free(builder);
+            svs_storage_free(dst_storage);
+            svs_storage_free(src_storage);
+            svs_algorithm_free(algorithm);
+        };
+
+        // fp32 <-> fp16. Half-precision is near-lossless here, so recall stays high.
+        run_copy_case(simple_fp32(), simple_fp16(), 0.8);
+        run_copy_case(simple_fp16(), simple_fp32(), 0.8);
+
+        // simple <-> scalar. Int8 quantization perturbs distances, so require a
+        // moderate recall rather than an exact match.
+        run_copy_case(simple_fp32(), scalar_int8(), 0.5);
+        run_copy_case(scalar_int8(), simple_fp32(), 0.5);
+
+        // simple <-> lvq
+        run_copy_case(simple_fp32(), lvq_4x8(), 0.8);
+        run_copy_case(lvq_4x8(), simple_fp32(), 0.8);
+
+        // simple <-> leanvec
+        run_copy_case(simple_fp32(), leanvec_4x8(), 0.8);
+        run_copy_case(leanvec_4x8(), simple_fp32(), 0.8);
+
+        // TODO: compressed <-> compressed cases are not supported
+
+        svs_search_params_free(search_params);
+        svs_error_free(error);
+    }
+
+    CATCH_SECTION("Index Convert Failures") {
+        svs_error_h error = svs_error_create();
+
+        // Build a valid source index to convert from.
+        svs_algorithm_h algorithm = svs_algorithm_create_vamana(16, 32, 50, error);
+        CATCH_REQUIRE(algorithm != nullptr);
+        svs_index_builder_h builder = svs_index_builder_create(
+            SVS_DISTANCE_METRIC_EUCLIDEAN, DIMENSION, algorithm, error
+        );
+        CATCH_REQUIRE(builder != nullptr);
+        CATCH_REQUIRE(svs_index_builder_set_threadpool(
+            builder, SVS_THREADPOOL_KIND_NATIVE, NUM_THREADS, error
+        ));
+        svs_index_h src_index = svs_index_build(builder, data.data(), NUM_VECTORS, error);
+        CATCH_REQUIRE(src_index != nullptr);
+        CATCH_REQUIRE(svs_error_ok(error));
+
+        // NULL builder is rejected.
+        CATCH_REQUIRE(svs_index_convert(nullptr, src_index, error) == nullptr);
+        CATCH_REQUIRE(svs_error_get_code(error) == SVS_ERROR_INVALID_ARGUMENT);
+
+        // NULL source index is rejected.
+        CATCH_REQUIRE(svs_index_convert(builder, nullptr, error) == nullptr);
+        CATCH_REQUIRE(svs_error_get_code(error) == SVS_ERROR_INVALID_ARGUMENT);
+
+        // Builds a destination builder that differs from the source in exactly one
+        // aspect, so each conversion must fail with `expected_code`.
+        auto expect_convert_failure = [&](svs_index_builder_h dst_builder,
+                                          svs_error_code_t expected_code) {
+            CATCH_REQUIRE(dst_builder != nullptr);
+            CATCH_REQUIRE(svs_index_builder_set_threadpool(
+                dst_builder, SVS_THREADPOOL_KIND_NATIVE, NUM_THREADS, error
+            ));
+            CATCH_REQUIRE(svs_index_convert(dst_builder, src_index, error) == nullptr);
+            CATCH_REQUIRE(svs_error_get_code(error) == expected_code);
+            svs_index_builder_free(dst_builder);
+        };
+
+        // Distance metric mismatch is not supported.
+        expect_convert_failure(
+            svs_index_builder_create(
+                SVS_DISTANCE_METRIC_COSINE, DIMENSION, algorithm, error
+            ),
+            SVS_ERROR_NOT_IMPLEMENTED
+        );
+
+        // Dimensionality mismatch is an invalid operation.
+        expect_convert_failure(
+            svs_index_builder_create(
+                SVS_DISTANCE_METRIC_EUCLIDEAN, DIMENSION * 2, algorithm, error
+            ),
+            SVS_ERROR_INVALID_OPERATION
+        );
+
+        // Build-parameter mismatch (graph degree) is not supported.
+        svs_algorithm_h other_algorithm = svs_algorithm_create_vamana(32, 32, 50, error);
+        CATCH_REQUIRE(other_algorithm != nullptr);
+        expect_convert_failure(
+            svs_index_builder_create(
+                SVS_DISTANCE_METRIC_EUCLIDEAN, DIMENSION, other_algorithm, error
+            ),
+            SVS_ERROR_NOT_IMPLEMENTED
+        );
+        svs_algorithm_free(other_algorithm);
+
+        svs_index_free(src_index);
         svs_index_builder_free(builder);
         svs_algorithm_free(algorithm);
         svs_error_free(error);

@@ -47,6 +47,16 @@ svs::Vamana dispatch_vamana_index_load(
     const AllocatorBuilder& allocator_builder
 );
 
+svs::Vamana dispatch_vamana_index_copy(
+    const svs::index::vamana::VamanaBuildParameters& build_params,
+    const svs::Vamana& src_index,
+    const Storage* src_storage,
+    const Storage* dst_storage,
+    svs::DistanceType distance_type,
+    svs::threads::ThreadPoolHandle pool,
+    const AllocatorBuilder& allocator_builder
+);
+
 svs::index::vamana::MemoryBreakdown dispatch_vamana_memory_estimate(
     const svs::index::vamana::VamanaBuildParameters& build_params,
     size_t num_vectors,
