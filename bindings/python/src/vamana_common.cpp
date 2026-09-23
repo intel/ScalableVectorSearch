@@ -145,7 +145,7 @@ prefetching during search.
         .def(
             py::init<svs::index::vamana::SearchBufferConfig, bool, size_t, size_t>(),
             py::arg("buffer_config") = svs::index::vamana::SearchBufferConfig(),
-            py::arg("search_buffer_visited_set") = false,
+            py::arg("search_buffer_visited_set") = true,
             py::arg("prefetch_lookahead") = 4,
             py::arg("prefetch_step") = 1
         )
