@@ -14,21 +14,16 @@
 
 # ABI check suppression rules for the SVS C++ runtime bindings.
 #
-# Measured on libsvs_runtime.so as this repo's CI builds it: of 138 exported
-# symbols the rules below suppress 66 leaked libstdc++ instantiations, leaving 72 --
-# 56 svs::runtime::v0 functions/objects and 16 svs vtable/RTTI entries. Every one of
-# the 72 names an svs type, so the compared surface is SVS's own symbols and nothing
-# else. Re-verify with nm before trusting these counts after a toolchain change.
+# Every rule below drops libstdc++ template instantiations that leak into
+# libsvs_runtime.so's exports -- 66 of 138 symbols. All 72 survivors name an svs type,
+# so the compared surface is SVS's own. Re-check with nm after a toolchain bump.
 #
-# The leak is not a missing -fvisibility=hidden (that is set in
-# bindings/cpp/CMakeLists.txt); it tracks the build path. Linking the prebuilt LTO
-# archive exports 138 symbols, compiling svs in-tree exports 276, with the same
-# compiler either way. No pattern here can close that gap; a linker version script
-# defining the intended surface would.
+# The leak is not a missing -fvisibility=hidden (bindings/cpp/CMakeLists.txt sets it);
+# it tracks the build path -- linking the prebuilt LTO archive exports 138 symbols,
+# compiling svs in-tree exports 276. Only a linker version script closes that gap.
 
 version: 1
 suppressions:
-  # --- C++ standard library / runtime (never part of the SVS API) ---
   - symbol_pattern: "^_ZNSt.*"
     reason: "C++ standard library symbols (leaked template instantiations)"
     label: "stdlib"
@@ -37,36 +32,19 @@ suppressions:
     reason: "C++ standard library functions"
     label: "stdlib"
 
-  # RTTI/vtable/VTT for std types mangle as _ZTI/_ZTS/_ZTV/_ZTT, not _ZNSt.
   - symbol_pattern: "^_ZT[VIST]N?St.*"
-    reason: "RTTI/vtable/VTT for std:: types (e.g. thread::_State_impl, future)"
+    reason: "RTTI/vtable/VTT for std:: types (thread::_State_impl, future); mangles _ZT[VIST], not _ZNSt"
     label: "stdlib"
 
-  # Emitted for the local statics that std::call_once creates. Mangled in function
-  # scope as _ZZ..., which none of the rules above reach: they are libstdc++
-  # entities instantiated over svs types, not svs code.
   - symbol_pattern: "^_ZZNSt9once_flag18_Prepare_execution.*"
-    reason: "std::call_once local-static thunks (leaked template instantiations)"
+    reason: "std::call_once local statics; _ZZ-mangled in function scope, libstdc++ entities instantiated over svs types"
     label: "stdlib"
 
-  # No rule for __gnu_cxx RTTI. The obvious `^_ZT[VIST].*__gnu_cxx.*` is unanchored,
-  # so it matches std:: types that merely take __gnu_cxx::_Lock_policy as a template
-  # argument -- already covered above. nm finds no RTTI for an actual __gnu_cxx type.
-  #
-  # No rules for third-party (fmt/spdlog/tsl/toml++) or __cxa_*: the vendored deps
-  # ship as static archives that -Wl,--exclude-libs,ALL keeps out, and __cxa_* are
-  # imports, never defined here. libstdc++ is a shared library, hence the std:: rules.
-  #
-  # abicheck lists rules that matched nothing under "Stale rules", which means "no
-  # change touched it this run", not "delete it".
-
-  # --- Waivers ---
-  # None. To waive a real finding, add a finding_id rule (id copied from the report)
-  # with a reason and an `expires`. finding_id matches one finding kind on one symbol
-  # but does not pin the old->new values, so a later unrelated change to the same
-  # symbol would be waived silently too -- hence the expiry.
-
-  # --- svs::runtime::v0 and svs::...detail...: deliberately NOT suppressed ---
-  # The 55 declared v0 functions are the whole point of the check. `detail` symbols
-  # are not suppressed either: users reach them transitively through template
-  # instantiation, so a vtable or layout change there is a real break.
+# No __gnu_cxx RTTI rule: the obvious `^_ZT[VIST].*__gnu_cxx.*` is unanchored, so it
+# only matches std:: types taking __gnu_cxx::_Lock_policy as a template argument, which
+# the rules above already cover. Nothing for fmt/spdlog/tsl/toml++ or __cxa_*: the
+# vendored deps ship as static archives that -Wl,--exclude-libs,ALL keeps out, and
+# __cxa_* are imports, never defined here.
+#
+# svs::...detail... is deliberately not suppressed: users reach it through template
+# instantiation, so a vtable or layout change there is a real break.

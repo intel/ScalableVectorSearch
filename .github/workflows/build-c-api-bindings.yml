@@ -199,10 +199,11 @@ jobs:
           path: current
 
       - name: Compare
+        # Currently no SUPPRESSIONS necessary for C API (-fvisibility=hidden leaves only svs_* exported)
+        # If that changes, add another suppressions file for C API with similar structure to .github/abi-suppressions.yml
         env:
           LIBRARY: libsvs_c_api.so
           HEADER_SUBDIR: include/svs/c
-          SUPPRESSIONS: .github/abi-suppressions-c-api.yml
           POLICY: strict_abi
         run: |
           label='${{ github.event.pull_request.number && format('PR {0}', github.event.pull_request.number) || github.ref_name }}'

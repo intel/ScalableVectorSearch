@@ -24,9 +24,8 @@
 # Overridable via environment:
 #   LIBRARY        library basename to compare (default libsvs_runtime.so)
 #   HEADER_SUBDIR  header root inside the tarball (default include/svs/runtime)
-#   SUPPRESSIONS   suppression file (default .github/abi-suppressions.yml); a
-#                  missing file is skipped silently, so callers that suppress
-#                  nothing should still point at a real empty one
+#   SUPPRESSIONS   suppression file (default unset, i.e. suppress nothing); a
+#                  path that does not exist is an error, not an empty rule set
 #   POLICY         abicheck policy (default strict_abi)
 #   DEPTH          abicheck --depth (default unset, i.e. abicheck's 'headers');
 #                  'binary' is the escape hatch for a header set too large to parse
@@ -46,7 +45,7 @@ NEW_TARBALL="${4:?missing new tarball}"
 
 LIBRARY="${LIBRARY:-libsvs_runtime.so}"
 HEADER_SUBDIR="${HEADER_SUBDIR:-include/svs/runtime}"
-SUPPRESSIONS="${SUPPRESSIONS:-.github/abi-suppressions.yml}"
+SUPPRESSIONS="${SUPPRESSIONS-}"
 POLICY="${POLICY:-strict_abi}"
 DEPTH="${DEPTH:-}"
 REPORT="${REPORT:-abi-report.md}"
@@ -88,7 +87,7 @@ NEW_LIB=$(unpack "$NEW_TARBALL" "$NEW_DIR" "$NEW_LABEL") || exit 77
 echo "Comparing $LIBRARY: [$OLD_LABEL] -> [$NEW_LABEL]"
 
 suppress_args=()
-[ -f "$SUPPRESSIONS" ] && suppress_args=(--suppress "$SUPPRESSIONS")
+[ -n "$SUPPRESSIONS" ] && suppress_args=(--suppress "$SUPPRESSIONS")
 
 # Left unset by default so .abicheck.yml stays the single place that sets depth.
 depth_args=()
