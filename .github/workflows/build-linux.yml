@@ -68,7 +68,7 @@ jobs:
           ivf: ON
 
     steps:
-    - uses: actions/checkout@v6
+    - uses: actions/checkout@v7
     - name: Install MKL
       timeout-minutes: 5
       run: |
