@@ -42,6 +42,7 @@ function(svs_dispatch_read_declaration surface_file x86_src_dir
          out_supported_dims out_dim_list out_dim_count out_isa_levels)
     set(SVS_DISPATCH_SURFACE_FILE "${surface_file}")
     set(SVS_X86_SRC_DIR "${x86_src_dir}")
+    include("${SVS_DISPATCH_GEN_CMAKE_DIR}/validate-dispatch-surface.cmake")
     set(${out_supported_dims} "${SVS_SUPPORTED_DIMS}" PARENT_SCOPE)
     set(${out_dim_list} "${SVS_DIM_LIST}" PARENT_SCOPE)
     set(${out_dim_count} "${SVS_DIM_COUNT}" PARENT_SCOPE)
