@@ -574,7 +574,8 @@ struct VamanaIndexLeanVecImpl : public VamanaIndexImpl {
     )
         : VamanaIndexImpl{std::move(impl), metric, storage_kind}
         , leanvec_dims_{0}
-        , leanvec_matrices_{std::nullopt} {
+        , leanvec_matrices_{std::nullopt}
+        , batch_size_cap_{100'000} {
         check_storage_kind(storage_kind);
     }
 
@@ -584,11 +585,13 @@ struct VamanaIndexLeanVecImpl : public VamanaIndexImpl {
         StorageKind storage_kind,
         const LeanVecTrainingDataImpl& training_data,
         const VamanaIndex::BuildParams& params,
-        const VamanaIndex::SearchParams& default_search_params
+        const VamanaIndex::SearchParams& default_search_params,
+        size_t batch_size_cap = 100'000
     )
         : VamanaIndexImpl{dim, metric, storage_kind, params, default_search_params}
         , leanvec_dims_{training_data.get_leanvec_dims()}
-        , leanvec_matrices_{training_data.get_leanvec_matrices()} {
+        , leanvec_matrices_{training_data.get_leanvec_matrices()}
+        , batch_size_cap_{batch_size_cap} {
         check_storage_kind(storage_kind);
     }
 
@@ -602,7 +605,8 @@ struct VamanaIndexLeanVecImpl : public VamanaIndexImpl {
     )
         : VamanaIndexImpl{dim, metric, storage_kind, params, default_search_params}
         , leanvec_dims_{leanvec_dims}
-        , leanvec_matrices_{std::nullopt} {
+        , leanvec_matrices_{std::nullopt}
+        , batch_size_cap_{100'000} {
         check_storage_kind(storage_kind);
     }
 
@@ -642,7 +646,8 @@ struct VamanaIndexLeanVecImpl : public VamanaIndexImpl {
                     this->vamana_build_parameters(),
                     data,
                     leanvec_dims_,
-                    leanvec_matrices_
+                    leanvec_matrices_,
+                    batch_size_cap_
                 );
             },
             data
@@ -653,6 +658,7 @@ struct VamanaIndexLeanVecImpl : public VamanaIndexImpl {
   protected:
     size_t leanvec_dims_;
     std::optional<LeanVecMatricesType> leanvec_matrices_;
+    size_t batch_size_cap_;
 
     StorageKind check_storage_kind(StorageKind kind) {
         if (!storage::is_leanvec_storage(kind)) {

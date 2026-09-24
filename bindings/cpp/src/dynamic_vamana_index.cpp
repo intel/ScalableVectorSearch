@@ -415,8 +415,17 @@ Status DynamicVamanaIndexLeanVec::
     );
 }
 
-Status DynamicVamanaIndexLeanVec::
-    build(DynamicVamanaIndex**, size_t, MetricType, StorageKind, const LeanVecTrainingData*, const DynamicVamanaIndex::BuildParams&, const DynamicVamanaIndex::SearchParams&, const DynamicVamanaIndex::DynamicIndexParams&, size_t) noexcept {
+Status DynamicVamanaIndexLeanVec::build(
+    DynamicVamanaIndex**,
+    size_t,
+    MetricType,
+    StorageKind,
+    const LeanVecTrainingData*,
+    const DynamicVamanaIndex::BuildParams&,
+    const DynamicVamanaIndex::SearchParams&,
+    const DynamicVamanaIndex::DynamicIndexParams&,
+    size_t
+) noexcept {
     return Status(
         ErrorCode::NOT_IMPLEMENTED,
         "DynamicVamanaIndexLeanVec is not supported in this build configuration."
