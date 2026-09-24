@@ -360,6 +360,43 @@ Status DynamicVamanaIndexLeanVec::build(
     });
 }
 
+// Overload exposing batch_size_cap (SVS-164)
+Status DynamicVamanaIndexLeanVec::build(
+    DynamicVamanaIndex** index,
+    size_t dim,
+    MetricType metric,
+    StorageKind storage_kind,
+    const LeanVecTrainingData* training_data,
+    const DynamicVamanaIndex::BuildParams& params,
+    const DynamicVamanaIndex::SearchParams& default_search_params,
+    const DynamicVamanaIndex::DynamicIndexParams& dynamic_index_params,
+    size_t batch_size_cap
+) noexcept {
+    using Impl = DynamicVamanaIndexLeanVecImpl;
+    *index = nullptr;
+
+    auto status = DynamicVamanaIndex::check_params(dynamic_index_params);
+    if (!status.ok()) {
+        return status;
+    }
+
+    return runtime_error_wrapper([&] {
+        auto training_data_impl =
+            static_cast<const LeanVecTrainingDataManager*>(training_data)->impl_;
+        auto impl = std::make_unique<Impl>(
+            dim,
+            metric,
+            storage_kind,
+            training_data_impl,
+            params,
+            default_search_params,
+            dynamic_index_params,
+            batch_size_cap
+        );
+        *index = new DynamicVamanaIndexManagerBase<Impl>{std::move(impl)};
+    });
+}
+
 #else  // SVS_RUNTIME_HAVE_LVQ_LEANVEC
 // LeanVec storage kind is not supported in this build configuration
 Status DynamicVamanaIndexLeanVec::
@@ -372,6 +409,23 @@ Status DynamicVamanaIndexLeanVec::
 
 Status DynamicVamanaIndexLeanVec::
     build(DynamicVamanaIndex**, size_t, MetricType, StorageKind, const LeanVecTrainingData*, const DynamicVamanaIndex::BuildParams&, const DynamicVamanaIndex::SearchParams&, const DynamicVamanaIndex::DynamicIndexParams&) noexcept {
+    return Status(
+        ErrorCode::NOT_IMPLEMENTED,
+        "DynamicVamanaIndexLeanVec is not supported in this build configuration."
+    );
+}
+
+Status DynamicVamanaIndexLeanVec::build(
+    DynamicVamanaIndex**,
+    size_t,
+    MetricType,
+    StorageKind,
+    const LeanVecTrainingData*,
+    const DynamicVamanaIndex::BuildParams&,
+    const DynamicVamanaIndex::SearchParams&,
+    const DynamicVamanaIndex::DynamicIndexParams&,
+    size_t
+) noexcept {
     return Status(
         ErrorCode::NOT_IMPLEMENTED,
         "DynamicVamanaIndexLeanVec is not supported in this build configuration."

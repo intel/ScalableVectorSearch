@@ -257,6 +257,40 @@ Status VamanaIndexLeanVec::build(
     });
 }
 
+// Overload exposing batch_size_cap (SVS-164)
+Status VamanaIndexLeanVec::build(
+    VamanaIndex** index,
+    size_t dim,
+    MetricType metric,
+    StorageKind storage_kind,
+    const LeanVecTrainingData* training_data,
+    const VamanaIndex::BuildParams& params,
+    const VamanaIndex::SearchParams& default_search_params,
+    size_t batch_size_cap
+) noexcept {
+    using Impl = VamanaIndexLeanVecImpl;
+    *index = nullptr;
+
+    return runtime_error_wrapper([&] {
+        if (training_data == nullptr) {
+            throw StatusException{
+                ErrorCode::INVALID_ARGUMENT, "Training data must not be null"};
+        }
+        auto training_data_impl =
+            static_cast<const LeanVecTrainingDataManager*>(training_data)->impl_;
+        auto impl = std::make_unique<Impl>(
+            dim,
+            metric,
+            storage_kind,
+            training_data_impl,
+            params,
+            default_search_params,
+            batch_size_cap
+        );
+        *index = new VamanaIndexManagerBase<Impl>{std::move(impl)};
+    });
+}
+
 #else  // SVS_RUNTIME_HAVE_LVQ_LEANVEC
 // LeanVec storage kind is not supported in this build configuration
 Status VamanaIndexLeanVec::
@@ -269,6 +303,22 @@ Status VamanaIndexLeanVec::
 
 Status VamanaIndexLeanVec::
     build(VamanaIndex**, size_t, MetricType, StorageKind, const LeanVecTrainingData*, const VamanaIndex::BuildParams&, const VamanaIndex::SearchParams&) noexcept {
+    return Status(
+        ErrorCode::NOT_IMPLEMENTED,
+        "VamanaIndexLeanVec is not supported in this build configuration."
+    );
+}
+
+Status VamanaIndexLeanVec::build(
+    VamanaIndex**,
+    size_t,
+    MetricType,
+    StorageKind,
+    const LeanVecTrainingData*,
+    const VamanaIndex::BuildParams&,
+    const VamanaIndex::SearchParams&,
+    size_t
+) noexcept {
     return Status(
         ErrorCode::NOT_IMPLEMENTED,
         "VamanaIndexLeanVec is not supported in this build configuration."
