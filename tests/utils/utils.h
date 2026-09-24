@@ -25,6 +25,7 @@
 #include <sstream>
 #include <string>
 #include <type_traits>
+#include <unistd.h>
 
 #include "svs/core/data/simple.h"
 #include "svs/core/query_result.h"
@@ -53,7 +54,11 @@ namespace svs_test {
 // The macro `SVS_TEST_DATA_DIR` is defined in CMake build system.
 inline std::filesystem::path data_directory() { return SVS_TEST_DATA_DIR; }
 
-inline std::filesystem::path temp_directory() { return data_directory() / "temp"; }
+// Keyed by pid, not a fixed name: catch_discover_tests runs each test case as its
+// own process, and several write to this path concurrently under `ctest -j`.
+inline std::filesystem::path temp_directory() {
+    return data_directory() / ("temp_" + std::to_string(::getpid()));
+}
 
 inline bool cleanup_temp_directory() {
     return std::filesystem::remove_all(temp_directory());
