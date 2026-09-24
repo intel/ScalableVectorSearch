@@ -43,7 +43,8 @@ struct DynamicVamanaIndexLeanVecImpl : public DynamicVamanaIndexImpl {
     )
         : DynamicVamanaIndexImpl{std::move(impl), metric, storage_kind}
         , leanvec_dims_{0}
-        , leanvec_matrices_{std::nullopt} {
+        , leanvec_matrices_{std::nullopt}
+        , batch_size_cap_{100'000} {
         check_storage_kind(storage_kind);
     }
 
@@ -54,11 +55,13 @@ struct DynamicVamanaIndexLeanVecImpl : public DynamicVamanaIndexImpl {
         const LeanVecTrainingDataImpl& training_data,
         const VamanaIndex::BuildParams& params,
         const VamanaIndex::SearchParams& default_search_params,
-        const VamanaIndex::DynamicIndexParams& dynamic_index_params
+        const VamanaIndex::DynamicIndexParams& dynamic_index_params,
+        size_t batch_size_cap = 100'000
     )
         : DynamicVamanaIndexImpl{dim, metric, storage_kind, params, default_search_params, dynamic_index_params}
         , leanvec_dims_{training_data.get_leanvec_dims()}
-        , leanvec_matrices_{training_data.get_leanvec_matrices()} {
+        , leanvec_matrices_{training_data.get_leanvec_matrices()}
+        , batch_size_cap_{batch_size_cap} {
         check_storage_kind(storage_kind);
     }
 
@@ -73,7 +76,8 @@ struct DynamicVamanaIndexLeanVecImpl : public DynamicVamanaIndexImpl {
     )
         : DynamicVamanaIndexImpl{dim, metric, storage_kind, params, default_search_params, dynamic_index_params}
         , leanvec_dims_{leanvec_dims}
-        , leanvec_matrices_{std::nullopt} {
+        , leanvec_matrices_{std::nullopt}
+        , batch_size_cap_{100'000} {
         check_storage_kind(storage_kind);
     }
 
@@ -124,7 +128,8 @@ struct DynamicVamanaIndexLeanVecImpl : public DynamicVamanaIndexImpl {
                     labels,
                     blocksize_bytes,
                     this->leanvec_dims_,
-                    this->leanvec_matrices_
+                    this->leanvec_matrices_,
+                    this->batch_size_cap_
                 );
             },
             data,
@@ -136,6 +141,7 @@ struct DynamicVamanaIndexLeanVecImpl : public DynamicVamanaIndexImpl {
   protected:
     size_t leanvec_dims_;
     std::optional<LeanVecMatricesType> leanvec_matrices_;
+    size_t batch_size_cap_;
 
     StorageKind check_storage_kind(StorageKind kind) {
         if (!storage::is_leanvec_storage(kind)) {

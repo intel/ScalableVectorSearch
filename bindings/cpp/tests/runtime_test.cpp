@@ -593,6 +593,52 @@ CATCH_TEST_CASE("LeanVecWithTrainingDataCustomBlockSize", "[runtime]") {
     svs::runtime::v0::DynamicVamanaIndex::destroy(index);
 }
 
+CATCH_TEST_CASE("LeanVecWithTrainingDataPointerCustomBatchSizeCap", "[runtime]") {
+    const auto& test_data = get_test_data();
+    const size_t leanvec_dims = 32;
+    // batch_size_cap << test_n forces reduce() through multiple, uneven-remainder
+    // batches (SVS-164) instead of the single-batch path every other LeanVec test here
+    // exercises.
+    const size_t batch_size_cap = 7;
+
+    svs::runtime::v0::LeanVecTrainingData* training_data = nullptr;
+    svs::runtime::v0::Status status = svs::runtime::v0::LeanVecTrainingData::build(
+        &training_data, test_d, test_n, test_data.data(), leanvec_dims
+    );
+    if (!svs::runtime::v0::DynamicVamanaIndex::check_storage_kind(
+             svs::runtime::v0::StorageKind::LeanVec4x4
+        )
+             .ok()) {
+        CATCH_REQUIRE(!status.ok());
+        CATCH_SKIP("Storage kind is not supported, skipping test.");
+    }
+    CATCH_REQUIRE(status.ok());
+
+    svs::runtime::v0::DynamicVamanaIndex* index = nullptr;
+    svs::runtime::v0::VamanaIndex::BuildParams build_params{64};
+    status = svs::runtime::v0::DynamicVamanaIndexLeanVec::build(
+        &index,
+        test_d,
+        svs::runtime::v0::MetricType::L2,
+        svs::runtime::v0::StorageKind::LeanVec4x4,
+        training_data,
+        build_params,
+        {},
+        svs::runtime::v0::VamanaIndex::DynamicIndexParams{},
+        batch_size_cap
+    );
+    CATCH_REQUIRE(status.ok());
+    CATCH_REQUIRE(index != nullptr);
+
+    std::vector<size_t> labels(test_n);
+    std::iota(labels.begin(), labels.end(), 0);
+    status = index->add(test_n, labels.data(), test_data.data());
+    CATCH_REQUIRE(status.ok());
+
+    svs::runtime::v0::DynamicVamanaIndex::destroy(index);
+    svs::runtime::v0::LeanVecTrainingData::destroy(training_data);
+}
+
 CATCH_TEST_CASE("TrainingDataCustomBlockSize", "[runtime]") {
     const auto& test_data = get_test_data();
     size_t block_size_exp = 17; // block_size_bytes = 2^block_size_exp

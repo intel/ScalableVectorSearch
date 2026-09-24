@@ -126,6 +126,21 @@ struct SVS_RUNTIME_API DynamicVamanaIndexLeanVec : public DynamicVamanaIndex {
         const VamanaIndex::SearchParams& default_search_params,
         const VamanaIndex::DynamicIndexParams& dynamic_index_params
     ) noexcept;
+
+    // Overload exposing batch_size_cap (SVS-164): caps the row count of each batch
+    // LeanVec's reduce() materializes while transforming the dataset, trading build-time
+    // peak memory for build time. Default (100'000) matches the other overloads.
+    static Status build(
+        DynamicVamanaIndex** index,
+        size_t dim,
+        MetricType metric,
+        StorageKind storage_kind,
+        const LeanVecTrainingData* training_data,
+        const VamanaIndex::BuildParams& params,
+        const VamanaIndex::SearchParams& default_search_params,
+        const VamanaIndex::DynamicIndexParams& dynamic_index_params,
+        size_t batch_size_cap
+    ) noexcept;
 };
 } // SVS_DECLARE_NAMESPACE_VERSION(0)
 } // namespace runtime
