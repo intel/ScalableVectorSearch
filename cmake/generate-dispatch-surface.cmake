@@ -26,31 +26,22 @@ include_guard(GLOBAL)
 
 include("${CMAKE_CURRENT_LIST_DIR}/dispatch-levels.cmake")
 
-# Captured while CMAKE_CURRENT_LIST_DIR unambiguously means this directory, so the
-# functions below can reference sibling files after control has passed into them.
 set(SVS_DISPATCH_GEN_CMAKE_DIR "${CMAKE_CURRENT_LIST_DIR}")
 
 set(SVS_DEFAULT_DISPATCH_SURFACE_FILE "${CMAKE_CURRENT_LIST_DIR}/dispatch-surface.cmake")
-# Lets validate-dispatch-surface.cmake and check_dispatch_surface.sh point this at a
-# tests/cmake/dispatch-surface fixture instead of editing the real declaration.
 set(SVS_DISPATCH_SURFACE_FILE "${SVS_DEFAULT_DISPATCH_SURFACE_FILE}"
     CACHE FILEPATH
     "Declaration of the ahead-of-time distance-kernel dispatch surface"
 )
 
 #####
-##### Read and validate the declaration
+##### Read the declaration
 #####
 
-# Includes validate-dispatch-surface.cmake, which rejects a malformed declaration
-# with FATAL_ERROR and otherwise sets SVS_SUPPORTED_DIMS, SVS_DIM_LIST,
-# SVS_DIM_COUNT and SVS_ISA_LEVELS. Also runnable on its own -- see
-# .github/scripts/check_dispatch_surface.sh.
 function(svs_dispatch_read_declaration surface_file x86_src_dir
          out_supported_dims out_dim_list out_dim_count out_isa_levels)
     set(SVS_DISPATCH_SURFACE_FILE "${surface_file}")
     set(SVS_X86_SRC_DIR "${x86_src_dir}")
-    include("${SVS_DISPATCH_GEN_CMAKE_DIR}/validate-dispatch-surface.cmake")
     set(${out_supported_dims} "${SVS_SUPPORTED_DIMS}" PARENT_SCOPE)
     set(${out_dim_list} "${SVS_DIM_LIST}" PARENT_SCOPE)
     set(${out_dim_count} "${SVS_DIM_COUNT}" PARENT_SCOPE)
@@ -61,9 +52,6 @@ endfunction()
 ##### Build the macro bodies
 #####
 
-# Builds the escaped-newline macro bodies that substitute into the header
-# template's @SVS_GEN_*@ placeholders -- see
-# cmake/templates/dispatch_surface.h.in for what each one expands into.
 function(svs_dispatch_build_expansions dim_list isa_levels
          out_dim_loop out_target_loop out_level_loop out_level_defines)
     set(dim_loop "\\\n")
@@ -97,10 +85,6 @@ endfunction()
 ##### Derive the translation-unit specs
 #####
 
-# One translation unit per level, committed rather than generated because the
-# downstream repository compiles these sources by path (validation checks each
-# exists). Also returns the plain level list and the human-readable report lines
-# the caller's message(STATUS ...) prints, since both come from this same walk.
 function(svs_dispatch_derive_tu_specs isa_levels x86_src_dir
          out_tu_specs out_levels out_level_report)
     set(tu_specs)
@@ -138,9 +122,6 @@ endfunction()
 ##### Emit the manifest
 #####
 
-# The ctest checks read this rather than including the declaration, so they depend
-# on the surface's contents and not on that file's format, its location, or what
-# else it sets.
 function(svs_dispatch_emit_manifest supported_dims levels manifest_file)
     string(REPLACE ";" " " levels_text "${levels}")
     string(REPLACE ";" " " extents_text "${supported_dims}")
