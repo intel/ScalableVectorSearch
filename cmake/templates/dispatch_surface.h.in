@@ -14,14 +14,9 @@
  * limitations under the License.
  */
 
-// GENERATED FILE -- DO NOT EDIT. Regenerated on every CMake configure from
-// cmake/dispatch-surface.cmake; committed so a bare `-I include` compile works.
+// GENERATED FILE -- DO NOT EDIT. Regenerated on every CMake configure
 
 #pragma once
-
-// clang-format off
-// Reflowing would realign the escaped newlines and make the committed copy
-// disagree with the one CMake writes -- an endless format/regenerate loop.
 
 // Number of extents with a fixed-extent kernel, including svs::Dynamic.
 #define SVS_SUPPORTED_DIM_COUNT @SVS_GEN_DIM_COUNT@
@@ -40,5 +35,3 @@
 // One per ISA level in the surface, and only those: a level absent from it has no
 // instantiations. Tested with `defined` so a -Wundef build stays quiet.
 @SVS_GEN_LEVEL_DEFINES@
-
-// clang-format on
