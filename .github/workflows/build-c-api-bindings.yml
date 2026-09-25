@@ -130,8 +130,7 @@ jobs:
     permissions:
       contents: read
       actions: read  # list runs and download artifacts, to fetch main's as baseline
-    # The label downgrades this job to informational rather than skipping it, so an
-    # intentional break is still reported rather than going unmeasured.
+    # Run informative, green CI check (non-breaking) if ABI breaking label added to PR
     continue-on-error: ${{ contains(toJson(github.event.pull_request.labels.*.name), '"API/ABI breaking change"') }}
 
     steps:
