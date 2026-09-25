@@ -1,4 +1,4 @@
-# Copyright 2025 Intel Corporation
+# Copyright 2026 Intel Corporation
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,27 +12,4 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-version: 2
-updates:
-  - package-ecosystem: "github-actions"
-    directory: "/"
-    schedule:
-      interval: "monthly"
-    commit-message:
-      prefix: "chore(actions)"
-    labels:
-      - dependencies
-      - actions
-    groups:
-      github-actions:
-        patterns:
-          - "*"
-
-  - package-ecosystem: "pip"
-    directory: "/.github/scripts"
-    schedule:
-      interval: "monthly"
-    commit-message:
-      prefix: "chore(abicheck)"
-    labels:
-      - dependencies
+abicheck==0.6.0

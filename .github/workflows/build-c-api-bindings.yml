@@ -69,7 +69,8 @@ jobs:
         with:
           name: svs-c-api${{ matrix.suffix }}
           path: svs-c-api${{ matrix.suffix }}.tar.gz
-          retention-days: 7
+          # Extend main retention for ABI comparison; keep PR builds short-lived.
+          retention-days: ${{ github.ref == 'refs/heads/main' && 30 || 7 }}
 
       # Run unit tests that were built as part of this job
       - name: Run unit tests in Docker container
@@ -121,3 +122,105 @@ jobs:
             -e SUFFIX=${{ matrix.suffix }} \
             svs-manylinux228:latest \
             /bin/bash .github/scripts/test-c-api-bindings.sh
+
+  abi-check:
+    name: ABI check against main
+    needs: build-c-api-bindings
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: read
+      actions: read  # list runs and download artifacts, to fetch main's as baseline
+    # Run informative, green CI check (non-breaking) if ABI breaking label added to PR
+    continue-on-error: ${{ contains(toJson(github.event.pull_request.labels.*.name), '"API/ABI breaking change"') }}
+
+    steps:
+      - uses: actions/checkout@v6
+
+      # The hosted image's clang-13/14 degrades abicheck's AST frontend to ELF-tier
+      # and drops constrained-template diffs, so install a C++20-capable clang.
+      #
+      # TODO: drop this step after either bumping to ubuntu-24.04 (which preinstalls clang-18)
+      # or run the compare inside svs-manylinux228. Broader change outside this PR scope.
+      - name: Install clang for the AST frontend
+        run: |
+          wget -qO /tmp/llvm.sh https://apt.llvm.org/llvm.sh
+          chmod +x /tmp/llvm.sh
+          sudo /tmp/llvm.sh 18
+          sudo apt-get install -y --no-install-recommends libclang-18-dev llvm-18-dev
+          sudo update-alternatives --install /usr/bin/clang   clang   /usr/bin/clang-18   100
+          sudo update-alternatives --install /usr/bin/clang++ clang++ /usr/bin/clang++-18 100
+
+      - name: Install abicheck
+        run: pip install -r .github/scripts/abi-requirements.txt
+
+      # Baseline is main's tip, not the PR's merge-base: a PR far behind main also
+      # sees main's own changes, which is noisy but never a false "compatible".
+      - name: Download baseline build from main
+        id: baseline
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p baseline
+          # Not filtered on conclusion: a run whose tests failed still produced a
+          # valid tarball, and a run that produced none just fails to download and
+          # falls through to the next candidate.
+          #
+          # REST rather than `gh run list`, which was observed returning stale pages
+          # that omitted the newest run and burned every candidate on expired ones.
+          candidates=$(gh api \
+            "repos/$GITHUB_REPOSITORY/actions/workflows/build-c-api-bindings.yml/runs?branch=main&event=push&per_page=20" \
+            --jq '.workflow_runs[] | "\(.id) \(.head_sha)"')
+
+          label=
+          while read -r run_id sha; do
+            [ -n "$run_id" ] || continue
+            [ "$run_id" != "$GITHUB_RUN_ID" ] || continue
+            if gh run download "$run_id" --repo "$GITHUB_REPOSITORY" \
+                 --name svs-c-api --dir baseline; then
+              label="main@${sha:0:12}"
+              echo "Baseline: run $run_id ($label)"
+              break
+            fi
+          done <<< "$candidates"
+
+          if [ -z "$label" ]; then
+            echo "::error::No recent main run has a downloadable svs-c-api" \
+                 "artifact. Re-run this workflow on main to refresh the baseline."
+            exit 1
+          fi
+          echo "label=$label" >> "$GITHUB_OUTPUT"
+
+      # Default variant only; -public-only builds from the same headers.
+      - name: Download this build
+        uses: actions/download-artifact@v8
+        with:
+          name: svs-c-api
+          path: current
+
+      - name: Compare
+        # Currently no SUPPRESSIONS necessary for C API (-fvisibility=hidden leaves only svs_* exported)
+        # If that changes, add another suppressions file for C API with similar structure to .github/abi-suppressions.yml
+        env:
+          LIBRARY: libsvs_c_api.so
+          HEADER_SUBDIR: include/svs/c
+          POLICY: strict_abi
+        run: |
+          label='${{ github.event.pull_request.number && format('PR {0}', github.event.pull_request.number) || github.ref_name }}'
+          rc=0
+          .github/scripts/abi-check.sh \
+            '${{ steps.baseline.outputs.label }}' baseline/svs-c-api.tar.gz \
+            "$label" current/svs-c-api.tar.gz || rc=$?
+
+          if [ -s abi-report.md ]; then
+            {
+              echo "## ABI vs ${{ steps.baseline.outputs.label }}"
+              cat abi-report.md
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+          # Only 2/4/5 are ABI findings. Any other non-zero code means the comparison
+          # never happened, which must fail as plumbing rather than read as a break.
+          case "$rc" in
+            0 | 2 | 4 | 5) exit "$rc" ;;
+            *) echo "::error::ABI check could not run (rc=$rc)."; exit 1 ;;
+          esac
