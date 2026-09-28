@@ -117,6 +117,8 @@ set(svs_seen_infixes)
 set(svs_seen_archs)
 foreach(level_spec IN LISTS SVS_ISA_LEVELS)
     svs_parse_isa_level("${level_spec}" level arch infix)
+
+    # parse succeeded?
     foreach(field level arch infix)
         if(NOT ${field})
             message(FATAL_ERROR
@@ -124,6 +126,8 @@ foreach(level_spec IN LISTS SVS_ISA_LEVELS)
             )
         endif()
     endforeach()
+
+    # NONE implicit, cannot be set
     if(level STREQUAL "NONE")
         message(FATAL_ERROR
             "ISA level 'NONE' in SVS_ISA_LEVELS is not declarable: it means no "
@@ -131,6 +135,8 @@ foreach(level_spec IN LISTS SVS_ISA_LEVELS)
             "library for a row to name."
         )
     endif()
+
+    # unknown ISA
     if(NOT level IN_LIST svs_legal_levels)
         string(REPLACE ";" ", " svs_legal_levels_display "${svs_legal_levels}")
         message(FATAL_ERROR
@@ -139,15 +145,21 @@ foreach(level_spec IN LISTS SVS_ISA_LEVELS)
             "(legal levels: ${svs_legal_levels_display})."
         )
     endif()
+
+    # duplicate ISA
     if(level IN_LIST svs_seen_levels)
         message(FATAL_ERROR "Duplicate ISA level '${level}' in SVS_ISA_LEVELS.")
     endif()
+
+    # duplicate infix
     if(infix IN_LIST svs_seen_infixes)
         message(FATAL_ERROR
             "Duplicate TU infix '${infix}' in SVS_ISA_LEVELS; infixes name "
             "generated files and must be unique."
         )
     endif()
+
+    # duplicate -march
     if(arch IN_LIST svs_seen_archs)
         message(FATAL_ERROR
             "Duplicate -march '${arch}' in SVS_ISA_LEVELS; each level's -march "
@@ -156,6 +168,8 @@ foreach(level_spec IN LISTS SVS_ISA_LEVELS)
             "guarantee, and hosts routed to it fault."
         )
     endif()
+
+    # infix source files exist
     if(NOT EXISTS "${SVS_X86_SRC_DIR}/${infix}.cpp")
         message(FATAL_ERROR
             "ISA level '${level}' has no translation unit: expected "
@@ -163,13 +177,13 @@ foreach(level_spec IN LISTS SVS_ISA_LEVELS)
             "requires creating that file."
         )
     endif()
+
     list(APPEND svs_seen_levels ${level})
     list(APPEND svs_seen_infixes ${infix})
     list(APPEND svs_seen_archs ${arch})
 endforeach()
 
-# distance_core.h #errors on x86_64 unless both are present, so a surface
-# omitting either is not a smaller build: it cannot compile.
+# mandatory levels
 foreach(svs_mandatory_level AVX2 AVX512)
     if(NOT svs_mandatory_level IN_LIST svs_seen_levels)
         message(FATAL_ERROR
