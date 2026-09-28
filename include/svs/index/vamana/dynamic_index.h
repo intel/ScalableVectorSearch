@@ -17,6 +17,7 @@
 #pragma once
 
 // stdlib
+#include <algorithm>
 #include <memory>
 
 // Include the flat index to spin-up exhaustive searches on demand.

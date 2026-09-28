@@ -46,7 +46,6 @@ CATCH_TEST_CASE("C API Index Conversion", "[c_api][index][convert]") {
         CATCH_REQUIRE(search_params != nullptr);
         CATCH_REQUIRE(svs_error_ok(error));
 
-        // Storage factories. A null handle selects the default fp32 simple storage.
         auto simple_fp32 = [&]() {
             svs_storage_h s = svs_storage_create_simple(SVS_DATA_TYPE_FLOAT32, error);
             CATCH_REQUIRE(s != nullptr);
@@ -112,6 +111,8 @@ CATCH_TEST_CASE("C API Index Conversion", "[c_api][index][convert]") {
             // Skip the test case if either the source or destination storage is not usable.
             // E.g. LVQ/Leanvec is not available on this platform
             if (!storage_usable(src_storage) || !storage_usable(dst_storage)) {
+                svs_storage_free(dst_storage);
+                svs_storage_free(src_storage);
                 return;
             }
             svs_algorithm_h algorithm = svs_algorithm_create_vamana(16, 32, 50, error);
@@ -281,7 +282,6 @@ CATCH_TEST_CASE("C API Dynamic Index Conversion", "[c_api][index][dynamic][conve
         CATCH_REQUIRE(search_params != nullptr);
         CATCH_REQUIRE(svs_error_ok(error));
 
-        // Storage factories. A null handle selects the default fp32 simple storage.
         auto simple_fp32 = [&]() {
             svs_storage_h s = svs_storage_create_simple(SVS_DATA_TYPE_FLOAT32, error);
             CATCH_REQUIRE(s != nullptr);
@@ -723,7 +723,7 @@ CATCH_TEST_CASE("C API Dynamic Index Conversion", "[c_api][index][dynamic][conve
         size_t expected_size = NUM_VECTORS - initial_deletes.size();
         expect_size(copy_index, expected_size);
 
-        // Add new points with fresh IDs; some land in slots left empty by deletion.
+        // Add new points with fresh IDs.
         std::vector<float> new_data;
         generate_test_data(new_data, NUM_ADDED, DIMENSION);
         // Shift away from the original data, which the deterministic generator repeats.
