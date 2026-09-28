@@ -1196,7 +1196,8 @@ class MutableVamanaIndex {
 
     Idx entry_point() const {
         assert(entry_point_.size() == 1);
-        return std::atomic_ref<const Idx>(entry_point_[0]).load(std::memory_order_acquire);
+        return std::atomic_ref<Idx>(const_cast<Idx&>(entry_point_[0]))
+            .load(std::memory_order_acquire);
     }
 
     ///
