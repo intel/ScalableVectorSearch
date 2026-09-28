@@ -87,14 +87,31 @@ std::shared_ptr<Index> IndexBuilder::load(const std::filesystem::path& directory
     return nullptr;
 }
 
-std::shared_ptr<Index> IndexBuilder::copy(const std::shared_ptr<Index>& src_index) {
-    const auto& src_builder = src_index->get_builder();
-
-    if (src_builder.algorithm->type != SVS_ALGORITHM_TYPE_VAMANA) {
+namespace {
+// Helper function to validate that two IndexBuilder instances are compatible
+void validate_builder_compatibility(
+    const IndexBuilder& src_builder, const IndexBuilder& dst_builder
+) {
+    if (src_builder.distance_metric != dst_builder.distance_metric) {
         throw not_implemented(
-            "Only Vamana algorithm is currently supported for index conversion"
+            "Distance metric mismatch between source and destination builders"
         );
     }
+    if (src_builder.dimension != dst_builder.dimension) {
+        throw invalid_operation(
+            "Dimensions mismatch between source and destination builders"
+        );
+    }
+    if (src_builder.algorithm->type != dst_builder.algorithm->type) {
+        throw not_implemented(
+            "Algorithm type mismatch between source and destination builders"
+        );
+    }
+}
+} // namespace
+
+std::shared_ptr<Index> IndexBuilder::copy(const std::shared_ptr<Index>& src_index) {
+    const auto& src_builder = src_index->get_builder();
 
     // Validate that the source and destination builders are compatible
     // by comparing:
@@ -102,38 +119,23 @@ std::shared_ptr<Index> IndexBuilder::copy(const std::shared_ptr<Index>& src_inde
     // - dimensions
     // - algorithm type
     // - key build parameters: alpha, graph_max_degree
-    if (src_builder.distance_metric != distance_metric) {
+    validate_builder_compatibility(src_builder, *this);
+
+    if (src_builder.algorithm->type != SVS_ALGORITHM_TYPE_VAMANA) {
         throw not_implemented(
-            "Distance metric mismatch between source and destination builders"
-        );
-    }
-    if (src_builder.dimension != dimension) {
-        throw invalid_operation(
-            "Dimensions mismatch between source and destination builders"
-        );
-    }
-    const auto src_algorithm = dynamic_cast<AlgorithmVamana*>(src_builder.algorithm.get());
-    if (src_algorithm->type != algorithm->type) {
-        throw not_implemented(
-            "Algorithm type mismatch between source and destination builders"
+            "Only Vamana algorithm is currently supported for index conversion"
         );
     }
 
     const auto dst_algorithm = dynamic_cast<AlgorithmVamana*>(algorithm.get());
     assert(dst_algorithm && "Destination builder must have a valid Vamana algorithm.");
 
-    const auto& src_build_parameters = src_algorithm->build_parameters();
     const auto& dst_build_parameters = dst_algorithm->build_parameters();
 
-    if (src_build_parameters.alpha != dst_build_parameters.alpha ||
-        src_build_parameters.graph_max_degree != dst_build_parameters.graph_max_degree) {
-        throw not_implemented(
-            "Build parameters mismatch between source and destination builders"
-        );
-    }
-
     const auto vamana_index = std::dynamic_pointer_cast<IndexVamana>(src_index);
-    assert(vamana_index && "Source index must be a valid Vamana index.");
+    if (vamana_index == nullptr) {
+        throw std::invalid_argument("Source index must be a valid Vamana index.");
+    }
 
     auto index = std::make_shared<IndexVamana>(
         *this,
@@ -156,50 +158,29 @@ std::shared_ptr<DynamicIndex> IndexBuilder::copy_dynamic(
 ) {
     const auto& src_builder = src_index->get_builder();
 
-    if (src_builder.algorithm->type != SVS_ALGORITHM_TYPE_VAMANA) {
-        throw not_implemented(
-            "Only Vamana algorithm is currently supported for index conversion"
-        );
-    }
-
     // Validate that the source and destination builders are compatible
     // by comparing:
     // - distance metric
     // - dimensions
     // - algorithm type
     // - key build parameters: alpha, graph_max_degree
-    if (src_builder.distance_metric != distance_metric) {
+    validate_builder_compatibility(src_builder, *this);
+
+    if (src_builder.algorithm->type != SVS_ALGORITHM_TYPE_VAMANA) {
         throw not_implemented(
-            "Distance metric mismatch between source and destination builders"
-        );
-    }
-    if (src_builder.dimension != dimension) {
-        throw invalid_operation(
-            "Dimensions mismatch between source and destination builders"
-        );
-    }
-    const auto src_algorithm = dynamic_cast<AlgorithmVamana*>(src_builder.algorithm.get());
-    if (src_algorithm->type != algorithm->type) {
-        throw not_implemented(
-            "Algorithm type mismatch between source and destination builders"
+            "Only Vamana algorithm is currently supported for index conversion"
         );
     }
 
     const auto dst_algorithm = dynamic_cast<AlgorithmVamana*>(algorithm.get());
     assert(dst_algorithm && "Destination builder must have a valid Vamana algorithm.");
 
-    const auto& src_build_parameters = src_algorithm->build_parameters();
     const auto& dst_build_parameters = dst_algorithm->build_parameters();
 
-    if (src_build_parameters.alpha != dst_build_parameters.alpha ||
-        src_build_parameters.graph_max_degree != dst_build_parameters.graph_max_degree) {
-        throw not_implemented(
-            "Build parameters mismatch between source and destination builders"
-        );
-    }
-
     const auto vamana_index = std::dynamic_pointer_cast<DynamicIndexVamana>(src_index);
-    assert(vamana_index && "Source index must be a valid Vamana index.");
+    if (vamana_index == nullptr) {
+        throw std::invalid_argument("Source index must be a valid Dynamic Vamana index.");
+    }
 
     auto index = std::make_shared<DynamicIndexVamana>(
         *this,

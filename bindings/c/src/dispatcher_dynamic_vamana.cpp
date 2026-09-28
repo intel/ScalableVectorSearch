@@ -168,13 +168,21 @@ svs::DynamicVamana copy_dynamic_vamana_index(
     const AllocatorBuilder& allocator_builder,
     size_t blocksize_bytes
 ) {
-    // Validate graph max degree consistency
     auto config = src_index.parameters();
-    config.build_parameters = build_params;
 
-    if (config.build_parameters.graph_max_degree != build_params.graph_max_degree) {
-        throw not_implemented("Graph max degree mismatch");
+    // A defaulted alpha is resolved per-metric at build time, so it cannot be compared.
+    constexpr svs::index::vamana::VamanaBuildParameters default_build_params{};
+    const bool alpha_is_default = build_params.alpha == default_build_params.alpha;
+
+    // Validate build parameters match
+    if (config.build_parameters.graph_max_degree != build_params.graph_max_degree ||
+        (!alpha_is_default && config.build_parameters.alpha != build_params.alpha)) {
+        throw not_implemented("Index build parameters mismatch");
     }
+
+    // Other build parameters that are not explicitly checked above are updated here.
+    config.build_parameters.apply(build_params);
+    verify_and_set_default_index_parameters(config.build_parameters, distance);
 
     // Determine the blocking parameters based on the provided block size
     svs::data::BlockingParameters block_params;
@@ -216,21 +224,8 @@ svs::DynamicVamana copy_dynamic_vamana_index(
     auto data_allocator = allocator_type{block_params, data_allocator_handle};
     auto data = dst_builder.build(src_data, pool, data_allocator);
 
-    auto params = src_index.parameters();
-    // A defaulted alpha is resolved per-metric at build time, so it cannot be compared.
-    constexpr svs::index::vamana::VamanaBuildParameters default_build_params{};
-    const bool alpha_is_default = build_params.alpha == default_build_params.alpha;
-
-    if (params.build_parameters.graph_max_degree != build_params.graph_max_degree ||
-        (!alpha_is_default && params.build_parameters.alpha != build_params.alpha)) {
-        throw not_implemented("Index build parameters mismatch");
-    }
-
-    // Other build parameters that are not explicitly checked above are updated here.
-    params.build_parameters = build_params;
-
     svs::index::vamana::detail::VamanaStateLoader state_loader{
-        params, src_index_impl->view_translator(), src_index_impl->view_status()};
+        config, src_index_impl->view_translator(), src_index_impl->view_status()};
 
     return svs::DynamicVamana::assemble<float>(
         std::move(state_loader),

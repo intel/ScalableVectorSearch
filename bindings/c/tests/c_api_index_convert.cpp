@@ -24,6 +24,7 @@
 #include "c_api_test_utils.h"
 
 // Standard library
+#include <algorithm>
 #include <vector>
 
 CATCH_TEST_CASE("C API Index Conversion", "[c_api][index][convert]") {
@@ -204,6 +205,14 @@ CATCH_TEST_CASE("C API Index Conversion", "[c_api][index][convert]") {
         // NULL source index is rejected.
         CATCH_REQUIRE(svs_index_convert(builder, nullptr, error) == nullptr);
         CATCH_REQUIRE(svs_error_get_code(error) == SVS_ERROR_INVALID_ARGUMENT);
+
+        // A dynamic source index is rejected.
+        svs_index_h dynamic_index =
+            svs_index_build_dynamic(builder, data.data(), nullptr, NUM_VECTORS, 0, error);
+        CATCH_REQUIRE(dynamic_index != nullptr);
+        CATCH_REQUIRE(svs_index_convert(builder, dynamic_index, error) == nullptr);
+        CATCH_REQUIRE(svs_error_get_code(error) == SVS_ERROR_INVALID_ARGUMENT);
+        svs_index_free(dynamic_index);
 
         // Builds a destination builder that differs from the source in exactly one
         // aspect, so each conversion must fail with `expected_code`.
@@ -440,6 +449,16 @@ CATCH_TEST_CASE("C API Dynamic Index Conversion", "[c_api][index][dynamic][conve
         );
         CATCH_REQUIRE(svs_error_get_code(error) == SVS_ERROR_INVALID_ARGUMENT);
 
+        // A static source index is rejected.
+        svs_index_h static_index =
+            svs_index_build(builder, data.data(), NUM_VECTORS, error);
+        CATCH_REQUIRE(static_index != nullptr);
+        CATCH_REQUIRE(
+            svs_index_convert_dynamic(builder, static_index, BLOCK_SIZE, error) == nullptr
+        );
+        CATCH_REQUIRE(svs_error_get_code(error) == SVS_ERROR_INVALID_ARGUMENT);
+        svs_index_free(static_index);
+
         // Builds a destination builder that differs from the source in exactly one
         // aspect, so each conversion must fail with `expected_code`.
         auto expect_convert_failure = [&](svs_index_builder_h dst_builder,
@@ -650,6 +669,143 @@ CATCH_TEST_CASE("C API Dynamic Index Conversion", "[c_api][index][dynamic][conve
             true,
             0.5
         );
+        svs_error_free(error);
+    }
+
+    // Exercises the mutation paths that use the build parameters carried over by the
+    // conversion (pruning during insertion and consolidation).
+    CATCH_SECTION("Modify Converted Index") {
+        svs_error_h error = svs_error_create();
+        const size_t NUM_ADDED = 20;
+
+        svs_algorithm_h algorithm = svs_algorithm_create_vamana(16, 32, 50, error);
+        CATCH_REQUIRE(algorithm != nullptr);
+        svs_index_builder_h builder = svs_index_builder_create(
+            SVS_DISTANCE_METRIC_EUCLIDEAN, DIMENSION, algorithm, error
+        );
+        CATCH_REQUIRE(builder != nullptr);
+        CATCH_REQUIRE(svs_index_builder_set_threadpool(
+            builder, SVS_THREADPOOL_KIND_NATIVE, NUM_THREADS, error
+        ));
+
+        svs_index_h src_index = svs_index_build_dynamic(
+            builder, data.data(), nullptr, NUM_VECTORS, BLOCK_SIZE, error
+        );
+        CATCH_REQUIRE(src_index != nullptr);
+
+        std::vector<size_t> initial_deletes;
+        for (size_t id = 0; id < NUM_VECTORS; id += DELETE_STRIDE) {
+            initial_deletes.push_back(id);
+        }
+        CATCH_REQUIRE(svs_index_dynamic_delete_points(
+            src_index, initial_deletes.data(), initial_deletes.size(), nullptr, error
+        ));
+
+        svs_storage_h dst_storage = svs_storage_create_simple(SVS_DATA_TYPE_FLOAT16, error);
+        CATCH_REQUIRE(dst_storage != nullptr);
+        CATCH_REQUIRE(svs_index_builder_set_storage(builder, dst_storage, error));
+        svs_index_h copy_index =
+            svs_index_convert_dynamic(builder, src_index, BLOCK_SIZE, error);
+        CATCH_REQUIRE(copy_index != nullptr);
+        CATCH_REQUIRE(svs_error_ok(error));
+
+        auto expect_size = [&](svs_index_h index, size_t expected) {
+            size_t size = 0;
+            CATCH_REQUIRE(svs_index_get_size(index, &size, error));
+            CATCH_REQUIRE(size == expected);
+        };
+        auto expect_has_id = [&](size_t id, bool expected) {
+            bool has_id = !expected;
+            CATCH_REQUIRE(svs_index_dynamic_has_id(copy_index, id, &has_id, error));
+            CATCH_REQUIRE(has_id == expected);
+        };
+
+        size_t expected_size = NUM_VECTORS - initial_deletes.size();
+        expect_size(copy_index, expected_size);
+
+        // Add new points with fresh IDs; some land in slots left empty by deletion.
+        std::vector<float> new_data;
+        generate_test_data(new_data, NUM_ADDED, DIMENSION);
+        // Shift away from the original data, which the deterministic generator repeats.
+        for (auto& v : new_data) {
+            v += 10.0f;
+        }
+        std::vector<size_t> new_ids(NUM_ADDED);
+        for (size_t i = 0; i < NUM_ADDED; ++i) {
+            new_ids[i] = NUM_VECTORS + i;
+        }
+        size_t added_count = 0;
+        CATCH_REQUIRE(svs_index_dynamic_add_points(
+            copy_index, new_data.data(), new_ids.data(), NUM_ADDED, &added_count, error
+        ));
+        CATCH_REQUIRE(svs_error_ok(error));
+        CATCH_REQUIRE(added_count == NUM_ADDED);
+        expected_size += NUM_ADDED;
+        expect_size(copy_index, expected_size);
+        for (auto id : new_ids) {
+            expect_has_id(id, true);
+        }
+
+        // Each added vector must be retrievable as its own nearest neighbor.
+        svs_search_results_t results = SVS_INIT_SEARCH_RESULTS();
+        CATCH_REQUIRE(svs_index_search_topk(
+            copy_index, new_data.data(), NUM_ADDED, 1, &results, nullptr, nullptr, error
+        ));
+        CATCH_REQUIRE(svs_error_ok(error));
+        size_t self_hits = 0;
+        for (size_t q = 0; q < NUM_ADDED; ++q) {
+            CATCH_REQUIRE(results.offsets[q + 1] - results.offsets[q] == 1);
+            self_hits += results.indices[results.offsets[q]] == new_ids[q] ? 1 : 0;
+        }
+        CATCH_REQUIRE(self_hits >= NUM_ADDED * 9 / 10);
+
+        // Delete a mix of original and newly added IDs, then consolidate and compact.
+        std::vector<size_t> more_deletes = {1, 2, 3, new_ids[0], new_ids[1]};
+        size_t deleted_count = 0;
+        CATCH_REQUIRE(svs_index_dynamic_delete_points(
+            copy_index, more_deletes.data(), more_deletes.size(), &deleted_count, error
+        ));
+        CATCH_REQUIRE(deleted_count == more_deletes.size());
+        expected_size -= more_deletes.size();
+        expect_size(copy_index, expected_size);
+
+        CATCH_REQUIRE(svs_index_dynamic_consolidate(copy_index, error));
+        CATCH_REQUIRE(svs_error_ok(error));
+        CATCH_REQUIRE(svs_index_dynamic_compact(copy_index, 0, error));
+        CATCH_REQUIRE(svs_error_ok(error));
+        expect_size(copy_index, expected_size);
+
+        auto is_live = [&](size_t id) {
+            if (std::find(more_deletes.begin(), more_deletes.end(), id) !=
+                more_deletes.end()) {
+                return false;
+            }
+            return id >= NUM_VECTORS || !is_deleted(id);
+        };
+        for (size_t id = 0; id < NUM_VECTORS + NUM_ADDED; ++id) {
+            expect_has_id(id, is_live(id));
+        }
+
+        CATCH_REQUIRE(svs_index_search_topk(
+            copy_index, queries.data(), NUM_QUERIES, K, &results, nullptr, nullptr, error
+        ));
+        CATCH_REQUIRE(svs_error_ok(error));
+        for (size_t q = 0; q < NUM_QUERIES; ++q) {
+            CATCH_REQUIRE(results.offsets[q + 1] - results.offsets[q] == K);
+            for (size_t j = results.offsets[q]; j < results.offsets[q + 1]; ++j) {
+                CATCH_REQUIRE(is_live(results.indices[j]));
+            }
+        }
+
+        // The source index must be unaffected by mutations of the copy.
+        expect_size(src_index, NUM_VECTORS - initial_deletes.size());
+
+        svs_search_results_free(&results);
+        svs_index_free(copy_index);
+        svs_index_free(src_index);
+        svs_storage_free(dst_storage);
+        svs_index_builder_free(builder);
+        svs_algorithm_free(algorithm);
         svs_error_free(error);
     }
 }

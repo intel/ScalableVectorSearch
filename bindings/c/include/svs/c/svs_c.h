@@ -1028,6 +1028,7 @@ SVS_API void svs_index_free(svs_index_h index);
 /// @param out_size Pointer to a size_t variable where the index size will be stored
 /// @param out_err An optional error handle to capture errors
 /// @return true on success, false on failure
+/// @remarks For dynamic indices, returns the number of valid (non-deleted) vectors.
 SVS_API bool svs_index_get_size(
     svs_index_h index, size_t* out_size, svs_error_h out_err /*=NULL*/
 );

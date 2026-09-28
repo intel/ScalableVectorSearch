@@ -330,9 +330,8 @@ class MutableVamanaIndex {
     ///
     /// * data.size() == graph.n_nodes() == status.size(): The graph, the data, and the
     /// status have the same number of entries.
-    /// * The data and graph were saved with no "holes". In otherwords, the index was
-    ///   consolidated and compacted prior to saving.
-    /// * The span of internal ID's in translator covers exactly ``[0, data.size())``.
+    /// * The span of internal ID's in translator covers exactly `Valid` entries in the
+    /// status vector.
     template <threads::ThreadPool Pool>
     MutableVamanaIndex(
         const VamanaIndexParameters& config,
@@ -360,9 +359,6 @@ class MutableVamanaIndex {
         , logger_{std::move(logger)} {
         if (graph_.n_nodes() != data_.size()) {
             throw ANNEXCEPTION("Graph node count does not match data size");
-        }
-        if (data_.size() != translator_.size()) {
-            throw ANNEXCEPTION("Data size does not match translator size");
         }
         if (status_.size() != data_.size()) {
             throw ANNEXCEPTION("Status size does not match data size");
@@ -1628,7 +1624,15 @@ auto auto_dynamic_assemble(
 
     // The translator must cover exactly the valid slots; copied state may contain
     // deleted or empty slots.
-    const size_t num_valid = std::count(status.begin(), status.end(), SlotMetadata::Valid);
+    size_t num_valid = 0;
+    for (size_t i = 0; i < datasize; ++i) {
+        if (status[i] == SlotMetadata::Valid) {
+            ++num_valid;
+            if (!translator.has_internal(i)) {
+                throw ANNEXCEPTION("Translator is missing internal id {}", i);
+            }
+        }
+    }
 
     auto translator_size = translator.size();
     if (translator_size != num_valid) {

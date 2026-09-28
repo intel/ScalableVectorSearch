@@ -140,13 +140,20 @@ svs::Vamana copy_vamana_index(
     svs::threads::ThreadPoolHandle pool,
     const AllocatorBuilder& allocator_builder
 ) {
-    // Validate graph max degree consistency
     auto config = src_index.parameters();
-    config.build_parameters = build_params;
 
-    if (config.build_parameters.graph_max_degree != build_params.graph_max_degree) {
-        throw not_implemented("Graph max degree mismatch");
+    // A defaulted alpha is resolved per-metric at build time, so it cannot be compared.
+    constexpr svs::index::vamana::VamanaBuildParameters default_build_params{};
+    const bool alpha_is_default = build_params.alpha == default_build_params.alpha;
+
+    // Validate build parameters match
+    if (config.build_parameters.graph_max_degree != build_params.graph_max_degree ||
+        (!alpha_is_default && config.build_parameters.alpha != build_params.alpha)) {
+        throw not_implemented("Index build parameters mismatch");
     }
+
+    config.build_parameters.apply(build_params);
+    verify_and_set_default_index_parameters(config.build_parameters, distance);
 
     // Get the typed index implementation from the source index
     using GraphType = svs::graphs::SimpleGraph<uint32_t, AllocatorHandle<uint32_t>>;
