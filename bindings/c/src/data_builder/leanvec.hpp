@@ -129,7 +129,7 @@ class LeanVecDataBuilder {
 
     template <typename T, size_t N, typename Alloc>
     static auto make_dataset(const data::SimpleData<T, N, Alloc>& data) {
-        return data;
+        return svs::c_runtime::decompressed_dataset(data, svs::data::GetDatumAccessor{});
     }
 
     template <quantization::lvq::IsLVQDataset Data>

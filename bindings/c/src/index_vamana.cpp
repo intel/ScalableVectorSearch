@@ -100,10 +100,6 @@ DynamicIndexVamana::DynamicIndexVamana(
     : DynamicIndex(std::make_unique<IndexBuilder>(builder))
     , index(std::move(index)) {
     auto all_ids = this->index.all_ids();
-    assert(
-        !all_ids.empty() &&
-        "DynamicVamana index should have at least one ID after construction."
-    );
     auto [min_it, max_it] = std::minmax_element(all_ids.begin(), all_ids.end());
     min_id = (min_it == all_ids.end()) ? 0 : *min_it;
     max_id = (max_it == all_ids.end()) ? 0 : *max_it;

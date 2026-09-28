@@ -177,7 +177,7 @@ svs::Vamana copy_vamana_index(
     svs::data::copy(src_graph.get_data(), graph.get_data());
 
     // Copy/convert the data from the source index to the new data instance
-    const auto& src_data = src_builder.get_dataset(src_index_impl->view_data());
+    const auto src_data = src_builder.get_dataset(src_index_impl->view_data());
     using value_type = typename DstDataBuilder::allocator_type::value_type;
     auto data = dst_builder.build(src_data, pool, allocator_builder.build<value_type>());
 

@@ -348,6 +348,7 @@ class MutableVamanaIndex {
         , data_{std::move(data)}
         , entry_point_{lib::narrow<Idx>(config.entry_point)}
         , status_{std::move(status)}
+        , first_empty_{status_.size()}
         , translator_{std::move(translator)}
         , distance_{distance_function}
         , threadpool_{std::move(threadpool)}
@@ -364,8 +365,10 @@ class MutableVamanaIndex {
         if (status_.size() != data_.size()) {
             throw ANNEXCEPTION("Status size does not match data size");
         }
-        first_empty_ = std::find(status_.begin(), status_.end(), SlotMetadata::Empty) -
-                       status_.begin();
+        // TODO: There is the logical error in the add_points() method that needs to be
+        // addressed to make the following code correct:
+        // first_empty_ = std::find(status_.begin(), status_.end(), SlotMetadata::Empty)
+        //                - status_.begin();
     }
 
     ///// Scratchspace
@@ -1490,29 +1493,22 @@ struct VamanaStateLoader {
     std::vector<SlotMetadata> status_;
 };
 
-inline VamanaStateLoader auto_load_state(
-    std::filesystem::path&& config_path, bool debug_load_from_static, size_t assume_datasize
-) {
-    return lib::load_from_disk<VamanaStateLoader>(
-        std::forward<std::filesystem::path>(config_path),
-        debug_load_from_static,
-        assume_datasize
-    );
-}
-
-inline VamanaStateLoader auto_load_state(
-    const std::string& config_path, bool debug_load_from_static, size_t assume_datasize
-) {
-    return lib::load_from_disk<VamanaStateLoader>(
-        config_path, debug_load_from_static, assume_datasize
-    );
-}
-
 template <typename ConfigProto>
-inline VamanaStateLoader auto_load_state(ConfigProto&& config_proto, bool, size_t) {
-    return svs::detail::dispatch_load(std::forward<ConfigProto>(config_proto));
+VamanaStateLoader auto_load_state(
+    ConfigProto&& config_proto,
+    [[maybe_unused]] bool debug_load_from_static,
+    [[maybe_unused]] size_t assume_datasize
+) {
+    if constexpr (std::is_convertible_v<ConfigProto, std::filesystem::path>) {
+        return lib::load_from_disk<VamanaStateLoader>(
+            std::filesystem::path(std::forward<ConfigProto>(config_proto)),
+            debug_load_from_static,
+            assume_datasize
+        );
+    } else {
+        return svs::detail::dispatch_load(std::forward<ConfigProto>(config_proto));
+    }
 }
-
 } // namespace detail
 
 // Build

@@ -347,6 +347,8 @@ CATCH_TEST_CASE("C API Dynamic Index Conversion", "[c_api][index][dynamic][conve
             // Skip the test case if either the source or destination storage is not usable.
             // E.g. LVQ/Leanvec is not available on this platform
             if (!storage_usable(src_storage) || !storage_usable(dst_storage)) {
+                svs_storage_free(dst_storage);
+                svs_storage_free(src_storage);
                 return;
             }
             svs_algorithm_h algorithm = svs_algorithm_create_vamana(16, 32, 50, error);

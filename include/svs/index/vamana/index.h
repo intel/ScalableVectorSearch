@@ -1006,19 +1006,15 @@ auto auto_build(
 }
 
 namespace detail {
-inline VamanaIndexParameters load_config(std::filesystem::path&& config_path) {
-    return lib::load_from_disk<VamanaIndexParameters>(
-        std::forward<std::filesystem::path>(config_path)
-    );
-}
-
-inline VamanaIndexParameters load_config(const std::string& config_path) {
-    return load_config(std::filesystem::path{config_path});
-}
-
 template <typename ConfigProto>
-VamanaIndexParameters load_config(ConfigProto&& config_proto) {
-    return svs::detail::dispatch_load(std::forward<ConfigProto>(config_proto));
+VamanaIndexParameters auto_load_config(ConfigProto&& config_proto) {
+    if constexpr (std::is_convertible_v<ConfigProto, std::filesystem::path>) {
+        return lib::load_from_disk<VamanaIndexParameters>(
+            std::filesystem::path(std::forward<ConfigProto>(config_proto))
+        );
+    } else {
+        return svs::detail::dispatch_load(std::forward<ConfigProto>(config_proto));
+    }
 }
 } // namespace detail
 
@@ -1059,7 +1055,7 @@ auto auto_assemble(
     svs::logging::logger_ptr logger = svs::logging::get()
 ) {
     auto threadpool = threads::as_threadpool(std::move(threadpool_proto));
-    auto config = detail::load_config(std::forward<ConfigProto>(config_proto));
+    auto config = detail::auto_load_config(std::forward<ConfigProto>(config_proto));
     auto data = svs::detail::dispatch_load(std::move(data_proto), threadpool);
     auto graph = svs::detail::dispatch_load(std::move(graph_loader), threadpool);
 

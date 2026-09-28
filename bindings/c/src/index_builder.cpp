@@ -118,7 +118,6 @@ std::shared_ptr<Index> IndexBuilder::copy(const std::shared_ptr<Index>& src_inde
     // - distance metric
     // - dimensions
     // - algorithm type
-    // - key build parameters: alpha, graph_max_degree
     validate_builder_compatibility(src_builder, *this);
 
     if (src_builder.algorithm->type != SVS_ALGORITHM_TYPE_VAMANA) {
@@ -163,7 +162,6 @@ std::shared_ptr<DynamicIndex> IndexBuilder::copy_dynamic(
     // - distance metric
     // - dimensions
     // - algorithm type
-    // - key build parameters: alpha, graph_max_degree
     validate_builder_compatibility(src_builder, *this);
 
     if (src_builder.algorithm->type != SVS_ALGORITHM_TYPE_VAMANA) {
