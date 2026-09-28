@@ -22,6 +22,7 @@
 #include <memory>
 #include <mutex>
 #include <shared_mutex>
+#include <span>
 
 // Include the flat index to spin-up exhaustive searches on demand.
 #include "svs/index/flat/flat.h"
@@ -44,8 +45,11 @@
 #include "svs/index/vamana/index.h"
 #include "svs/lib/boundscheck.h"
 #include "svs/lib/preprocessor.h"
+#include "svs/lib/scopeguard.h"
 #include "svs/lib/segmented_vector.h"
 #include "svs/lib/threads.h"
+
+#include "tsl/robin_set.h"
 
 namespace svs::index::vamana::concurrent {
 
@@ -97,9 +101,7 @@ enum class SlotMetadata : uint8_t {
     Empty = 0x00,
     Valid = 0x01,
     Deleted = 0x02,
-    // Reserved by an in-flight add_points: slot owned by the adder, vector
-    // copied, adjacency list being built. Invisible to search, consolidate,
-    // and subsequent add_points until promoted to Valid.
+    // Reserved by an in-flight add_points
     Pending = 0x04,
 };
 
@@ -180,6 +182,9 @@ class MutableVamanaIndex {
     using const_value_type = typename Data::const_value_type;
     static constexpr size_t extent = Data::extent;
 
+    // No routing anchor exists.
+    static constexpr Idx NO_ENTRY = std::numeric_limits<Idx>::max();
+
     using distance_type = Dist;
     using search_buffer_type = MutableBuffer<Idx, distance::compare_t<Dist>>;
 
@@ -223,6 +228,10 @@ class MutableVamanaIndex {
     // Protects translator access: exclusive for writes (add/consolidate/compact),
     // shared for reads (delete/search). Wrapped in unique_ptr for movability.
     std::unique_ptr<std::shared_mutex> translator_mutex_{
+        std::make_unique<std::shared_mutex>()};
+    // Initialized single-vector insertions that may not yet have an incoming edge.
+    tsl::robin_set<Idx> pending_insertions_;
+    std::unique_ptr<std::shared_mutex> pending_insertions_mutex_{
         std::make_unique<std::shared_mutex>()};
     // Reserves slot ownership against compact(). Search and the other readers
     // (get_distance/reconstruct_at/batch-iterator) hold this shared so that
@@ -275,7 +284,7 @@ class MutableVamanaIndex {
     )
         : graph_{std::move(graph)}
         , data_{std::move(data)}
-        , entry_point_{entry_point}
+        , entry_point_{data_.size() == 0 ? NO_ENTRY : entry_point}
         , status_(data_.size(), SlotMetadata::Valid)
         , first_empty_{std::make_unique<std::atomic<size_t>>(data_.size())}
         , first_reusable_{std::make_unique<std::atomic<size_t>>(data_.size())}
@@ -306,7 +315,7 @@ class MutableVamanaIndex {
     )
         : graph_(Graph{data.size(), parameters.graph_max_degree})
         , data_(std::move(data))
-        , entry_point_{}
+        , entry_point_{NO_ENTRY}
         , status_(data_.size(), SlotMetadata::Valid)
         , first_empty_{std::make_unique<std::atomic<size_t>>(data_.size())}
         , first_reusable_{std::make_unique<std::atomic<size_t>>(data_.size())}
@@ -331,8 +340,13 @@ class MutableVamanaIndex {
         // Setup the initial translation of external to internal ids.
         translator_.insert(external_ids, threads::UnitRange<Idx>(0, external_ids.size()));
 
-        // Compute the entry point.
-        entry_point_.push_back(extensions::compute_entry_point(data_, threadpool_));
+        // An empty index has no medoid and no graph-construction work.
+        if (data_.size() == 0) {
+            graph_.enable_reverse_edges();
+            return;
+        }
+        entry_point_[0] =
+            lib::narrow_cast<Idx>(extensions::compute_entry_point(data_, threadpool_));
 
         // Perform graph construction.
         auto sp = get_search_parameters();
@@ -377,7 +391,7 @@ class MutableVamanaIndex {
     )
         : graph_{std::move(graph)}
         , data_{std::move(data)}
-        , entry_point_{lib::narrow<Idx>(config.entry_point)}
+        , entry_point_{data_.size() == 0 ? NO_ENTRY : lib::narrow<Idx>(config.entry_point)}
         , status_{data_.size(), SlotMetadata::Valid}
         , first_empty_{std::make_unique<std::atomic<size_t>>(data_.size())}
         , first_reusable_{std::make_unique<std::atomic<size_t>>(data_.size())}
@@ -721,6 +735,11 @@ class MutableVamanaIndex {
         return [&, prefetch_parameters](
                    const auto& query, auto& accessor, auto& distance, auto& buffer
                ) {
+            const Idx seed = entry_point();
+            if (seed == NO_ENTRY) {
+                buffer.clear();
+                return;
+            }
             // Perform the greedy search using the provided resources.
             concurrent::greedy_search(
                 graph_,
@@ -729,7 +748,7 @@ class MutableVamanaIndex {
                 query,
                 distance,
                 buffer,
-                vamana::EntryPointInitializer<Idx>{lib::as_const_span(entry_point_)},
+                vamana::EntryPointInitializer<Idx>{std::span<const Idx>{&seed, 1}},
                 internal_search_builder(),
                 prefetch_parameters,
                 cancel
@@ -889,7 +908,8 @@ class MutableVamanaIndex {
     //
     /// When `delete_entries` is called, a soft deletion is performed, marking the entries
     /// as `deleted`. When `consolidate` is called, the state of these deleted entries
-    /// becomes `empty`. When `add_points` is called with the `reuse_empty` flag enabled,
+    /// becomes `empty`, except for the routing anchor retained until `compact()`.
+    /// When `add_points` is called with the `reuse_empty` flag enabled,
     /// the memory is scanned from the beginning to locate and fill these empty entries with
     /// new points.
     ///
@@ -912,6 +932,9 @@ class MutableVamanaIndex {
                 num_points,
                 num_ids
             );
+        }
+        if (num_points == 0) {
+            return {};
         }
 
         // Reserve slot ownership against compact(). Held for the entire call,
@@ -1011,33 +1034,84 @@ class MutableVamanaIndex {
         copy_points(points, slots);
         clear_lists(slots);
 
-        // Phase 4: Graph construction — runs without lock.
-        // VamanaBuilder::construct() is thread-safe via per-node spinlock+seqlock.
-        // note: VamanaBuilder constructor asserts graph_.n_nodes() == data_.size().
-        // Both are grown together under the lock above, so this is always consistent.
-        auto parameters = VamanaBuildParameters{
-            alpha_,
-            graph_.max_degree(),
-            construction_window_size_,
-            max_candidates_,
-            prune_to_,
-            use_full_search_history_};
+        // Publish only initialized slots: another insertion may immediately use one
+        // as a candidate or backlink parent. Batch insertions do not use this registry.
+        const bool single_insert = num_points == 1;
+        const Idx pending_id = lib::narrow_cast<Idx>(slots.front());
+        if (single_insert) {
+            std::unique_lock lock{*pending_insertions_mutex_};
+            pending_insertions_.insert(pending_id);
+        }
+        auto unregister = lib::make_scope_guard([&]() noexcept {
+            if (single_insert) {
+                std::unique_lock lock{*pending_insertions_mutex_};
+                pending_insertions_.erase(pending_id);
+            }
+        });
 
-        auto sp = get_search_parameters();
-        auto prefetch_parameters =
-            GreedySearchPrefetchParameters{sp.prefetch_lookahead_, sp.prefetch_step_};
-        VamanaBuilder builder{
-            graph_,
-            data_,
-            distance_,
-            parameters,
-            threadpool_,
-            prefetch_parameters,
-            logger_,
-            logging::Level::Trace};
-        builder.construct(alpha_, entry_point(), slots, logging::Level::Trace, logger_);
+        Idx seed = entry_point();
+        auto build_slots = lib::as_const_span(slots);
+        if (seed == NO_ENTRY) {
+            const Idx candidate = lib::narrow_cast<Idx>(slots.front());
+            // Data and the empty adjacency list are initialized before release.
+            // Losing adders acquire the winner's ready-to-traverse Pending slot;
+            // they do not wait for its build or Pending -> Valid publication.
+            if (std::atomic_ref<Idx>(entry_point_[0])
+                    .compare_exchange_strong(
+                        seed,
+                        candidate,
+                        std::memory_order_acq_rel,
+                        std::memory_order_acquire
+                    )) {
+                seed = candidate;
+                build_slots = build_slots.subspan(1);
+            }
+        }
+        if (!build_slots.empty()) {
+            // Phase 4: construction uses the existing per-node graph synchronization.
+            // A singleton seed needs neither builder scratch allocation nor a build.
+            auto parameters = VamanaBuildParameters{
+                alpha_,
+                graph_.max_degree(),
+                construction_window_size_,
+                max_candidates_,
+                prune_to_,
+                use_full_search_history_};
+            auto sp = get_search_parameters();
+            auto prefetch_parameters =
+                GreedySearchPrefetchParameters{sp.prefetch_lookahead_, sp.prefetch_step_};
+            auto eligible = [this, seed](Idx id) {
+                if (id == seed) {
+                    return true; // routing anchor is retained until exclusive compact()
+                }
+                auto state = std::atomic_ref<SlotMetadata>(status_[id])
+                                 .load(std::memory_order_acquire);
+                return state == SlotMetadata::Valid || state == SlotMetadata::Pending;
+            };
+            std::vector<Idx> pending_candidates;
+            if (single_insert) {
+                // Snapshot BEFORE graph search. An insertion that already left the
+                // registry has finished publishing its graph links.
+                std::shared_lock lock{*pending_insertions_mutex_};
+                pending_candidates.assign(
+                    pending_insertions_.begin(), pending_insertions_.end()
+                );
+            }
+            VamanaBuilder builder{
+                graph_,
+                data_,
+                distance_,
+                parameters,
+                threadpool_,
+                prefetch_parameters,
+                logger_,
+                logging::Level::Trace,
+                eligible,
+                lib::as_const_span(pending_candidates)};
+            builder.construct(alpha_, seed, build_slots, logging::Level::Trace, logger_);
+        }
 
-        // Mark added entries as valid (unique slots per thread, no lock needed).
+        // Mark added entries as valid.
         for (const auto& i : slots) {
             std::atomic_ref<SlotMetadata>(status_[i])
                 .store(SlotMetadata::Valid, std::memory_order_release);
@@ -1093,28 +1167,21 @@ class MutableVamanaIndex {
     void delete_entry(size_t i) {
         auto& meta = getindex(status_, i);
         auto ref = std::atomic_ref<SlotMetadata>(meta);
-        // CAS Valid → Deleted. If the slot is Pending (concurrent adder still
-        // in phase 2), wait for the adder to promote it to Valid before we
-        // can soft-delete; otherwise the delete would be silently lost. Only
-        // the thread that successfully transitions decrements num_valid_;
-        // double-deletes silently no-op.
-        for (;;) {
-            SlotMetadata expected = SlotMetadata::Valid;
-            if (ref.compare_exchange_strong(
-                    expected,
-                    SlotMetadata::Deleted,
-                    std::memory_order_acq_rel,
-                    std::memory_order_relaxed
-                )) {
-                num_valid_->fetch_sub(1, std::memory_order_acq_rel);
-                return;
-            }
-            if (expected != SlotMetadata::Pending) {
-                // Already Deleted or Empty — no-op.
-                return;
-            }
-            // Pending: adder's Pending → Valid store is imminent; spin.
+        // Wait without the node lock: the Pending insertion needs it to finish.
+        while (ref.load(std::memory_order_acquire) == SlotMetadata::Pending) {
             svs::detail::pause();
+        }
+        // For non-anchor parents, a backlink commits before this transition or
+        // observes Deleted under the same lock and retries its Pending insertion.
+        auto node_lock = graph_.lock_node(lib::narrow_cast<Idx>(i));
+        SlotMetadata expected = SlotMetadata::Valid;
+        if (ref.compare_exchange_strong(
+                expected,
+                SlotMetadata::Deleted,
+                std::memory_order_acq_rel,
+                std::memory_order_relaxed
+            )) {
+            num_valid_->fetch_sub(1, std::memory_order_acq_rel);
         }
     }
 
@@ -1129,7 +1196,7 @@ class MutableVamanaIndex {
 
     Idx entry_point() const {
         assert(entry_point_.size() == 1);
-        return entry_point_[0];
+        return std::atomic_ref<const Idx>(entry_point_[0]).load(std::memory_order_acquire);
     }
 
     ///
@@ -1163,8 +1230,23 @@ class MutableVamanaIndex {
     void compact(Idx batch_size = 1'000) {
         std::lock_guard compact_lock{*compact_mutex_};
 
+        // All users of the old anchor have drained. A live medoid can now be
+        // selected without a candidate-lifetime race or a Pending-slot scan.
+        const Idx anchor = entry_point();
+        if (anchor != NO_ENTRY && is_deleted(anchor)) {
+            Idx successor = NO_ENTRY;
+            if (size() != 0) {
+                auto valid = [&](size_t i) { return status_[i] == SlotMetadata::Valid; };
+                successor = lib::narrow_cast<Idx>(
+                    extensions::compute_entry_point(data_, threadpool_, valid)
+                );
+            }
+            std::atomic_ref<Idx>(entry_point_[0])
+                .store(successor, std::memory_order_release);
+        }
+
         // Consolidate first, under the same exclusive lock. This folds any
-        // outstanding soft-deletes into the graph.
+        // outstanding soft-deletes (including the old anchor) into the graph.
         consolidate_locked();
         compact_locked(batch_size);
     }
@@ -1276,18 +1358,13 @@ class MutableVamanaIndex {
             }
             status_.resize(max_index);
 
-            // Update entry points. If an entry point is no longer present
-            // (e.g. it was Deleted prior to compact), fall back to internal
-            // ID 0 — by construction max_index > 0 implies a survivor.
-            for (auto& ep : entry_point_) {
-                auto it = old_to_new_id_map.find(ep);
-                if (it != old_to_new_id_map.end()) {
-                    ep = it->second;
-                } else {
-                    assert(max_index > 0);
-                    ep = 0;
-                }
-            }
+            // Remap the surviving anchor, or publish the genuinely empty state.
+            auto ep = old_to_new_id_map.find(entry_point());
+            const Idx remapped = ep != old_to_new_id_map.end()
+                                     ? ep->second
+                                     : (max_index ? Idx{0} : NO_ENTRY);
+            std::atomic_ref<Idx>(entry_point_[0])
+                .store(remapped, std::memory_order_release);
         }
 
         // Re-derive the reverse-edge index from the fully remapped graph.
@@ -1378,28 +1455,13 @@ class MutableVamanaIndex {
     // and reclaim; those slots must currently be SlotMetadata::Deleted. Consolidation and
     // cleanup both range over exactly `deleted`, so both are O(|deleted|), not O(N).
     void consolidate_locked(const tsl::robin_set<Idx>& deleted) {
+        // Online operations never hand off or reclaim the routing anchor.
+        // If this snapshot is NO_ENTRY, an overlapping election can only
+        // publish a new Pending slot, which cannot belong to `deleted`.
+        const Idx anchor = entry_point();
         auto should_remove = [&](size_t i) {
-            return deleted.contains(lib::narrow_cast<Idx>(i));
+            return i != anchor && deleted.contains(lib::narrow_cast<Idx>(i));
         };
-
-        // Entry-point candidacy: a replacement must be live (not soft-deleted) and
-        // not itself about to be removed.
-        std::function<bool(size_t)> valid = [&](size_t i) {
-            return !should_remove(i) && !this->is_deleted(i);
-        };
-
-        // Determine if the entry point is being removed.
-        // If so - we need to pick a new one.
-        assert(entry_point_.size() == 1);
-        auto entry_point = entry_point_[0];
-        if (should_remove(entry_point)) {
-            svs::logging::debug(logger_, "Replacing entry point.");
-            auto new_entry_point =
-                extensions::compute_entry_point(data_, threadpool_, valid);
-            svs::logging::debug(logger_, "New point: {}", new_entry_point);
-            assert(valid(new_entry_point));
-            entry_point_[0] = new_entry_point;
-        }
 
         // Perform graph consolidation over the in-neighbors of `deleted`, discovered via
         // the reverse-edge index.
@@ -1430,10 +1492,11 @@ class MutableVamanaIndex {
             if (!deleted_internal_ids.empty()) {
                 translator_.delete_internal(deleted_internal_ids, false);
             }
-            // Set removed `Deleted` slots to `Empty`
+            // The anchor's external mapping is removed above like any deletion,
+            // but its data/edges remain routing-only until exclusive compaction.
             size_t min_freed = std::numeric_limits<size_t>::max();
             for (auto i : deleted) {
-                if (status_[i] == SlotMetadata::Deleted) {
+                if (i != anchor && status_[i] == SlotMetadata::Deleted) {
                     std::atomic_ref<SlotMetadata>(status_[i])
                         .store(SlotMetadata::Empty, std::memory_order_release);
                     min_freed = std::min(min_freed, static_cast<size_t>(i));
@@ -1452,8 +1515,9 @@ class MutableVamanaIndex {
     ///   `delete_entries`. IDs that are not currently soft-deleted (never existed,
     ///   already consolidated, or still Valid/Pending) are skipped.
     ///
-    /// * For each consolidated ID, no live node retains an edge to it, its
-    ///   translator entry is erased, and its slot is set to `Empty`.
+    /// * Each consolidated ID loses its translator entry. Its graph slot is
+    ///   unlinked and set to `Empty`, except for the routing anchor: that single
+    ///   Deleted slot remains traversable, but never returnable, until `compact()`.
     ///
     /// @returns The number of listed IDs that were consolidated.
     ///
@@ -1487,7 +1551,7 @@ class MutableVamanaIndex {
 
     VamanaIndexParameters parameters() const {
         return {
-            entry_point_.front(),
+            entry_point(),
             {alpha_,
              graph_.max_degree(),
              get_construction_window_size(),
@@ -1670,9 +1734,17 @@ class MutableVamanaIndex {
     /// and entry points.
     ///
     /// This function is meant to provide a means for implementing experimental algorithms
-    /// on the contained data structures.
+    /// on the contained data structures. The entry-point span is a snapshot valid
+    /// only during the callback; it is empty when no routing anchor exists.
     template <typename F> void experimental_escape_hatch(F&& f) const {
-        std::invoke(SVS_FWD(f), graph_, data_, distance_, lib::as_const_span(entry_point_));
+        const Idx seed = entry_point();
+        std::invoke(
+            SVS_FWD(f),
+            graph_,
+            data_,
+            distance_,
+            std::span<const Idx>{&seed, seed == NO_ENTRY ? size_t{0} : size_t{1}}
+        );
     }
 
     /////
@@ -1722,13 +1794,14 @@ class MutableVamanaIndex {
     ///    for consideration. Following a consolidation, this should be ``false``.
     ///    Otherwise, this should be ``true``.
     ///
-    /// In this case, consistency means the that the adjacency lists for all non-deleted
-    /// vertices contain only non-deleted vertices.
+    /// The retained routing anchor is allowed even when Deleted; its outgoing
+    /// adjacency is checked as well. Other Deleted slots require allow_deleted.
     ///
     /// This operation should be run after ``debug_check_size()`` to ensure that
     /// the sizes of the underlying data structures are consistent.
     ///
     void debug_check_graph_consistency(bool allow_deleted = false) const {
+        const Idx anchor = entry_point();
         auto is_valid = [&, allow_deleted = allow_deleted](size_t i) {
             const auto& metadata = status_[i];
             // Use a switch to get a compiler error is we add states to `SlotMetadata`.
@@ -1737,7 +1810,7 @@ class MutableVamanaIndex {
                     return true;
                 }
                 case SlotMetadata::Deleted: {
-                    return allow_deleted;
+                    return allow_deleted || i == anchor;
                 }
                 case SlotMetadata::Empty: {
                     return false;

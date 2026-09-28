@@ -50,13 +50,14 @@
 
 namespace svs::index::vamana::concurrent::graphs {
 
-/// Outcome of `MemoryGraph::add_edge(src, dst)`. Distinguishes three cases so callers
+/// Outcome of `MemoryGraph::add_edge(src, dst)`. Distinguishes the cases so callers
 /// can route dropped edges (e.g. to a backedge buffer) without a TOCTOU race between a
 /// pre-check and the insert.
 enum class AddEdgeResult : uint8_t {
     Added,         // Edge was inserted.
     AlreadyExists, // Edge was already present (or self-loop). Not inserted.
     Full,          // Node's adjacency list is at max_degree. Edge NOT inserted.
+    Rejected,      // The source is no longer eligible for a backlink.
 };
 
 // clang-format off

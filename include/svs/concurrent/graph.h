@@ -34,6 +34,7 @@
 #include <cassert>
 #include <cstdint>
 #include <memory>
+#include <mutex>
 #include <span>
 #include <type_traits>
 #include <vector>
@@ -229,6 +230,22 @@ template <std::unsigned_integral Idx, data::MemoryDataset Data> class SimpleGrap
         replace_node_impl(i, new_neighbors);
     }
 
+    /// Hold across reading, pruning, and replacing one node's adjacency.
+    /// Readers still use the seqlock; it becomes odd only during publication.
+    [[nodiscard]] std::unique_lock<SpinLock> lock_node(Idx i) {
+        return std::unique_lock<SpinLock>{node_locks_[i]};
+    }
+
+    /// Replace under an already-held source lock, without acquiring it twice.
+    void replace_node(
+        Idx i,
+        std::span<const Idx> new_neighbors,
+        [[maybe_unused]] const std::unique_lock<SpinLock>& lock
+    ) {
+        assert(lock.owns_lock() && lock.mutex() == &node_locks_[i]);
+        replace_node_locked(i, new_neighbors);
+    }
+
     ///
     /// @brief Add an edge from vertex ``src`` to vertex ``dst``.
     ///
@@ -243,6 +260,13 @@ template <std::unsigned_integral Idx, data::MemoryDataset Data> class SimpleGrap
     /// * ``dst`` is already an out-neighbor of ``src``.
     ///
     AddEdgeResult add_edge(Idx src, Idx dst) {
+        return add_edge(src, dst, [](Idx) { return true; });
+    }
+
+    // The eligibility check and publication share the source lock with deletion.
+    // dst is the data-ready Pending insertion for which this backlink is built.
+    template <typename Eligible>
+    AddEdgeResult add_edge(Idx src, Idx dst, const Eligible& eligible) {
         // Don't assign a node as its own neighbor.
         if (src == dst) {
             return AddEdgeResult::AlreadyExists;
@@ -262,6 +286,9 @@ template <std::unsigned_integral Idx, data::MemoryDataset Data> class SimpleGrap
         // Acquire lock — all reads and writes under the lock to prevent
         // concurrent writers from seeing stale state.
         std::lock_guard lock{node_locks_[src]};
+        if (!eligible(src)) {
+            return AddEdgeResult::Rejected;
+        }
 
         // Check if there's room for the new node.
         std::span<Idx> raw_data = data_.get_datum(src);
@@ -510,6 +537,10 @@ template <std::unsigned_integral Idx, data::MemoryDataset Data> class SimpleGrap
 
     template <typename Span> void replace_node_impl(Idx i, const Span& new_neighbors) {
         std::lock_guard lock{node_locks_[i]};
+        replace_node_locked(i, new_neighbors);
+    }
+
+    template <typename Span> void replace_node_locked(Idx i, const Span& new_neighbors) {
         std::span<Idx> raw_data = data_.get_datum(i);
 
         // Clamp the number of elements to copy to the maximum out degree to correctly

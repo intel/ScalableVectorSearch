@@ -18,6 +18,7 @@
 #include "svs/concurrent/dynamic_index.h"
 #include "svs/concurrent/iterator.h"
 
+#include <algorithm>
 #include <atomic>
 #include <memory>
 #include <optional>
@@ -102,6 +103,12 @@ template <typename Index, typename QueryType> class MultiBatchIterator {
                     }
                 }
             }
+        }
+
+        // Later parent batches can add closer labels or improve existing scores.
+        auto cmp = TotalOrder(compare{});
+        if (!std::is_sorted(results_.begin(), results_.end(), cmp)) {
+            std::sort(results_.begin(), results_.end(), cmp);
         }
 
         ++iteration_;
@@ -727,7 +734,7 @@ class MultiMutableVamanaIndex {
 
     VamanaIndexParameters get_parameters() const {
         return {
-            index_->entry_point_.front(),
+            index_->entry_point(),
             {get_alpha(),
              max_degree(),
              get_construction_window_size(),

@@ -37,16 +37,8 @@ namespace svs::index::vamana::concurrent {
 ///
 /// Parameters controlling aspects of the graph consolidation process.
 ///
-/// * `update_batch_size`: The algorithm for graph consolidation is a two-phase algorithm
-///   over batches of the dataset to facalitate parallelism.
-///
-///   The first phase is a read-only phase where updates for the graph are prepared in an
-///   auxiliary data structure. The second phase commits these updates to the graph.
-///
-///   This multi-phase approach allows for parallelism with both phases without worrying
-///   about mutating the graph while reading from it.
-///
-///   This parameter controls how large of a batch is processed during each phase.
+/// * `update_batch_size`: Number of vertices dispatched per batch. Each source-node
+///   lock is held across reading its adjacency, pruning, and committing the replacement.
 ///
 /// * `prune_to`: The number of candidates to prune to.
 ///
@@ -245,7 +237,6 @@ class GraphConsolidator {
     void generate_updates(
         const GlobalIds& global_ids,
         const threads::UnitRange<size_t>& local_ids,
-        BulkUpdate<I>& update_buffer,
         ConsolidateThreadLocal<I>& tls,
         const Deleted& is_deleted
     ) const {
@@ -263,62 +254,39 @@ class GraphConsolidator {
                 continue;
             }
 
-            // SeqLock retry: a concurrent consolidate's apply_updates may be
-            // writing src's neighbors while we read them.
-            for (;;) {
-                auto maybe_seq = graph_.seq_counters()[src].read_begin();
-                if (!maybe_seq) {
-                    svs::detail::pause();
-                    continue;
-                }
-
-                // Determine if any of the neighbors of this node are deleted.
-                const auto& neighbors = graph_.get_node(src);
-                if (std::none_of(neighbors.begin(), neighbors.end(), is_deleted)) {
-                    if (graph_.seq_counters()[src].read_validate(*maybe_seq)) {
-                        break;
-                    }
-                    svs::detail::pause();
-                    continue;
-                }
-
-                // Add all neighbors and neighbors-of-deleted-neighbors.
-                populate_candidates(all_candidates, neighbors, is_deleted);
-
-                // Insert non-deleted candidates into the vector to prepare for
-                // pruning.
-                filter_candidates(
-                    valid_candidates,
-                    all_candidates,
-                    accessor(data_, src),
-                    accessor,
-                    general_distance,
-                    is_deleted
-                );
-
-                size_t new_candidate_size =
-                    std::min(valid_candidates.size(), params_.max_candidate_pool_size);
-                valid_candidates.resize(new_candidate_size);
-                heuristic_prune_neighbors(
-                    prune_strategy(distance_),
-                    params_.prune_to,
-                    params_.alpha,
-                    data_,
-                    accessor,
-                    general_distance,
-                    src,
-                    lib::as_const_span(valid_candidates),
-                    final_candidates
-                );
-
-                if (graph_.seq_counters()[src].read_validate(*maybe_seq)) {
-                    // Consistent read — commit the results.
-                    update_buffer.insert(i, final_candidates);
-                    break;
-                }
-                svs::detail::pause();
-                // Retry: discard stale candidates, recompute on next iteration.
+            // Protect the complete read/prune/write, not just the final stores.
+            auto node_lock = graph_.lock_node(src);
+            const auto& neighbors = graph_.get_node(src);
+            if (std::none_of(neighbors.begin(), neighbors.end(), is_deleted)) {
+                continue;
             }
+
+            // Other nodes still use seqlock validation in populate_candidates().
+            populate_candidates(all_candidates, neighbors, is_deleted);
+            filter_candidates(
+                valid_candidates,
+                all_candidates,
+                accessor(data_, src),
+                accessor,
+                general_distance,
+                is_deleted
+            );
+
+            size_t new_candidate_size =
+                std::min(valid_candidates.size(), params_.max_candidate_pool_size);
+            valid_candidates.resize(new_candidate_size);
+            heuristic_prune_neighbors(
+                prune_strategy(distance_),
+                params_.prune_to,
+                params_.alpha,
+                data_,
+                accessor,
+                general_distance,
+                src,
+                lib::as_const_span(valid_candidates),
+                final_candidates
+            );
+            graph_.replace_node(src, lib::as_const_span(final_candidates), node_lock);
         }
     }
 
@@ -352,6 +320,9 @@ class GraphConsolidator {
 
         tsl::robin_set<size_t> work{};
         for (auto d : deleted_ids) {
+            if (!is_deleted(d)) {
+                continue;
+            }
             const auto& neighbors = graph_.get_node(lib::narrow_cast<I>(d));
             for (auto a : neighbors) {
                 if (!is_deleted(a)) {
@@ -365,7 +336,7 @@ class GraphConsolidator {
     }
 
     ///
-    /// Run the generate/apply driver over an explicit list of node ids `work_ids`.
+    /// Update an explicit list of source nodes `work_ids`.
     ///
     template <typename Deleted>
     void run_driver(const std::vector<size_t>& work_ids, const Deleted& is_deleted) {
@@ -373,8 +344,6 @@ class GraphConsolidator {
         const size_t update_batch_size = std::min(params_.update_batch_size, num_work);
         const size_t thread_batch_size = 500;
 
-        // Size the update buffer to the work-set, not the 200k batch constant.
-        BulkUpdate<I> update_buffer{update_batch_size, params_.prune_to};
         threads::SequentialTLS<ConsolidateThreadLocal<I>> tls{threadpool_.size()};
 
         size_t start = 0;
@@ -384,7 +353,6 @@ class GraphConsolidator {
                 std::span<const size_t>(work_ids).subspan(start, stop - start);
             threads::UnitRange<size_t> local_range{0, global_ids.size()};
 
-            update_buffer.prepare();
             threads::parallel_for(
                 threadpool_,
                 threads::DynamicPartition{local_range, thread_batch_size},
@@ -393,18 +361,9 @@ class GraphConsolidator {
                     generate_updates(
                         global_ids,
                         threads::UnitRange(local_ids),
-                        update_buffer,
                         thread_local_scratch,
                         is_deleted
                     );
-                }
-            );
-
-            threads::parallel_for(
-                threadpool_,
-                threads::DynamicPartition{local_range, thread_batch_size},
-                [&](const auto& local_ids, uint64_t /*tid*/) {
-                    apply_updates(update_buffer, global_ids, threads::UnitRange(local_ids));
                 }
             );
 
@@ -429,7 +388,6 @@ class GraphConsolidator {
     ///
     template <typename Deleted> void operator()(const Deleted& is_deleted) {
         // Allocate necessary scratch space.
-        BulkUpdate<I> update_buffer{params_.update_batch_size, params_.prune_to};
         threads::SequentialTLS<ConsolidateThreadLocal<I>> tls{threadpool_.size()};
 
         const size_t num_nodes = graph_.n_nodes();
@@ -441,7 +399,6 @@ class GraphConsolidator {
             size_t stop = std::min(num_nodes, start + update_batch_size);
 
             // Generate updates.
-            update_buffer.prepare();
             threads::UnitRange global_ids{start, stop};
             threads::parallel_for(
                 threadpool_,
@@ -451,19 +408,9 @@ class GraphConsolidator {
                     generate_updates(
                         global_ids,
                         threads::UnitRange(local_ids),
-                        update_buffer,
                         thread_local_scratch,
                         is_deleted
                     );
-                }
-            );
-
-            // Write back results.
-            threads::parallel_for(
-                threadpool_,
-                threads::DynamicPartition{global_ids.eachindex(), thread_batch_size},
-                [&](const auto& local_ids, uint64_t /*tid*/) {
-                    apply_updates(update_buffer, global_ids, threads::UnitRange(local_ids));
                 }
             );
 

@@ -117,11 +117,11 @@ void heuristic_prune_neighbors(
 ) {
     auto cmp = distance::comparator(distance_function);
     assert(std::is_sorted(pool.begin(), pool.end(), cmp));
+    result.clear();
     if (pool.empty()) {
         return;
     }
 
-    result.clear();
     result.reserve(max_result_size);
     size_t poolsize = pool.size();
     if (poolsize == 0) {
@@ -222,11 +222,11 @@ void heuristic_prune_neighbors(
 ) {
     auto cmp = distance::comparator(distance_function);
     assert(std::is_sorted(pool.begin(), pool.end(), cmp));
+    result.clear();
     if (pool.empty()) {
         return;
     }
 
-    result.clear();
     result.reserve(max_result_size);
     size_t poolsize = pool.size();
     std::vector<float> pruned(poolsize, type_traits::tombstone_v<float, decltype(cmp)>);
@@ -296,11 +296,11 @@ void heuristic_prune_neighbors(
 ) {
     auto cmp = distance::comparator(distance_function);
     assert(std::is_sorted(pool.begin(), pool.end(), cmp));
+    result.clear();
     if (pool.empty()) {
         return;
     }
 
-    result.clear();
     result.reserve(max_result_size);
     size_t poolsize = pool.size();
     std::vector<bool> pruned(poolsize, false);

@@ -29,6 +29,7 @@
 #include "svs/index/vamana/search_tracker.h"
 #include "svs/lib/boundscheck.h"
 #include "svs/lib/exception.h"
+#include "svs/lib/misc.h"
 #include "svs/lib/narrow.h"
 #include "svs/lib/neighbor.h"
 #include "svs/lib/threads/threadlocal.h"
@@ -44,8 +45,11 @@
 #include <algorithm>
 #include <concepts>
 #include <memory>
+#include <mutex>
 #include <optional>
+#include <span>
 #include <tuple>
+#include <type_traits>
 #include <vector>
 
 namespace svs::index::vamana::concurrent {
@@ -175,7 +179,8 @@ template <
     graphs::MemoryGraph Graph,
     data::ImmutableMemoryDataset Data,
     typename Dist,
-    threads::ThreadPool Pool>
+    threads::ThreadPool Pool,
+    typename Eligible = lib::ReturnsTrueType>
 class VamanaBuilder {
   public:
     // Type Aliases
@@ -196,7 +201,9 @@ class VamanaBuilder {
         Pool& threadpool,
         GreedySearchPrefetchParameters prefetch_hint = {},
         svs::logging::logger_ptr logger = svs::logging::get(),
-        logging::Level level = logging::Level::Debug
+        logging::Level level = logging::Level::Debug,
+        Eligible eligible = {},
+        std::span<const Idx> additional_candidates = {}
     )
         : graph_{graph}
         , data_{data}
@@ -204,7 +211,9 @@ class VamanaBuilder {
         , params_{params}
         , prefetch_hint_{prefetch_hint}
         , threadpool_{threadpool}
-        , backedge_buffer_{data.size(), 1000} {
+        , backedge_buffer_{data.size(), 1000}
+        , eligible_{std::move(eligible)}
+        , additional_candidates_{additional_candidates} {
         // Print all parameters
         svs::logging::log(
             logger,
@@ -284,7 +293,18 @@ class VamanaBuilder {
             search_time += lib::as_seconds(x.finish());
 
             auto y = timer.push_back("reverse edges");
-            add_reverse_edges(threads::IteratorPair{start, stop}, alpha, timer);
+            std::vector<Idx> retry;
+            add_reverse_edges(threads::IteratorPair{start, stop}, alpha, timer, &retry);
+            while (!retry.empty()) {
+                std::sort(retry.begin(), retry.end());
+                retry.erase(std::unique(retry.begin(), retry.end()), retry.end());
+                auto nodes = std::move(retry);
+                retry.clear();
+                // These insertions are still Pending. Preserve published adjacency;
+                // reselect parents if deletion won the backlink admission race.
+                generate_neighbors(nodes, params_.alpha, entry_points, timer);
+                add_reverse_edges(nodes, alpha, timer, &retry);
+            }
             reverse_time += lib::as_seconds(y.finish());
 
             auto this_progress = lib::narrow_cast<double>(batch_id) * 1e2 /
@@ -340,17 +360,14 @@ class VamanaBuilder {
     ) {
         auto range = threads::StaticPartition{indices};
 
-        update_type updates{threadpool_.size()};
         auto main = timer.push_back("main");
         threads::parallel_for(
             threadpool_,
             range,
-            [&](const auto& local_indices, uint64_t tid) {
-                // Thread local variables
-                auto& thread_local_updates = updates.at(tid);
-
+            [&](const auto& local_indices, uint64_t SVS_UNUSED(tid)) {
                 // Scratch space.
                 std::vector<Neighbor<Idx>> pool{};
+                std::vector<Idx> pruned_results{};
                 auto search_buffer = search_buffer_type{params_.window_size};
 
                 // Enable use of the visited filter of the search buffer.
@@ -417,19 +434,64 @@ class VamanaBuilder {
                     // Otherwise, pull results directly out of the search buffer.
                     if (tracker.enabled()) {
                         for (const auto& neighbor : tracker) {
+                            if (!eligible_(neighbor.id())) {
+                                continue;
+                            }
                             pool.push_back(modify_distance(neighbor));
                             visited.insert(neighbor.id());
                         }
                     } else {
                         for (size_t i = 0, imax = search_buffer.size(); i < imax; ++i) {
                             const auto& neighbor = search_buffer[i];
+                            if (!eligible_(neighbor.id())) {
+                                continue;
+                            }
                             pool.push_back(modify_distance(neighbor));
                             visited.insert(neighbor.id());
                         }
                     }
 
+                    // Ready in-flight insertions need not yet be reachable from the
+                    // entry point. Deduplicate only against candidates found by search.
+                    for (auto id : additional_candidates_) {
+                        if (id != node_id && eligible_(id) && visited.insert(id).second) {
+                            pool.emplace_back(
+                                id,
+                                distance::compute(
+                                    general_distance,
+                                    post_search_query,
+                                    general_accessor(data_, id)
+                                )
+                            );
+                        }
+                    }
+
+                    if constexpr (!std::is_same_v<Eligible, lib::ReturnsTrueType>) {
+                        // The retained anchor is usable even when all old labels
+                        // have been deleted or displaced from the search window.
+                        for (auto id : entry_points) {
+                            if (id != node_id && eligible_(id) &&
+                                visited.insert(id).second) {
+                                pool.emplace_back(
+                                    id,
+                                    distance::compute(
+                                        general_distance,
+                                        post_search_query,
+                                        general_accessor(data_, id)
+                                    )
+                                );
+                            }
+                        }
+                    }
+
+                    // Greedy search stays outside the lock. Protect the current
+                    // adjacency from its first read through the pruned replacement.
+                    auto node_lock = graph_.lock_node(node_id);
                     // Add neighbors of the query that are not part of `visited`.
                     for (auto id : graph_.get_node(node_id)) {
+                        if (!eligible_(id)) {
+                            continue;
+                        }
                         assert(id != node_id);
                         // Try to emplace the node id into the visited set.
                         // If the id was inserted, then it didn't already exist in the
@@ -454,9 +516,7 @@ class VamanaBuilder {
                     );
                     pool.resize(std::min(pool.size(), params_.max_candidate_pool_size));
 
-                    // Prune and wait for an update.
-                    thread_local_updates.emplace_back(node_id, std::vector<Idx>{});
-                    auto& pruned_results = thread_local_updates.back().second;
+                    pruned_results.clear();
                     heuristic_prune_neighbors(
                         prune_strategy(distance_function_),
                         params_.graph_max_degree,
@@ -468,27 +528,30 @@ class VamanaBuilder {
                         lib::as_const_span(pool),
                         pruned_results
                     );
+                    graph_.replace_node(
+                        node_id, lib::as_const_span(pruned_results), node_lock
+                    );
                 }
             }
         );
 
         main.finish();
-
-        // Apply updates.
-        auto update = timer.push_back("updates");
-        threads::parallel_for(threadpool_, [&](uint64_t tid) {
-            const auto& thread_local_updates = updates.at(tid);
-            for (auto [node_id, update] : thread_local_updates) {
-                graph_.replace_node(node_id, update);
-            }
-        });
     }
 
     ///
     /// Add reverse edges to the graph.
     ///
     template <typename /*std::ranges::random_access_range*/ R>
-    void add_reverse_edges(const R& indices, float alpha, lib::Timer& timer) {
+    void add_reverse_edges(
+        const R& indices, float alpha, lib::Timer& timer, std::vector<Idx>* retry = nullptr
+    ) {
+        std::mutex retry_mutex;
+        auto retry_node = [&](Idx id) {
+            if (retry) {
+                std::lock_guard lock{retry_mutex};
+                retry->push_back(id);
+            }
+        };
         // Apply backedges to all new candidate adjacency lists.
         // If adding an edge to the graph will cause it to violate the maximum degree
         // constraint, save the excess to the backedge buffer.
@@ -504,9 +567,11 @@ class VamanaBuilder {
                         // graph_.add_edge is atomic under node_locks_[other_id].
                         // If it reports Full, route to the overflow buffer —
                         // no TOCTOU race between a pre-check and the insert.
-                        if (graph_.add_edge(other_id, node_id) ==
-                            graphs::AddEdgeResult::Full) {
+                        auto result = graph_.add_edge(other_id, node_id, eligible_);
+                        if (result == graphs::AddEdgeResult::Full) {
                             backedge_buffer_.add_edge(other_id, node_id);
+                        } else if (result == graphs::AddEdgeResult::Rejected) {
+                            retry_node(node_id);
                         }
                     }
                 }
@@ -538,6 +603,15 @@ class VamanaBuilder {
                         // The ``neighbors`` class is a set.
                         auto src = kv.first;
                         const auto& neighbors = kv.second;
+                        auto node_lock = graph_.lock_node(src);
+                        if (!eligible_(src)) {
+                            // Full was only queued, not yet committed. Deletion
+                            // may have won since the first backlink attempt.
+                            for (auto n : neighbors) {
+                                retry_node(n);
+                            }
+                            continue;
+                        }
                         const auto& src_data = general_accessor(data_, src);
                         distance::maybe_fix_argument(general_distance, src_data);
 
@@ -554,10 +628,14 @@ class VamanaBuilder {
                         candidates.clear();
                         // Add the overflow candidates.
                         for (auto n : neighbors) {
-                            candidates.push_back(make_neighbor(n));
+                            if (eligible_(n)) {
+                                candidates.push_back(make_neighbor(n));
+                            }
                         }
 
                         // Add the old adjacency list.
+                        // Existing tombstones may still route to live nodes; insertion
+                        // eligibility must not remove them from the pruning pool.
                         for (auto n : graph_.get_node(src)) {
                             if (!neighbors.contains(n)) {
                                 candidates.push_back(make_neighbor(n));
@@ -568,6 +646,7 @@ class VamanaBuilder {
                             std::min(candidates.size(), params_.max_candidate_pool_size)
                         );
 
+                        pruned_results.clear();
                         heuristic_prune_neighbors(
                             prune_strategy(distance_function_),
                             params_.prune_to,
@@ -579,7 +658,9 @@ class VamanaBuilder {
                             lib::as_const_span(candidates),
                             pruned_results
                         );
-                        graph_.replace_node(src, pruned_results);
+                        graph_.replace_node(
+                            src, lib::as_const_span(pruned_results), node_lock
+                        );
                     }
                 }
             }
@@ -601,5 +682,8 @@ class VamanaBuilder {
     Pool& threadpool_;
     /// Overflow backedge buffer.
     BackedgeBuffer<Idx> backedge_buffer_;
+    [[no_unique_address]] Eligible eligible_;
+    /// Optional initialized candidates; the caller owns the span through construct().
+    std::span<const Idx> additional_candidates_;
 };
 } // namespace svs::index::vamana::concurrent
