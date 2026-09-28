@@ -55,6 +55,7 @@ struct Index {
     virtual size_t get_num_threads() const = 0;
     virtual void set_num_threads(size_t num_threads) = 0;
     virtual svs::index::vamana::MemoryBreakdown get_memory_breakdown() const = 0;
+    virtual size_t size() const = 0;
 };
 
 struct DynamicIndex : public Index {

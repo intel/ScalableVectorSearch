@@ -66,6 +66,8 @@ struct IndexVamana : public Index {
     svs::index::vamana::MemoryBreakdown get_memory_breakdown() const override {
         return index.get_memory_breakdown();
     }
+
+    size_t size() const override { return index.size(); }
 };
 
 struct DynamicIndexVamana : public DynamicIndex {
@@ -123,5 +125,7 @@ struct DynamicIndexVamana : public DynamicIndex {
     svs::index::vamana::MemoryBreakdown get_memory_breakdown() const override {
         return index.get_memory_breakdown();
     }
+
+    size_t size() const override { return index.size(); }
 };
 } // namespace svs::c_runtime

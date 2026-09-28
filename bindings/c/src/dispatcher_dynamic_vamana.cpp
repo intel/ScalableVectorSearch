@@ -26,6 +26,7 @@
 #include <svs/core/distance.h>
 #include <svs/core/query_result.h>
 #include <svs/index/vamana/build_params.h>
+#include <svs/index/vamana/dynamic_index.h>
 #include <svs/lib/float16.h>
 #include <svs/orchestrators/dynamic_vamana.h>
 
@@ -37,6 +38,7 @@
 
 namespace svs::c_runtime {
 
+namespace {
 template <typename DataBuilder, typename Distance>
 svs::DynamicVamana build_dynamic_vamana_index(
     const svs::index::vamana::VamanaBuildParameters& build_params,
@@ -144,6 +146,158 @@ const BuildDynamicIndexDispatcher& build_dynamic_vamana_index_dispatcher() {
     return dispatcher;
 }
 
+using CopyDynamicIndexDispatcher = svs::lib::Dispatcher<
+    svs::DynamicVamana,
+    const svs::index::vamana::VamanaBuildParameters&,
+    const svs::DynamicVamana&,
+    const Storage*, // src
+    const Storage*, // dst
+    svs::DistanceType,
+    svs::threads::ThreadPoolHandle,
+    const AllocatorBuilder&,
+    size_t>;
+
+template <typename SrcDataBuilder, typename DstDataBuilder, typename Distance>
+svs::DynamicVamana copy_dynamic_vamana_index(
+    const svs::index::vamana::VamanaBuildParameters& build_params,
+    const svs::DynamicVamana& src_index,
+    SrcDataBuilder src_builder,
+    DstDataBuilder dst_builder,
+    Distance distance,
+    svs::threads::ThreadPoolHandle pool,
+    const AllocatorBuilder& allocator_builder,
+    size_t blocksize_bytes
+) {
+    // Validate graph max degree consistency
+    auto config = src_index.parameters();
+    config.build_parameters = build_params;
+
+    if (config.build_parameters.graph_max_degree != build_params.graph_max_degree) {
+        throw not_implemented("Graph max degree mismatch");
+    }
+
+    // Determine the blocking parameters based on the provided block size
+    svs::data::BlockingParameters block_params;
+    if (blocksize_bytes != 0) {
+        block_params.blocksize_bytes = svs::lib::prevpow2(blocksize_bytes);
+    }
+
+    // Must match the graph type produced by the build and load paths above.
+    using GraphType =
+        svs::graphs::SimpleGraph<uint32_t, svs::data::Blocked<AllocatorHandle<uint32_t>>>;
+
+    // Get the typed index implementation from the source index
+    using SrcDataType = typename SrcDataBuilder::data_type;
+    using IndexImplType =
+        svs::index::vamana::MutableVamanaIndex<GraphType, SrcDataType, Distance>;
+    auto src_index_impl =
+        src_index.template get_typed_impl<svs::lib::Types<float>, IndexImplType>();
+    if (!src_index_impl) {
+        throw std::runtime_error("Failed to get typed index implementation");
+    }
+
+    // Copy the graph structure from the source index to the new graph instance
+    const auto& src_graph = src_index_impl->view_graph();
+    assert(src_graph.max_degree() == config.build_parameters.graph_max_degree);
+
+    auto graph_allocator_handle = allocator_builder.build_for_graph<uint32_t>();
+    auto graph_allocator = svs::data::Blocked{block_params, graph_allocator_handle};
+    auto graph =
+        GraphType(src_graph.n_nodes(), build_params.graph_max_degree, graph_allocator);
+    svs::data::copy(src_graph.get_data(), graph.get_data());
+
+    // Copy/convert the data from the source index to the new data instance
+    const auto& src_data = src_builder.get_dataset(src_index_impl->view_data());
+
+    using allocator_type = typename DstDataBuilder::allocator_type;
+    using value_type = typename allocator_type::value_type;
+
+    auto data_allocator_handle = allocator_builder.build<value_type>();
+    auto data_allocator = allocator_type{block_params, data_allocator_handle};
+    auto data = dst_builder.build(src_data, pool, data_allocator);
+
+    auto params = src_index.parameters();
+    // A defaulted alpha is resolved per-metric at build time, so it cannot be compared.
+    constexpr svs::index::vamana::VamanaBuildParameters default_build_params{};
+    const bool alpha_is_default = build_params.alpha == default_build_params.alpha;
+
+    if (params.build_parameters.graph_max_degree != build_params.graph_max_degree ||
+        (!alpha_is_default && params.build_parameters.alpha != build_params.alpha)) {
+        throw not_implemented("Index build parameters mismatch");
+    }
+
+    // Other build parameters that are not explicitly checked above are updated here.
+    params.build_parameters = build_params;
+
+    svs::index::vamana::detail::VamanaStateLoader state_loader{
+        params, src_index_impl->view_translator(), src_index_impl->view_status()};
+
+    return svs::DynamicVamana::assemble<float>(
+        std::move(state_loader),
+        std::move(graph),
+        std::move(data),
+        distance,
+        std::move(pool)
+    );
+}
+
+template <typename Dispatcher> void register_copy_specializations(Dispatcher& dispatcher) {
+    // TODO: Enable Compressed -> Compressed specializations by making decompressors,
+    // decompression accessors and decompression dataset are thread-safe
+
+    // Compression specializations for copy_vamana_index
+    // To handle cases Simple -> Compressed
+    auto compression_closure = [&dispatcher]<typename SrcDataBuilder, typename Dist>() {
+        // Skip all distance specializations except one
+        if constexpr (!std::is_same_v<Dist, DistanceL2>) {
+            return;
+        }
+        auto inner_closure = [&dispatcher]<typename DstDataBuilder, typename Distance>() {
+            dispatcher.register_target(&copy_dynamic_vamana_index<
+                                       SrcDataBuilder,
+                                       DstDataBuilder,
+                                       Distance>);
+        };
+
+        for_simple_specializations<true>(inner_closure);
+        for_sq_specializations<true>(inner_closure);
+        for_lvq_specializations<true>(inner_closure);
+        for_leanvec_specializations<true>(inner_closure);
+    };
+    for_simple_specializations<true>(compression_closure);
+
+    // Decompression specializations for copy_vamana_index
+    // To handle cases Compressed -> Simple
+    auto decompression_closure = [&dispatcher]<typename SrcDataBuilder, typename Dist>() {
+        // Skip all distance specializations except one
+        if constexpr (!std::is_same_v<Dist, DistanceL2>) {
+            return;
+        }
+        auto inner_closure = [&dispatcher]<typename DstDataBuilder, typename Distance>() {
+            dispatcher.register_target(&copy_dynamic_vamana_index<
+                                       SrcDataBuilder,
+                                       DstDataBuilder,
+                                       Distance>);
+        };
+
+        for_simple_specializations<true>(inner_closure);
+    };
+    for_sq_specializations<true>(decompression_closure);
+    for_lvq_specializations<true>(decompression_closure);
+    for_leanvec_specializations<true>(decompression_closure);
+}
+
+const CopyDynamicIndexDispatcher& copy_dynamic_index_dispatcher() {
+    static CopyDynamicIndexDispatcher dispatcher = [] {
+        CopyDynamicIndexDispatcher d{};
+        register_copy_specializations(d);
+        return d;
+    }();
+    return dispatcher;
+}
+
+} // namespace
+
 svs::DynamicVamana dispatch_dynamic_vamana_index_build(
     const svs::index::vamana::VamanaBuildParameters& build_params,
     svs::data::ConstSimpleDataView<float> data,
@@ -178,6 +332,28 @@ svs::DynamicVamana dispatch_dynamic_vamana_index_load(
         build_params,
         DynamicVamanaSource{directory},
         storage,
+        distance_type,
+        std::move(pool),
+        allocator_builder,
+        blocksize_bytes
+    );
+}
+
+svs::DynamicVamana dispatch_dynamic_vamana_index_copy(
+    const svs::index::vamana::VamanaBuildParameters& build_params,
+    const svs::DynamicVamana& src_index,
+    const Storage* src_storage,
+    const Storage* dst_storage,
+    svs::DistanceType distance_type,
+    svs::threads::ThreadPoolHandle pool,
+    const AllocatorBuilder& allocator_builder,
+    size_t blocksize_bytes
+) {
+    return copy_dynamic_index_dispatcher().invoke(
+        build_params,
+        src_index,
+        src_storage,
+        dst_storage,
         distance_type,
         std::move(pool),
         allocator_builder,

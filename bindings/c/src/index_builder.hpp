@@ -109,6 +109,9 @@ struct IndexBuilder {
     std::shared_ptr<DynamicIndex>
     load_dynamic(const std::filesystem::path& directory, size_t blocksize_bytes);
 
+    std::shared_ptr<DynamicIndex>
+    copy_dynamic(const std::shared_ptr<Index>& src_index, size_t blocksize_bytes);
+
     // Estimate the memory a built static Vamana index would consume
     // for `num_vectors` vectors. Mirrors the accounting done by
     // svs::index::vamana::VamanaIndex::get_memory_breakdown().

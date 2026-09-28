@@ -1018,7 +1018,7 @@ inline VamanaIndexParameters load_config(const std::string& config_path) {
 
 template <typename ConfigProto>
 VamanaIndexParameters load_config(ConfigProto&& config_proto) {
-    return svs::detail::dispatch_load(std::move(config_proto));
+    return svs::detail::dispatch_load(std::forward<ConfigProto>(config_proto));
 }
 } // namespace detail
 

@@ -120,8 +120,6 @@ const BuildIndexDispatcher& build_vamana_index_dispatcher() {
     return dispatcher;
 }
 
-using StoragePair = std::pair<const Storage*, const Storage*>;
-
 using CopyIndexDispatcher = svs::lib::Dispatcher<
     svs::Vamana,
     const svs::index::vamana::VamanaBuildParameters&,
@@ -142,9 +140,17 @@ svs::Vamana copy_vamana_index(
     svs::threads::ThreadPoolHandle pool,
     const AllocatorBuilder& allocator_builder
 ) {
+    // Validate graph max degree consistency
+    auto config = src_index.parameters();
+    config.build_parameters = build_params;
+
+    if (config.build_parameters.graph_max_degree != build_params.graph_max_degree) {
+        throw not_implemented("Graph max degree mismatch");
+    }
+
+    // Get the typed index implementation from the source index
     using GraphType = svs::graphs::SimpleGraph<uint32_t, AllocatorHandle<uint32_t>>;
     using SrcDataType = typename SrcDataBuilder::data_type;
-
     using IndexImplType = svs::index::vamana::VamanaIndex<GraphType, SrcDataType, Distance>;
 
     auto src_index_impl =
@@ -153,28 +159,20 @@ svs::Vamana copy_vamana_index(
         throw std::runtime_error("Failed to get typed index implementation");
     }
 
-    const auto& src_data = src_builder.get_dataset(src_index_impl->view_data());
-
-    using value_type = typename DstDataBuilder::allocator_type::value_type;
-    auto data = dst_builder.build(src_data, pool, allocator_builder.build<value_type>());
-
-    auto config = src_index.parameters();
-    config.build_parameters = build_params;
-
-    if (config.build_parameters.graph_max_degree != build_params.graph_max_degree) {
-        throw not_implemented("Graph max degree mismatch");
-    }
-
+    // Copy the graph structure from the source index to the new graph instance
     const auto& src_graph = src_index_impl->view_graph();
-
     assert(src_graph.max_degree() == config.build_parameters.graph_max_degree);
-
     auto graph = GraphType(
         src_graph.n_nodes(),
         build_params.graph_max_degree,
         allocator_builder.build_for_graph<uint32_t>()
     );
     svs::data::copy(src_graph.get_data(), graph.get_data());
+
+    // Copy/convert the data from the source index to the new data instance
+    const auto& src_data = src_builder.get_dataset(src_index_impl->view_data());
+    using value_type = typename DstDataBuilder::allocator_type::value_type;
+    auto data = dst_builder.build(src_data, pool, allocator_builder.build<value_type>());
 
     return svs::Vamana::assemble<float>(
         config, std::move(graph), std::move(data), distance, std::move(pool)

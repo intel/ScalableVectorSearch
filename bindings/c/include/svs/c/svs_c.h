@@ -1023,6 +1023,15 @@ SVS_API svs_index_h svs_index_convert_dynamic(
 /// @param index The index handle to free
 SVS_API void svs_index_free(svs_index_h index);
 
+/// @brief Get index size
+/// @param index The index handle
+/// @param out_size Pointer to a size_t variable where the index size will be stored
+/// @param out_err An optional error handle to capture errors
+/// @return true on success, false on failure
+SVS_API bool svs_index_get_size(
+    svs_index_h index, size_t* out_size, svs_error_h out_err /*=NULL*/
+);
+
 /// @brief TopK search the index with the provided queries and an optional ID filter
 /// @details Performs a TopK search on the index with the provided queries and an optional
 /// ID filter. The ID filter allows for filtering the search results based on specific IDs,

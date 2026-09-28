@@ -151,6 +151,73 @@ std::shared_ptr<Index> IndexBuilder::copy(const std::shared_ptr<Index>& src_inde
     return index;
 }
 
+std::shared_ptr<DynamicIndex> IndexBuilder::copy_dynamic(
+    const std::shared_ptr<Index>& src_index, size_t blocksize_bytes
+) {
+    const auto& src_builder = src_index->get_builder();
+
+    if (src_builder.algorithm->type != SVS_ALGORITHM_TYPE_VAMANA) {
+        throw not_implemented(
+            "Only Vamana algorithm is currently supported for index conversion"
+        );
+    }
+
+    // Validate that the source and destination builders are compatible
+    // by comparing:
+    // - distance metric
+    // - dimensions
+    // - algorithm type
+    // - key build parameters: alpha, graph_max_degree
+    if (src_builder.distance_metric != distance_metric) {
+        throw not_implemented(
+            "Distance metric mismatch between source and destination builders"
+        );
+    }
+    if (src_builder.dimension != dimension) {
+        throw invalid_operation(
+            "Dimensions mismatch between source and destination builders"
+        );
+    }
+    const auto src_algorithm = dynamic_cast<AlgorithmVamana*>(src_builder.algorithm.get());
+    if (src_algorithm->type != algorithm->type) {
+        throw not_implemented(
+            "Algorithm type mismatch between source and destination builders"
+        );
+    }
+
+    const auto dst_algorithm = dynamic_cast<AlgorithmVamana*>(algorithm.get());
+    assert(dst_algorithm && "Destination builder must have a valid Vamana algorithm.");
+
+    const auto& src_build_parameters = src_algorithm->build_parameters();
+    const auto& dst_build_parameters = dst_algorithm->build_parameters();
+
+    if (src_build_parameters.alpha != dst_build_parameters.alpha ||
+        src_build_parameters.graph_max_degree != dst_build_parameters.graph_max_degree) {
+        throw not_implemented(
+            "Build parameters mismatch between source and destination builders"
+        );
+    }
+
+    const auto vamana_index = std::dynamic_pointer_cast<DynamicIndexVamana>(src_index);
+    assert(vamana_index && "Source index must be a valid Vamana index.");
+
+    auto index = std::make_shared<DynamicIndexVamana>(
+        *this,
+        dispatch_dynamic_vamana_index_copy(
+            dst_build_parameters,
+            vamana_index->index,
+            src_builder.storage.get(),
+            storage.get(),
+            to_distance_type(distance_metric),
+            pool_builder.build(),
+            allocator_builder,
+            blocksize_bytes
+        )
+    );
+
+    return index;
+}
+
 std::shared_ptr<DynamicIndex> IndexBuilder::build_dynamic(
     const svs::data::ConstSimpleDataView<float>& data,
     std::span<const size_t> ids,
