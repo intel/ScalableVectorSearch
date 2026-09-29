@@ -29,7 +29,7 @@ else()
     set(EXAMPLE_LINK_TARGET svs_c_api)
 endif()
 
-foreach(EXAMPLE_NAME simple save_load dynamic)
+foreach(EXAMPLE_NAME simple save_load save_load_stream dynamic)
     set(EXAMPLE_TARGET c_api_${EXAMPLE_NAME})
     list(APPEND EXAMPLE_TARGETS ${EXAMPLE_TARGET})
     add_executable(${EXAMPLE_TARGET} ${EXAMPLE_NAME}.c)

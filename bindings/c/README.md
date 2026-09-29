@@ -22,8 +22,8 @@ C applications and any language with C FFI support.
 The API is built around a small set of opaque handles and a builder pattern:
 configure an *algorithm*, optional *storage* and *thread pool*, hand them to an
 *index builder*, then use the resulting *index* to run TopK searches (with
-optional ID filtering), save/load the index, and — for dynamic indices — add or
-delete points at runtime.
+optional ID filtering), save/load the index to disk or a caller-supplied stream,
+and — for dynamic indices — add or delete points at runtime.
 
 For the design rationale, naming conventions, and full API reference see
 [docs/C_API_Design.md](docs/C_API_Design.md).
@@ -190,7 +190,8 @@ Runnable sample applications live in [samples/](samples/):
 - [`save_load.c`](samples/save_load.c) – persisting and reloading indices from
   disk
 
-Additional integration examples: [`examples/c/`](../../examples/c/).
+Additional integration examples: [`examples/c/`](../../examples/c/), including
+stream-based save/load via [`save_load_stream.c`](../../examples/c/save_load_stream.c).
 
 ## Further Reading
 

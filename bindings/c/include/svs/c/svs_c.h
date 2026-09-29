@@ -300,8 +300,7 @@ struct svs_id_filter_interface {
 /// function, so no synchronization is required — unlike the thread pool, allocator and ID
 /// filter interfaces.
 /// @remarks Exactly one direction is required per operation: @ref svs_index_save_stream
-/// needs
-/// @p write, the load functions need @p read. The unused callback may be NULL.
+/// needs @p write, the load functions need @p read. The unused callback may be NULL.
 /// @var svs_stream_interface_ops::version
 ///   Interface version, set by @ref SVS_INIT_STREAM_OPS.
 /// @var svs_stream_interface_ops::struct_size
@@ -311,10 +310,13 @@ struct svs_id_filter_interface {
 ///   @param self Pointer to the stream instance.
 ///   @param buf Destination buffer.
 ///   @param n Maximum number of bytes to read.
-///   @param out_err Handle to capture any error that occurs during the read. User code may
-///   call svs_error_set() to set the error code and message if an error occurs.
-///   @return The number of bytes read; 0 signals end of stream. A short read is not an
-///   error and the library will call again. NULL for a write-only stream.
+///   @param out_err Handle to capture any error that occurs during the read. Returning 0
+///   with an error set on @p out_err via svs_error_set() reports a failed read and aborts
+///   the load with that error code; returning 0 without setting one is a clean end of
+///   stream. This differs from @p write, which signals failure through its return value.
+///   @return The number of bytes read; 0 signals end of stream unless @p out_err carries an
+///   error. A short read is not an error and the library will call again. NULL for a
+///   write-only stream.
 /// @var svs_stream_interface_ops::write
 ///   Writes exactly @p n bytes from @p buf.
 ///   @param self Pointer to the stream instance.
@@ -1070,6 +1072,9 @@ SVS_API svs_index_h svs_index_load_dynamic(
 ///   the stream rather than referenced.
 /// @remarks Accepts both the native stream encoding produced by @ref svs_index_save_stream
 ///   and a packed directory archive. The encoding is detected from the stream itself.
+/// @remarks Graph memory comes from `HugepageAllocator` rather than any allocator supplied
+///   through @ref svs_index_builder_set_allocator_custom. This is a performance difference,
+///   not a correctness one.
 SVS_API svs_index_h svs_index_load_stream(
     svs_index_builder_h builder, svs_stream_i stream, svs_error_h out_err /*=NULL*/
 );
@@ -1085,6 +1090,10 @@ SVS_API svs_index_h svs_index_load_stream(
 ///   the stream rather than referenced.
 /// @remarks Accepts both the native stream encoding produced by @ref svs_index_save_stream
 ///   and a packed directory archive. The encoding is detected from the stream itself.
+/// @remarks Graph memory comes from `HugepageAllocator` rather than any allocator supplied
+///   through @ref svs_index_builder_set_allocator_custom, and growing the loaded index
+///   reallocates the whole graph instead of appending a block. Both are a performance
+///   difference, not a correctness one.
 SVS_API svs_index_h svs_index_load_stream_dynamic(
     svs_index_builder_h builder,
     svs_stream_i stream,
