@@ -35,9 +35,13 @@
 
 #include <svs/core/allocator.h>
 #include <svs/core/data.h>
+#include <svs/core/logging.h>
 #include <svs/core/query_result.h>
 #include <svs/lib/memory.h>
 #include <svs/orchestrators/vamana.h>
+
+#include "spdlog/pattern_formatter.h"
+#include "spdlog/sinks/callback_sink.h"
 
 // C API implementation
 struct svs_index {
@@ -67,6 +71,112 @@ struct svs_leanvec_training_data {
 extern "C" uint32_t svs_get_version() { return SVS_C_API_VERSION; }
 
 extern "C" const char* svs_get_version_string() { return SVS_C_API_VERSION_STRING; }
+
+inline svs::logging::Level to_logging_level(svs_log_level_t level) {
+    switch (level) {
+        case SVS_LOG_LEVEL_TRACE:
+            return svs::logging::Level::Trace;
+        case SVS_LOG_LEVEL_DEBUG:
+            return svs::logging::Level::Debug;
+        case SVS_LOG_LEVEL_INFO:
+            return svs::logging::Level::Info;
+        case SVS_LOG_LEVEL_WARN:
+            return svs::logging::Level::Warn;
+        case SVS_LOG_LEVEL_ERROR:
+            return svs::logging::Level::Error;
+        case SVS_LOG_LEVEL_CRITICAL:
+            return svs::logging::Level::Critical;
+        case SVS_LOG_LEVEL_OFF:
+            return svs::logging::Level::Off;
+        default:
+            return svs::logging::Level::Info;
+    }
+}
+
+extern "C" bool svs_default_logger_set_kind(
+    svs_logging_kind_t kind,
+    svs_log_level_t level,
+    const char* path,
+    svs_error_h out_err /*=NULL*/
+) {
+    using namespace svs::c_runtime;
+    using logger_type = svs::logging::logger_ptr::element_type;
+    return wrap_exceptions(
+        [&]() {
+            svs::logging::sink_ptr sink{};
+            switch (kind) {
+                case SVS_LOGGING_KIND_NONE:
+                    sink = svs::logging::null_sink();
+                    break;
+                case SVS_LOGGING_KIND_STDOUT:
+                    sink = svs::logging::stdout_sink();
+                    break;
+                case SVS_LOGGING_KIND_STDERR:
+                    sink = svs::logging::stderr_sink();
+                    break;
+                case SVS_LOGGING_KIND_FILE_APPEND:
+                case SVS_LOGGING_KIND_FILE_TRUNCATE:
+                    INVALID_ARGUMENT_IF(
+                        path == nullptr || std::string(path).empty(),
+                        "File path must be provided for file logging kind"
+                    );
+                    sink = svs::logging::file_sink(
+                        path, kind == SVS_LOGGING_KIND_FILE_TRUNCATE
+                    );
+                    break;
+                case SVS_LOGGING_KIND_CUSTOM:
+                    INVALID_ARGUMENT_IF(
+                        true,
+                        "Custom logging kind to be set using svs_default_logger_set_custom"
+                    );
+                default:
+                    INVALID_ARGUMENT_IF(true, "Invalid logging kind");
+            }
+            auto logger = std::make_shared<logger_type>(std::move(sink));
+            svs::logging::set_level(logger, to_logging_level(level));
+            svs::logging::set(logger);
+            return true;
+        },
+        out_err
+    );
+}
+
+extern "C" bool svs_default_logger_set_custom(
+    svs_logging_i logger, svs_log_level_t level, svs_error_h out_err /*=NULL*/
+) {
+    using namespace svs::c_runtime;
+    using logger_type = svs::logging::logger_ptr::element_type;
+    return wrap_exceptions(
+        [&]() {
+            INVALID_ARGUMENT_IF(logger == nullptr, "Custom logger must not be null");
+            INVALID_ARGUMENT_IF(
+                logger->ops == nullptr, "Custom logger ops must not be null"
+            );
+            INVALID_ARGUMENT_IF(
+                logger->ops->log == nullptr,
+                "Custom logger ops must have a valid log function"
+            );
+            // Kind of the custom logger implementation:
+            auto self = logger->self;
+            auto log = logger->ops->log;
+            auto callback_closure = [self, log](const auto& log_msg) {
+                static spdlog::pattern_formatter formatter;
+                /*static?*/ spdlog::memory_buf_t formatted;
+                formatter.format(log_msg, formatted);
+                log(self,
+                    static_cast<svs_log_level_t>(log_msg.level),
+                    fmt::to_string(formatted).c_str());
+            };
+
+            auto callback_sink = spdlog::sinks::callback_sink_mt(callback_closure);
+            auto logger = std::make_shared<logger_type>(callback_sink);
+            svs::logging::set_level(logger, to_logging_level(level));
+            svs::logging::set(logger);
+            return true;
+        },
+        out_err
+    );
+}
 
 extern "C" svs_algorithm_h svs_algorithm_create_vamana(
     size_t graph_degree,

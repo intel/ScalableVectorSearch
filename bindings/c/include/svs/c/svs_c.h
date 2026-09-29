@@ -58,6 +58,25 @@ enum svs_error_code {
     SVS_ERROR_UNKNOWN = 1000
 };
 
+enum svs_log_level {
+    SVS_LOG_LEVEL_TRACE = 0,
+    SVS_LOG_LEVEL_DEBUG = 1,
+    SVS_LOG_LEVEL_INFO = 2,
+    SVS_LOG_LEVEL_WARN = 3,
+    SVS_LOG_LEVEL_ERROR = 4,
+    SVS_LOG_LEVEL_CRITICAL = 5,
+    SVS_LOG_LEVEL_OFF = 6
+};
+
+enum svs_logging_kind {
+    SVS_LOGGING_KIND_NONE = 0,
+    SVS_LOGGING_KIND_STDOUT = 1,
+    SVS_LOGGING_KIND_STDERR = 2,
+    SVS_LOGGING_KIND_FILE_APPEND = 3,
+    SVS_LOGGING_KIND_FILE_TRUNCATE = 4,
+    SVS_LOGGING_KIND_CUSTOM = 5
+};
+
 typedef struct svs_error_desc* svs_error_h;
 
 /// @brief Distance metric used to compare vectors.
@@ -122,6 +141,48 @@ enum svs_threadpool_kind {
     SVS_THREADPOOL_KIND_OMP = 1,
     SVS_THREADPOOL_KIND_SINGLE_THREAD = 2,
     SVS_THREADPOOL_KIND_CUSTOM = 3
+};
+
+/// @brief Operations table for a custom logging interface.
+/// @remarks The user must ensure that the logging implementation is thread-safe and
+/// that the provided function pointers remain valid for the lifetime of the logging
+/// interface.
+///
+/// @var svs_logging_interface_ops::version
+///   Version of the logging interface.
+/// @var svs_logging_interface_ops::struct_size
+///   Size of the structure, used for versioning and compatibility checks.
+/// @var svs_logging_interface_ops::log
+///   Function pointer to log a message.
+///   @param self Pointer to the logging interface instance.
+///   @param level Logging level of the message.
+///   @param message Null-terminated string containing the message to log.
+/// @var svs_logging_interface_ops::flush
+///   Function pointer to flush the logging output.
+///   @param self Pointer to the logging interface instance.
+///   @remarks This function should ensure that all pending log messages are written out.
+struct svs_logging_interface_ops {
+    uint32_t version;
+    size_t struct_size;
+    void (*log)(void* self, enum svs_log_level level, const char* message);
+};
+
+/// @brief Macro to create a user-defined logging interface operations structure.
+#define SVS_INIT_LOGGING_OPS(log_func)                                            \
+    {                                                                             \
+        .version = SVS_C_API_VERSION,                                             \
+        .struct_size = sizeof(struct svs_logging_interface_ops), .log = &log_func \
+    }
+
+/// @brief Represents a user-defined logging interface instance.
+/// @var svs_logging_interface::ops
+///   Pointer to the operations table defining the behavior of the logging interface.
+/// @var svs_logging_interface::self
+///   Pointer to user-defined data associated with the logging interface instance. This
+///   pointer is passed to the logging functions as the @p self parameter.
+struct svs_logging_interface {
+    const struct svs_logging_interface_ops* ops;
+    void* self;
 };
 
 /// @brief Operations table for a custom thread pool interface
@@ -480,6 +541,8 @@ typedef struct svs_leanvec_training_data* svs_leanvec_training_data_h;
 
 // Fully defined types; "_t" suffix indicates a fully defined struct
 typedef enum svs_error_code svs_error_code_t;
+typedef enum svs_logging_kind svs_logging_kind_t;
+typedef enum svs_log_level svs_log_level_t;
 typedef enum svs_distance_metric svs_distance_metric_t;
 typedef enum svs_algorithm_type svs_algorithm_type_t;
 typedef enum svs_data_type svs_data_type_t;
@@ -487,6 +550,9 @@ typedef enum svs_storage_kind svs_storage_kind_t;
 typedef enum svs_threadpool_kind svs_threadpool_kind_t;
 typedef enum svs_allocator_kind svs_allocator_kind_t;
 
+typedef struct svs_logging_interface_ops svs_logging_ops_t;
+typedef struct svs_logging_interface svs_logging_t;
+typedef struct svs_logging_interface* svs_logging_i;
 typedef struct svs_threadpool_interface_ops svs_threadpool_ops_t;
 typedef struct svs_threadpool_interface svs_threadpool_t;
 typedef struct svs_threadpool_interface* svs_threadpool_i;
@@ -545,6 +611,33 @@ SVS_API const char* svs_error_get_message(svs_error_h err);
 /// @brief Free the error handle
 /// @param err The error handle to free
 SVS_API void svs_error_free(svs_error_h err);
+
+/// @brief Set the default logging kind for the SVS library
+/// @param kind The logging kind to set as default
+/// @param level The logging level to set for the default logging kind
+/// @param path The file path to use for file-based logging kinds (e.g.,
+/// SVS_LOGGING_KIND_FILE_APPEND or SVS_LOGGING_KIND_FILE_TRUNCATE)
+/// @param out_err An optional error handle to capture errors
+/// @return true on success, false on failure
+/// @remarks The default logging kind will be used for all subsequent logging operations
+/// unless explicitly overridden by index builder.
+SVS_API bool svs_default_logger_set_kind(
+    svs_logging_kind_t kind,
+    svs_log_level_t level,
+    const char* path,
+    svs_error_h out_err /*=NULL*/
+);
+
+/// @brief Set the default custom logging kind for the SVS library
+/// @param logger The custom logger to set as the default logging kind
+/// @param level The logging level to set for the default custom logging kind
+/// @param out_err An optional error handle to capture errors
+/// @return true on success, false on failure
+/// @remarks The default custom logging kind will be used for all subsequent logging
+/// operations unless explicitly overridden by index builder.
+SVS_API bool svs_default_logger_set_custom(
+    svs_logging_t* logger, svs_log_level_t level, svs_error_h out_err /*=NULL*/
+);
 
 /// @brief Create a Vamana algorithm configuration
 /// @param graph_degree The graph degree parameter
@@ -777,6 +870,34 @@ SVS_API svs_index_builder_h svs_index_builder_create(
 /// @brief Free the index builder handle
 /// @param builder The index builder handle to free
 SVS_API void svs_index_builder_free(svs_index_builder_h builder);
+
+/// @brief Set the logger kind for the index builder
+/// @param builder The index builder handle
+/// @param kind The kind of logger to use
+/// @param level The logging level to set
+/// @param path The file path to use for file-based logging kinds (if applicable)
+/// @param out_err An optional error handle to capture errors
+/// @return true on success, false on failure
+SVS_API bool svs_index_builder_set_logger(
+    svs_index_builder_h builder,
+    svs_logging_kind_t kind,
+    svs_log_level_t level,
+    const char* path,
+    svs_error_h out_err /*=NULL*/
+);
+
+/// @brief Set the custom logger for the index builder
+/// @param builder The index builder handle
+/// @param logger The custom logger interface
+/// @param level The log level to set for the custom logger
+/// @param out_err An optional error handle to capture errors
+/// @return true on success, false on failure
+SVS_API bool svs_index_builder_set_logger_custom(
+    svs_index_builder_h builder,
+    svs_logging_i logger,
+    svs_log_level_t level,
+    svs_error_h out_err /*=NULL*/
+);
 
 /// @brief Set the storage configuration for the index builder
 /// @param builder The index builder handle
