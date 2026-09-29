@@ -157,9 +157,8 @@ void register_dynamic_vamana_index_specializations(Dispatcher& dispatcher) {
     for_sq_specializations<true>(load_stream_closure);
 }
 
-// Third DynamicVamanaSource alternative for the stream load path; matched the same way
-// the existing build/directory-load alternatives are, via the generic variant
-// DispatchConverter.
+// Stream load alternative, matched via generic variant DispatchConverter like the
+// existing build and directory-load alternatives.
 using DynamicVamanaSource = std::variant<
     std::pair<svs::data::ConstSimpleDataView<float>, std::span<const size_t>>,
     std::filesystem::path,
