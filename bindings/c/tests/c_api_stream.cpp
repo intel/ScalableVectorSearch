@@ -86,6 +86,85 @@ size_t oom_read(void* /*self*/, void* /*buf*/, size_t /*n*/, svs_error_h out_err
     return 0;
 }
 
+// Sized so the saved payload (data + graph) provably exceeds two StreamBuf write buffers:
+// data alone is num_vectors * dimension * sizeof(float) = 200 * 700 * 4 = 560'000 bytes,
+// well over 2 * STREAM_BUFFER_SIZE = 131'072, before the graph even adds its share.
+constexpr size_t MULTIBUFFER_NUM_VECTORS = 200;
+constexpr size_t MULTIBUFFER_DIMENSION = 700;
+
+// Owns the algorithm/builder/index triple built over the oversized data set above, so the
+// two sections that need a multi-buffer payload (round-trip and partial-flush-failure)
+// share one construction path instead of duplicating build setup.
+struct MultiBufferIndex {
+    svs_algorithm_h algorithm = nullptr;
+    svs_index_builder_h builder = nullptr;
+    svs_index_h index = nullptr;
+};
+
+MultiBufferIndex build_multibuffer_index(std::vector<float>& data, svs_error_h error) {
+    MultiBufferIndex result;
+    result.algorithm = svs_algorithm_create_vamana(16, 32, 50, error);
+    result.builder = svs_index_builder_create(
+        SVS_DISTANCE_METRIC_EUCLIDEAN, MULTIBUFFER_DIMENSION, result.algorithm, error
+    );
+    svs_index_builder_set_threadpool(
+        result.builder, SVS_THREADPOOL_KIND_SINGLE_THREAD, 1, error
+    );
+    generate_test_data(data, MULTIBUFFER_NUM_VECTORS, MULTIBUFFER_DIMENSION);
+    result.index =
+        svs_index_build(result.builder, data.data(), MULTIBUFFER_NUM_VECTORS, error);
+    return result;
+}
+
+// Like fail_partial_write, but also counts the full-size writes that succeeded before the
+// partial one it rejects, so a test can assert the failure was the *last* of several writes
+// rather than the only one.
+struct CountingFailSink {
+    MemoryStream stream;
+    size_t full_write_count = 0;
+};
+
+bool fail_partial_write_counted(
+    void* self, const void* buf, size_t n, svs_error_h out_err
+) {
+    auto* sink = static_cast<CountingFailSink*>(self);
+    if (n < STREAM_BUFFER_SIZE) {
+        svs_error_set(out_err, SVS_ERROR_RUNTIME, "refusing partial write");
+        return false;
+    }
+    sink->full_write_count++;
+    return memory_stream_write(&sink->stream, buf, n, out_err);
+}
+
+// Fails exactly once, on the fail_at_invocation'th call, then records whether it is ever
+// invoked again. Regression coverage for flush_write_buffer() resetting the put area before
+// calling out, not after: previously a failed buffer's bytes were still sitting in the put
+// area when ~StreamBuf tried to flush again, redelivering them to the callback a second
+// time.
+struct RecordingFailSink {
+    size_t fail_at_invocation = 0;
+    size_t invocation_count = 0;
+    size_t total_bytes = 0;
+    size_t invocations_after_failure = 0;
+    bool has_failed = false;
+};
+
+bool fail_after_n_write(void* self, const void* /*buf*/, size_t n, svs_error_h out_err) {
+    auto* sink = static_cast<RecordingFailSink*>(self);
+    if (sink->has_failed) {
+        sink->invocations_after_failure++;
+        return false;
+    }
+    sink->invocation_count++;
+    if (sink->invocation_count == sink->fail_at_invocation) {
+        sink->has_failed = true;
+        svs_error_set(out_err, SVS_ERROR_RUNTIME, "simulated failure mid-stream");
+        return false;
+    }
+    sink->total_bytes += n;
+    return true;
+}
+
 } // namespace
 
 CATCH_TEST_CASE("C API Stream Save and Load", "[c_api][index][stream]") {
@@ -156,28 +235,119 @@ CATCH_TEST_CASE("C API Stream Save and Load", "[c_api][index][stream]") {
         svs_index_free(index);
     }
 
+    CATCH_SECTION("Round-trip through an in-memory stream spanning multiple write buffers"
+    ) {
+        std::vector<float> big_data;
+        MultiBufferIndex mb = build_multibuffer_index(big_data, error);
+        CATCH_REQUIRE(mb.algorithm != nullptr);
+        CATCH_REQUIRE(mb.builder != nullptr);
+        CATCH_REQUIRE(mb.index != nullptr);
+        CATCH_REQUIRE(svs_error_ok(error));
+
+        std::vector<float> big_queries;
+        generate_test_data(big_queries, 3, MULTIBUFFER_DIMENSION);
+
+        svs_search_results_t before = SVS_INIT_SEARCH_RESULTS();
+        CATCH_REQUIRE(svs_index_search_topk(
+            mb.index, big_queries.data(), 3, K, &before, nullptr, nullptr, error
+        ));
+        CATCH_REQUIRE(svs_error_ok(error));
+
+        MemoryStream stream;
+        svs_stream_interface_ops write_ops =
+            SVS_INIT_STREAM_OPS(nullptr, memory_stream_write);
+        svs_stream_interface out_stream = SVS_MAKE_INTERFACE(&stream, write_ops);
+        CATCH_REQUIRE(svs_index_save_stream(mb.index, &out_stream, error));
+        CATCH_REQUIRE(svs_error_ok(error));
+        // Proves the write path actually flushed several full buffers and a trailing
+        // partial one, and the read path below refills the get area several times, rather
+        // than relying on the vector counts above staying big enough by construction.
+        CATCH_REQUIRE(stream.bytes.size() > 2 * STREAM_BUFFER_SIZE);
+
+        svs_stream_interface_ops read_ops =
+            SVS_INIT_STREAM_OPS(memory_stream_read, nullptr);
+        svs_stream_interface in_stream = SVS_MAKE_INTERFACE(&stream, read_ops);
+        svs_index_h loaded = svs_index_load_stream(mb.builder, &in_stream, error);
+        CATCH_REQUIRE(loaded != nullptr);
+        CATCH_REQUIRE(svs_error_ok(error));
+
+        svs_search_results_t after = SVS_INIT_SEARCH_RESULTS();
+        CATCH_REQUIRE(svs_index_search_topk(
+            loaded, big_queries.data(), 3, K, &after, nullptr, nullptr, error
+        ));
+        CATCH_REQUIRE(svs_error_ok(error));
+        CATCH_REQUIRE(after.num_queries == before.num_queries);
+        for (size_t i = 0; i < before.num_queries * K; ++i) {
+            CATCH_REQUIRE(after.indices[i] == before.indices[i]);
+            CATCH_REQUIRE(after.distances[i] == before.distances[i]);
+        }
+
+        svs_search_results_free(&before);
+        svs_search_results_free(&after);
+        svs_index_free(loaded);
+        svs_index_free(mb.index);
+        svs_index_builder_free(mb.builder);
+        svs_algorithm_free(mb.algorithm);
+    }
+
     CATCH_SECTION("Save fails when only the final partial flush fails") {
-        svs_index_h index = svs_index_build(builder, data.data(), NUM_VECTORS, error);
-        CATCH_REQUIRE(index != nullptr);
+        std::vector<float> big_data;
+        MultiBufferIndex mb = build_multibuffer_index(big_data, error);
+        CATCH_REQUIRE(mb.index != nullptr);
+        CATCH_REQUIRE(svs_error_ok(error));
 
         MemoryStream probe;
         svs_stream_interface_ops probe_ops =
             SVS_INIT_STREAM_OPS(nullptr, memory_stream_write);
         svs_stream_interface probe_stream = SVS_MAKE_INTERFACE(&probe, probe_ops);
-        CATCH_REQUIRE(svs_index_save_stream(index, &probe_stream, error));
+        CATCH_REQUIRE(svs_index_save_stream(mb.index, &probe_stream, error));
+        // The payload must span at least two full buffers plus a partial remainder, or this
+        // test cannot distinguish "the one and only flush failed" from "the final partial
+        // flush failed after several successful full flushes" - the regression it targets.
+        CATCH_REQUIRE(probe.bytes.size() > 2 * STREAM_BUFFER_SIZE);
         // The failing sink below only ever rejects a write shorter than the buffer; if the
         // payload happened to land exactly on a buffer boundary there would be no partial
         // write left for it to catch.
         CATCH_REQUIRE(probe.bytes.size() % STREAM_BUFFER_SIZE != 0);
 
-        MemoryStream sink;
+        CountingFailSink sink;
         svs_stream_interface_ops fail_ops =
-            SVS_INIT_STREAM_OPS(nullptr, fail_partial_write);
+            SVS_INIT_STREAM_OPS(nullptr, fail_partial_write_counted);
         svs_stream_interface fail_stream = SVS_MAKE_INTERFACE(&sink, fail_ops);
-        CATCH_REQUIRE_FALSE(svs_index_save_stream(index, &fail_stream, error));
+        CATCH_REQUIRE_FALSE(svs_index_save_stream(mb.index, &fail_stream, error));
         CATCH_REQUIRE_FALSE(svs_error_ok(error));
+        // At least two full-size writes must have succeeded before the failing partial one,
+        // or this is once again just "the single flush failed".
+        CATCH_REQUIRE(sink.full_write_count >= 2);
 
-        svs_index_free(index);
+        svs_index_free(mb.index);
+        svs_index_builder_free(mb.builder);
+        svs_algorithm_free(mb.algorithm);
+    }
+
+    CATCH_SECTION("Write failure never redelivers the same bytes during destructor unwind"
+    ) {
+        std::vector<float> big_data;
+        MultiBufferIndex mb = build_multibuffer_index(big_data, error);
+        CATCH_REQUIRE(mb.index != nullptr);
+        CATCH_REQUIRE(svs_error_ok(error));
+
+        // Fails on the 3rd invocation, well before the last one, so several full buffers
+        // must have already been accepted and there is guaranteed to be more payload left
+        // that a double-delivery bug would have handed to the callback a second time.
+        RecordingFailSink sink;
+        sink.fail_at_invocation = 3;
+        svs_stream_interface_ops fail_ops =
+            SVS_INIT_STREAM_OPS(nullptr, fail_after_n_write);
+        svs_stream_interface fail_stream = SVS_MAKE_INTERFACE(&sink, fail_ops);
+        CATCH_REQUIRE_FALSE(svs_index_save_stream(mb.index, &fail_stream, error));
+        CATCH_REQUIRE_FALSE(svs_error_ok(error));
+        CATCH_REQUIRE(sink.invocation_count == 3);
+        CATCH_REQUIRE(sink.invocations_after_failure == 0);
+
+        svs_index_free(mb.index);
+        svs_index_builder_free(mb.builder);
+        svs_algorithm_free(mb.algorithm);
     }
 
     CATCH_SECTION("Write callback failure aborts save") {
@@ -244,6 +414,43 @@ CATCH_TEST_CASE("C API Stream Save and Load", "[c_api][index][stream]") {
         svs_index_free(index);
     }
 
+    CATCH_SECTION("Load fails on an empty stream instead of hanging or crashing") {
+        MemoryStream stream;
+        svs_stream_interface_ops read_ops =
+            SVS_INIT_STREAM_OPS(memory_stream_read, nullptr);
+        svs_stream_interface in_stream = SVS_MAKE_INTERFACE(&stream, read_ops);
+        svs_index_h loaded = svs_index_load_stream(builder, &in_stream, error);
+        CATCH_REQUIRE(loaded == nullptr);
+        CATCH_REQUIRE_FALSE(svs_error_ok(error));
+    }
+
+    CATCH_SECTION("Load fails on a stream truncated partway through a valid payload") {
+        svs_index_h index = svs_index_build(builder, data.data(), NUM_VECTORS, error);
+        CATCH_REQUIRE(index != nullptr);
+
+        MemoryStream stream;
+        svs_stream_interface_ops write_ops =
+            SVS_INIT_STREAM_OPS(nullptr, memory_stream_write);
+        svs_stream_interface out_stream = SVS_MAKE_INTERFACE(&stream, write_ops);
+        CATCH_REQUIRE(svs_index_save_stream(index, &out_stream, error));
+        CATCH_REQUIRE(svs_error_ok(error));
+
+        // Cut the valid payload in half: the read callback hands back real bytes for a
+        // while, then reports EOF (0 bytes) before the format is fully consumed.
+        CATCH_REQUIRE(stream.bytes.size() > 1);
+        stream.bytes.resize(stream.bytes.size() / 2);
+        stream.pos = 0;
+
+        svs_stream_interface_ops read_ops =
+            SVS_INIT_STREAM_OPS(memory_stream_read, nullptr);
+        svs_stream_interface in_stream = SVS_MAKE_INTERFACE(&stream, read_ops);
+        svs_index_h loaded = svs_index_load_stream(builder, &in_stream, error);
+        CATCH_REQUIRE(loaded == nullptr);
+        CATCH_REQUIRE_FALSE(svs_error_ok(error));
+
+        svs_index_free(index);
+    }
+
     CATCH_SECTION("Dynamic round-trip, add_points, and search") {
         std::vector<size_t> ids(NUM_VECTORS);
         for (size_t i = 0; i < NUM_VECTORS; ++i) {
@@ -254,6 +461,12 @@ CATCH_TEST_CASE("C API Stream Save and Load", "[c_api][index][stream]") {
             builder, data.data(), ids.data(), NUM_VECTORS, BLOCK_SIZE, error
         );
         CATCH_REQUIRE(index != nullptr);
+
+        svs_search_results_t before = SVS_INIT_SEARCH_RESULTS();
+        CATCH_REQUIRE(svs_index_search_topk(
+            index, queries.data(), 3, K, &before, nullptr, nullptr, error
+        ));
+        CATCH_REQUIRE(svs_error_ok(error));
 
         MemoryStream stream;
         svs_stream_interface_ops write_ops =
@@ -269,6 +482,22 @@ CATCH_TEST_CASE("C API Stream Save and Load", "[c_api][index][stream]") {
             svs_index_load_stream_dynamic(builder, &in_stream, BLOCK_SIZE, error);
         CATCH_REQUIRE(loaded != nullptr);
         CATCH_REQUIRE(svs_error_ok(error));
+
+        // A stream load that corrupted data or graph structure must not be able to pass
+        // this: compare against the pre-save index element-by-element, as the static
+        // round-trip does, instead of only checking the query count came back.
+        svs_search_results_t after = SVS_INIT_SEARCH_RESULTS();
+        CATCH_REQUIRE(svs_index_search_topk(
+            loaded, queries.data(), 3, K, &after, nullptr, nullptr, error
+        ));
+        CATCH_REQUIRE(svs_error_ok(error));
+        CATCH_REQUIRE(after.num_queries == before.num_queries);
+        for (size_t i = 0; i < before.num_queries * K; ++i) {
+            CATCH_REQUIRE(after.indices[i] == before.indices[i]);
+            CATCH_REQUIRE(after.distances[i] == before.distances[i]);
+        }
+        svs_search_results_free(&before);
+        svs_search_results_free(&after);
 
         std::vector<float> new_data;
         std::vector<size_t> new_ids = {NUM_VECTORS, NUM_VECTORS + 1};
@@ -287,7 +516,28 @@ CATCH_TEST_CASE("C API Stream Save and Load", "[c_api][index][stream]") {
         CATCH_REQUIRE(svs_error_ok(error));
         CATCH_REQUIRE(results.num_queries == 3);
 
+        // Query with the exact vector of a newly added point and require its id shows up
+        // among the neighbors, so a load that silently dropped or corrupted the loaded
+        // graph/data cannot pass just because a search still returns *some* results.
+        std::vector<float> probe_query(
+            new_data.begin(), new_data.begin() + static_cast<ptrdiff_t>(DIMENSION)
+        );
+        svs_search_results_t probe_results = SVS_INIT_SEARCH_RESULTS();
+        CATCH_REQUIRE(svs_index_search_topk(
+            loaded, probe_query.data(), 1, K, &probe_results, nullptr, nullptr, error
+        ));
+        CATCH_REQUIRE(svs_error_ok(error));
+        bool found_new_id = false;
+        for (size_t i = 0; i < K; ++i) {
+            if (probe_results.indices[i] == new_ids[0]) {
+                found_new_id = true;
+                break;
+            }
+        }
+        CATCH_REQUIRE(found_new_id);
+
         svs_search_results_free(&results);
+        svs_search_results_free(&probe_results);
         svs_index_free(loaded);
         svs_index_free(index);
     }
