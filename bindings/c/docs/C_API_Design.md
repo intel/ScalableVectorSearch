@@ -553,16 +553,19 @@ save or load function. No synchronization between concurrent stream operations i
 and only needs to remain valid until the streaming function returns. Data is copied out of
 the stream during load, so the stream buffer need not persist after the call completes.
 
-**Encodings:** `svs_index_save_stream` produces only the native stream encoding. The load
-functions accept both that encoding and a packed directory archive, detected from the stream
-itself. An index written with the directory-based `svs_index_save` cannot be converted to a
-stream through this API.
+**Encodings:** SVS supports two mutually exclusive stream encodings identified by an 8-byte magic
+at offset zero: the native stream encoding (`"SVS_STRM"`) and a tar-like directory archive. The load
+functions accept both transparently; detection is handled by SVS internals. `svs_index_save_stream`
+produces only the native encoding by design, so the save and load halves are deliberately asymmetric.
+An index written to disk via `svs_index_save` cannot be streamed, because the C layer does not
+expose the machinery to pack a directory archive into stream form. Streaming is therefore
+self-sufficient only for indexes that were themselves stream-saved.
 
 **Known limitations:** When loading an index with a custom allocator via
 `svs_index_load_stream` or `svs_index_load_stream_dynamic`, the graph memory comes from
 `HugepageAllocator` rather than the supplied allocator. For a dynamic index, graph growth
-reallocates the entire graph instead of appending a block. This limitation has a performance
-consequence but does not affect correctness.
+reallocates the entire graph instead of appending a block. These limitations have a performance
+consequence but do not affect correctness.
 
 ## API Overview
 
@@ -622,8 +625,8 @@ for full signatures, parameters, and Doxygen documentation.
 
 - See the top-level [../README.md](../README.md) for a quick start, build/consume
   instructions, and a complete end-to-end usage example.
-- See [../samples/](../samples/) for runnable sample applications:
-  - `simple.c` – minimal static index build + search with a custom thread pool
-  - `dynamic.c` – dynamic index with add / delete / consolidate
-  - `save_load.c` – persisting and reloading indices from disk
-- See [examples/c/](../../../examples/c/) for additional usage examples
+- See [examples/c/](../../../examples/c/) for runnable sample applications:
+  - [`simple.c`](../../../examples/c/simple.c) – minimal static index build + search with a custom thread pool
+  - [`dynamic.c`](../../../examples/c/dynamic.c) – dynamic index with add / delete / consolidate
+  - [`save_load.c`](../../../examples/c/save_load.c) – persisting and reloading indices from disk
+  - [`save_load_stream.c`](../../../examples/c/save_load_stream.c) – stream-based index save and load
