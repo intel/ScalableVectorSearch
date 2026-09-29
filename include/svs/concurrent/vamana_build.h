@@ -254,17 +254,14 @@ class VamanaBuilder {
         logging::logger_ptr logger = svs::logging::get()
     ) {
         size_t num_nodes = range.size();
-        size_t num_batches = std::max(
-            size_t{40}, lib::div_round_up(num_nodes, lib::narrow_cast<size_t>(64 * 64))
-        );
-
-        // If num_batches is greater than num_nodes, set
-        // num_batches to num_nodes to avoid unnecessary iterations.
-        if (num_batches > num_nodes) {
-            num_batches = num_nodes;
+        if (num_nodes == 0) {
+            return;
         }
 
-        size_t batchsize = lib::div_round_up(num_nodes, num_batches);
+        // One node per worker
+        const size_t batchsize = std::min<size_t>(threadpool_.size(), num_nodes);
+        const size_t num_batches = lib::div_round_up(num_nodes, batchsize);
+
         std::vector entry_points{entry_point};
 
         // Runtime variables
@@ -282,19 +279,18 @@ class VamanaBuilder {
             // Set up batch parameters
             auto start = std::min(num_nodes, batchsize * batch_id) + base;
             auto stop = std::min(num_nodes, batchsize * (batch_id + 1)) + base;
+            auto batch = threads::IteratorPair{start, stop};
 
             // Perform search.
             // N.B. - We purposely pass "params_.alpha" instead of the external "alpha"
             // because it seems to generally yield better results.
             auto x = timer.push_back("generate neighbors");
-            generate_neighbors(
-                threads::IteratorPair{start, stop}, params_.alpha, entry_points, timer
-            );
+            generate_neighbors(batch, params_.alpha, entry_points, timer);
             search_time += lib::as_seconds(x.finish());
 
             auto y = timer.push_back("reverse edges");
             std::vector<Idx> retry;
-            add_reverse_edges(threads::IteratorPair{start, stop}, alpha, timer, &retry);
+            add_reverse_edges(batch, alpha, timer, &retry);
             while (!retry.empty()) {
                 std::sort(retry.begin(), retry.end());
                 retry.erase(std::unique(retry.begin(), retry.end()), retry.end());
@@ -463,6 +459,24 @@ class VamanaBuilder {
                                     general_accessor(data_, id)
                                 )
                             );
+                        }
+                    }
+
+                    // Read all peers in the shared batch
+                    if (indices.size() > 1) {
+                        for (auto raw_id : indices) {
+                            const auto id = lib::narrow_cast<Idx>(raw_id);
+                            if (id != node_id && eligible_(id) &&
+                                visited.insert(id).second) {
+                                pool.emplace_back(
+                                    id,
+                                    distance::compute(
+                                        general_distance,
+                                        post_search_query,
+                                        general_accessor(data_, id)
+                                    )
+                                );
+                            }
                         }
                     }
 
