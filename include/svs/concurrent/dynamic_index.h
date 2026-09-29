@@ -18,6 +18,7 @@
 
 // stdlib
 #include <atomic>
+#include <functional>
 #include <limits>
 #include <memory>
 #include <mutex>
@@ -1237,7 +1238,9 @@ class MutableVamanaIndex {
         if (anchor != NO_ENTRY && is_deleted(anchor)) {
             Idx successor = NO_ENTRY;
             if (size() != 0) {
-                auto valid = [&](size_t i) { return status_[i] == SlotMetadata::Valid; };
+                std::function<bool(size_t)> valid = [&](size_t i) {
+                    return status_[i] == SlotMetadata::Valid;
+                };
                 successor = lib::narrow_cast<Idx>(
                     extensions::compute_entry_point(data_, threadpool_, valid)
                 );
