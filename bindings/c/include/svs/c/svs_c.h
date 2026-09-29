@@ -1060,6 +1060,38 @@ SVS_API svs_index_h svs_index_load_dynamic(
     svs_error_h out_err /*=NULL*/
 );
 
+/// @brief Load an index from a caller-supplied stream
+/// @param builder The index builder handle (used for configuration)
+/// @param stream The stream interface to read the index from
+/// @param out_err An optional error handle to capture errors
+/// @return A handle to the loaded index
+/// @remarks The operations table is copied, but @p stream->self is retained as-is. It only
+///   needs to remain valid until this function returns, because index data is copied out of
+///   the stream rather than referenced.
+/// @remarks Accepts both the native stream encoding produced by @ref svs_index_save_stream
+///   and a packed directory archive. The encoding is detected from the stream itself.
+SVS_API svs_index_h svs_index_load_stream(
+    svs_index_builder_h builder, svs_stream_i stream, svs_error_h out_err /*=NULL*/
+);
+
+/// @brief Load a dynamic index from a caller-supplied stream
+/// @param builder The index builder handle (used for configuration)
+/// @param stream The stream interface to read the index from
+/// @param blocksize_bytes The block size in bytes for dynamic index loading (0 for default)
+/// @param out_err An optional error handle to capture errors
+/// @return A handle to the loaded dynamic index
+/// @remarks The operations table is copied, but @p stream->self is retained as-is. It only
+///   needs to remain valid until this function returns, because index data is copied out of
+///   the stream rather than referenced.
+/// @remarks Accepts both the native stream encoding produced by @ref svs_index_save_stream
+///   and a packed directory archive. The encoding is detected from the stream itself.
+SVS_API svs_index_h svs_index_load_stream_dynamic(
+    svs_index_builder_h builder,
+    svs_stream_i stream,
+    size_t blocksize_bytes /*=0*/,
+    svs_error_h out_err /*=NULL*/
+);
+
 /// @brief Free the index handle
 /// @param index The index handle to free
 SVS_API void svs_index_free(svs_index_h index);
@@ -1141,6 +1173,19 @@ static inline bool svs_index_search(
 /// @return true on success, false on failure
 SVS_API bool
 svs_index_save(svs_index_h index, const char* directory, svs_error_h out_err /*=NULL*/);
+
+/// @brief Save the index to a caller-supplied stream
+/// @param index The index handle
+/// @param stream The stream interface to write the index to
+/// @param out_err An optional error handle to capture errors
+/// @return true on success, false on failure
+/// @remarks The operations table is copied, but @p stream->self is retained as-is. It only
+///   needs to remain valid until this function returns.
+/// @remarks Produces the native stream encoding only. An index previously written with
+///   @ref svs_index_save cannot be converted to a stream through this API.
+SVS_API bool svs_index_save_stream(
+    svs_index_h index, svs_stream_i stream, svs_error_h out_err /*=NULL*/
+);
 
 /// @brief Add points to a dynamic index
 /// @param index The dynamic index handle

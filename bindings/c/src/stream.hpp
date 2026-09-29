@@ -106,9 +106,10 @@ class StreamBuf : public std::streambuf {
         size_t n = ops_.read(self_, read_buf_.data(), read_buf_.size(), &impl_error);
         if (n == 0) {
             if (impl_error.code != SVS_OK) {
-                throw std::runtime_error(
+                throw coded_error(
+                    impl_error.code,
                     "Stream read callback failed: (" + std::to_string(impl_error.code) +
-                    ") " + impl_error.message
+                        ") " + impl_error.message
                 );
             }
             return traits_type::eof();
@@ -135,9 +136,10 @@ class StreamBuf : public std::streambuf {
             svs_error_desc impl_error{
                 SVS_ERROR_UNKNOWN, "Unknown error in stream write callback"};
             if (!ops_.write(self_, pbase(), n, &impl_error)) {
-                throw std::runtime_error(
+                throw coded_error(
+                    impl_error.code,
                     "Stream write callback failed: (" + std::to_string(impl_error.code) +
-                    ") " + impl_error.message
+                        ") " + impl_error.message
                 );
             }
             written_ += n;
