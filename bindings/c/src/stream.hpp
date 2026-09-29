@@ -34,6 +34,7 @@ namespace svs::c_runtime {
 class StreamBuf : public std::streambuf {
   public:
     static constexpr size_t buffer_size = 64 * 1024;
+    enum class Direction { read, write };
 
     static void validate(svs_stream_i stream, bool need_write) {
         if (stream == nullptr) {
@@ -61,20 +62,26 @@ class StreamBuf : public std::streambuf {
 
     // Holds a value copy of the user's ops table; `self` is referenced and only needs to
     // remain valid until the streaming save/load call returns.
-    StreamBuf(const svs_stream_ops_t& ops, void* self)
+    StreamBuf(const svs_stream_ops_t& ops, void* self, Direction direction)
         : ops_(ops)
         , self_(self)
-        , read_buf_(ops.read != nullptr ? buffer_size : 0)
-        , write_buf_(ops.write != nullptr ? buffer_size : 0) {
-        if (!write_buf_.empty()) {
+        , direction_(direction)
+        , read_buf_(direction == Direction::read ? buffer_size : 0)
+        , write_buf_(direction == Direction::write ? buffer_size : 0) {
+        if (direction_ == Direction::write) {
             setp(write_buf_.data(), write_buf_.data() + write_buf_.size());
         }
     }
 
+    StreamBuf(const StreamBuf&) = delete;
+    StreamBuf& operator=(const StreamBuf&) = delete;
+    StreamBuf(StreamBuf&&) = delete;
+    StreamBuf& operator=(StreamBuf&&) = delete;
+
     // A destructor must never throw; callers that need to observe a final write failure
     // should call pubsync() themselves before the stream goes out of scope.
     ~StreamBuf() override {
-        if (ops_.write != nullptr) {
+        if (direction_ == Direction::write) {
             try {
                 flush_write_buffer();
             } catch (...) {}
@@ -88,7 +95,7 @@ class StreamBuf : public std::streambuf {
             *pptr() = traits_type::to_char_type(ch);
             pbump(1);
         }
-        return ch;
+        return traits_type::not_eof(ch);
     }
 
     int sync() override {
@@ -132,10 +139,13 @@ class StreamBuf : public std::streambuf {
   private:
     void flush_write_buffer() {
         auto n = static_cast<size_t>(pptr() - pbase());
+        // Reset the put area before the callback: a throw then leaves it empty, so the
+        // destructor's flush is a no-op instead of redelivering the same bytes twice.
+        setp(write_buf_.data(), write_buf_.data() + write_buf_.size());
         if (n > 0) {
             svs_error_desc impl_error{
                 SVS_ERROR_UNKNOWN, "Unknown error in stream write callback"};
-            if (!ops_.write(self_, pbase(), n, &impl_error)) {
+            if (!ops_.write(self_, write_buf_.data(), n, &impl_error)) {
                 throw coded_error(
                     impl_error.code,
                     "Stream write callback failed: (" + std::to_string(impl_error.code) +
@@ -144,11 +154,11 @@ class StreamBuf : public std::streambuf {
             }
             written_ += n;
         }
-        setp(write_buf_.data(), write_buf_.data() + write_buf_.size());
     }
 
     svs_stream_ops_t ops_;
     void* self_;
+    Direction direction_;
     std::vector<char> read_buf_;
     std::vector<char> write_buf_;
     size_t written_ = 0;
@@ -159,15 +169,15 @@ namespace detail {
 // this guarantees `buf` exists before std::istream/std::ostream stores its address.
 struct StreamBufHolder {
     StreamBuf buf;
-    StreamBufHolder(const svs_stream_ops_t& ops, void* self)
-        : buf(ops, self) {}
+    StreamBufHolder(const svs_stream_ops_t& ops, void* self, StreamBuf::Direction direction)
+        : buf(ops, self, direction) {}
 };
 } // namespace detail
 
 class InputStream : private detail::StreamBufHolder, public std::istream {
   public:
     InputStream(const svs_stream_ops_t& ops, void* self)
-        : detail::StreamBufHolder(ops, self)
+        : detail::StreamBufHolder(ops, self, StreamBuf::Direction::read)
         , std::istream(&buf) {
         // Without this, the sentry swallows a read-callback exception into a silent
         // badbit instead of rethrowing it; EOF alone only sets eofbit/failbit, not badbit.
@@ -178,7 +188,7 @@ class InputStream : private detail::StreamBufHolder, public std::istream {
 class OutputStream : private detail::StreamBufHolder, public std::ostream {
   public:
     OutputStream(const svs_stream_ops_t& ops, void* self)
-        : detail::StreamBufHolder(ops, self)
+        : detail::StreamBufHolder(ops, self, StreamBuf::Direction::write)
         , std::ostream(&buf) {
         // Without this, the sentry swallows a write-callback exception into a silent
         // badbit instead of rethrowing it, so a failed save would report success.
