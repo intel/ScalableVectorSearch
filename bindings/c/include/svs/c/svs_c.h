@@ -294,6 +294,66 @@ struct svs_id_filter_interface {
     void* self;
 };
 
+/// @brief Operations table for a caller-supplied byte stream.
+/// @remarks Access is strictly sequential: the library never repositions the stream. Both
+/// callbacks are invoked serially from the thread that called the streaming save or load
+/// function, so no synchronization is required — unlike the thread pool, allocator and ID
+/// filter interfaces.
+/// @remarks Exactly one direction is required per operation: @ref svs_index_save_stream
+/// needs
+/// @p write, the load functions need @p read. The unused callback may be NULL.
+/// @var svs_stream_interface_ops::version
+///   Interface version, set by @ref SVS_INIT_STREAM_OPS.
+/// @var svs_stream_interface_ops::struct_size
+///   Size of this structure, set by @ref SVS_INIT_STREAM_OPS.
+/// @var svs_stream_interface_ops::read
+///   Reads at most @p n bytes into @p buf.
+///   @param self Pointer to the stream instance.
+///   @param buf Destination buffer.
+///   @param n Maximum number of bytes to read.
+///   @param out_err Handle to capture any error that occurs during the read. User code may
+///   call svs_error_set() to set the error code and message if an error occurs.
+///   @return The number of bytes read; 0 signals end of stream. A short read is not an
+///   error and the library will call again. NULL for a write-only stream.
+/// @var svs_stream_interface_ops::write
+///   Writes exactly @p n bytes from @p buf.
+///   @param self Pointer to the stream instance.
+///   @param buf Source buffer.
+///   @param n Number of bytes to write.
+///   @param out_err Handle to capture any error that occurs during the write. User code may
+///   call svs_error_set() to set the error code and message if an error occurs.
+///   @return True on success. A partial write must be reported as failure. NULL for a
+///   read-only stream.
+struct svs_stream_interface_ops {
+    uint32_t version;
+    size_t struct_size;
+    size_t (*read)(void* self, void* buf, size_t n, svs_error_h out_err);
+    bool (*write)(void* self, const void* buf, size_t n, svs_error_h out_err);
+};
+
+/// @brief Macro to create a user-defined stream interface operations structure
+/// @param read_func Function pointer that reads at most @p n bytes into @p buf, or NULL for
+/// a write-only stream
+/// @param write_func Function pointer that writes exactly @p n bytes from @p buf, or NULL
+/// for a read-only stream
+#define SVS_INIT_STREAM_OPS(read_func, write_func)                                   \
+    {                                                                                \
+        .version = SVS_C_API_VERSION,                                                \
+        .struct_size = sizeof(struct svs_stream_interface_ops), .read = (read_func), \
+        .write = (write_func)                                                        \
+    }
+
+/// @brief Structure representing a caller-supplied byte stream
+/// @var svs_stream_interface::ops
+///   Function pointers for the stream operations.
+/// @var svs_stream_interface::self
+///   Pointer to the user-defined stream instance. This pointer is passed to the function
+///   pointers in @p ops when they are called.
+struct svs_stream_interface {
+    struct svs_stream_interface_ops* ops;
+    void* self;
+};
+
 /// @brief Macro to create a user-defined interface implementation structure
 /// @param user_ptr Pointer to the user-defined object
 /// @param vtable Function pointers for the interface operations
@@ -497,6 +557,10 @@ typedef struct svs_allocator_interface* svs_allocator_i;
 typedef struct svs_id_filter_interface_ops svs_id_filter_ops_t;
 typedef struct svs_id_filter_interface svs_id_filter_t;
 typedef struct svs_id_filter_interface* svs_id_filter_i;
+
+typedef struct svs_stream_interface_ops svs_stream_ops_t;
+typedef struct svs_stream_interface svs_stream_t;
+typedef struct svs_stream_interface* svs_stream_i;
 
 typedef struct svs_search_results svs_search_results_t;
 typedef struct svs_memory_breakdown svs_memory_breakdown_t;
