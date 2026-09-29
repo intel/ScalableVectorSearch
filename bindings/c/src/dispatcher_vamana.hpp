@@ -27,6 +27,8 @@
 #include <svs/orchestrators/vamana.h>
 
 #include <filesystem>
+#include <istream>
+#include <memory>
 
 namespace svs::c_runtime {
 svs::Vamana dispatch_vamana_index_build(
@@ -41,6 +43,15 @@ svs::Vamana dispatch_vamana_index_build(
 svs::Vamana dispatch_vamana_index_load(
     const svs::index::vamana::VamanaBuildParameters& build_params,
     const std::filesystem::path& directory,
+    const Storage* storage,
+    svs::DistanceType distance_type,
+    svs::threads::ThreadPoolHandle pool,
+    const AllocatorBuilder& allocator_builder
+);
+
+svs::Vamana dispatch_vamana_index_load_stream(
+    const svs::index::vamana::VamanaBuildParameters& build_params,
+    std::unique_ptr<std::istream> stream,
     const Storage* storage,
     svs::DistanceType distance_type,
     svs::threads::ThreadPoolHandle pool,

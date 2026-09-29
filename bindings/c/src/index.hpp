@@ -30,6 +30,7 @@
 
 #include <filesystem>
 #include <memory>
+#include <ostream>
 #include <random>
 #include <span>
 #include <utility>
@@ -58,6 +59,9 @@ struct Index {
     virtual size_t get_num_threads() const = 0;
     virtual void set_num_threads(size_t num_threads) = 0;
     virtual svs::index::vamana::MemoryBreakdown get_memory_breakdown() const = 0;
+    // Appended, not inserted: a virtual inserted mid-vtable broke ABI once already (see
+    // commit 9980bd26). New virtuals go at the end of the list.
+    virtual void save(std::ostream& stream) = 0;
 };
 
 struct DynamicIndex : public Index {
@@ -136,6 +140,8 @@ struct IndexVamana : public Index {
     void save(const std::filesystem::path& directory) override {
         index.save(directory / "config", directory / "graph", directory / "data");
     }
+
+    void save(std::ostream& stream) override { index.save(stream); }
 
     size_t dimensions() const override { return index.dimensions(); }
 
@@ -252,6 +258,8 @@ struct DynamicIndexVamana : public DynamicIndex {
     void save(const std::filesystem::path& directory) override {
         index.save(directory / "config", directory / "graph", directory / "data");
     }
+
+    void save(std::ostream& stream) override { index.save(stream); }
 
     size_t dimensions() const override { return index.dimensions(); }
 
