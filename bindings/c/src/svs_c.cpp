@@ -890,6 +890,7 @@ extern "C" svs_index_h svs_index_load_stream(
     return wrap_exceptions(
         [&]() {
             EXPECT_ARG_NOT_NULL(builder);
+            EXPECT_ARG_NOT_NULL(stream);
             NOT_IMPLEMENTED_IF(
                 (builder->impl->algorithm->type != SVS_ALGORITHM_TYPE_VAMANA),
                 "Only Vamana algorithm is currently supported for index loading"
@@ -920,6 +921,7 @@ extern "C" svs_index_h svs_index_load_stream_dynamic(
     return wrap_exceptions(
         [&]() {
             EXPECT_ARG_NOT_NULL(builder);
+            EXPECT_ARG_NOT_NULL(stream);
             NOT_IMPLEMENTED_IF(
                 (builder->impl->algorithm->type != SVS_ALGORITHM_TYPE_VAMANA),
                 "Only Vamana algorithm is currently supported for dynamic index loading"
@@ -1102,6 +1104,7 @@ svs_index_save_stream(svs_index_h index, svs_stream_i stream, svs_error_h out_er
     return wrap_exceptions(
         [&]() {
             EXPECT_ARG_NOT_NULL(index);
+            EXPECT_ARG_NOT_NULL(stream);
             StreamBuf::validate(stream, /*need_write=*/true);
             OutputStream os(*stream->ops, stream->self);
             index->impl->save(os);
