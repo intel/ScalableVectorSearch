@@ -7,14 +7,14 @@
 /utils/                 @mihaic @ahuber21 @rfsaliev
 
 # Python and other language bindings
-/bindings/              @ethanglaser @ahuber21
+/bindings/              @ethanglaser @rfsaliev @ahuber21
 
 # Examples and datasets
 /examples/              @ahuber21 @rfsaliev
 /data/                  @ahuber21 @rfsaliev
 
 # Docker and build environment
-/docker/                @mihaic
+/docker/                @mihaic @ahuber21
 
 # CI and infra
 /.github                @mihaic @homksei @yuejiaointel @ethanglaser
