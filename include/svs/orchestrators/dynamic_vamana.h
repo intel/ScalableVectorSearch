@@ -288,6 +288,8 @@ class DynamicVamana : public manager::IndexManager<DynamicVamanaInterface> {
     /// @param distance Distance functor or enum.
     /// @param threadpool_proto Thread pool or number of threads to use.
     /// @param graph_allocator Allocator instance to use for the graph.
+    /// @param logger The logger to use for this index. Defaults to the global SVS logger
+    ///     (``svs::logging::get()``).
     ///
     template <
         manager::QueryTypeDefinition QueryTypes,
@@ -301,7 +303,8 @@ class DynamicVamana : public manager::IndexManager<DynamicVamanaInterface> {
         std::span<const size_t> ids,
         Distance distance,
         ThreadPoolProto threadpool_proto,
-        const GraphAllocator& graph_allocator = {}
+        const GraphAllocator& graph_allocator = {},
+        svs::logging::logger_ptr logger = svs::logging::get()
     ) {
         auto threadpool = threads::as_threadpool(std::move(threadpool_proto));
         auto data =
@@ -317,7 +320,8 @@ class DynamicVamana : public manager::IndexManager<DynamicVamanaInterface> {
                     ids,
                     std::move(distance_function),
                     std::move(threadpool),
-                    graph_allocator
+                    graph_allocator,
+                    std::move(logger)
                 );
             });
         } else {
@@ -328,12 +332,26 @@ class DynamicVamana : public manager::IndexManager<DynamicVamanaInterface> {
                 ids,
                 std::move(distance),
                 std::move(threadpool),
-                graph_allocator
+                graph_allocator,
+                std::move(logger)
             );
         }
     }
 
     // Assembly
+    ///
+    /// @brief Load a DynamicVamana index from a previously saved index.
+    ///
+    /// @param config_path Path to the directory where the index configuration was saved.
+    /// @param graph_loader The loader for the graph to use.
+    /// @param data_loader An acceptable data loader or dataset.
+    /// @param distance Distance functor or ``svs::DistanceType`` enum.
+    /// @param threadpool_proto Thread pool or number of threads to use.
+    /// @param debug_load_from_static Internal/unstable: load files produced by the static
+    ///     index using an identity ID translation.
+    /// @param logger The logger to use for this index. Defaults to the global SVS logger
+    ///     (``svs::logging::get()``).
+    ///
     template <
         manager::QueryTypeDefinition QueryTypes,
         typename GraphLoader,
@@ -346,7 +364,8 @@ class DynamicVamana : public manager::IndexManager<DynamicVamanaInterface> {
         DataLoader&& data_loader,
         const Distance& distance,
         ThreadPoolProto threadpool_proto,
-        bool debug_load_from_static = false
+        bool debug_load_from_static = false,
+        svs::logging::logger_ptr logger = svs::logging::get()
     ) {
         return DynamicVamana(
             AssembleTag(),
@@ -357,7 +376,8 @@ class DynamicVamana : public manager::IndexManager<DynamicVamanaInterface> {
                 std::forward<DataLoader>(data_loader),
                 distance,
                 threads::as_threadpool(std::move(threadpool_proto)),
-                debug_load_from_static
+                debug_load_from_static,
+                std::move(logger)
             )
         );
     }

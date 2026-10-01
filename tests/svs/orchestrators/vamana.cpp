@@ -29,15 +29,58 @@
 #include "tests/utils/utils.h"
 #include "tests/utils/vamana_reference.h"
 
+// Logging
+#include "spdlog/sinks/callback_sink.h"
+#include "svs/core/logging.h"
+
 // Catch2
 #include "catch2/catch_approx.hpp"
 #include "catch2/catch_test_macros.hpp"
 
 // STL
+#include <algorithm>
+#include <memory>
 #include <numeric>
+#include <string>
+#include <string_view>
 #include <vector>
 
 namespace {
+
+// Logger capture helpers for the per-index logger tests.
+struct CapturingLogger {
+    std::shared_ptr<std::vector<std::string>> messages =
+        std::make_shared<std::vector<std::string>>();
+    svs::logging::logger_ptr logger;
+
+    explicit CapturingLogger(const std::string& name) {
+        auto sink = std::make_shared<spdlog::sinks::callback_sink_mt>(
+            [messages = messages](const spdlog::details::log_msg& msg) {
+                messages->emplace_back(msg.payload.data(), msg.payload.size());
+            }
+        );
+        sink->set_level(spdlog::level::trace);
+        logger = std::make_shared<spdlog::logger>(name, std::move(sink));
+        logger->set_level(spdlog::level::trace);
+    }
+
+    bool contains(std::string_view needle) const {
+        return std::any_of(messages->begin(), messages->end(), [&](const auto& m) {
+            return m.find(needle) != std::string::npos;
+        });
+    }
+};
+
+// Temporarily replace the global SVS logger; restore it on scope exit.
+struct GlobalLoggerGuard {
+    svs::logging::logger_ptr original = svs::logging::get();
+    explicit GlobalLoggerGuard(const svs::logging::logger_ptr& replacement) {
+        svs::logging::set(replacement);
+    }
+    GlobalLoggerGuard(const GlobalLoggerGuard&) = delete;
+    GlobalLoggerGuard& operator=(const GlobalLoggerGuard&) = delete;
+    ~GlobalLoggerGuard() { svs::logging::set(original); }
+};
 
 template <typename DataLoaderT, typename DistanceT>
 void test_build(DataLoaderT&& data_loader, DistanceT distance = DistanceT()) {
@@ -142,4 +185,98 @@ CATCH_TEST_CASE("Vamana Memory Usage", "[managers][vamana]") {
     const size_t half_usage = half.get_memory_breakdown().total();
     CATCH_REQUIRE(half_usage > 0);
     CATCH_REQUIRE(full_usage > half_usage);
+}
+
+CATCH_TEST_CASE("Vamana Per-Index Logger", "[managers][vamana][logging]") {
+    auto distance = svs::distance::DistanceL2();
+    auto expected_result = test_dataset::vamana::expected_build_results(
+        distance, svsbenchmark::Uncompressed(svs::DataType::float32)
+    );
+    auto build_params = expected_result.build_parameters_.value();
+    size_t num_threads = 2;
+
+    CATCH_SECTION("Build with custom logger") {
+        auto global = CapturingLogger("global_logger");
+        auto guard = GlobalLoggerGuard(global.logger);
+        auto custom = CapturingLogger("custom_logger");
+
+        svs::Vamana index = svs::Vamana::build<float>(
+            build_params,
+            svs::data::SimpleData<float>::load(test_dataset::data_svs_file()),
+            distance,
+            num_threads,
+            svs::HugepageAllocator<uint32_t>(),
+            custom.logger
+        );
+        // The index holds its own reference to the custom logger.
+        CATCH_REQUIRE(custom.logger.use_count() == 2);
+        CATCH_REQUIRE(custom.contains("Vamana Build Parameters:"));
+        CATCH_REQUIRE(custom.contains("Number of syncs:"));
+        CATCH_REQUIRE(global.messages->empty());
+    }
+
+    CATCH_SECTION("Build without logger uses the global logger") {
+        auto global = CapturingLogger("global_logger");
+        auto guard = GlobalLoggerGuard(global.logger);
+        auto baseline = global.logger.use_count();
+
+        svs::Vamana index = svs::Vamana::build<float>(
+            build_params,
+            svs::data::SimpleData<float>::load(test_dataset::data_svs_file()),
+            distance,
+            num_threads
+        );
+        CATCH_REQUIRE(global.logger.use_count() == baseline + 1);
+        CATCH_REQUIRE(global.contains("Vamana Build Parameters:"));
+    }
+
+    CATCH_SECTION("Assemble with and without custom logger") {
+        auto tempdir = svs_test::prepare_temp_directory_v2();
+        auto config_dir = tempdir / "config";
+        auto graph_dir = tempdir / "graph";
+        auto data_dir = tempdir / "data";
+        {
+            svs::Vamana index = svs::Vamana::build<float>(
+                build_params,
+                svs::data::SimpleData<float>::load(test_dataset::data_svs_file()),
+                distance,
+                num_threads
+            );
+            index.save(config_dir, graph_dir, data_dir);
+        }
+
+        auto global = CapturingLogger("global_logger");
+        auto guard = GlobalLoggerGuard(global.logger);
+        auto custom = CapturingLogger("custom_logger");
+
+        // Static assembly emits no log messages, so check that the index retains a
+        // reference to the logger it was given.
+        auto global_baseline = global.logger.use_count();
+        svs::Vamana with_custom = svs::Vamana::assemble<float>(
+            config_dir,
+            svs::GraphLoader(graph_dir),
+            svs::VectorDataLoader<float>(data_dir),
+            svs::DistanceType::L2,
+            num_threads,
+            custom.logger
+        );
+        CATCH_REQUIRE(custom.logger.use_count() == 2);
+        CATCH_REQUIRE(global.logger.use_count() == global_baseline);
+        CATCH_REQUIRE(
+            with_custom.size() ==
+            svs::data::SimpleData<float>::load(test_dataset::data_svs_file()).size()
+        );
+
+        svs::Vamana with_default = svs::Vamana::assemble<float>(
+            config_dir,
+            svs::GraphLoader(graph_dir),
+            svs::VectorDataLoader<float>(data_dir),
+            distance,
+            num_threads
+        );
+        CATCH_REQUIRE(global.logger.use_count() == global_baseline + 1);
+        CATCH_REQUIRE(custom.logger.use_count() == 2);
+        CATCH_REQUIRE(global.messages->empty());
+        CATCH_REQUIRE(custom.messages->empty());
+    }
 }

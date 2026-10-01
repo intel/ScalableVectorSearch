@@ -416,6 +416,8 @@ class Vamana : public manager::IndexManager<VamanaInterface> {
     ///     instance or an integer specifying the number of threads to use. In the latter
     ///     case, a new default thread pool will be constructed using ``threadpool_proto``
     ///     as the number of threads to create.
+    /// @param logger The logger to use for this index. Defaults to the global SVS logger
+    ///     (``svs::logging::get()``).
     ///
     /// The data loader should be any object loadable via ``svs::detail::dispatch_load``
     /// returning a Vamana compatible dataset. Concrete examples include:
@@ -438,7 +440,8 @@ class Vamana : public manager::IndexManager<VamanaInterface> {
         const GraphLoaderType& graph_loader,
         DataLoader&& data_loader,
         const Distance& distance,
-        ThreadPoolProto threadpool_proto
+        ThreadPoolProto threadpool_proto,
+        svs::logging::logger_ptr logger = svs::logging::get()
     ) {
         // If given an `enum` for the distance type, than we need to dispatch over that
         // enum.
@@ -454,7 +457,8 @@ class Vamana : public manager::IndexManager<VamanaInterface> {
                     graph_loader,
                     std::forward<DataLoader>(data_loader),
                     distance_function,
-                    std::move(threadpool)
+                    std::move(threadpool),
+                    std::move(logger)
                 );
             });
         } else {
@@ -464,7 +468,8 @@ class Vamana : public manager::IndexManager<VamanaInterface> {
                 graph_loader,
                 std::forward<DataLoader>(data_loader),
                 distance,
-                std::move(threadpool)
+                std::move(threadpool),
+                std::move(logger)
             );
         }
     }
@@ -573,6 +578,8 @@ class Vamana : public manager::IndexManager<VamanaInterface> {
     ///     case, a new default thread pool will be constructed using ``threadpool_proto``
     ///     as the number of threads to create.
     /// @param graph_allocator The allocator to use for the backing graph.
+    /// @param logger The logger to use for this index. Defaults to the global SVS logger
+    ///     (``svs::logging::get()``).
     ///
     /// The data loader should be any object loadable via ``svs::detail::dispatch_load``
     /// returning a Vamana compatible dataset. Concrete examples include:
@@ -595,7 +602,8 @@ class Vamana : public manager::IndexManager<VamanaInterface> {
         DataLoader&& data_loader,
         Distance distance,
         ThreadPoolProto threadpool_proto = 1,
-        const Allocator& graph_allocator = {}
+        const Allocator& graph_allocator = {},
+        svs::logging::logger_ptr logger = svs::logging::get()
     ) {
         auto threadpool = threads::as_threadpool(std::move(threadpool_proto));
         if constexpr (std::is_same_v<std::decay_t<Distance>, DistanceType>) {
@@ -607,7 +615,8 @@ class Vamana : public manager::IndexManager<VamanaInterface> {
                     std::forward<DataLoader>(data_loader),
                     std::move(distance_function),
                     std::move(threadpool),
-                    graph_allocator
+                    graph_allocator,
+                    std::move(logger)
                 );
             });
         } else {
@@ -617,7 +626,8 @@ class Vamana : public manager::IndexManager<VamanaInterface> {
                 std::forward<DataLoader>(data_loader),
                 distance,
                 std::move(threadpool),
-                graph_allocator
+                graph_allocator,
+                std::move(logger)
             );
         }
     }
