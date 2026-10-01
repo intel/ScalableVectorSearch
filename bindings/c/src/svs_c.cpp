@@ -22,6 +22,7 @@
 #include "index.hpp"
 #include "index_builder.hpp"
 #include "leanvec_training_data.hpp"
+#include "logger.hpp"
 #include "storage.hpp"
 #include "threadpool.hpp"
 #include "types_support.hpp"
@@ -31,6 +32,7 @@
 #include <memory>
 #include <numeric>
 #include <span>
+#include <string>
 #include <vector>
 
 #include <svs/core/allocator.h>
@@ -39,9 +41,6 @@
 #include <svs/core/query_result.h>
 #include <svs/lib/memory.h>
 #include <svs/orchestrators/vamana.h>
-
-#include "spdlog/pattern_formatter.h"
-#include "spdlog/sinks/callback_sink.h"
 
 // C API implementation
 struct svs_index {
@@ -69,7 +68,32 @@ struct svs_leanvec_training_data {
 };
 
 struct svs_logger {
+    // The handle keeps this one spdlog logger for its whole life. Indexes and the SVS
+    // global default logger hold references to it, so output, level and pattern changes
+    // made through the handle apply to them immediately.
     svs::logging::logger_ptr impl;
+    // Single sink of `impl`; forwards to the current output sink. Replacing the output
+    // swaps the sink held here (dist_sink::set_sinks locks the sink mutex).
+    std::shared_ptr<spdlog::sinks::dist_sink_mt> output;
+    // Current pattern; returned by svs_logger_get_pattern().
+    std::string pattern = svs::c_runtime::default_log_pattern;
+
+    svs_logger()
+        : output{std::make_shared<spdlog::sinks::dist_sink_mt>()} {
+        // A new logger has no output until svs_logger_set_kind/set_custom is called.
+        output->set_sinks({svs::logging::null_sink()});
+        impl = std::make_shared<spdlog::logger>(svs::c_runtime::logger_name, output);
+        impl->set_level(spdlog::level::warn);
+        impl->set_pattern(pattern);
+    }
+
+    // Replace the output sink in place, keeping the current level and pattern.
+    void set_output(svs::logging::sink_ptr sink) {
+        // dist_sink only passes its formatter to sub-sinks present at set_pattern time,
+        // so give the new sink the current pattern before installing it.
+        sink->set_pattern(pattern);
+        output->set_sinks({std::move(sink)});
+    }
 };
 
 extern "C" uint32_t svs_get_version() { return SVS_C_API_VERSION; }
@@ -99,14 +123,10 @@ inline svs::logging::Level to_logging_level(svs_log_level_t level) {
 
 extern "C" svs_logger_h svs_logger_create(svs_error_h out_err /*=NULL*/) {
     using namespace svs::c_runtime;
-    return wrap_exceptions(
-        [&]() {
-            auto logger = svs::logging::detail::default_logger();
-            return new svs_logger{std::move(logger)};
-        },
-        out_err
-    );
+    return wrap_exceptions([&]() { return new svs_logger{}; }, out_err);
 }
+
+extern "C" void svs_logger_free(svs_logger_h logger) { delete logger; }
 
 extern "C" bool svs_logger_set_kind(
     svs_logger_h logger,
@@ -115,7 +135,6 @@ extern "C" bool svs_logger_set_kind(
     svs_error_h out_err /*=NULL*/
 ) {
     using namespace svs::c_runtime;
-    using logger_type = svs::logging::logger_ptr::element_type;
     return wrap_exceptions(
         [&]() {
             INVALID_ARGUMENT_IF(logger == nullptr, "Logger must not be null");
@@ -141,15 +160,13 @@ extern "C" bool svs_logger_set_kind(
                     );
                     break;
                 case SVS_LOGGING_KIND_CUSTOM:
-                    INVALID_ARGUMENT_IF(
-                        true,
-                        "Custom logging kind to be set using svs_default_logger_set_custom"
+                    throw std::invalid_argument(
+                        "Custom logging kind must be set using svs_logger_set_custom"
                     );
                 default:
-                    INVALID_ARGUMENT_IF(true, "Invalid logging kind");
+                    throw std::invalid_argument("Invalid logging kind");
             }
-            auto log_ptr = std::make_shared<logger_type>(std::move(sink));
-            logger->impl = std::move(log_ptr);
+            logger->set_output(std::move(sink));
             return true;
         },
         out_err
@@ -160,33 +177,11 @@ extern "C" bool svs_logger_set_custom(
     svs_logger_h logger, svs_logging_i user_logger, svs_error_h out_err /*=NULL*/
 ) {
     using namespace svs::c_runtime;
-    using logger_type = svs::logging::logger_ptr::element_type;
     return wrap_exceptions(
         [&]() {
             INVALID_ARGUMENT_IF(logger == nullptr, "Logger must not be null");
-            INVALID_ARGUMENT_IF(user_logger == nullptr, "Custom logger must not be null");
-            INVALID_ARGUMENT_IF(
-                user_logger->ops == nullptr, "Custom logger ops must not be null"
-            );
-            INVALID_ARGUMENT_IF(
-                user_logger->ops->log == nullptr,
-                "Custom logger ops must have a valid log function"
-            );
-            // Kind of the custom logger implementation:
-            auto self = user_logger->self;
-            auto log = user_logger->ops->log;
-            auto callback_closure = [self, log](const auto& log_msg) {
-                static spdlog::pattern_formatter formatter;
-                /*static?*/ spdlog::memory_buf_t formatted;
-                formatter.format(log_msg, formatted);
-                log(self,
-                    static_cast<svs_log_level_t>(log_msg.level),
-                    fmt::to_string(formatted).c_str());
-            };
-
-            auto callback_sink = spdlog::sinks::callback_sink_mt(callback_closure);
-            auto log_ptr = std::make_shared<logger_type>(std::move(callback_sink));
-            logger->impl = std::move(log_ptr);
+            CallbackSink::validate(user_logger);
+            logger->set_output(std::make_shared<CallbackSink>(user_logger));
             return true;
         },
         out_err
@@ -208,12 +203,63 @@ extern "C" bool svs_logger_set_level(
     );
 }
 
-extern "C" bool svs_set_default_logger(svs_logger_h logger, svs_error_h out_err /*=NULL*/) {
+extern "C" bool svs_logger_get_level(
+    svs_logger_h logger, svs_log_level_t* out_level, svs_error_h out_err /*=NULL*/
+) {
     using namespace svs::c_runtime;
     return wrap_exceptions(
         [&]() {
             INVALID_ARGUMENT_IF(logger == nullptr, "Logger must not be null");
-            svs::logging::set(logger->impl);
+            EXPECT_ARG_NOT_NULL(out_level);
+            *out_level = static_cast<svs_log_level_t>(logger->impl->level());
+            return true;
+        },
+        out_err
+    );
+}
+
+extern "C" bool svs_logger_set_pattern(
+    svs_logger_h logger, const char* pattern, svs_error_h out_err /*=NULL*/
+) {
+    using namespace svs::c_runtime;
+    return wrap_exceptions(
+        [&]() {
+            INVALID_ARGUMENT_IF(logger == nullptr, "Logger must not be null");
+            EXPECT_ARG_NOT_NULL(pattern);
+            auto new_pattern = std::string(pattern);
+            logger->impl->set_pattern(new_pattern);
+            logger->pattern = std::move(new_pattern);
+            return true;
+        },
+        out_err
+    );
+}
+
+extern "C" bool svs_logger_get_pattern(
+    svs_logger_h logger, const char** out_pattern, svs_error_h out_err /*=NULL*/
+) {
+    using namespace svs::c_runtime;
+    return wrap_exceptions(
+        [&]() {
+            INVALID_ARGUMENT_IF(logger == nullptr, "Logger must not be null");
+            EXPECT_ARG_NOT_NULL(out_pattern);
+            *out_pattern = logger->pattern.c_str();
+            return true;
+        },
+        out_err
+    );
+}
+
+extern "C" bool svs_set_default_logger(svs_logger_h logger, svs_error_h out_err /*=NULL*/) {
+    using namespace svs::c_runtime;
+    return wrap_exceptions(
+        [&]() {
+            if (logger == nullptr) {
+                // NULL restores the SVS built-in default logger.
+                svs::logging::reset_to_default();
+            } else {
+                svs::logging::set(logger->impl);
+            }
             return true;
         },
         out_err

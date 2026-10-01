@@ -29,6 +29,7 @@ The tests are organized into separate files by functionality:
 - **c_api_index_builder.cpp**: Tests for index builder creation and configuration
 - **c_api_index.cpp**: Tests for index building, searching, and basic operations
 - **c_api_dynamic_index.cpp**: Tests for dynamic index operations (add, delete, consolidate, compact)
+- **c_api_logging.cpp**: Tests for logger handles (output kinds, custom callback, level, pattern, default logger)
 
 Note: The main() function is provided by Catch2::Catch2WithMain automatically.
 
@@ -70,6 +71,9 @@ cmake -DSVS_BUILD_C_API_TESTS=OFF ..
 
 # Run dynamic index tests
 ./svs_c_api_test "[c_api][dynamic]"
+
+# Run logging tests
+./svs_c_api_test "[c_api][logging]"
 ```
 
 ### Run with verbose output
@@ -133,6 +137,14 @@ The tests cover the following aspects of the C API:
 - Distance calculation
 - Vector reconstruction
 - Thread count management
+
+### Logging
+
+- Logger handle creation and cleanup
+- Output kinds (none, stdout, stderr, file truncate/append) and invalid kinds/paths
+- Custom logging callback, including ops version/struct_size validation
+- Level and pattern getters/setters, filtering, preservation across output changes
+- Default logger receives SVS internal messages
 
 ### Dynamic Index Operations
 
