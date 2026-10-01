@@ -24,6 +24,9 @@
 namespace svs::c_runtime {
 size_t estimate_data_size(const Storage* storage, size_t num_vectors, size_t dimension);
 size_t estimate_data_size_blocked(
-    const Storage* storage, size_t num_vectors, size_t dimension, size_t blocksize_bytes
+    const Storage* storage,
+    size_t num_vectors,
+    size_t dimension,
+    const svs::data::BlockingParameters& block_params
 );
 } // namespace svs::c_runtime
