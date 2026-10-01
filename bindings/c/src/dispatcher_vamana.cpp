@@ -30,6 +30,7 @@
 #include <svs/orchestrators/vamana.h>
 
 #include <filesystem>
+#include <istream>
 #include <memory>
 #include <variant>
 
@@ -77,6 +78,24 @@ svs::Vamana load_vamana_index(
     );
 }
 
+template <typename DataLoader, typename Distance>
+svs::Vamana load_stream_vamana_index(
+    const svs::index::vamana::VamanaBuildParameters& SVS_UNUSED(build_params),
+    std::unique_ptr<std::istream> stream,
+    DataLoader SVS_UNUSED(loader),
+    Distance distance,
+    svs::threads::ThreadPoolHandle pool,
+    const AllocatorBuilder& allocator_builder
+) {
+    using value_type = typename DataLoader::allocator_type::value_type;
+    using data_type = typename DataLoader::data_type;
+    // Data is copied out of the stream during load, so `self` need not outlive the call.
+    // A zero-copy load would alias the caller's buffer and must not reuse this contract.
+    return svs::Vamana::assemble<float, data_type>(
+        *stream, distance, std::move(pool), allocator_builder.build<value_type>()
+    );
+}
+
 template <typename Dispatcher>
 void register_vamana_index_specializations(Dispatcher& dispatcher) {
     auto build_closure = [&dispatcher]<typename DataBuilder, typename Distance>() {
@@ -85,19 +104,30 @@ void register_vamana_index_specializations(Dispatcher& dispatcher) {
     auto load_closure = [&dispatcher]<typename DataLoader, typename Distance>() {
         dispatcher.register_target(&load_vamana_index<DataLoader, Distance>);
     };
+    auto load_stream_closure = [&dispatcher]<typename DataLoader, typename Distance>() {
+        dispatcher.register_target(&load_stream_vamana_index<DataLoader, Distance>);
+    };
 
     for_simple_specializations<false>(build_closure);
     for_simple_specializations<false>(load_closure);
+    for_simple_specializations<false>(load_stream_closure);
     for_leanvec_specializations<false>(build_closure);
     for_leanvec_specializations<false>(load_closure);
+    for_leanvec_specializations<false>(load_stream_closure);
     for_lvq_specializations<false>(build_closure);
     for_lvq_specializations<false>(load_closure);
+    for_lvq_specializations<false>(load_stream_closure);
     for_sq_specializations<false>(build_closure);
     for_sq_specializations<false>(load_closure);
+    for_sq_specializations<false>(load_stream_closure);
 }
 
-using VamanaSource =
-    std::variant<svs::data::ConstSimpleDataView<float>, std::filesystem::path>;
+// Stream load alternative, matched via generic variant DispatchConverter like the
+// existing build and directory-load alternatives.
+using VamanaSource = std::variant<
+    svs::data::ConstSimpleDataView<float>,
+    std::filesystem::path,
+    std::unique_ptr<std::istream>>;
 
 using BuildIndexDispatcher = svs::lib::Dispatcher<
     svs::Vamana,
@@ -146,6 +176,24 @@ svs::Vamana dispatch_vamana_index_load(
     return build_vamana_index_dispatcher().invoke(
         build_params,
         VamanaSource{directory},
+        storage,
+        distance_type,
+        std::move(pool),
+        allocator_builder
+    );
+}
+
+svs::Vamana dispatch_vamana_index_load_stream(
+    const svs::index::vamana::VamanaBuildParameters& build_params,
+    std::unique_ptr<std::istream> stream,
+    const Storage* storage,
+    svs::DistanceType distance_type,
+    svs::threads::ThreadPoolHandle pool,
+    const AllocatorBuilder& allocator_builder
+) {
+    return build_vamana_index_dispatcher().invoke(
+        build_params,
+        VamanaSource{std::move(stream)},
         storage,
         distance_type,
         std::move(pool),

@@ -294,6 +294,68 @@ struct svs_id_filter_interface {
     void* self;
 };
 
+/// @brief Operations table for a caller-supplied byte stream.
+/// @remarks Access is strictly sequential: the library never repositions the stream. Both
+/// callbacks are invoked serially from the thread that called the streaming save or load
+/// function, so no synchronization is required — unlike the thread pool, allocator and ID
+/// filter interfaces.
+/// @remarks Exactly one direction is required per operation: @ref svs_index_save_stream
+/// needs @p write, the load functions need @p read. The unused callback may be NULL.
+/// @var svs_stream_interface_ops::version
+///   Interface version, set by @ref SVS_INIT_STREAM_OPS.
+/// @var svs_stream_interface_ops::struct_size
+///   Size of this structure, set by @ref SVS_INIT_STREAM_OPS.
+/// @var svs_stream_interface_ops::read
+///   Reads at most @p n bytes into @p buf.
+///   @param self Pointer to the stream instance.
+///   @param buf Destination buffer.
+///   @param n Maximum number of bytes to read.
+///   @param out_err Handle to capture any error that occurs during the read. Returning 0
+///   with an error set on @p out_err via svs_error_set() reports a failed read and aborts
+///   the load with that error code; returning 0 without setting one is a clean end of
+///   stream. This differs from @p write, which signals failure through its return value.
+///   @return The number of bytes read; 0 signals end of stream unless @p out_err carries an
+///   error. A short read is not an error and the library will call again. NULL for a
+///   write-only stream.
+/// @var svs_stream_interface_ops::write
+///   Writes exactly @p n bytes from @p buf.
+///   @param self Pointer to the stream instance.
+///   @param buf Source buffer.
+///   @param n Number of bytes to write.
+///   @param out_err Handle to capture any error that occurs during the write. User code may
+///   call svs_error_set() to set the error code and message if an error occurs.
+///   @return True on success. A partial write must be reported as failure. NULL for a
+///   read-only stream.
+struct svs_stream_interface_ops {
+    uint32_t version;
+    size_t struct_size;
+    size_t (*read)(void* self, void* buf, size_t n, svs_error_h out_err);
+    bool (*write)(void* self, const void* buf, size_t n, svs_error_h out_err);
+};
+
+/// @brief Macro to create a user-defined stream interface operations structure
+/// @param read_func Function pointer that reads at most @p n bytes into @p buf, or NULL for
+/// a write-only stream
+/// @param write_func Function pointer that writes exactly @p n bytes from @p buf, or NULL
+/// for a read-only stream
+#define SVS_INIT_STREAM_OPS(read_func, write_func)                                   \
+    {                                                                                \
+        .version = SVS_C_API_VERSION,                                                \
+        .struct_size = sizeof(struct svs_stream_interface_ops), .read = (read_func), \
+        .write = (write_func)                                                        \
+    }
+
+/// @brief Structure representing a caller-supplied byte stream
+/// @var svs_stream_interface::ops
+///   Function pointers for the stream operations.
+/// @var svs_stream_interface::self
+///   Pointer to the user-defined stream instance. This pointer is passed to the function
+///   pointers in @p ops when they are called.
+struct svs_stream_interface {
+    struct svs_stream_interface_ops* ops;
+    void* self;
+};
+
 /// @brief Macro to create a user-defined interface implementation structure
 /// @param user_ptr Pointer to the user-defined object
 /// @param vtable Function pointers for the interface operations
@@ -497,6 +559,10 @@ typedef struct svs_allocator_interface* svs_allocator_i;
 typedef struct svs_id_filter_interface_ops svs_id_filter_ops_t;
 typedef struct svs_id_filter_interface svs_id_filter_t;
 typedef struct svs_id_filter_interface* svs_id_filter_i;
+
+typedef struct svs_stream_interface_ops svs_stream_ops_t;
+typedef struct svs_stream_interface svs_stream_t;
+typedef struct svs_stream_interface* svs_stream_i;
 
 typedef struct svs_search_results svs_search_results_t;
 typedef struct svs_memory_breakdown svs_memory_breakdown_t;
@@ -996,6 +1062,45 @@ SVS_API svs_index_h svs_index_load_dynamic(
     svs_error_h out_err /*=NULL*/
 );
 
+/// @brief Load an index from a caller-supplied stream
+/// @param builder The index builder handle (used for configuration)
+/// @param stream The stream interface to read the index from
+/// @param out_err An optional error handle to capture errors
+/// @return A handle to the loaded index
+/// @remarks The operations table is copied, but @p stream->self is retained as-is. It only
+///   needs to remain valid until this function returns, because index data is copied out of
+///   the stream rather than referenced.
+/// @remarks Accepts both the native stream encoding produced by @ref svs_index_save_stream
+///   and a packed directory archive. The encoding is detected from the stream itself.
+/// @remarks Graph memory comes from `HugepageAllocator` rather than any allocator supplied
+///   through @ref svs_index_builder_set_allocator_custom. This is a performance difference,
+///   not a correctness one.
+SVS_API svs_index_h svs_index_load_stream(
+    svs_index_builder_h builder, svs_stream_i stream, svs_error_h out_err /*=NULL*/
+);
+
+/// @brief Load a dynamic index from a caller-supplied stream
+/// @param builder The index builder handle (used for configuration)
+/// @param stream The stream interface to read the index from
+/// @param blocksize_bytes The block size in bytes for dynamic index loading (0 for default)
+/// @param out_err An optional error handle to capture errors
+/// @return A handle to the loaded dynamic index
+/// @remarks The operations table is copied, but @p stream->self is retained as-is. It only
+///   needs to remain valid until this function returns, because index data is copied out of
+///   the stream rather than referenced.
+/// @remarks Accepts both the native stream encoding produced by @ref svs_index_save_stream
+///   and a packed directory archive. The encoding is detected from the stream itself.
+/// @remarks Graph memory comes from `HugepageAllocator` rather than any allocator supplied
+///   through @ref svs_index_builder_set_allocator_custom, and growing the loaded index
+///   reallocates the whole graph instead of appending a block. Both are a performance
+///   difference, not a correctness one.
+SVS_API svs_index_h svs_index_load_stream_dynamic(
+    svs_index_builder_h builder,
+    svs_stream_i stream,
+    size_t blocksize_bytes /*=0*/,
+    svs_error_h out_err /*=NULL*/
+);
+
 /// @brief Free the index handle
 /// @param index The index handle to free
 SVS_API void svs_index_free(svs_index_h index);
@@ -1077,6 +1182,19 @@ static inline bool svs_index_search(
 /// @return true on success, false on failure
 SVS_API bool
 svs_index_save(svs_index_h index, const char* directory, svs_error_h out_err /*=NULL*/);
+
+/// @brief Save the index to a caller-supplied stream
+/// @param index The index handle
+/// @param stream The stream interface to write the index to
+/// @param out_err An optional error handle to capture errors
+/// @return true on success, false on failure
+/// @remarks The operations table is copied, but @p stream->self is retained as-is. It only
+///   needs to remain valid until this function returns.
+/// @remarks Produces the native stream encoding only. An index previously written with
+///   @ref svs_index_save cannot be converted to a stream through this API.
+SVS_API bool svs_index_save_stream(
+    svs_index_h index, svs_stream_i stream, svs_error_h out_err /*=NULL*/
+);
 
 /// @brief Add points to a dynamic index
 /// @param index The dynamic index handle
