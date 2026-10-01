@@ -41,11 +41,18 @@ svs::Vamana build_vamana_index(
     svs::data::ConstSimpleDataView<float> src_data,
     DataBuilder builder,
     Distance distance,
-    svs::threads::ThreadPoolHandle pool
+    svs::threads::ThreadPoolHandle pool,
+    const AllocatorBuilder& allocator_builder
 ) {
-    auto data = builder.build(std::move(src_data), pool);
+    using value_type = typename DataBuilder::allocator_type::value_type;
+    auto data =
+        builder.build(std::move(src_data), pool, allocator_builder.build<value_type>());
     return svs::Vamana::build<float>(
-        build_params, std::move(data), distance, std::move(pool)
+        build_params,
+        std::move(data),
+        distance,
+        std::move(pool),
+        allocator_builder.build_for_graph<uint32_t>()
     );
 }
 
@@ -55,12 +62,15 @@ svs::Vamana load_vamana_index(
     const std::filesystem::path& directory,
     DataLoader loader,
     Distance distance,
-    svs::threads::ThreadPoolHandle pool
+    svs::threads::ThreadPoolHandle pool,
+    const AllocatorBuilder& allocator_builder
 ) {
-    auto data = loader.load(directory / "data");
+    using value_type = typename DataLoader::allocator_type::value_type;
+    auto data = loader.load(directory / "data", allocator_builder.build<value_type>());
     return svs::Vamana::assemble<float>(
         directory / "config",
-        svs::GraphLoader{directory / "graph"},
+        svs::GraphLoader<uint32_t, AllocatorHandle<uint32_t>>{
+            directory / "graph", allocator_builder.build_for_graph<uint32_t>()},
         std::move(data),
         distance,
         std::move(pool)
@@ -95,7 +105,8 @@ using BuildIndexDispatcher = svs::lib::Dispatcher<
     VamanaSource,
     const Storage*,
     svs::DistanceType,
-    svs::threads::ThreadPoolHandle>;
+    svs::threads::ThreadPoolHandle,
+    const AllocatorBuilder&>;
 
 const BuildIndexDispatcher& build_vamana_index_dispatcher() {
     static BuildIndexDispatcher dispatcher = [] {
@@ -111,10 +122,16 @@ svs::Vamana dispatch_vamana_index_build(
     svs::data::ConstSimpleDataView<float> data,
     const Storage* storage,
     svs::DistanceType distance_type,
-    svs::threads::ThreadPoolHandle pool
+    svs::threads::ThreadPoolHandle pool,
+    const AllocatorBuilder& allocator_builder
 ) {
     return build_vamana_index_dispatcher().invoke(
-        build_params, VamanaSource{std::move(data)}, storage, distance_type, std::move(pool)
+        build_params,
+        VamanaSource{std::move(data)},
+        storage,
+        distance_type,
+        std::move(pool),
+        allocator_builder
     );
 }
 
@@ -123,10 +140,39 @@ svs::Vamana dispatch_vamana_index_load(
     const std::filesystem::path& directory,
     const Storage* storage,
     svs::DistanceType distance_type,
-    svs::threads::ThreadPoolHandle pool
+    svs::threads::ThreadPoolHandle pool,
+    const AllocatorBuilder& allocator_builder
 ) {
     return build_vamana_index_dispatcher().invoke(
-        build_params, VamanaSource{directory}, storage, distance_type, std::move(pool)
+        build_params,
+        VamanaSource{directory},
+        storage,
+        distance_type,
+        std::move(pool),
+        allocator_builder
     );
+}
+
+svs::index::vamana::MemoryBreakdown dispatch_vamana_memory_estimate(
+    const svs::index::vamana::VamanaBuildParameters& build_params,
+    size_t num_vectors,
+    size_t dimension,
+    const Storage* storage,
+    svs::DistanceType SVS_UNUSED(distance_type)
+) {
+    svs::index::vamana::MemoryBreakdown breakdown{};
+
+    // Graph: SimpleData<uint32_t> with num_vectors rows and (max_degree + 1) cols;
+    // the +1 slot stores the per-node neighbor count.
+    using index_type = uint32_t;
+    const size_t max_degree = build_params.graph_max_degree;
+    auto graph_data_builder = SimpleDataBuilder<index_type>{};
+    breakdown.graph_bytes = graph_data_builder.estimate_size(num_vectors, (max_degree + 1));
+
+    // Data: SimpleData<T> with num_vectors rows and `dimension` cols.
+    breakdown.data_bytes = estimate_data_size(storage, num_vectors, dimension);
+    // Metadata: single entry point held as Idx.
+    breakdown.metadata_bytes = sizeof(index_type);
+    return breakdown;
 }
 } // namespace svs::c_runtime

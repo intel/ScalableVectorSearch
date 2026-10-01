@@ -45,6 +45,7 @@ svs::DynamicVamana build_dynamic_vamana_index(
     DataBuilder builder,
     Distance D,
     svs::threads::ThreadPoolHandle pool,
+    const AllocatorBuilder& allocator_builder,
     size_t blocksize_bytes
 ) {
     svs::data::BlockingParameters block_params;
@@ -52,14 +53,21 @@ svs::DynamicVamana build_dynamic_vamana_index(
         block_params.blocksize_bytes = svs::lib::prevpow2(blocksize_bytes);
     }
     using allocator_type = typename DataBuilder::allocator_type;
-    auto allocator = allocator_type{block_params};
-    auto data = builder.build(std::move(src_data.first), pool, allocator);
+    using value_type = typename allocator_type::value_type;
+
+    auto data_allocator_handle = allocator_builder.build<value_type>();
+    auto data_allocator = allocator_type{block_params, data_allocator_handle};
+    auto data = builder.build(std::move(src_data.first), pool, data_allocator);
+
+    auto graph_allocator_handle = allocator_builder.build_for_graph<uint32_t>();
+    auto graph_allocator = svs::data::Blocked{block_params, graph_allocator_handle};
     return svs::DynamicVamana::build<float>(
         build_params,
         std::move(data),
         std::move(src_data.second),
         std::move(D),
-        std::move(pool)
+        std::move(pool),
+        graph_allocator
     );
 }
 
@@ -70,6 +78,7 @@ svs::DynamicVamana load_dynamic_vamana_index(
     DataLoader loader,
     Distance D,
     svs::threads::ThreadPoolHandle pool,
+    const AllocatorBuilder& allocator_builder,
     size_t blocksize_bytes
 ) {
     svs::data::BlockingParameters block_params;
@@ -77,11 +86,17 @@ svs::DynamicVamana load_dynamic_vamana_index(
         block_params.blocksize_bytes = svs::lib::prevpow2(blocksize_bytes);
     }
     using allocator_type = typename DataLoader::allocator_type;
-    auto allocator = allocator_type{block_params};
+    using value_type = typename allocator_type::value_type;
+    auto data_allocator_handle = allocator_builder.build<value_type>();
+    auto allocator = allocator_type{block_params, data_allocator_handle};
     auto data = loader.load(directory / "data", allocator);
+
+    auto graph_allocator_handle = allocator_builder.build_for_graph<uint32_t>();
+    auto graph_allocator = svs::data::Blocked{block_params, graph_allocator_handle};
+
     return svs::DynamicVamana::assemble<float>(
         directory / "config",
-        svs::GraphLoader{directory / "graph"},
+        svs::GraphLoader{directory / "graph", graph_allocator},
         std::move(data),
         std::move(D),
         std::move(pool)
@@ -118,6 +133,7 @@ using BuildDynamicIndexDispatcher = svs::lib::Dispatcher<
     const Storage*,
     svs::DistanceType,
     svs::threads::ThreadPoolHandle,
+    const AllocatorBuilder&,
     size_t>;
 
 const BuildDynamicIndexDispatcher& build_dynamic_vamana_index_dispatcher() {
@@ -136,6 +152,7 @@ svs::DynamicVamana dispatch_dynamic_vamana_index_build(
     const Storage* storage,
     svs::DistanceType distance_type,
     svs::threads::ThreadPoolHandle pool,
+    const AllocatorBuilder& allocator_builder,
     size_t blocksize_bytes
 ) {
     return build_dynamic_vamana_index_dispatcher().invoke(
@@ -144,6 +161,7 @@ svs::DynamicVamana dispatch_dynamic_vamana_index_build(
         storage,
         distance_type,
         std::move(pool),
+        allocator_builder,
         blocksize_bytes
     );
 }
@@ -154,6 +172,7 @@ svs::DynamicVamana dispatch_dynamic_vamana_index_load(
     const Storage* storage,
     svs::DistanceType distance_type,
     svs::threads::ThreadPoolHandle pool,
+    const AllocatorBuilder& allocator_builder,
     size_t blocksize_bytes
 ) {
     return build_dynamic_vamana_index_dispatcher().invoke(
@@ -162,7 +181,56 @@ svs::DynamicVamana dispatch_dynamic_vamana_index_load(
         storage,
         distance_type,
         std::move(pool),
+        allocator_builder,
         blocksize_bytes
     );
+}
+
+svs::index::vamana::MemoryBreakdown dispatch_dynamic_vamana_memory_estimate(
+    const svs::index::vamana::VamanaBuildParameters& build_params,
+    size_t num_vectors,
+    size_t dimension,
+    const Storage* storage,
+    svs::DistanceType SVS_UNUSED(distance_type),
+    size_t blocksize_bytes
+) {
+    svs::index::vamana::MemoryBreakdown breakdown{};
+
+    // Graph size
+    // Graph: SimpleBlockedData<uint32_t> with num_vectors rows and (max_degree + 1)
+    // cols; the +1 slot stores the per-node neighbor count.
+    using index_type = uint32_t;
+    using graph_allocator_type = svs::data::Blocked<svs::lib::Allocator<index_type>>;
+
+    const size_t max_degree = build_params.graph_max_degree;
+
+    svs::data::BlockingParameters block_params;
+    if (blocksize_bytes != 0) {
+        block_params.blocksize_bytes = svs::lib::prevpow2(blocksize_bytes);
+    }
+    auto graph_allocator = graph_allocator_type{block_params};
+    auto graph_data_builder = svs::SimpleDataBuilder<index_type, graph_allocator_type>{};
+
+    breakdown.graph_bytes =
+        graph_data_builder.estimate_size(num_vectors, (max_degree + 1), graph_allocator);
+
+    // Data size
+    breakdown.data_bytes =
+        estimate_data_size_blocked(storage, num_vectors, dimension, blocksize_bytes);
+
+    // Metadata: single entry point held as Idx, plus the SlotMetadata vector, plus the
+    // IDTranslator maps.
+    size_t metadata_bytes =
+        sizeof(index_type) + sizeof(svs::index::vamana::SlotMetadata) * num_vectors;
+    // The IDTranslator holds two tsl::robin_map instances (external->internal and
+    // internal->external), neither of which exposes its allocated byte count. We
+    // approximate the storage as the id pair held in each of the two directions. This
+    // ignores the maps' load-factor slack and control bytes, so it is an estimate of
+    // the hash-map overhead that is accurate to within a few percent.
+    metadata_bytes +=
+        2 * num_vectors *
+        (sizeof(IDTranslator::external_id_type) + sizeof(IDTranslator::internal_id_type));
+    breakdown.metadata_bytes = metadata_bytes;
+    return breakdown;
 }
 } // namespace svs::c_runtime

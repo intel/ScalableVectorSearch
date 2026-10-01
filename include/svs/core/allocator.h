@@ -32,6 +32,7 @@
 /// @defgroup core_allocators_public Public API for Allocators
 ///
 
+#include "svs/lib/datatype.h"
 #include "svs/lib/memory.h"
 #include "svs/lib/misc.h"
 #include "svs/lib/narrow.h"
@@ -556,21 +557,34 @@ concept Allocator = HasValueType<Alloc> && std::is_copy_constructible_v<Alloc>
 
 class AllocatorInterface {
   public:
+    // The types that allocator handle can rebind to.
+    // Order here is for performance - most common types are listed first.
+    using rebind_types = lib::Types<
+        std::byte,
+        uint32_t,
+        float,
+        svs::Float16,
+        int8_t,
+        uint8_t,
+        int32_t,
+        double,
+        svs::BFloat16,
+        uint64_t,
+        int64_t,
+        uint16_t,
+        int16_t>;
+
     virtual ~AllocatorInterface() = default;
     virtual void* allocate(size_t n) = 0;
     virtual void deallocate(void* ptr, size_t n) = 0;
 
     // covariant return type
     virtual AllocatorInterface* clone() const = 0;
-    virtual AllocatorInterface* rebind_float() const = 0;
-    virtual AllocatorInterface* rebind_float16() const = 0;
+    virtual AllocatorInterface* rebind_to(DataType type) const = 0;
 };
 
 template <detail::Allocator Impl> class AllocatorImpl : public AllocatorInterface {
   public:
-    using rebind_allocator_float = lib::rebind_allocator_t<float, Impl>;
-    using rebind_allocator_float16 = lib::rebind_allocator_t<Float16, Impl>;
-
     // pass by value due to clone()
     explicit AllocatorImpl(Impl impl)
         : AllocatorInterface{}
@@ -584,12 +598,15 @@ template <detail::Allocator Impl> class AllocatorImpl : public AllocatorInterfac
 
     AllocatorImpl<Impl>* clone() const override { return new AllocatorImpl(impl_); }
 
-    AllocatorImpl<rebind_allocator_float>* rebind_float() const override {
-        return new AllocatorImpl<rebind_allocator_float>(rebind_allocator_float{impl_});
-    }
-
-    AllocatorImpl<rebind_allocator_float16>* rebind_float16() const override {
-        return new AllocatorImpl<rebind_allocator_float16>(rebind_allocator_float16{impl_});
+    AllocatorInterface* rebind_to(DataType type) const override {
+        return svs::lib::match(
+            AllocatorInterface::rebind_types{},
+            type,
+            [this]<typename TypeTag>(lib::Type<TypeTag>) -> AllocatorInterface* {
+                using rebind_allocator = lib::rebind_allocator_t<TypeTag, Impl>;
+                return new AllocatorImpl<rebind_allocator>(rebind_allocator{impl_});
+            }
+        );
     }
 
   private:
@@ -622,26 +639,15 @@ template <typename T> class AllocatorHandle {
     template <typename U> friend class AllocatorHandle;
 
     template <typename U>
+        requires(!std::is_same_v<T, U>) && (lib::in<T>(AllocatorInterface::rebind_types{}))
     AllocatorHandle(const AllocatorHandle<U>& other)
-        requires std::is_same_v<T, float> && (!std::is_same_v<U, T>)
-        : impl_{other.impl_->rebind_float()} {}
-    template <typename U>
-    AllocatorHandle(const AllocatorHandle<U>& other)
-        requires std::is_same_v<T, Float16> && (!std::is_same_v<U, T>)
-        : impl_{other.impl_->rebind_float16()} {}
+        : impl_{other.impl_->rebind_to(datatype_v<T>)} {}
 
     template <typename U>
     AllocatorHandle& operator=(const AllocatorHandle<U>& other)
-        requires std::is_same_v<T, float> && (!std::is_same_v<U, T>)
+        requires(!std::is_same_v<T, U>) && (lib::in<T>(AllocatorInterface::rebind_types{}))
     {
-        impl_.reset(other.impl_->rebind_float());
-        return *this;
-    }
-    template <typename U>
-    AllocatorHandle& operator=(const AllocatorHandle<U>& other)
-        requires std::is_same_v<T, Float16> && (!std::is_same_v<U, T>)
-    {
-        impl_.reset(other.impl_->rebind_float16());
+        impl_.reset(other.impl_->rebind_to(datatype_v<T>));
         return *this;
     }
 

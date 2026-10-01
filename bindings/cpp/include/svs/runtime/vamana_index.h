@@ -54,8 +54,11 @@ struct MemoryBreakdown {
     size_t graph_bytes = 0;
     size_t data_bytes = 0;
     size_t metadata_bytes = 0;
+    size_t reverse_edges_bytes = 0;
 
-    size_t total() const { return graph_bytes + data_bytes + metadata_bytes; }
+    size_t total() const {
+        return graph_bytes + data_bytes + metadata_bytes + reverse_edges_bytes;
+    }
 };
 
 // Abstract interface for Vamana-based indices.
@@ -98,12 +101,6 @@ struct SVS_RUNTIME_API VamanaIndex {
     // Reconstruct `n` vectors by ID into `output` buffer (n * dim floats).
     virtual Status reconstruct_at(size_t n, const size_t* ids, float* output) noexcept = 0;
 
-    // Return the index memory usage in bytes.
-    virtual size_t get_memory_usage() const noexcept = 0;
-
-    // Return the bytes allocated by each index component.
-    virtual Status get_memory_breakdown(MemoryBreakdown* out) const noexcept = 0;
-
     // Utility function to check storage kind support
     static Status check_storage_kind(StorageKind storage_kind) noexcept;
 
@@ -120,6 +117,13 @@ struct SVS_RUNTIME_API VamanaIndex {
     static Status destroy(VamanaIndex* index) noexcept;
 
     virtual Status save(std::ostream& out) const noexcept = 0;
+
+    // Return the index memory usage in bytes.
+    virtual size_t get_memory_usage() const noexcept = 0;
+
+    // Return the bytes allocated by each index component.
+    virtual Status get_memory_breakdown(MemoryBreakdown* out) const noexcept = 0;
+
     static Status load(
         VamanaIndex** index, std::istream& in, MetricType metric, StorageKind storage_kind
     ) noexcept;

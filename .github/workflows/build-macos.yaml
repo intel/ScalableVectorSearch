@@ -35,7 +35,7 @@ jobs:
     runs-on: macos-latest
     strategy:
       matrix:
-        build_type: [RelWithDebugInfo]
+        build_type: [RelWithDebInfo]
         cxx: [clang++-20]
         include:
         - cxx: clang++-20

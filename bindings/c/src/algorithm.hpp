@@ -56,6 +56,11 @@ struct AlgorithmVamana : public Algorithm {
                 svs::index::vamana::SearchBufferConfig{search_window_size};
             return params;
         }
+
+        void apply_to(svs::index::vamana::VamanaSearchParameters& params) const {
+            params.buffer_config_ =
+                svs::index::vamana::SearchBufferConfig{search_window_size};
+        }
     };
 
     svs::index::vamana::VamanaBuildParameters build_params;

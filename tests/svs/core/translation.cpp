@@ -226,6 +226,42 @@ CATCH_TEST_CASE("Translation Table", "[core][translation]") {
         }
 
         ///
+        /// Renaming (relabeling)
+        ///
+
+        CATCH_SECTION("Rename External") {
+            translator.remap_external_id(2, 100);
+
+            CATCH_REQUIRE(!translator.has_external(2));
+            CATCH_REQUIRE(translator.has_external(100));
+            CATCH_REQUIRE(translator.get_internal(100) == 10);
+            CATCH_REQUIRE(translator.get_external(10) == 100);
+            CATCH_REQUIRE(translator.size() == external_ids.size());
+
+            // Everything else is unaffected.
+            CATCH_REQUIRE(translator.get_internal(0) == 0);
+            CATCH_REQUIRE(translator.get_internal(4) == 20);
+            CATCH_REQUIRE(translator.get_internal(6) == 30);
+            CATCH_REQUIRE(translator.get_internal(8) == 40);
+        }
+
+        CATCH_SECTION("Rename External Error - Source Does Not Exist") {
+            // External id `10` doesn't exist yet.
+            CATCH_REQUIRE_THROWS_AS(
+                translator.remap_external_id(10, 100), svs::ANNException
+            );
+            // State of the translator should be unchanged.
+            check(translator, external_ids, internal_ids);
+        }
+
+        CATCH_SECTION("Rename External Error - Destination Already Exists") {
+            // External id `4` already exists.
+            CATCH_REQUIRE_THROWS_AS(translator.remap_external_id(2, 4), svs::ANNException);
+            // State of the translator should be unchanged.
+            check(translator, external_ids, internal_ids);
+        }
+
+        ///
         /// Saving and loading
         ///
 

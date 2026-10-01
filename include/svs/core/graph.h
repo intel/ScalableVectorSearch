@@ -30,26 +30,32 @@ namespace svs {
 /// @brief Loader for SVS graphs.
 ///
 /// @tparam Idx The type used to encode nodes in the graph.
+/// @tparam Allocator The type used for allocations in the graph. This must be a valid SVS
+/// allocator type.
 ///
-template <typename Idx = uint32_t> struct GraphLoader {
+template <typename Idx = uint32_t, typename Allocator = HugepageAllocator<Idx>>
+struct GraphLoader {
     // Type aliases
-    using return_type = graphs::SimpleGraph<Idx, HugepageAllocator<Idx>>;
+    using return_type = graphs::SimpleGraph<Idx, Allocator>;
 
     /// @brief Construct a new GraphLoader
     ///
     /// @param path The file path to the graph directory on disk.
+    /// @param allocator The allocator instance to use for the graph.
     ///
     /// The saved graph directory will generally be created when saving a graph based
     /// index. The ``path`` argument should be this directory.
     ///
-    GraphLoader(const std::filesystem::path& path)
-        : path_{path} {}
+    GraphLoader(const std::filesystem::path& path, const Allocator& allocator = {})
+        : path_{path}
+        , allocator_{allocator} {}
 
     /// @brief Load the graph into memory.
-    return_type load() const { return return_type::load(path_); }
+    return_type load() const { return return_type::load(path_, allocator_); }
 
     ///// Members
     std::filesystem::path path_{};
+    Allocator allocator_{};
 };
 
 ///

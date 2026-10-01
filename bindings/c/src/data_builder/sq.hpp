@@ -57,6 +57,21 @@ template <Arithmetic T, typename Allocator = svs::lib::Allocator<T>> class SQDat
     load(const std::filesystem::path& path, const allocator_type& allocator = {}) {
         return svs::lib::load_from_disk<data_type>(path, allocator);
     }
+
+    size_t estimate_size(
+        size_t num_vectors, size_t dimension, const allocator_type& allocator = {}
+    ) const {
+        const auto element_size = sizeof(typename data_type::element_type) * dimension;
+        const auto data_size =
+            svs::c_runtime::adjust_blocked_size(num_vectors, element_size, allocator);
+
+        // Note: the following size is not included in the current estimate as it is
+        // not included in memory breakdown calculations in the current implementation. It
+        // can be added if needed.
+
+        const size_t scale_bias_size = 0; // sizeof(float) * 2;
+        return data_size + scale_bias_size;
+    }
 };
 
 template <Arithmetic T, typename Alloc>
@@ -78,8 +93,10 @@ struct lib::DispatchConverter<const c_runtime::Storage*, SQDataBuilder<T, Alloc>
 };
 
 template <bool UseBlocked, typename F> void for_sq_specializations(F&& f) {
-    using int8_alloc = svs::c_runtime::MaybeBlockedAlloc<int8_t, UseBlocked>;
-    using uint8_alloc = svs::c_runtime::MaybeBlockedAlloc<uint8_t, UseBlocked>;
+    using int8_alloc =
+        svs::c_runtime::MaybeBlockedAlloc<int8_t, UseBlocked, AllocatorHandle<int8_t>>;
+    using uint8_alloc =
+        svs::c_runtime::MaybeBlockedAlloc<uint8_t, UseBlocked, AllocatorHandle<uint8_t>>;
 #define X(T, A, D) f.template operator()<SQDataBuilder<T, A>, D>();
 #define XX(T, A) X(T, A, DistanceL2) X(T, A, DistanceIP) X(T, A, DistanceCosineSimilarity)
     XX(uint8_t, uint8_alloc)
