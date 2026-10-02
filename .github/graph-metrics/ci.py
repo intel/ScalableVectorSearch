@@ -75,15 +75,21 @@ def configuration(head):
 
 def logged(args, log, cwd=None):
     with log.open("a") as stream:
-        stream.write("$ " + shlex.join([str(arg) for arg in args]) + "\n")
-        stream.flush()
-        try:
-            subprocess.run(args, cwd=cwd, stdout=stream, stderr=subprocess.STDOUT, check=True)
-        except subprocess.CalledProcessError:
-            stream.flush()
-            print(f"Command failed; diagnostic log: {log}", file=sys.stderr)
-            print(log.read_text(errors="replace"), file=sys.stderr)
-            raise
+        command_line = "$ " + shlex.join([str(arg) for arg in args])
+        print(command_line, file=stream, flush=True)
+        print(command_line, flush=True)
+        with subprocess.Popen(
+            args, cwd=cwd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+            text=True, errors="replace", bufsize=1,
+        ) as process:
+            for line in process.stdout:
+                stream.write(line)
+                stream.flush()
+                print(line, end="", flush=True)
+            returncode = process.wait()
+        if returncode:
+            print(f"Command failed; diagnostic log: {log}", file=sys.stderr, flush=True)
+            raise subprocess.CalledProcessError(returncode, args)
 
 
 def configure(source, build, log, extra_args):
@@ -243,18 +249,22 @@ def calculate(args):
         # calculator, configuration and persisted vectors.
         for label, source in (("base", args.base), ("head", args.head)):
             build = args.work / label
+            print(f"{label}: configuring revision {record[f'{label}_sha']}", flush=True)
             configure(source, build, args.result / f"{label}-build.log", args.cmake_arg)
+            print(f"{label}: compiling {TARGET}", flush=True)
             logged([
                 os.environ.get("CMAKE", "cmake"), "--build", str(build),
                 "--target", TARGET, "--parallel", str(cpu_count()),
             ], args.result / f"{label}-build.log")
             effective = copy.deepcopy(config)
             effective["output_json"] = str(args.result / f"{label}.json")
-            effective["output_log"] = str(args.result / f"{label}-metrics.log")
+            # Keep progress on stderr so logged() can stream it and save the artifact.
+            effective.pop("output_log", None)
             config_path = args.result / f"{label}-config.json"
             write_json(config_path, effective)
+            print(f"{label}: calculating graph metrics", flush=True)
             logged([str(build / TARGET), "--config", str(config_path)],
-                   args.result / f"{label}-build.log")
+                   args.result / f"{label}-metrics.log")
         reports = [json.loads((args.result / f"{label}.json").read_text()) for label in ("base", "head")]
         identities = [
             {item["dataset_name"]: item["dataset_parameters"]["sha256"] for item in report["datasets"]}
