@@ -1,0 +1,54 @@
+# Copyright 2026 Intel Corporation
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+name: Graph Metrics PR Comment
+
+on:
+  workflow_run:
+    workflows: ['Synthetic Graph Metrics']
+    types: [completed]
+
+permissions:
+  contents: read
+  actions: read
+  pull-requests: write
+
+jobs:
+  comment:
+    if: github.event.workflow_run.event == 'pull_request'
+    runs-on: ubuntu-22.04
+    timeout-minutes: 10
+    steps:
+      # The write-capable job runs only default-branch code. PR artifacts are
+      # parsed as JSON; no PR scripts or binaries execute in this job.
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          persist-credentials: false
+
+      - name: Download dependency decision and metrics
+        uses: actions/download-artifact@v8
+        continue-on-error: true
+        with:
+          pattern: graph-metrics-results-*
+          path: ${{ runner.temp }}/graph-metrics-artifacts
+          run-id: ${{ github.event.workflow_run.id }}
+          github-token: ${{ github.token }}
+
+      - name: Update the PR metrics or skipped message
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          python3 .github/graph-metrics/ci.py comment \
+            --artifacts "${RUNNER_TEMP}/graph-metrics-artifacts"
