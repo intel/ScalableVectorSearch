@@ -1,0 +1,39 @@
+{
+    "threads": "auto",
+    "graph_type": "both",
+    "build_methods": [
+        "sample_by_sample",
+        "single_batch",
+        "batches"
+    ],
+    "batch_size": 1000,
+    "recompute_entry_point": true,
+    "build_parameters": {
+        "degree": 64,
+        "window": 512,
+        "max_candidates": 750,
+        "alpha": {
+            "L2": 1.2,
+            "MIP": 0.95
+        },
+        "use_full_search_history": true
+    },
+    "datasets": [
+        {
+            "name": "synthetic-128",
+            "vectors": 500000,
+            "dimensions": 128,
+            "distance": "L2",
+            "source": {
+                "type": "synthetic",
+                "path": "../../data/graph-metrics/synthetic-128.fvecs",
+                "distribution": "normal",
+                "mean": 0.0,
+                "stddev": 1.0,
+                "seed": 12345
+            }
+        }
+    ],
+    "output_json": "../../build/graph-metrics/graph-metrics-synthetic.json",
+    "output_log": "../../build/graph-metrics/graph-metrics-synthetic.log"
+}

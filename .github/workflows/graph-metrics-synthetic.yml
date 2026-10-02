@@ -1,0 +1,147 @@
+# Copyright 2026 Intel Corporation
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+name: Synthetic Graph Metrics
+
+on:
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      cxx:
+        description: 'C++ compiler executable; overrides GRAPH_METRICS_CXX'
+        required: false
+        type: string
+      base_ref:
+        description: 'Comparison base; defaults to the repository default branch'
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+env:
+  # Repository variable or manual-run input can select an installed compiler.
+  CXX: ${{ inputs.cxx || vars.GRAPH_METRICS_CXX || 'g++-11' }}
+  GRAPH_METRICS_CONFIG: .github/graph-metrics/graph_metrics_synthetic.json
+
+concurrency:
+  group: ${{ github.workflow }} @ ${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  detect:
+    name: Detect graph-metrics dependencies
+    runs-on: ubuntu-22.04
+    timeout-minutes: 30
+    outputs:
+      needed: ${{ steps.detect.outputs.needed }}
+      base_sha: ${{ steps.detect.outputs.base_sha }}
+      head_sha: ${{ steps.detect.outputs.head_sha }}
+
+    steps:
+      - name: Check out PR revision
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          path: head
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Check out base revision
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.pull_request.base.sha || inputs.base_ref || github.event.repository.default_branch }}
+          path: base
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Check configured compiler and install build dependencies
+        run: |
+          command -v "${CXX}"
+          "${CXX}" --version
+          sudo apt-get update
+          sudo apt-get install --yes libssl-dev ninja-build
+
+      - name: Detect dependencies and decide whether metrics are needed
+        id: detect
+        env:
+          FORCE_RUN: ${{ github.event_name == 'workflow_dispatch' }}
+        run: |
+          python3 head/.github/graph-metrics/ci.py detect \
+            --head head --base base \
+            --work "${RUNNER_TEMP}/graph-metrics-dependencies" \
+            --result results/detection
+
+      - name: Upload dependency decision and logs
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: graph-metrics-results-detection
+          path: results/detection/
+          if-no-files-found: warn
+
+  calculate:
+    name: Compare base and PR graph metrics
+    needs: detect
+    if: needs.detect.outputs.needed == 'true'
+    runs-on: ubuntu-22.04
+    timeout-minutes: 180
+    steps:
+      - name: Check out PR revision
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ needs.detect.outputs.head_sha }}
+          path: head
+          persist-credentials: false
+
+      - name: Check out base revision
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ needs.detect.outputs.base_sha }}
+          path: base
+          persist-credentials: false
+
+      - name: Check configured compiler and install build dependencies
+        run: |
+          command -v "${CXX}"
+          "${CXX}" --version
+          sudo apt-get update
+          sudo apt-get install --yes libssl-dev ninja-build
+
+      - name: Read synthetic cache paths
+        id: paths
+        run: python3 head/.github/graph-metrics/ci.py paths --head head
+
+      - name: Restore reusable synthetic vectors
+        uses: actions/cache@v4
+        with:
+          path: ${{ steps.paths.outputs.cache_paths }}
+          key: graph-metrics-synthetic-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('head/.github/graph-metrics/graph_metrics_synthetic.json', 'head/utils/graph_metrics_config.h') }}
+
+      # Both revisions use the PR calculator and identical configuration/data.
+      # The calculator's threads: auto setting uses this runner's available CPUs.
+      - name: Build and calculate base and PR metrics
+        run: |
+          python3 head/.github/graph-metrics/ci.py calculate \
+            --head head --base base \
+            --work "${RUNNER_TEMP}/graph-metrics-build" \
+            --result results/run
+
+      - name: Upload full JSON reports, configurations and logs
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: graph-metrics-results-run
+          path: results/run/
+          if-no-files-found: warn
