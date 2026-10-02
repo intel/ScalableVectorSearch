@@ -28,6 +28,7 @@
 
 #include <filesystem>
 #include <memory>
+#include <mutex>
 #include <optional>
 #include <shared_mutex>
 #include <span>
@@ -65,7 +66,8 @@ struct DynamicIndex : public Index {
     mutable std::optional<std::shared_mutex> mutex;
 
     explicit DynamicIndex(
-        std::unique_ptr<IndexBuilder> builder, svs_sync_kind_t sync_kind = SVS_SYNC_KIND_NONE
+        std::unique_ptr<IndexBuilder> builder,
+        svs_sync_kind_t sync_kind = SVS_SYNC_KIND_NONE
     )
         : Index(std::move(builder))
         , sync_kind(sync_kind) {
