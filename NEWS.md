@@ -25,3 +25,5 @@
 * Fixed GCC-12.x prefetch-loop collapse in `greedy_search` neighbor prefetch (#361)
 
 * `Blocked` class refactored to meet allocator requirements (#351)
+
+* `search_buffer_visited_set_` is now `true` by default for increased performance (#369)
