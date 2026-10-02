@@ -724,3 +724,79 @@ CATCH_TEST_CASE("Vamana Index Save and Load SQ", "[vamana][index][saveload][scal
         CATCH_REQUIRE(modified_distance == Catch::Approx(0.0).epsilon(1e-5));
     }
 }
+
+CATCH_TEST_CASE("Vamana Index Bugcheck and Regression", "[vamana][index][regression]") {
+    // This test case is intended to catch any unexpected behavior or crashes in the Vamana
+    // index. Currently, it does not perform any specific checks.
+    using namespace svs;
+    using namespace svs::index::vamana;
+
+    // Regression: nodes built in the same batch must not become unreachable.
+    //
+    // The data is points evenly spaced on the line x == y, with the query at the
+    // first point, so the expected neighbors are ids 0..k-1.
+    //
+    // The graph is built in batches. Nodes in one batch search a graph that doesn't
+    // contain each other yet, so each one links only to the nearest node the search can
+    // already reach (a "hub"), never to each other. The hub then receives a back-edge
+    // from every node in the batch. If that exceeds `graph_max_degree`, the hub is
+    // pruned, and on collinear data the pruning keeps only its one or two closest
+    // neighbors on each side. The other batch nodes lose their only incoming edges.
+    // Greedy search can never reach them afterwards, so the second build pass can't
+    // reconnect them either. Search then stops at a local minimum and misses the true
+    // nearest neighbors (e.g. returns 8, 19, 20, ... instead of 0, 1, 2, ...).
+    //
+    // Whether a given (graph_max_degree, index_size) fails depended on where batch
+    // boundaries fell. Fixed by starting construction with small batches that double in
+    // size, so early nodes can see each other.
+    CATCH_SECTION("Same-batch nodes stay reachable after hub pruning") {
+        auto build_and_search = [](size_t graph_max_degree, size_t index_size) -> bool {
+            svs::DistanceL2 distance_function;
+            float alpha = 1.2;
+            size_t window_size = 128;
+            size_t dim = 2;
+            size_t num_threads = 4;
+            size_t k = 12;
+
+            VamanaBuildParameters build_params;
+            build_params.alpha = alpha;
+            build_params.graph_max_degree = graph_max_degree;
+            build_params.window_size = window_size;
+
+            auto data = svs::data::SimpleData<float>(index_size, dim);
+            for (size_t i = 0; i < index_size; i++) {
+                std::vector<float> datum(dim, static_cast<float>(i + 1));
+                data.set_datum(i, datum);
+            }
+
+            auto index = svs::index::vamana::auto_build(
+                build_params, data, distance_function, num_threads
+            );
+
+            std::vector<float> query(dim, 1.0f);
+            svs::data::ConstSimpleDataView<float> query_view(query.data(), 1, dim);
+            QueryResult<size_t> result{1, k};
+            auto sp = index.get_search_parameters();
+            index.search(result.view(), query_view, sp);
+
+            CATCH_REQUIRE(result.n_queries() == 1);
+            CATCH_REQUIRE(result.n_neighbors() == k);
+
+            for (size_t i = 0; i < k; ++i) {
+                if (result.index(0, i) != i) {
+                    // Report test failure but continue running
+                    CATCH_CHECK(result.index(0, i) == i);
+                    return false;
+                }
+            }
+            return true;
+        };
+
+        CATCH_CHECK(build_and_search(16, 512));
+        CATCH_CHECK(build_and_search(16, 1024));
+        CATCH_CHECK(build_and_search(32, 1024));
+        CATCH_CHECK(build_and_search(32, 1536));
+        CATCH_CHECK(build_and_search(64, 1536));
+        CATCH_CHECK(build_and_search(64, 3072));
+    }
+}
