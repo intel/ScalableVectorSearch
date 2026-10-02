@@ -145,3 +145,43 @@ jobs:
           name: graph-metrics-results-run
           path: results/run/
           if-no-files-found: warn
+
+  comment:
+    name: Comment PR graph metrics
+    needs: [detect, calculate]
+    # Same-repository PRs can report before this workflow is merged. Fork PRs
+    # use graph-metrics-comment.yml from the default branch.
+    if: >-
+      ${{ always() && github.event_name == 'pull_request' &&
+          github.event.pull_request.head.repo.full_name == github.repository }}
+    runs-on: ubuntu-22.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      actions: read
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
+          sparse-checkout: .github/graph-metrics
+
+      - name: Download dependency decision and metrics
+        uses: actions/download-artifact@v8
+        continue-on-error: true
+        with:
+          pattern: graph-metrics-results-*
+          path: ${{ runner.temp }}/graph-metrics-artifacts
+
+      - name: Update the PR metrics or skipped message
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          # This workflow is still running; use the completed producer jobs.
+          GRAPH_METRICS_CONCLUSION: >-
+            ${{ needs.detect.result == 'success' &&
+                (needs.calculate.result == 'success' || needs.calculate.result == 'skipped') &&
+                'success' || 'failure' }}
+        run: |
+          python3 .github/graph-metrics/ci.py comment \
+            --artifacts "${RUNNER_TEMP}/graph-metrics-artifacts"

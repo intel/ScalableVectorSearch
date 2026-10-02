@@ -406,15 +406,30 @@ def comparison(base, head):
 
 def comment(args):
     event = json.loads(Path(os.environ["GITHUB_EVENT_PATH"]).read_text())
-    run = event["workflow_run"]
-    if run["event"] != "pull_request":
+    run = event.get("workflow_run")
+    if (run is not None and run["event"] != "pull_request") or (
+        run is None and "pull_request" not in event
+    ):
+        print("No PR comment: this event is not a pull request.", flush=True)
         return
     api = GitHub()
     prefix = f"/repos/{api.repository}"
-    # Resolve the PR through GitHub's run/commit association, never an artifact's
+    if run is None:
+        pr = event["pull_request"]
+        if pr["head"]["repo"]["full_name"] != api.repository:
+            print("Fork PR comments are handled by the default-branch reporter.", flush=True)
+            return
+        run = api.request("GET", f"{prefix}/actions/runs/{int(os.environ['GITHUB_RUN_ID'])}")
+        # The current workflow has not finished, but both producer jobs have.
+        run["conclusion"] = os.environ["GRAPH_METRICS_CONCLUSION"]
+        run["pull_requests"] = [pr]
+    # Resolve the PR through GitHub's event/run association, never an artifact's
     # claimed PR number. Only current PR heads may update the comment.
     run_prs = run.get("pull_requests") or []
     candidates = run_prs or api.pages(f"{prefix}/commits/{run['head_sha']}/pulls")
+    if not candidates:
+        print(f"No PR associated with graph-metrics run {run['id']}.", flush=True)
+        return
     run_heads = {item["number"]: item.get("head", {}).get("sha", run["head_sha"]) for item in run_prs}
     artifacts = api.pages(f"{prefix}/actions/runs/{run['id']}/artifacts", "artifacts")
     detection_path = args.artifacts / "graph-metrics-results-detection/detection.json"
@@ -426,9 +441,11 @@ def comment(args):
         pr = api.request("GET", f"{prefix}/pulls/{int(candidate['number'])}")
         associated_sha = run_heads.get(candidate["number"], run["head_sha"])
         if pr["state"] != "open" or pr["head"]["sha"] != associated_sha:
+            print(f"No comment on PR #{pr['number']}: closed or its head has changed.", flush=True)
             continue
         current_sha = pr["head"]["sha"]
         if any(record and record.get("head_sha") != current_sha for record in (detection, result)):
+            print(f"No comment on PR #{pr['number']}: artifact revision does not match.", flush=True)
             continue
         base_sha = (detection or result or {}).get("base_sha", "")
         if not re.fullmatch(r"[0-9a-f]{40}", base_sha):
@@ -467,10 +484,16 @@ def comment(args):
             sequence = re.search(r"<!-- run=(\d+) attempt=(\d+) -->", existing["body"])
             current = (int(run["id"]), int(run.get("run_attempt", 1)))
             if sequence and tuple(map(int, sequence.groups())) > current:
+                print(f"PR #{pr['number']} already has results from a newer run.", flush=True)
+                continue
+            if existing["body"] == body:
+                print(f"PR #{pr['number']} already has this graph-metrics comment.", flush=True)
                 continue
             api.request("PATCH", f"{prefix}/issues/comments/{existing['id']}", {"body": body})
+            print(f"Updated graph-metrics comment on PR #{pr['number']}.", flush=True)
         else:
             api.request("POST", f"{prefix}/issues/{pr['number']}/comments", {"body": body})
+            print(f"Created graph-metrics comment on PR #{pr['number']}.", flush=True)
 
 
 def main():
