@@ -54,7 +54,6 @@ header:
   - AGENTS.md
   - '**/AGENTS.md'
   - .github/copilot-instructions.md
-  - .github/instructions/*.instructions.md
 
   comment: never
 
