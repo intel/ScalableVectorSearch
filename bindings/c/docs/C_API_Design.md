@@ -258,22 +258,33 @@ The main search structure providing vector similarity search operations.
 **Dynamic Index Parameters:**
 
 The `_ex` variants of the dynamic functions (`svs_index_build_dynamic_ex`,
-`svs_index_load_dynamic_ex`, `svs_index_builder_estimate_memory_dynamic_ex`,
+`svs_index_load_dynamic_ex`, `svs_index_convert_dynamic_ex`,
+`svs_index_builder_estimate_memory_dynamic_ex`,
 `svs_index_builder_estimate_search_memory_dynamic_ex`) take a versioned
-`svs_dynamic_index_params_t` structure instead of a bare `blocksize_bytes` argument.
-Initialize it with `SVS_INIT_DYNAMIC_INDEX_PARAMS()`; `params` must not be `NULL`.
+`const svs_dynamic_index_params_t*` instead of a bare `blocksize_bytes` argument.
+Initialize it with `SVS_INIT_DYNAMIC_INDEX_PARAMS()`, or pass `NULL` to use the defaults
+(`blocksize_bytes = 0`, `blocksize_elements = 0`, `sync_kind = SVS_SYNC_KIND_NONE`).
+Invalid parameters are rejected with `SVS_ERROR_INVALID_ARGUMENT`; unlike the legacy
+`blocksize_bytes` arguments, block sizes are not rounded down to a power of two.
 
 | Field | Description |
 |-------|-------------|
-| `blocksize_bytes` | Block size in bytes; `0` selects the default, otherwise must be a power of two |
-| `blocksize_elements` | Block size in vectors; `0` leaves it unset, otherwise must be a power of two and takes precedence over `blocksize_bytes` |
-| `sync_kind` | Internal synchronization of the dynamic index handle (see below) |
+| `blocksize_bytes` | Bytes per block; `0` selects the default, otherwise must be a power of two |
+| `blocksize_elements` | Vectors (graph nodes) per block; `0` leaves it unset, otherwise must be a power of two and takes precedence over `blocksize_bytes` |
+| `sync_kind` | `uint32_t` holding a `svs_sync_kind_t` value: internal synchronization of the dynamic index handle (see below) |
 
 | `svs_sync_kind_t` | Behavior |
 |-----------------|----------|
 | `SVS_SYNC_KIND_NONE` | No internal synchronization (default); the caller must serialize access |
-| `SVS_SYNC_KIND_GLOBAL` | Index-wide reader/writer lock: read-only operations (search, `has_id`, `get_distance`, reconstruct, `get_num_threads`, memory queries) run concurrently; mutating operations (add/delete points, consolidate, compact, save, `set_num_threads`) are exclusive |
+| `SVS_SYNC_KIND_GLOBAL` | Index-wide reader/writer lock: read-only operations (search, `has_id`, `get_distance`, reconstruct, `get_size`, `get_num_threads`, memory queries, use as a conversion source) run concurrently; mutating operations (add/delete points, consolidate, compact, save, `set_num_threads`) are exclusive |
 | `SVS_SYNC_KIND_FINE_GRAIN` | Currently behaves as `SVS_SYNC_KIND_GLOBAL`; reserved for finer-grained locking in future releases |
+
+Synchronization limits:
+- `svs_index_free()` must not run concurrently with any other call on the same handle.
+- Each thread must use its own `svs_search_results_t` and `svs_error_h`.
+- The lock gives no writer priority; sustained read load may starve writers.
+- The sync kind is not persisted by `svs_index_save()`; pass it again on load. Query it
+  with `svs_index_dynamic_get_sync_kind()`.
 
 ```c
 svs_dynamic_index_params_t params = SVS_INIT_DYNAMIC_INDEX_PARAMS();
@@ -634,8 +645,8 @@ for full signatures, parameters, and Doxygen documentation.
 | **Search params** | `svs_search_params_create_vamana`, `svs_search_params_free` |
 | **Builder** | `svs_index_builder_create`, `svs_index_builder_set_{storage,threadpool,threadpool_custom,allocator,allocator_custom}`, `svs_index_builder_free` |
 | **Memory estimation** | `svs_index_builder_estimate_memory`, `svs_index_builder_estimate_memory_dynamic[_ex]`, `svs_index_builder_estimate_search_memory`, `svs_index_builder_estimate_search_memory_dynamic[_ex]`, `svs_index_builder_get_default_blocksize_bytes` |
-| **Index lifecycle** | `svs_index_build`, `svs_index_build_dynamic[_ex]`, `svs_index_load`, `svs_index_load_dynamic[_ex]`, `svs_index_load_stream`, `svs_index_load_stream_dynamic`, `svs_index_save`, `svs_index_save_stream`, `svs_index_free` |
-| **Dynamic ops** | `svs_index_dynamic_{add_points,delete_points,has_id,consolidate,compact}` |
+| **Index lifecycle** | `svs_index_build`, `svs_index_build_dynamic[_ex]`, `svs_index_convert`, `svs_index_convert_dynamic[_ex]`, `svs_index_load`, `svs_index_load_dynamic[_ex]`, `svs_index_load_stream`, `svs_index_load_stream_dynamic`, `svs_index_save`, `svs_index_save_stream`, `svs_index_free` |
+| **Dynamic ops** | `svs_index_dynamic_{add_points,delete_points,has_id,consolidate,compact,get_sync_kind}` |
 | **Introspection** | `svs_index_get_num_threads` / `set_num_threads`, `svs_index_get_distance`, `svs_index_reconstruct`, `svs_index_get_memory_usage`, `svs_index_get_memory_breakdown` |
 | **Search** | `svs_index_search_topk` (+ deprecated `svs_index_search`), `svs_search_results_free` |
 

@@ -278,16 +278,67 @@ CATCH_TEST_CASE("C API Dynamic Index Params", "[c_api][index][dynamic][sync]") {
         svs_index_free(index);
     }
 
+    CATCH_SECTION("NULL params mean defaults") {
+        svs_index_h index = svs_index_build_dynamic_ex(
+            fx.builder, fx.data.data(), nullptr, NUM_VECTORS, nullptr, fx.error
+        );
+        CATCH_REQUIRE(index != nullptr);
+        CATCH_REQUIRE(svs_error_ok(fx.error));
+        svs_sync_kind_t kind = SVS_SYNC_KIND_GLOBAL;
+        CATCH_REQUIRE(svs_index_dynamic_get_sync_kind(index, &kind, fx.error));
+        CATCH_REQUIRE(kind == SVS_SYNC_KIND_NONE);
+
+        TempDir dir;
+        CATCH_REQUIRE(svs_index_save(index, dir.string().c_str(), fx.error));
+        svs_index_h loaded =
+            svs_index_load_dynamic_ex(fx.builder, dir.string().c_str(), nullptr, fx.error);
+        CATCH_REQUIRE(loaded != nullptr);
+        CATCH_REQUIRE(svs_error_ok(fx.error));
+        CATCH_REQUIRE(svs_index_dynamic_get_sync_kind(loaded, &kind, fx.error));
+        CATCH_REQUIRE(kind == SVS_SYNC_KIND_NONE);
+
+        svs_index_h converted =
+            svs_index_convert_dynamic_ex(fx.builder, index, nullptr, fx.error);
+        CATCH_REQUIRE(converted != nullptr);
+        CATCH_REQUIRE(svs_error_ok(fx.error));
+        CATCH_REQUIRE(svs_index_dynamic_get_sync_kind(converted, &kind, fx.error));
+        CATCH_REQUIRE(kind == SVS_SYNC_KIND_NONE);
+
+        svs_memory_breakdown_t legacy = SVS_INIT_MEMORY_BREAKDOWN();
+        CATCH_REQUIRE(svs_index_builder_estimate_memory_dynamic(
+            fx.builder, NUM_VECTORS, 0, &legacy, fx.error
+        ));
+        svs_memory_breakdown_t by_null = SVS_INIT_MEMORY_BREAKDOWN();
+        CATCH_REQUIRE(svs_index_builder_estimate_memory_dynamic_ex(
+            fx.builder, NUM_VECTORS, nullptr, &by_null, fx.error
+        ));
+        CATCH_REQUIRE(by_null.graph_bytes == legacy.graph_bytes);
+        CATCH_REQUIRE(by_null.data_bytes == legacy.data_bytes);
+        CATCH_REQUIRE(by_null.metadata_bytes == legacy.metadata_bytes);
+
+        size_t legacy_search = 0;
+        CATCH_REQUIRE(svs_index_builder_estimate_search_memory_dynamic(
+            fx.builder, NUM_QUERIES, K, nullptr, nullptr, 0, &legacy_search, fx.error
+        ));
+        size_t null_search = 0;
+        CATCH_REQUIRE(svs_index_builder_estimate_search_memory_dynamic_ex(
+            fx.builder, NUM_QUERIES, K, nullptr, nullptr, nullptr, &null_search, fx.error
+        ));
+        CATCH_REQUIRE(null_search == legacy_search);
+
+        svs_index_free(converted);
+        svs_index_free(loaded);
+        svs_index_free(index);
+    }
+
     CATCH_SECTION("Invalid params are rejected") {
-        auto expect_invalid = [&](svs_dynamic_index_params_t* params) {
+        auto expect_invalid = [&](const svs_dynamic_index_params_t* params) {
             svs_index_h index = svs_index_build_dynamic_ex(
                 fx.builder, fx.data.data(), nullptr, NUM_VECTORS, params, fx.error
             );
             CATCH_REQUIRE(index == nullptr);
             CATCH_REQUIRE(svs_error_get_code(fx.error) == SVS_ERROR_INVALID_ARGUMENT);
         };
-
-        expect_invalid(nullptr);
 
         svs_dynamic_index_params_t bad_bytes = SVS_INIT_DYNAMIC_INDEX_PARAMS();
         bad_bytes.blocksize_bytes = 3000;
@@ -298,7 +349,7 @@ CATCH_TEST_CASE("C API Dynamic Index Params", "[c_api][index][dynamic][sync]") {
         expect_invalid(&bad_elements);
 
         svs_dynamic_index_params_t bad_sync = SVS_INIT_DYNAMIC_INDEX_PARAMS();
-        bad_sync.sync_kind = static_cast<svs_sync_kind_t>(3);
+        bad_sync.sync_kind = 3;
         expect_invalid(&bad_sync);
 
         svs_dynamic_index_params_t bad_version = SVS_INIT_DYNAMIC_INDEX_PARAMS();
@@ -308,6 +359,43 @@ CATCH_TEST_CASE("C API Dynamic Index Params", "[c_api][index][dynamic][sync]") {
         svs_dynamic_index_params_t bad_size = SVS_INIT_DYNAMIC_INDEX_PARAMS();
         bad_size.struct_size = sizeof(svs_dynamic_index_params_t) + 1;
         expect_invalid(&bad_size);
+
+        // Other _ex entry points validate params too.
+        svs_index_h source = fx.build(SVS_SYNC_KIND_NONE);
+        CATCH_REQUIRE(source != nullptr);
+        CATCH_REQUIRE(
+            svs_index_convert_dynamic_ex(fx.builder, source, &bad_sync, fx.error) == nullptr
+        );
+        CATCH_REQUIRE(svs_error_get_code(fx.error) == SVS_ERROR_INVALID_ARGUMENT);
+
+        TempDir dir;
+        CATCH_REQUIRE(svs_index_save(source, dir.string().c_str(), fx.error));
+        svs_index_free(source);
+        CATCH_REQUIRE(
+            svs_index_load_dynamic_ex(
+                fx.builder, dir.string().c_str(), &bad_bytes, fx.error
+            ) == nullptr
+        );
+        CATCH_REQUIRE(svs_error_get_code(fx.error) == SVS_ERROR_INVALID_ARGUMENT);
+    }
+
+    CATCH_SECTION("Sync kind getter") {
+        svs_sync_kind_t kind = SVS_SYNC_KIND_NONE;
+        CATCH_REQUIRE_FALSE(svs_index_dynamic_get_sync_kind(nullptr, &kind, fx.error));
+        CATCH_REQUIRE(svs_error_get_code(fx.error) == SVS_ERROR_INVALID_ARGUMENT);
+
+        svs_index_h index = fx.build(SVS_SYNC_KIND_GLOBAL);
+        CATCH_REQUIRE(index != nullptr);
+        CATCH_REQUIRE_FALSE(svs_index_dynamic_get_sync_kind(index, nullptr, fx.error));
+        CATCH_REQUIRE(svs_error_get_code(fx.error) == SVS_ERROR_INVALID_ARGUMENT);
+        svs_index_free(index);
+
+        svs_index_h static_index =
+            svs_index_build(fx.builder, fx.data.data(), NUM_VECTORS, fx.error);
+        CATCH_REQUIRE(static_index != nullptr);
+        CATCH_REQUIRE_FALSE(svs_index_dynamic_get_sync_kind(static_index, &kind, fx.error));
+        CATCH_REQUIRE(svs_error_get_code(fx.error) == SVS_ERROR_INVALID_ARGUMENT);
+        svs_index_free(static_index);
     }
 
     CATCH_SECTION("Fields beyond struct_size are ignored") {
@@ -315,7 +403,7 @@ CATCH_TEST_CASE("C API Dynamic Index Params", "[c_api][index][dynamic][sync]") {
         params.struct_size = offsetof(svs_dynamic_index_params_t, blocksize_bytes);
         params.blocksize_bytes = 3000;   // invalid, but not covered by struct_size
         params.blocksize_elements = 100; // invalid, but not covered by struct_size
-        params.sync_kind = static_cast<svs_sync_kind_t>(3);
+        params.sync_kind = 3;
         svs_index_h index = svs_index_build_dynamic_ex(
             fx.builder, fx.data.data(), nullptr, NUM_VECTORS, &params, fx.error
         );
@@ -369,12 +457,14 @@ CATCH_TEST_CASE("C API Dynamic Index Params", "[c_api][index][dynamic][sync]") {
         CATCH_REQUIRE(svs_error_ok(fx.error));
         CATCH_REQUIRE(ex_search == legacy_search);
 
+        svs_dynamic_index_params_t bad_params = SVS_INIT_DYNAMIC_INDEX_PARAMS();
+        bad_params.blocksize_elements = 100;
         CATCH_REQUIRE_FALSE(svs_index_builder_estimate_memory_dynamic_ex(
-            fx.builder, NUM_VECTORS, nullptr, &by_bytes, fx.error
+            fx.builder, NUM_VECTORS, &bad_params, &by_bytes, fx.error
         ));
         CATCH_REQUIRE(svs_error_get_code(fx.error) == SVS_ERROR_INVALID_ARGUMENT);
         CATCH_REQUIRE_FALSE(svs_index_builder_estimate_search_memory_dynamic_ex(
-            fx.builder, NUM_QUERIES, K, nullptr, nullptr, nullptr, &ex_search, fx.error
+            fx.builder, NUM_QUERIES, K, nullptr, nullptr, &bad_params, &ex_search, fx.error
         ));
         CATCH_REQUIRE(svs_error_get_code(fx.error) == SVS_ERROR_INVALID_ARGUMENT);
     }
@@ -390,6 +480,10 @@ CATCH_TEST_CASE("C API Dynamic Index Sync Sequential", "[c_api][index][dynamic][
     svs_index_h index = fx.build(sync_kind);
     CATCH_REQUIRE(index != nullptr);
     CATCH_REQUIRE(svs_error_ok(fx.error));
+
+    svs_sync_kind_t actual_kind = SVS_SYNC_KIND_NONE;
+    CATCH_REQUIRE(svs_index_dynamic_get_sync_kind(index, &actual_kind, fx.error));
+    CATCH_REQUIRE(actual_kind == sync_kind);
 
     std::vector<size_t> new_ids = {NUM_VECTORS, NUM_VECTORS + 1};
     std::vector<float> new_data;
@@ -447,7 +541,21 @@ CATCH_TEST_CASE("C API Dynamic Index Sync Sequential", "[c_api][index][dynamic][
     size_t size = 0;
     CATCH_REQUIRE(svs_index_get_size(loaded, &size, fx.error));
     CATCH_REQUIRE(size == NUM_VECTORS + 1);
+    CATCH_REQUIRE(svs_index_dynamic_get_sync_kind(loaded, &actual_kind, fx.error));
+    CATCH_REQUIRE(actual_kind == sync_kind);
 
+    // The converted index takes its sync kind from params, not from the source.
+    params.sync_kind = SVS_SYNC_KIND_GLOBAL;
+    svs_index_h converted =
+        svs_index_convert_dynamic_ex(fx.builder, index, &params, fx.error);
+    CATCH_REQUIRE(converted != nullptr);
+    CATCH_REQUIRE(svs_error_ok(fx.error));
+    CATCH_REQUIRE(svs_index_dynamic_get_sync_kind(converted, &actual_kind, fx.error));
+    CATCH_REQUIRE(actual_kind == SVS_SYNC_KIND_GLOBAL);
+    CATCH_REQUIRE(svs_index_get_size(converted, &size, fx.error));
+    CATCH_REQUIRE(size == NUM_VECTORS + 1);
+
+    svs_index_free(converted);
     svs_index_free(loaded);
     svs_index_free(index);
 }
@@ -479,6 +587,22 @@ CATCH_TEST_CASE("C API Dynamic Index Sync Concurrent", "[c_api][index][dynamic][
         params.sync_kind = sync_kind;
         svs_index_h index =
             svs_index_load_dynamic_ex(fx.builder, dir.string().c_str(), &params, fx.error);
+        CATCH_REQUIRE(index != nullptr);
+        CATCH_REQUIRE(svs_error_ok(fx.error));
+        run_concurrent_workload(fx, index);
+        svs_index_free(index);
+    }
+
+    CATCH_SECTION("Converted index") {
+        svs_index_h source = fx.build(SVS_SYNC_KIND_NONE);
+        CATCH_REQUIRE(source != nullptr);
+
+        svs_dynamic_index_params_t params = SVS_INIT_DYNAMIC_INDEX_PARAMS();
+        params.blocksize_bytes = BLOCK_SIZE;
+        params.sync_kind = sync_kind;
+        svs_index_h index =
+            svs_index_convert_dynamic_ex(fx.builder, source, &params, fx.error);
+        svs_index_free(source);
         CATCH_REQUIRE(index != nullptr);
         CATCH_REQUIRE(svs_error_ok(fx.error));
         run_concurrent_workload(fx, index);
