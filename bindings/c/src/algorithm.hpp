@@ -17,12 +17,11 @@
 
 #include "svs/c/svs_c.h"
 
-// #include <svs/concepts/data.h>
-// #include <svs/core/distance.h>
-// #include <svs/core/query_result.h>
 #include <svs/index/vamana/build_params.h>
 #include <svs/index/vamana/search_params.h>
 #include <svs/orchestrators/vamana.h>
+
+#include <memory>
 
 namespace svs::c_runtime {
 
@@ -41,6 +40,7 @@ struct Algorithm {
 
     virtual std::shared_ptr<SearchParams> get_default_search_params() const = 0;
     virtual void set_default_search_params(const std::shared_ptr<SearchParams>& params) = 0;
+    virtual std::unique_ptr<Algorithm> clone() const = 0;
 };
 
 struct AlgorithmVamana : public Algorithm {
@@ -89,6 +89,10 @@ struct AlgorithmVamana : public Algorithm {
     void set_default_search_params(const std::shared_ptr<Algorithm::SearchParams>& params
     ) override {
         default_search_params = *std::static_pointer_cast<SearchParams>(params);
+    }
+
+    std::unique_ptr<Algorithm> clone() const override {
+        return std::make_unique<AlgorithmVamana>(*this);
     }
 };
 
