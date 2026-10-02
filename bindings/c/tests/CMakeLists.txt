@@ -51,6 +51,7 @@ set(C_API_TEST_SOURCES
     c_api_index.cpp
     c_api_index_convert.cpp
     c_api_dynamic_index.cpp
+    c_api_logging.cpp
 )
 
 # Create test executable
