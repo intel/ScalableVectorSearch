@@ -25,6 +25,7 @@ import re
 import shlex
 import shutil
 import subprocess
+import sys
 import urllib.request
 import uuid
 
@@ -76,7 +77,13 @@ def logged(args, log, cwd=None):
     with log.open("a") as stream:
         stream.write("$ " + shlex.join([str(arg) for arg in args]) + "\n")
         stream.flush()
-        subprocess.run(args, cwd=cwd, stdout=stream, stderr=subprocess.STDOUT, check=True)
+        try:
+            subprocess.run(args, cwd=cwd, stdout=stream, stderr=subprocess.STDOUT, check=True)
+        except subprocess.CalledProcessError:
+            stream.flush()
+            print(f"Command failed; diagnostic log: {log}", file=sys.stderr)
+            print(log.read_text(errors="replace"), file=sys.stderr)
+            raise
 
 
 def configure(source, build, log, extra_args):

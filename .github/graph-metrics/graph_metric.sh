@@ -19,11 +19,12 @@ graph_metric_root="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." && pwd)"
 
 # Dataset definitions, graph parameters, thread count, and report paths live in JSON.
 graph_metric_config="${1:-${graph_metric_root}/graph_metrics_config.json}"
-graph_metric_build_dir="${graph_metric_root}/build"
+graph_metric_output_dir="${graph_metric_root}/build/graph-metrics"
+graph_metric_build_dir="${graph_metric_output_dir}/build"
 graph_metric_build_type="Release"
 graph_metric_build_jobs=8
 graph_metric_cmake="auto" # Reuse the build directory's CMake, otherwise use PATH.
-graph_metric_build_log="${graph_metric_build_dir}/graph-metrics/build.log"
+graph_metric_build_log="${graph_metric_output_dir}/build.log"
 
 if (( $# > 1 )); then
     printf 'Usage: bash .github/graph-metrics/graph_metric.sh [configuration.json]\n' >&2
@@ -56,10 +57,12 @@ printf 'Configuration: %s\nBuild log: %s\n' "${graph_metric_config}" "${graph_me
 # The calculator handles runtime JSON/log destinations from the config itself.
 mkdir -p -- "$(dirname -- "${graph_metric_build_log}")"
 {
-    "${graph_metric_cmake}" -S "${graph_metric_root}" -B "${graph_metric_build_dir}" \
-        -DCMAKE_BUILD_TYPE="${graph_metric_build_type}" -DSVS_BUILD_BINARIES=ON
+    "${graph_metric_cmake}" -S "${graph_metric_root}/.github/graph-metrics" \
+        -B "${graph_metric_build_dir}" \
+        -DCMAKE_BUILD_TYPE="${graph_metric_build_type}" \
+        -DSVS_SOURCE_DIR="${graph_metric_root}"
     "${graph_metric_cmake}" --build "${graph_metric_build_dir}" --target graph_metrics \
         --parallel "${graph_metric_build_jobs}"
 } > "${graph_metric_build_log}" 2>&1
 
-exec "${graph_metric_build_dir}/utils/graph_metrics" --config "${graph_metric_config}"
+exec "${graph_metric_build_dir}/graph_metrics" --config "${graph_metric_config}"

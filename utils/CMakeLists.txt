@@ -37,11 +37,6 @@ function(create_utility exe file)
 endfunction()
 
 create_utility(graph_stat graph_stat.cpp)
-include("${PROJECT_SOURCE_DIR}/cmake/graph-metrics-dependencies.cmake")
-create_utility(graph_metrics graph_metrics.cpp)
-target_link_libraries(
-    graph_metrics PRIVATE nlohmann_json::nlohmann_json OpenSSL::Crypto
-)
 
 # Legacy conversion routines.
 create_utility(convert_legacy convert_legacy.cpp)

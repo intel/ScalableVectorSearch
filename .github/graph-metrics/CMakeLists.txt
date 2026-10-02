@@ -25,7 +25,21 @@ set(SVS_BUILD_BENCHMARK_TEST_GENERATORS OFF CACHE BOOL "" FORCE)
 add_subdirectory("${SVS_SOURCE_DIR}" svs)
 
 get_filename_component(METRICS_SOURCE_DIR "${CMAKE_CURRENT_LIST_DIR}/../.." ABSOLUTE)
-include("${METRICS_SOURCE_DIR}/cmake/graph-metrics-dependencies.cmake")
+# These dependencies are private to this standalone project. Normal SVS utility
+# builds must not discover or download them.
+find_package(OpenSSL REQUIRED COMPONENTS Crypto)
+find_package(nlohmann_json 3.11 QUIET)
+if(NOT nlohmann_json_FOUND)
+    include(FetchContent)
+    FetchContent_Declare(
+        graph_metrics_json
+        GIT_REPOSITORY https://github.com/nlohmann/json.git
+        GIT_TAG v3.11.3
+        GIT_SHALLOW TRUE
+    )
+    FetchContent_MakeAvailable(graph_metrics_json)
+endif()
+
 add_executable(
     graph_metrics "${METRICS_SOURCE_DIR}/utils/graph_metrics.cpp"
 )
