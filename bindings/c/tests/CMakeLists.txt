@@ -14,6 +14,9 @@
 
 set(TARGET_NAME svs_c_api_test)
 
+# Dynamic index sync tests use threads and require linking with the Threads library
+find_package(Threads REQUIRED)
+
 # Check if Catch2 is available
 find_package(Catch2 3 QUIET)
 
@@ -58,10 +61,11 @@ set(C_API_TEST_SOURCES
 # Create test executable
 add_executable(${TARGET_NAME} ${C_API_TEST_SOURCES})
 
-# Link with C API library and Catch2
+# Link with C API library, Catch2, and Threads library
 target_link_libraries(${TARGET_NAME} PRIVATE
     svs_c_api
     Catch2::Catch2WithMain
+    Threads::Threads
 )
 
 # Tell the tests which storage backends this build is expected to provide, so
