@@ -73,8 +73,12 @@ template <typename Alloc> class SegmentedBlocked : public svs::data::Blocked<All
     template <typename U> friend class SegmentedBlocked;
     template <typename U>
     SegmentedBlocked(const SegmentedBlocked<U>& other)
-        : parent_type{other.parameters(), other.get_allocator()} {}
+        : parent_type{other.parameters(), allocator_type(other.get_allocator())} {}
 };
+
+template <typename Alloc> inline constexpr bool is_segmented_blocked_v = false;
+template <typename Alloc>
+inline constexpr bool is_segmented_blocked_v<SegmentedBlocked<Alloc>> = true;
 
 } // namespace svs::index::vamana::concurrent
 
