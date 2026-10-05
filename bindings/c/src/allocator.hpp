@@ -19,6 +19,7 @@
 
 #include "error.hpp"
 
+#include <svs/concurrent/blocked_data.h>
 #include <svs/core/allocator.h>
 #include <svs/core/data/simple.h>
 #include <svs/lib/float16.h>
@@ -28,9 +29,37 @@
 namespace svs {
 namespace c_runtime {
 
-template <typename T, bool UseBlocked, typename Allocator = svs::lib::Allocator<T>>
-using MaybeBlockedAlloc =
-    std::conditional_t<UseBlocked, svs::data::Blocked<Allocator>, Allocator>;
+/// Storage layout of a dataset or graph.
+enum class BlockKind {
+    None,     ///< Single contiguous allocation (static index).
+    Blocked,  ///< data::Blocked (regular dynamic index).
+    Segmented ///< concurrent::SegmentedBlocked (concurrent dynamic index).
+};
+
+namespace detail {
+template <BlockKind Kind, typename Allocator> struct BlockedAllocSelector {
+    using type = Allocator;
+};
+template <typename Allocator> struct BlockedAllocSelector<BlockKind::Blocked, Allocator> {
+    using type = svs::data::Blocked<Allocator>;
+};
+template <typename Allocator> struct BlockedAllocSelector<BlockKind::Segmented, Allocator> {
+    using type = svs::index::vamana::concurrent::SegmentedBlocked<Allocator>;
+};
+} // namespace detail
+
+template <typename T, BlockKind Kind, typename Allocator = svs::lib::Allocator<T>>
+using MaybeBlockedAlloc = typename detail::BlockedAllocSelector<Kind, Allocator>::type;
+
+// Accepts a BlockKind, or a bool meaning Blocked (true) / None (false).
+template <auto Kind>
+inline constexpr BlockKind block_kind_v = [] {
+    if constexpr (std::is_same_v<decltype(Kind), bool>) {
+        return Kind ? BlockKind::Blocked : BlockKind::None;
+    } else {
+        return Kind;
+    }
+}();
 
 class AllocatorBuilder {
     template <typename T> class CustomAllocator {

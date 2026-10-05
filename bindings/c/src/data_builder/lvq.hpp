@@ -39,6 +39,9 @@
 #include <svs/extensions/vamana/lvq.h>
 #endif // SVS_LVQ_HEADER
 
+#include "allocator.hpp"
+#include <svs/concurrent/extensions/lvq.h>
+
 #include <cstddef>
 #include <filesystem>
 #include <stdexcept>
@@ -160,9 +163,10 @@ struct lib::DispatchConverter<
     static To convert(From SVS_UNUSED(from)) { return To{}; }
 };
 
-template <bool UseBlocked, typename F> void for_lvq_specializations(F&& f) {
-    using byte_alloc = svs::c_runtime::
-        MaybeBlockedAlloc<std::byte, UseBlocked, AllocatorHandle<std::byte>>;
+template <auto KindArg, typename F> void for_lvq_specializations(F&& f) {
+    constexpr auto Kind = c_runtime::block_kind_v<KindArg>;
+    using byte_alloc =
+        svs::c_runtime::MaybeBlockedAlloc<std::byte, Kind, AllocatorHandle<std::byte>>;
 #define X(P, S, D) f.template operator()<LVQDataBuilder<P, S, byte_alloc>, D>();
 #define XX(P, S) X(P, S, DistanceL2) X(P, S, DistanceIP) X(P, S, DistanceCosineSimilarity)
     // Pattern:
@@ -180,7 +184,7 @@ template <bool UseBlocked, typename F> void for_lvq_specializations(F&& f) {
 #else // SVS_RUNTIME_ENABLE_LVQ_LEANVEC not enabled
 namespace svs {
 // Define empty stubs for LVQ-related functions when LVQ/LeanVec support is disabled
-template <bool UseBlocked, typename F> void for_lvq_specializations(F&&) {}
+template <auto KindArg, typename F> void for_lvq_specializations(F&&) {}
 } // namespace svs
 
 #endif // SVS_RUNTIME_ENABLE_LVQ_LEANVEC
