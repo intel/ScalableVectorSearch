@@ -17,7 +17,6 @@
 
 #include "algorithm.hpp"
 #include "data_builder.hpp"
-#include "index.hpp"
 #include "storage.hpp"
 #include "threadpool.hpp"
 #include "types_support.hpp"
@@ -29,12 +28,16 @@
 #include <svs/lib/float16.h>
 #include <svs/orchestrators/vamana.h>
 
+#include <cassert>
 #include <filesystem>
 #include <memory>
+#include <stdexcept>
+#include <utility>
 #include <variant>
 
 namespace svs::c_runtime {
 
+namespace {
 template <typename DataBuilder, typename Distance>
 svs::Vamana build_vamana_index(
     const svs::index::vamana::VamanaBuildParameters& build_params,
@@ -117,6 +120,130 @@ const BuildIndexDispatcher& build_vamana_index_dispatcher() {
     return dispatcher;
 }
 
+using CopyIndexDispatcher = svs::lib::Dispatcher<
+    svs::Vamana,
+    const svs::index::vamana::VamanaBuildParameters&,
+    const svs::Vamana&,
+    const Storage*, // src
+    const Storage*, // dst
+    svs::DistanceType,
+    svs::threads::ThreadPoolHandle,
+    const AllocatorBuilder&>;
+
+template <typename SrcDataBuilder, typename DstDataBuilder, typename Distance>
+svs::Vamana copy_vamana_index(
+    const svs::index::vamana::VamanaBuildParameters& build_params,
+    const svs::Vamana& src_index,
+    SrcDataBuilder src_builder,
+    DstDataBuilder dst_builder,
+    Distance distance,
+    svs::threads::ThreadPoolHandle pool,
+    const AllocatorBuilder& allocator_builder
+) {
+    auto config = src_index.parameters();
+
+    // A defaulted alpha is resolved per-metric at build time, so it cannot be compared.
+    constexpr svs::index::vamana::VamanaBuildParameters default_build_params{};
+    const bool alpha_is_default = build_params.alpha == default_build_params.alpha;
+
+    // Validate build parameters match
+    if (config.build_parameters.graph_max_degree != build_params.graph_max_degree ||
+        (!alpha_is_default && config.build_parameters.alpha != build_params.alpha)) {
+        throw not_implemented("Index build parameters mismatch");
+    }
+
+    config.build_parameters.apply(build_params);
+    verify_and_set_default_index_parameters(config.build_parameters, distance);
+
+    // Get the typed index implementation from the source index
+    using GraphType = svs::graphs::SimpleGraph<uint32_t, AllocatorHandle<uint32_t>>;
+    using SrcDataType = typename SrcDataBuilder::data_type;
+    using IndexImplType = svs::index::vamana::VamanaIndex<GraphType, SrcDataType, Distance>;
+
+    auto src_index_impl =
+        src_index.template get_typed_impl<svs::lib::Types<float>, IndexImplType>();
+    if (!src_index_impl) {
+        throw std::runtime_error("Failed to get typed index implementation");
+    }
+
+    // Copy the graph structure from the source index to the new graph instance
+    const auto& src_graph = src_index_impl->view_graph();
+    assert(src_graph.max_degree() == config.build_parameters.graph_max_degree);
+    auto graph = GraphType(
+        src_graph.n_nodes(),
+        build_params.graph_max_degree,
+        allocator_builder.build_for_graph<uint32_t>()
+    );
+    svs::data::copy(src_graph.get_data(), graph.get_data());
+
+    // Copy/convert the data from the source index to the new data instance
+    const auto src_data = src_builder.get_dataset(src_index_impl->view_data());
+    using value_type = typename DstDataBuilder::allocator_type::value_type;
+    auto data = dst_builder.build(src_data, pool, allocator_builder.build<value_type>());
+
+    return svs::Vamana::assemble<float>(
+        config, std::move(graph), std::move(data), distance, std::move(pool)
+    );
+}
+
+template <typename Dispatcher>
+void register_copy_vamana_index_specializations(Dispatcher& dispatcher) {
+    // TODO: Enable Compressed -> Compressed specializations by making decompressors,
+    // decompression accessors and decompression dataset are thread-safe
+
+    // Compression specializations for copy_vamana_index
+    // To handle cases Simple -> Compressed
+    auto compression_closure = [&dispatcher]<typename SrcDataBuilder, typename Dist>() {
+        // Skip all distance specializations except one
+        if constexpr (!std::is_same_v<Dist, DistanceL2>) {
+            return;
+        }
+        auto inner_closure = [&dispatcher]<typename DstDataBuilder, typename Distance>() {
+            dispatcher.register_target(&copy_vamana_index<
+                                       SrcDataBuilder,
+                                       DstDataBuilder,
+                                       Distance>);
+        };
+
+        for_simple_specializations<false>(inner_closure);
+        for_sq_specializations<false>(inner_closure);
+        for_lvq_specializations<false>(inner_closure);
+        for_leanvec_specializations<false>(inner_closure);
+    };
+    for_simple_specializations<false>(compression_closure);
+
+    // Decompression specializations for copy_vamana_index
+    // To handle cases Compressed -> Simple
+    auto decompression_closure = [&dispatcher]<typename SrcDataBuilder, typename Dist>() {
+        // Skip all distance specializations except one
+        if constexpr (!std::is_same_v<Dist, DistanceL2>) {
+            return;
+        }
+        auto inner_closure = [&dispatcher]<typename DstDataBuilder, typename Distance>() {
+            dispatcher.register_target(&copy_vamana_index<
+                                       SrcDataBuilder,
+                                       DstDataBuilder,
+                                       Distance>);
+        };
+
+        for_simple_specializations<false>(inner_closure);
+    };
+    for_sq_specializations<false>(decompression_closure);
+    for_lvq_specializations<false>(decompression_closure);
+    for_leanvec_specializations<false>(decompression_closure);
+}
+
+const CopyIndexDispatcher& copy_vamana_index_dispatcher() {
+    static CopyIndexDispatcher dispatcher = [] {
+        CopyIndexDispatcher d{};
+        register_copy_vamana_index_specializations(d);
+        return d;
+    }();
+    return dispatcher;
+}
+
+} // namespace
+
 svs::Vamana dispatch_vamana_index_build(
     const svs::index::vamana::VamanaBuildParameters& build_params,
     svs::data::ConstSimpleDataView<float> data,
@@ -147,6 +274,26 @@ svs::Vamana dispatch_vamana_index_load(
         build_params,
         VamanaSource{directory},
         storage,
+        distance_type,
+        std::move(pool),
+        allocator_builder
+    );
+}
+
+svs::Vamana dispatch_vamana_index_copy(
+    const svs::index::vamana::VamanaBuildParameters& build_params,
+    const svs::Vamana& src_index,
+    const Storage* src_storage,
+    const Storage* dst_storage,
+    svs::DistanceType distance_type,
+    svs::threads::ThreadPoolHandle pool,
+    const AllocatorBuilder& allocator_builder
+) {
+    return copy_vamana_index_dispatcher().invoke(
+        build_params,
+        src_index,
+        src_storage,
+        dst_storage,
         distance_type,
         std::move(pool),
         allocator_builder

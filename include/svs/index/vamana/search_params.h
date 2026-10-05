@@ -38,8 +38,10 @@ struct VamanaSearchParameters {
     ///
     /// The visited set tracks whether candidates the distance between a query and a
     /// candidate has already been computed. Enabling this feature generally improves
-    /// performance in the high-recall or high-neighbor regime.
-    bool search_buffer_visited_set_ = false;
+    /// performance in the high-recall or high-neighbor regime. Defaults to `true`:
+    /// regression testing (48 configs, k=100, recall 0.90-0.95) showed a consistent
+    /// 1.2x-1.4x QPS gain with no recall cost and no regressions.
+    bool search_buffer_visited_set_ = true;
 
     /// @brief The number of iterations ahead to prefetch candidates.
     size_t prefetch_lookahead_ = 4;
