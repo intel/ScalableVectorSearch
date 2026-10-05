@@ -14,8 +14,8 @@
 
 set(SVS_X86_SRC_DIR "${PROJECT_SOURCE_DIR}/include/svs/multi-arch/x86")
 set(SVS_X86
-  "${SVS_X86_SRC_DIR}/avx2.cpp,avx2,haswell"
-  "${SVS_X86_SRC_DIR}/avx512.cpp,avx512,cascadelake"
+  "${SVS_X86_SRC_DIR}/avx2.cpp,avx2,x86-64-v3"
+  "${SVS_X86_SRC_DIR}/avx512.cpp,avx512,x86-64-v4"
 )
 
 set(SVS_X86_OBJECT_FILES)
@@ -26,7 +26,7 @@ foreach(x86_info IN LISTS SVS_X86)
     list(GET x86_info 2 arch)
     set(lib_name "svs_x86_${avx}")
     add_library(${lib_name} INTERFACE)
-    target_compile_options(${lib_name} INTERFACE -march=${arch} -mtune=${arch})
+    target_compile_options(${lib_name} INTERFACE -march=${arch})
     set(obj_name ${arch}_obj)
 
     add_library(${obj_name} OBJECT ${src})
