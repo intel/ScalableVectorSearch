@@ -69,7 +69,7 @@ class SimpleDataBuilder {
         return total_size;
     }
 
-    auto get_dataset(const data_type& data) const { return data; }
+    const data_type& get_dataset(const data_type& data) const { return data; }
 };
 
 template <Arithmetic T, typename Alloc>
