@@ -146,10 +146,9 @@ enum svs_threadpool_kind {
 /// @brief Operations table for a custom logging interface.
 /// @remarks Lifetime: the operations table, the function it points to and the @p self
 /// pointer of the owning svs_logging_interface must remain valid for as long as any
-/// logger configured with them is in use, i.e. while the svs_logger_h handle, any index
-/// built with it, or the SVS global default logger (see svs_set_default_logger) still
-/// refers to it. Once svs_logger_set_kind or svs_logger_set_custom has replaced the
-/// output of the handle and returned, the previous callback is no longer called.
+/// logger created with them (see svs_logger_create_custom) is in use, i.e. while the
+/// svs_logger_h handle, any index built with it, or the SVS global default logger (see
+/// svs_set_default_logger) still refers to it.
 /// @remarks Thread safety: the @p log function may be called from SVS worker threads.
 /// Calls through one logger handle are serialized by an internal mutex, and the
 /// callback runs while that mutex is held. The callback must not call back into SVS
@@ -620,60 +619,53 @@ SVS_API const char* svs_error_get_message(svs_error_h err);
 /// @param err The error handle to free
 SVS_API void svs_error_free(svs_error_h err);
 
-/// @brief Create a logger with default settings
+/// @brief Create a logger writing to a built-in output
+/// @param kind The output of the logger: SVS_LOGGING_KIND_NONE (discard everything),
+/// SVS_LOGGING_KIND_STDOUT, SVS_LOGGING_KIND_STDERR, SVS_LOGGING_KIND_FILE_APPEND or
+/// SVS_LOGGING_KIND_FILE_TRUNCATE. SVS_LOGGING_KIND_CUSTOM is rejected; use
+/// svs_logger_create_custom() instead.
+/// @param path The file to write to for SVS_LOGGING_KIND_FILE_APPEND and
+/// SVS_LOGGING_KIND_FILE_TRUNCATE (must not be NULL or empty; missing directories are
+/// created). Ignored by the other kinds; may be NULL.
 /// @param out_err An optional error handle to capture errors
 /// @return A handle to the created logger or NULL if creation failed
-/// @remarks A new logger has no output until svs_logger_set_kind() or
-/// svs_logger_set_custom() is called. Its level is SVS_LOG_LEVEL_WARN and its pattern is
-/// "%v" (the bare message). The SVS_LOG_SINK / SVS_LOG_LEVEL environment variables are
-/// not read here; they only configure the SVS global default logger.
-/// @remarks Output, level and pattern changes made through a handle apply immediately to
+/// @remarks The output of a logger is fixed at creation. To log somewhere else, create
+/// another logger and pass it to svs_set_default_logger() or
+/// svs_index_builder_set_logger().
+/// @remarks A new logger has level SVS_LOG_LEVEL_WARN and pattern "%v" (the bare
+/// message). The SVS_LOG_SINK / SVS_LOG_LEVEL environment variables are not read here;
+/// they only configure the SVS built-in default logger.
+/// @remarks Level and pattern changes made through a handle apply immediately to
 /// everything already using its logger (the SVS global default logger and indexes).
 /// @remarks Thread safety: the functions that modify a logger handle
-/// (svs_logger_set_kind, svs_logger_set_custom, svs_logger_set_level,
-/// svs_logger_set_pattern, svs_logger_free) are not thread-safe. Do not call them
-/// concurrently with each other or with other functions using the same handle.
-SVS_API svs_logger_h svs_logger_create(svs_error_h out_err /*=NULL*/);
+/// (svs_logger_set_level, svs_logger_set_pattern, svs_logger_free) are not thread-safe.
+/// Do not call them concurrently with each other or with other functions using the same
+/// handle.
+SVS_API svs_logger_h svs_logger_create(
+    svs_logging_kind_t kind, const char* path, svs_error_h out_err /*=NULL*/
+);
+
+/// @brief Create a logger forwarding every message to a user callback
+/// @param user_logger The custom logging interface; @p user_logger->ops must be
+/// initialized with SVS_INIT_LOGGING_OPS. The version, struct_size and log fields are
+/// validated. See svs_logging_interface_ops for the lifetime and thread-safety
+/// requirements of the callback.
+/// @param out_err An optional error handle to capture errors
+/// @return A handle to the created logger or NULL if creation failed
+/// @remarks The callback always receives the bare message text (plus level and self);
+/// the logger pattern does not apply to it.
+/// @remarks Same defaults, lifetime and thread-safety rules as svs_logger_create(): the
+/// output is fixed at creation, level SVS_LOG_LEVEL_WARN, pattern "%v".
+SVS_API svs_logger_h
+svs_logger_create_custom(svs_logging_i user_logger, svs_error_h out_err /*=NULL*/);
 
 /// @brief Free a logger handle
 /// @param logger The logger handle to free. Passing NULL is a no-op.
-/// @remarks The SVS global default logger (see svs_set_default_logger) keeps its own
-/// reference to the underlying logger, so freeing the handle does not stop it from
-/// logging. User data referenced by a custom logger must stay valid as long as such a
-/// reference exists.
+/// @remarks The SVS global default logger (see svs_set_default_logger) and indexes built
+/// with the logger keep their own reference to the underlying logger, so freeing the
+/// handle does not stop it from logging. User data referenced by a custom logger must
+/// stay valid as long as such a reference exists.
 SVS_API void svs_logger_free(svs_logger_h logger);
-
-/// @brief Set the logging kind for an existing logger
-/// @param logger The logger handle to set the kind for
-/// @param kind The logging kind to set
-/// @param path The file path to use for file-based logging kinds (e.g.,
-/// SVS_LOGGING_KIND_FILE_APPEND or SVS_LOGGING_KIND_FILE_TRUNCATE)
-/// @param out_err An optional error handle to capture errors
-/// @return true on success, false on failure
-/// @remarks SVS_LOGGING_KIND_CUSTOM is rejected; use svs_logger_set_custom instead.
-/// @remarks The current level and pattern of the handle are kept. The new output applies
-/// immediately to everything already using this logger.
-SVS_API bool svs_logger_set_kind(
-    svs_logger_h logger,
-    svs_logging_kind_t kind,
-    const char* path,
-    svs_error_h out_err /*=NULL*/
-);
-
-/// @brief Create a custom logger for the SVS library
-/// @param logger The logger handle to set as custom
-/// @param user_logger The custom logger to create for the SVS library
-/// @param out_err An optional error handle to capture errors
-/// @return true on success, false on failure
-/// @remarks @p user_logger->ops must be initialized with SVS_INIT_LOGGING_OPS; the
-/// version and struct_size fields are validated. See svs_logging_interface_ops for the
-/// lifetime and thread-safety requirements of the callback.
-/// @remarks The callback always receives the bare message text (plus level and self);
-/// the logger pattern does not apply to it. The current level of the handle is kept.
-/// The new output applies immediately to everything already using this logger.
-SVS_API bool svs_logger_set_custom(
-    svs_logger_h logger, svs_logging_i user_logger, svs_error_h out_err /*=NULL*/
-);
 
 /// @brief Set the logging level for a logger
 /// @param logger The logger handle
@@ -700,10 +692,9 @@ SVS_API bool svs_logger_get_level(
 /// the bare message, or "[index A] %v" to prefix every message). Must not be NULL.
 /// @param out_err An optional error handle to capture errors
 /// @return true on success, false on failure
-/// @remarks The pattern applies to the stdout, stderr and file output kinds and is kept
-/// across svs_logger_set_kind / svs_logger_set_custom. It does not apply to custom
-/// callbacks (svs_logger_set_custom), which always receive the bare message text.
-/// Applies immediately to everything already using this logger.
+/// @remarks The pattern applies to the stdout, stderr and file output kinds. It does not
+/// apply to custom callbacks (svs_logger_create_custom), which always receive the bare
+/// message text. Applies immediately to everything already using this logger.
 SVS_API bool svs_logger_set_pattern(
     svs_logger_h logger, const char* pattern, svs_error_h out_err /*=NULL*/
 );

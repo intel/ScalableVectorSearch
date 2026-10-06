@@ -22,9 +22,11 @@
 #include <svs/core/logging.h>
 
 #include "spdlog/sinks/callback_sink.h"
-#include "spdlog/sinks/dist_sink.h"
 
+#include <memory>
 #include <stdexcept>
+#include <string>
+#include <utility>
 
 namespace svs {
 namespace c_runtime {
@@ -64,5 +66,87 @@ inline void validate_custom_logger(const svs_logging_i user_logger) {
     }
 }
 
+/// Maps a C API log level to the SVS logging level. Unknown values map to Info.
+inline svs::logging::Level to_logging_level(svs_log_level_t level) {
+    switch (level) {
+        case SVS_LOG_LEVEL_TRACE:
+            return svs::logging::Level::Trace;
+        case SVS_LOG_LEVEL_DEBUG:
+            return svs::logging::Level::Debug;
+        case SVS_LOG_LEVEL_INFO:
+            return svs::logging::Level::Info;
+        case SVS_LOG_LEVEL_WARN:
+            return svs::logging::Level::Warn;
+        case SVS_LOG_LEVEL_ERROR:
+            return svs::logging::Level::Error;
+        case SVS_LOG_LEVEL_CRITICAL:
+            return svs::logging::Level::Critical;
+        case SVS_LOG_LEVEL_OFF:
+            return svs::logging::Level::Off;
+        default:
+            return svs::logging::Level::Info;
+    }
+}
+
+/// Creates the spdlog sink for a built-in output kind. `path` is only used by the file
+/// kinds. SVS_LOGGING_KIND_CUSTOM is rejected: use svs_logger_create_custom().
+inline svs::logging::sink_ptr make_sink(svs_logging_kind_t kind, const char* path) {
+    switch (kind) {
+        case SVS_LOGGING_KIND_NONE:
+            return svs::logging::null_sink();
+        case SVS_LOGGING_KIND_STDOUT:
+            return svs::logging::stdout_sink();
+        case SVS_LOGGING_KIND_STDERR:
+            return svs::logging::stderr_sink();
+        case SVS_LOGGING_KIND_FILE_APPEND:
+        case SVS_LOGGING_KIND_FILE_TRUNCATE:
+            if (path == nullptr || *path == '\0') {
+                throw std::invalid_argument(
+                    "File path must be provided for file logging kind"
+                );
+            }
+            return svs::logging::file_sink(path, kind == SVS_LOGGING_KIND_FILE_TRUNCATE);
+        case SVS_LOGGING_KIND_CUSTOM:
+            throw std::invalid_argument(
+                "Custom loggers must be created with svs_logger_create_custom"
+            );
+        default:
+            throw std::invalid_argument("Invalid logging kind");
+    }
+}
+
+/// Creates the spdlog sink that forwards every message to a user callback. The callback
+/// receives the bare message text; the logger pattern does not apply to it.
+inline svs::logging::sink_ptr make_custom_sink(const svs_logging_i user_logger) {
+    validate_custom_logger(user_logger);
+    auto log = user_logger->ops->log;
+    auto self = user_logger->self;
+    return std::make_shared<spdlog::sinks::callback_sink_mt>(
+        [log, self](const spdlog::details::log_msg& msg) {
+            std::string text(msg.payload.data(), msg.payload.size());
+            log(self, static_cast<svs_log_level_t>(msg.level), text.c_str());
+        }
+    );
+}
+
 } // namespace c_runtime
 } // namespace svs
+
+/// The logger handle of the C API (svs_logger_h).
+struct svs_logger {
+    // The handle keeps this one spdlog logger for its whole life. Indexes and the SVS
+    // global default logger hold references to it, so level and pattern changes made
+    // through the handle apply to them immediately. The output sink is fixed at
+    // creation: to log somewhere else, create another logger.
+    svs::logging::logger_ptr impl;
+    // Current pattern; returned by svs_logger_get_pattern().
+    std::string pattern = svs::c_runtime::default_log_pattern;
+
+    explicit svs_logger(svs::logging::sink_ptr sink)
+        : impl{std::make_shared<spdlog::logger>(
+              svs::c_runtime::logger_name, std::move(sink)
+          )} {
+        impl->set_level(spdlog::level::warn);
+        impl->set_pattern(pattern);
+    }
+};

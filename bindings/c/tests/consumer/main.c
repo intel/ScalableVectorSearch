@@ -63,16 +63,11 @@ static int check_logging(svs_error_h error) {
     user_logger.ops = &ops;
     user_logger.self = &count;
 
-    svs_logger_h logger = svs_logger_create(error);
+    svs_logger_h logger = svs_logger_create_custom(&user_logger, error);
     if (logger == NULL) {
-        fprintf(stderr, "failed to create a logger: %s\n", svs_error_get_message(error));
-        return 0;
-    }
-    if (!svs_logger_set_custom(logger, &user_logger, error)) {
         fprintf(
-            stderr, "failed to set a custom logger: %s\n", svs_error_get_message(error)
+            stderr, "failed to create a custom logger: %s\n", svs_error_get_message(error)
         );
-        svs_logger_free(logger);
         return 0;
     }
     svs_logger_free(logger);
