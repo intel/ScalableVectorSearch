@@ -125,8 +125,14 @@ CATCH_TEST_CASE("C API Index Builder", "[c_api][index_builder]") {
 
         bool success =
             svs_index_builder_set_threadpool(builder, SVS_THREADPOOL_KIND_OMP, 2, error);
-        CATCH_REQUIRE(success == true);
-        CATCH_REQUIRE(svs_error_ok(error) == true);
+        // If OMP is not implemented, success will be false and the error code will be
+        // SVS_ERROR_NOT_IMPLEMENTED. Otherwise, success should be true and the error should
+        // be OK.
+        if (!success) {
+            CATCH_REQUIRE(svs_error_get_code(error) == SVS_ERROR_NOT_IMPLEMENTED);
+        } else {
+            CATCH_REQUIRE(svs_error_ok(error) == true);
+        }
 
         svs_index_builder_free(builder);
         svs_algorithm_free(algorithm);

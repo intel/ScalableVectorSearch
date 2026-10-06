@@ -112,6 +112,13 @@ class ThreadPoolBuilder {
                 "SVS_THREADPOOL_KIND_CUSTOM cannot be built automatically."
             );
         }
+
+        // Validate that SVS_OMP macro is properly defined.
+        SVS_VALIDATE_BOOL_ENV(SVS_OMP)
+
+        if (!SVS_OMP && kind == SVS_THREADPOOL_KIND_OMP) {
+            throw svs::c_runtime::not_implemented("OpenMP support is not enabled.");
+        }
     }
 
     ThreadPoolBuilder(svs_threadpool_i pool)
@@ -158,7 +165,12 @@ class ThreadPoolBuilder {
             case SVS_THREADPOOL_KIND_NATIVE:
                 return ThreadPoolHandle(NativeThreadPool(num_threads));
             case SVS_THREADPOOL_KIND_OMP:
+#if SVS_OMP
+                // OMPThreadPool is only available if OpenMP support is enabled.
                 return ThreadPoolHandle(OMPThreadPool(num_threads));
+#else
+                throw svs::c_runtime::not_implemented("OpenMP support is not enabled.");
+#endif
             case SVS_THREADPOOL_KIND_SINGLE_THREAD:
                 return ThreadPoolHandle(SequentialThreadPool());
             case SVS_THREADPOOL_KIND_CUSTOM:
