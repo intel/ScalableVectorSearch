@@ -1072,9 +1072,6 @@ SVS_API svs_index_h svs_index_load_dynamic(
 ///   the stream rather than referenced.
 /// @remarks Accepts both the native stream encoding produced by @ref svs_index_save_stream
 ///   and a packed directory archive. The encoding is detected from the stream itself.
-/// @remarks Graph memory comes from `HugepageAllocator` rather than any allocator supplied
-///   through @ref svs_index_builder_set_allocator_custom. This is a performance difference,
-///   not a correctness one.
 SVS_API svs_index_h svs_index_load_stream(
     svs_index_builder_h builder, svs_stream_i stream, svs_error_h out_err /*=NULL*/
 );
@@ -1090,10 +1087,6 @@ SVS_API svs_index_h svs_index_load_stream(
 ///   the stream rather than referenced.
 /// @remarks Accepts both the native stream encoding produced by @ref svs_index_save_stream
 ///   and a packed directory archive. The encoding is detected from the stream itself.
-/// @remarks Graph memory comes from `HugepageAllocator` rather than any allocator supplied
-///   through @ref svs_index_builder_set_allocator_custom, and growing the loaded index
-///   reallocates the whole graph instead of appending a block. Both are a performance
-///   difference, not a correctness one.
 SVS_API svs_index_h svs_index_load_stream_dynamic(
     svs_index_builder_h builder,
     svs_stream_i stream,

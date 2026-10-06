@@ -92,7 +92,11 @@ svs::Vamana load_stream_vamana_index(
     // Data is copied out of the stream during load, so `self` need not outlive the call.
     // A zero-copy load would alias the caller's buffer and must not reuse this contract.
     return svs::Vamana::assemble<float, data_type>(
-        *stream, distance, std::move(pool), allocator_builder.build<value_type>()
+        *stream,
+        distance,
+        std::move(pool),
+        allocator_builder.build<value_type>(),
+        allocator_builder.build_for_graph<uint32_t>()
     );
 }
 

@@ -24,8 +24,10 @@
 #include "c_api_test_utils.h"
 
 // Standard library
+#include <algorithm>
 #include <cstring>
 #include <limits>
+#include <numeric>
 #include <vector>
 
 namespace {
@@ -453,9 +455,7 @@ CATCH_TEST_CASE("C API Stream Save and Load", "[c_api][index][stream]") {
 
     CATCH_SECTION("Dynamic round-trip, add_points, and search") {
         std::vector<size_t> ids(NUM_VECTORS);
-        for (size_t i = 0; i < NUM_VECTORS; ++i) {
-            ids[i] = i;
-        }
+        std::iota(ids.begin(), ids.end(), size_t{0});
         const size_t BLOCK_SIZE = 1024 * 1024;
         svs_index_h index = svs_index_build_dynamic(
             builder, data.data(), ids.data(), NUM_VECTORS, BLOCK_SIZE, error
@@ -527,19 +527,148 @@ CATCH_TEST_CASE("C API Stream Save and Load", "[c_api][index][stream]") {
             loaded, probe_query.data(), 1, K, &probe_results, nullptr, nullptr, error
         ));
         CATCH_REQUIRE(svs_error_ok(error));
-        bool found_new_id = false;
-        for (size_t i = 0; i < K; ++i) {
-            if (probe_results.indices[i] == new_ids[0]) {
-                found_new_id = true;
-                break;
-            }
-        }
+        bool found_new_id = std::any_of(
+            probe_results.indices,
+            probe_results.indices + K,
+            [new_id = new_ids[0]](size_t idx) { return idx == new_id; }
+        );
         CATCH_REQUIRE(found_new_id);
 
         svs_search_results_free(&results);
         svs_search_results_free(&probe_results);
         svs_index_free(loaded);
         svs_index_free(index);
+    }
+
+    CATCH_SECTION("Dynamic Stream Load Uses Custom Allocator For Graph") {
+        // Assert same number of bytes are allocated during original construction and after
+        // a streaming I/O loop
+        std::vector<size_t> ids(NUM_VECTORS);
+        std::iota(ids.begin(), ids.end(), size_t{0});
+        const size_t BLOCK_SIZE = 1024 * 1024;
+
+        TrackingAllocator build_tracker;
+        svs_allocator_interface_ops build_alloc_ops = SVS_INIT_ALLOCATOR_OPS(
+            tracking_allocator_allocate, tracking_allocator_deallocate
+        );
+        svs_allocator_interface build_allocator =
+            SVS_MAKE_INTERFACE(&build_tracker, build_alloc_ops);
+        CATCH_REQUIRE(
+            svs_index_builder_set_allocator_custom(builder, &build_allocator, error)
+        );
+        CATCH_REQUIRE(svs_error_ok(error));
+
+        svs_index_h index = svs_index_build_dynamic(
+            builder, data.data(), ids.data(), NUM_VECTORS, BLOCK_SIZE, error
+        );
+        CATCH_REQUIRE(index != nullptr);
+        CATCH_REQUIRE(svs_error_ok(error));
+        size_t built_bytes = build_tracker.live_bytes;
+
+        MemoryStream stream;
+        svs_stream_interface_ops write_ops =
+            SVS_INIT_STREAM_OPS(nullptr, memory_stream_write);
+        svs_stream_interface out_stream = SVS_MAKE_INTERFACE(&stream, write_ops);
+        CATCH_REQUIRE(svs_index_save_stream(index, &out_stream, error));
+        CATCH_REQUIRE(svs_error_ok(error));
+
+        svs_index_builder_h load_builder = svs_index_builder_create(
+            SVS_DISTANCE_METRIC_EUCLIDEAN, DIMENSION, algorithm, error
+        );
+        CATCH_REQUIRE(load_builder != nullptr);
+        CATCH_REQUIRE(svs_index_builder_set_threadpool(
+            load_builder, SVS_THREADPOOL_KIND_SINGLE_THREAD, 1, error
+        ));
+        CATCH_REQUIRE(svs_error_ok(error));
+
+        TrackingAllocator load_tracker;
+        svs_allocator_interface_ops load_alloc_ops = SVS_INIT_ALLOCATOR_OPS(
+            tracking_allocator_allocate, tracking_allocator_deallocate
+        );
+        svs_allocator_interface load_allocator =
+            SVS_MAKE_INTERFACE(&load_tracker, load_alloc_ops);
+        CATCH_REQUIRE(
+            svs_index_builder_set_allocator_custom(load_builder, &load_allocator, error)
+        );
+        CATCH_REQUIRE(svs_error_ok(error));
+
+        svs_stream_interface_ops read_ops =
+            SVS_INIT_STREAM_OPS(memory_stream_read, nullptr);
+        svs_stream_interface in_stream = SVS_MAKE_INTERFACE(&stream, read_ops);
+        svs_index_h loaded =
+            svs_index_load_stream_dynamic(load_builder, &in_stream, BLOCK_SIZE, error);
+        CATCH_REQUIRE(loaded != nullptr);
+        CATCH_REQUIRE(svs_error_ok(error));
+
+        size_t loaded_bytes = load_tracker.live_bytes;
+        CATCH_REQUIRE(loaded_bytes == built_bytes);
+        CATCH_REQUIRE(load_tracker.alloc_count > 0);
+
+        svs_index_free(loaded);
+        svs_index_free(index);
+        svs_index_builder_free(load_builder);
+    }
+
+    CATCH_SECTION("Static Stream Load Uses Custom Allocator For Graph") {
+        // Assert same number of bytes are allocated during original construction and after
+        // a streaming I/O loop
+        TrackingAllocator build_tracker;
+        svs_allocator_interface_ops build_alloc_ops = SVS_INIT_ALLOCATOR_OPS(
+            tracking_allocator_allocate, tracking_allocator_deallocate
+        );
+        svs_allocator_interface build_allocator =
+            SVS_MAKE_INTERFACE(&build_tracker, build_alloc_ops);
+        CATCH_REQUIRE(
+            svs_index_builder_set_allocator_custom(builder, &build_allocator, error)
+        );
+        CATCH_REQUIRE(svs_error_ok(error));
+
+        svs_index_h index = svs_index_build(builder, data.data(), NUM_VECTORS, error);
+        CATCH_REQUIRE(index != nullptr);
+        CATCH_REQUIRE(svs_error_ok(error));
+        size_t built_bytes = build_tracker.live_bytes;
+
+        MemoryStream stream;
+        svs_stream_interface_ops write_ops =
+            SVS_INIT_STREAM_OPS(nullptr, memory_stream_write);
+        svs_stream_interface out_stream = SVS_MAKE_INTERFACE(&stream, write_ops);
+        CATCH_REQUIRE(svs_index_save_stream(index, &out_stream, error));
+        CATCH_REQUIRE(svs_error_ok(error));
+
+        svs_index_builder_h load_builder = svs_index_builder_create(
+            SVS_DISTANCE_METRIC_EUCLIDEAN, DIMENSION, algorithm, error
+        );
+        CATCH_REQUIRE(load_builder != nullptr);
+        CATCH_REQUIRE(svs_index_builder_set_threadpool(
+            load_builder, SVS_THREADPOOL_KIND_SINGLE_THREAD, 1, error
+        ));
+        CATCH_REQUIRE(svs_error_ok(error));
+
+        TrackingAllocator load_tracker;
+        svs_allocator_interface_ops load_alloc_ops = SVS_INIT_ALLOCATOR_OPS(
+            tracking_allocator_allocate, tracking_allocator_deallocate
+        );
+        svs_allocator_interface load_allocator =
+            SVS_MAKE_INTERFACE(&load_tracker, load_alloc_ops);
+        CATCH_REQUIRE(
+            svs_index_builder_set_allocator_custom(load_builder, &load_allocator, error)
+        );
+        CATCH_REQUIRE(svs_error_ok(error));
+
+        svs_stream_interface_ops read_ops =
+            SVS_INIT_STREAM_OPS(memory_stream_read, nullptr);
+        svs_stream_interface in_stream = SVS_MAKE_INTERFACE(&stream, read_ops);
+        svs_index_h loaded = svs_index_load_stream(load_builder, &in_stream, error);
+        CATCH_REQUIRE(loaded != nullptr);
+        CATCH_REQUIRE(svs_error_ok(error));
+
+        size_t loaded_bytes = load_tracker.live_bytes;
+        CATCH_REQUIRE(loaded_bytes == built_bytes);
+        CATCH_REQUIRE(load_tracker.alloc_count > 0);
+
+        svs_index_free(loaded);
+        svs_index_free(index);
+        svs_index_builder_free(load_builder);
     }
 
     svs_index_builder_free(builder);
