@@ -128,8 +128,8 @@ svs::DynamicVamana load_stream_dynamic_vamana_index(
     auto graph_allocator_handle = allocator_builder.build_for_graph<uint32_t>();
     auto graph_allocator = svs::data::Blocked{block_params, graph_allocator_handle};
 
-    // Data is copied out of the stream during load, so `self` need not outlive the call.
-    // A zero-copy load would alias the caller's buffer and must not reuse this contract.
+    // svs_c.h lets the caller drop the stream once loading returns. That holds only while
+    // assemble copies data out; a view allocator here would leave the index dangling.
     return svs::DynamicVamana::assemble<float, data_type>(
         *stream, distance, std::move(pool), allocator, graph_allocator
     );

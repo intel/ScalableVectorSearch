@@ -49,6 +49,7 @@ struct Index {
         const IDFilterInterface* id_filter = nullptr
     ) = 0;
     virtual void save(const std::filesystem::path& directory) = 0;
+    virtual void save(std::ostream& stream) = 0;
     virtual size_t dimensions() const = 0;
     virtual float get_distance(size_t id, std::span<const float> query) const = 0;
     virtual void
@@ -57,9 +58,6 @@ struct Index {
     virtual void set_num_threads(size_t num_threads) = 0;
     virtual svs::index::vamana::MemoryBreakdown get_memory_breakdown() const = 0;
     virtual size_t size() const = 0;
-    // Appended, not inserted: a virtual inserted mid-vtable broke ABI once already (see
-    // commit 9980bd26). New virtuals go at the end of the list.
-    virtual void save(std::ostream& stream) = 0;
 };
 
 struct DynamicIndex : public Index {

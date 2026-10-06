@@ -29,8 +29,7 @@
 
 namespace svs::c_runtime {
 
-// Bridges svs_stream_i's read/write callbacks to std::streambuf. Buffered at 64 KiB so the
-// callback amortizes across many bytes instead of firing once per byte.
+// Bridges svs_stream_i's read/write callbacks to std::streambuf. Buffered at 64 KiB
 class StreamBuf : public std::streambuf {
   public:
     static constexpr size_t buffer_size = 64 * 1024;
@@ -108,7 +107,7 @@ class StreamBuf : public std::streambuf {
             return traits_type::to_int_type(*gptr());
         }
         // Default-initialized to SVS_OK: a 0-byte read is legitimate EOF unless the
-        // callback explicitly reported an error, which read()'s return value cannot encode.
+        // callback explicitly reported an error
         svs_error_desc impl_error{};
         size_t n = ops_.read(self_, read_buf_.data(), read_buf_.size(), &impl_error);
         if (n == 0) {

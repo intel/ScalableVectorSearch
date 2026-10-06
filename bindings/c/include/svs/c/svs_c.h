@@ -297,8 +297,7 @@ struct svs_id_filter_interface {
 /// @brief Operations table for a caller-supplied byte stream.
 /// @remarks Access is strictly sequential: the library never repositions the stream. Both
 /// callbacks are invoked serially from the thread that called the streaming save or load
-/// function, so no synchronization is required — unlike the thread pool, allocator and ID
-/// filter interfaces.
+/// function, so no synchronization is required
 /// @remarks Exactly one direction is required per operation: @ref svs_index_save_stream
 /// needs @p write, the load functions need @p read. The unused callback may be NULL.
 /// @var svs_stream_interface_ops::version

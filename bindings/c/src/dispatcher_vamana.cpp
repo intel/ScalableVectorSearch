@@ -92,8 +92,8 @@ svs::Vamana load_stream_vamana_index(
 ) {
     using value_type = typename DataLoader::allocator_type::value_type;
     using data_type = typename DataLoader::data_type;
-    // Data is copied out of the stream during load, so `self` need not outlive the call.
-    // A zero-copy load would alias the caller's buffer and must not reuse this contract.
+    // svs_c.h lets the caller drop the stream once loading returns. That holds only while
+    // assemble copies data out; a view allocator here would leave the index dangling.
     return svs::Vamana::assemble<float, data_type>(
         *stream,
         distance,
