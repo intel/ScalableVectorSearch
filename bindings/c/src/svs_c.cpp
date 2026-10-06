@@ -1179,8 +1179,8 @@ svs_index_save_stream(svs_index_h index, svs_stream_i stream, svs_error_h out_er
             StreamBuf::validate(stream, /*need_write=*/true);
             OutputStream os(*stream->ops, stream->self);
             index->impl->save(os);
-            // The core never flushes and ~StreamBuf swallows the exception, so without this
-            // a write failure on the final partial buffer would report success.
+            // The core never flushes and ~StreamBuf drops unflushed bytes, so without this
+            // the final partial buffer would be lost while the save reports success.
             os.flush();
             return true;
         },

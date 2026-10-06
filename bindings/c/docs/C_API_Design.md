@@ -561,11 +561,10 @@ An index written to disk via `svs_index_save` cannot be streamed, because the C 
 expose the machinery to pack a directory archive into stream form. Streaming is therefore
 self-sufficient only for indexes that were themselves stream-saved.
 
-**Known limitations:** When loading an index with a custom allocator via
-`svs_index_load_stream` or `svs_index_load_stream_dynamic`, the graph memory comes from
-`HugepageAllocator` rather than the supplied allocator. For a dynamic index, graph growth
-reallocates the entire graph instead of appending a block. These limitations have a performance
-consequence but do not affect correctness.
+**Read-ahead behavior:** The native stream encoding carries no total length. During load, the
+library may read up to 64 KiB past the logical end of the index data, so callers embedding an
+index inside a larger stream must frame the payload themselves (e.g. with a length prefix) and
+bound the stream reads to that frame.
 
 ## API Overview
 

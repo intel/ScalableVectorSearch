@@ -314,8 +314,7 @@ struct svs_id_filter_interface {
 ///   the load with that error code; returning 0 without setting one is a clean end of
 ///   stream. This differs from @p write, which signals failure through its return value.
 ///   @return The number of bytes read; 0 signals end of stream unless @p out_err carries an
-///   error. A short read is not an error and the library will call again. NULL for a
-///   write-only stream.
+///   error. A short read is not an error and the library will call again.
 /// @var svs_stream_interface_ops::write
 ///   Writes exactly @p n bytes from @p buf.
 ///   @param self Pointer to the stream instance.
@@ -323,8 +322,7 @@ struct svs_id_filter_interface {
 ///   @param n Number of bytes to write.
 ///   @param out_err Handle to capture any error that occurs during the write. User code may
 ///   call svs_error_set() to set the error code and message if an error occurs.
-///   @return True on success. A partial write must be reported as failure. NULL for a
-///   read-only stream.
+///   @return True on success. A partial write must be reported as failure.
 struct svs_stream_interface_ops {
     uint32_t version;
     size_t struct_size;
@@ -1071,6 +1069,9 @@ SVS_API svs_index_h svs_index_load_dynamic(
 ///   the stream rather than referenced.
 /// @remarks Accepts both the native stream encoding produced by @ref svs_index_save_stream
 ///   and a packed directory archive. The encoding is detected from the stream itself.
+/// @remarks The native encoding carries no total length, so a load may read up to 64 KiB
+///   past the end of the index. Callers embedding it in a larger stream must frame the
+///   payload (e.g. with a length prefix) and bound reads to that frame.
 SVS_API svs_index_h svs_index_load_stream(
     svs_index_builder_h builder, svs_stream_i stream, svs_error_h out_err /*=NULL*/
 );
@@ -1086,6 +1087,9 @@ SVS_API svs_index_h svs_index_load_stream(
 ///   the stream rather than referenced.
 /// @remarks Accepts both the native stream encoding produced by @ref svs_index_save_stream
 ///   and a packed directory archive. The encoding is detected from the stream itself.
+/// @remarks The native encoding carries no total length, so a load may read up to 64 KiB
+///   past the end of the index. Callers embedding it in a larger stream must frame the
+///   payload (e.g. with a length prefix) and bound reads to that frame.
 SVS_API svs_index_h svs_index_load_stream_dynamic(
     svs_index_builder_h builder,
     svs_stream_i stream,

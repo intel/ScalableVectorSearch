@@ -64,10 +64,9 @@ class StreamBuf : public std::streambuf {
     StreamBuf(const svs_stream_ops_t& ops, void* self, Direction direction)
         : ops_(ops)
         , self_(self)
-        , direction_(direction)
         , read_buf_(direction == Direction::read ? buffer_size : 0)
         , write_buf_(direction == Direction::write ? buffer_size : 0) {
-        if (direction_ == Direction::write) {
+        if (direction == Direction::write) {
             setp(write_buf_.data(), write_buf_.data() + write_buf_.size());
         }
     }
@@ -77,15 +76,9 @@ class StreamBuf : public std::streambuf {
     StreamBuf(StreamBuf&&) = delete;
     StreamBuf& operator=(StreamBuf&&) = delete;
 
-    // A destructor must never throw; callers that need to observe a final write failure
-    // should call pubsync() themselves before the stream goes out of scope.
-    ~StreamBuf() override {
-        if (direction_ == Direction::write) {
-            try {
-                flush_write_buffer();
-            } catch (...) {}
-        }
-    }
+    // Unflushed bytes are dropped on destruction, never delivered: a flush during unwinding
+    // would hand the callback a truncated chunk. Writers must flush explicitly.
+    ~StreamBuf() override = default;
 
   protected:
     int_type overflow(int_type ch) override {
@@ -107,17 +100,22 @@ class StreamBuf : public std::streambuf {
             return traits_type::to_int_type(*gptr());
         }
         // Default-initialized to SVS_OK: a 0-byte read is legitimate EOF unless the
-        // callback explicitly reported an error
+        // callback explicitly reported an error.
         svs_error_desc impl_error{};
         size_t n = ops_.read(self_, read_buf_.data(), read_buf_.size(), &impl_error);
+        if (n > read_buf_.size()) {
+            throw std::invalid_argument(
+                "Stream read callback returned more bytes than the buffer it was given."
+            );
+        }
+        if (impl_error.code != SVS_OK) {
+            throw coded_error(
+                impl_error.code,
+                "Stream read callback failed: (" + std::to_string(impl_error.code) + ") " +
+                    impl_error.message
+            );
+        }
         if (n == 0) {
-            if (impl_error.code != SVS_OK) {
-                throw coded_error(
-                    impl_error.code,
-                    "Stream read callback failed: (" + std::to_string(impl_error.code) +
-                        ") " + impl_error.message
-                );
-            }
             return traits_type::eof();
         }
         setg(read_buf_.data(), read_buf_.data(), read_buf_.data() + n);
@@ -138,13 +136,16 @@ class StreamBuf : public std::streambuf {
   private:
     void flush_write_buffer() {
         auto n = static_cast<size_t>(pptr() - pbase());
-        // Reset the put area before the callback: a throw then leaves it empty, so the
-        // destructor's flush is a no-op instead of redelivering the same bytes twice.
+        // Reset the put area before the callback: a throw then leaves it empty, so a
+        // retried flush cannot redeliver the same bytes twice.
         setp(write_buf_.data(), write_buf_.data() + write_buf_.size());
         if (n > 0) {
             svs_error_desc impl_error{
                 SVS_ERROR_UNKNOWN, "Unknown error in stream write callback"};
             if (!ops_.write(self_, write_buf_.data(), n, &impl_error)) {
+                if (impl_error.code == SVS_OK) {
+                    impl_error.code = SVS_ERROR_UNKNOWN;
+                }
                 throw coded_error(
                     impl_error.code,
                     "Stream write callback failed: (" + std::to_string(impl_error.code) +
@@ -157,7 +158,6 @@ class StreamBuf : public std::streambuf {
 
     svs_stream_ops_t ops_;
     void* self_;
-    Direction direction_;
     std::vector<char> read_buf_;
     std::vector<char> write_buf_;
     size_t written_ = 0;
@@ -178,9 +178,9 @@ class InputStream : private detail::StreamBufHolder, public std::istream {
     InputStream(const svs_stream_ops_t& ops, void* self)
         : detail::StreamBufHolder(ops, self, StreamBuf::Direction::read)
         , std::istream(&buf) {
-        // Without this, the sentry swallows a read-callback exception into a silent
-        // badbit instead of rethrowing it; EOF alone only sets eofbit/failbit, not badbit.
-        exceptions(std::ios_base::badbit);
+        // badbit alone lets a read ending inside a payload fail silently; failbit joins the
+        // mask, with eofbit excluded so plain EOF is not an exception.
+        exceptions(std::ios_base::badbit | std::ios_base::failbit);
     }
 };
 

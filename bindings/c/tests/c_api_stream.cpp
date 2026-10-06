@@ -36,9 +36,8 @@ namespace {
 // API, so tests that depend on it hardcode the value.
 constexpr size_t STREAM_BUFFER_SIZE = 64 * 1024;
 
-// In-memory sink/source backing the stream interface tests. write() appends to `bytes`;
-// read() copies out of `bytes` starting at `pos`, capped at `max_read` per call so tests
-// can force short reads.
+// In-memory sink/source backing the stream interface tests, capped at `max_read` per call
+// so tests can force short reads.
 struct MemoryStream {
     std::vector<char> bytes;
     size_t pos = 0;
@@ -61,17 +60,6 @@ bool memory_stream_write(void* self, const void* buf, size_t n, svs_error_h /*ou
     return true;
 }
 
-// Fails a write smaller than the adapter's buffer, which every write during a save is
-// except the final flush of a partial one, so this deterministically targets only that
-// last write regardless of how many full buffers preceded it.
-bool fail_partial_write(void* self, const void* buf, size_t n, svs_error_h out_err) {
-    if (n < STREAM_BUFFER_SIZE) {
-        svs_error_set(out_err, SVS_ERROR_RUNTIME, "refusing partial write");
-        return false;
-    }
-    return memory_stream_write(self, buf, n, out_err);
-}
-
 bool always_fail_write(
     void* /*self*/, const void* /*buf*/, size_t /*n*/, svs_error_h /*out_err*/
 ) {
@@ -88,15 +76,30 @@ size_t oom_read(void* /*self*/, void* /*buf*/, size_t /*n*/, svs_error_h out_err
     return 0;
 }
 
+size_t over_report_read(void* /*self*/, void* /*buf*/, size_t n, svs_error_h /*out_err*/) {
+    return n + 1;
+}
+
+size_t error_with_bytes_read(void* self, void* buf, size_t n, svs_error_h out_err) {
+    size_t copied = memory_stream_read(self, buf, n, out_err);
+    svs_error_set(out_err, SVS_ERROR_RUNTIME, "error reported alongside returned bytes");
+    return copied;
+}
+
+bool fail_write_with_ok_error(
+    void* /*self*/, const void* /*buf*/, size_t /*n*/, svs_error_h out_err
+) {
+    svs_error_set(out_err, SVS_OK, "no error, yet still failing");
+    return false;
+}
+
 // Sized so the saved payload (data + graph) provably exceeds two StreamBuf write buffers:
-// data alone is num_vectors * dimension * sizeof(float) = 200 * 700 * 4 = 560'000 bytes,
-// well over 2 * STREAM_BUFFER_SIZE = 131'072, before the graph even adds its share.
+// data alone is 200 * 700 * 4 = 560'000 bytes, well over 2 * STREAM_BUFFER_SIZE = 131'072.
 constexpr size_t MULTIBUFFER_NUM_VECTORS = 200;
 constexpr size_t MULTIBUFFER_DIMENSION = 700;
 
-// Owns the algorithm/builder/index triple built over the oversized data set above, so the
-// two sections that need a multi-buffer payload (round-trip and partial-flush-failure)
-// share one construction path instead of duplicating build setup.
+// Owns the algorithm/builder/index triple built over the oversized data set above, shared
+// by the sections that need a multi-buffer payload instead of duplicating build setup.
 struct MultiBufferIndex {
     svs_algorithm_h algorithm = nullptr;
     svs_index_builder_h builder = nullptr;
@@ -118,9 +121,8 @@ MultiBufferIndex build_multibuffer_index(std::vector<float>& data, svs_error_h e
     return result;
 }
 
-// Like fail_partial_write, but also counts the full-size writes that succeeded before the
-// partial one it rejects, so a test can assert the failure was the *last* of several writes
-// rather than the only one.
+// Rejects a write smaller than the adapter's buffer and counts the full-size writes that
+// succeeded before it, so a test can assert the failure was the *last* of several writes.
 struct CountingFailSink {
     MemoryStream stream;
     size_t full_write_count = 0;
@@ -138,15 +140,11 @@ bool fail_partial_write_counted(
     return memory_stream_write(&sink->stream, buf, n, out_err);
 }
 
-// Fails exactly once, on the fail_at_invocation'th call, then records whether it is ever
-// invoked again. Regression coverage for flush_write_buffer() resetting the put area before
-// calling out, not after: previously a failed buffer's bytes were still sitting in the put
-// area when ~StreamBuf tried to flush again, redelivering them to the callback a second
-// time.
+// Fails once, on the fail_at_invocation'th call, then records any later call: a
+// redelivery after failure means a rejected chunk reached the callback again.
 struct RecordingFailSink {
     size_t fail_at_invocation = 0;
     size_t invocation_count = 0;
-    size_t total_bytes = 0;
     size_t invocations_after_failure = 0;
     bool has_failed = false;
 };
@@ -163,7 +161,6 @@ bool fail_after_n_write(void* self, const void* /*buf*/, size_t n, svs_error_h o
         svs_error_set(out_err, SVS_ERROR_RUNTIME, "simulated failure mid-stream");
         return false;
     }
-    sink->total_bytes += n;
     return true;
 }
 
@@ -261,9 +258,8 @@ CATCH_TEST_CASE("C API Stream Save and Load", "[c_api][index][stream]") {
         svs_stream_interface out_stream = SVS_MAKE_INTERFACE(&stream, write_ops);
         CATCH_REQUIRE(svs_index_save_stream(mb.index, &out_stream, error));
         CATCH_REQUIRE(svs_error_ok(error));
-        // Proves the write path actually flushed several full buffers and a trailing
-        // partial one, and the read path below refills the get area several times, rather
-        // than relying on the vector counts above staying big enough by construction.
+        // Proves the write path flushed several full buffers and a trailing partial one,
+        // and the read path below refills the get area several times.
         CATCH_REQUIRE(stream.bytes.size() > 2 * STREAM_BUFFER_SIZE);
 
         svs_stream_interface_ops read_ops =
@@ -303,13 +299,11 @@ CATCH_TEST_CASE("C API Stream Save and Load", "[c_api][index][stream]") {
             SVS_INIT_STREAM_OPS(nullptr, memory_stream_write);
         svs_stream_interface probe_stream = SVS_MAKE_INTERFACE(&probe, probe_ops);
         CATCH_REQUIRE(svs_index_save_stream(mb.index, &probe_stream, error));
-        // The payload must span at least two full buffers plus a partial remainder, or this
-        // test cannot distinguish "the one and only flush failed" from "the final partial
-        // flush failed after several successful full flushes" - the regression it targets.
+        // Needs two full buffers plus a partial one; otherwise the only flush failing
+        // looks the same as the final one failing.
         CATCH_REQUIRE(probe.bytes.size() > 2 * STREAM_BUFFER_SIZE);
-        // The failing sink below only ever rejects a write shorter than the buffer; if the
-        // payload happened to land exactly on a buffer boundary there would be no partial
-        // write left for it to catch.
+        // The sink rejects only writes shorter than the buffer; a payload ending exactly
+        // on a buffer boundary leaves nothing for it to catch.
         CATCH_REQUIRE(probe.bytes.size() % STREAM_BUFFER_SIZE != 0);
 
         CountingFailSink sink;
@@ -334,9 +328,8 @@ CATCH_TEST_CASE("C API Stream Save and Load", "[c_api][index][stream]") {
         CATCH_REQUIRE(mb.index != nullptr);
         CATCH_REQUIRE(svs_error_ok(error));
 
-        // Fails on the 3rd invocation, well before the last one, so several full buffers
-        // must have already been accepted and there is guaranteed to be more payload left
-        // that a double-delivery bug would have handed to the callback a second time.
+        // Fails on the 3rd of many calls, so bytes remain that a double-delivery bug
+        // would hand to the callback again.
         RecordingFailSink sink;
         sink.fail_at_invocation = 3;
         svs_stream_interface_ops fail_ops =
@@ -453,6 +446,104 @@ CATCH_TEST_CASE("C API Stream Save and Load", "[c_api][index][stream]") {
         svs_index_free(index);
     }
 
+    CATCH_SECTION("Load fails when the last 16 bytes of a valid payload are missing") {
+        svs_index_h index = svs_index_build(builder, data.data(), NUM_VECTORS, error);
+        CATCH_REQUIRE(index != nullptr);
+
+        MemoryStream stream;
+        svs_stream_interface_ops write_ops =
+            SVS_INIT_STREAM_OPS(nullptr, memory_stream_write);
+        svs_stream_interface out_stream = SVS_MAKE_INTERFACE(&stream, write_ops);
+        CATCH_REQUIRE(svs_index_save_stream(index, &out_stream, error));
+        CATCH_REQUIRE(svs_error_ok(error));
+        CATCH_REQUIRE(stream.bytes.size() > 16);
+        stream.bytes.resize(stream.bytes.size() - 16);
+        stream.pos = 0;
+
+        svs_stream_interface_ops read_ops =
+            SVS_INIT_STREAM_OPS(memory_stream_read, nullptr);
+        svs_stream_interface in_stream = SVS_MAKE_INTERFACE(&stream, read_ops);
+        svs_index_h loaded = svs_index_load_stream(builder, &in_stream, error);
+        CATCH_REQUIRE(loaded == nullptr);
+        CATCH_REQUIRE_FALSE(svs_error_ok(error));
+
+        svs_index_free(index);
+    }
+
+    CATCH_SECTION("Dynamic load fails when the last 16 bytes of a valid payload are missing"
+    ) {
+        std::vector<size_t> ids(NUM_VECTORS);
+        std::iota(ids.begin(), ids.end(), size_t{0});
+        const size_t BLOCK_SIZE = 1024 * 1024;
+        svs_index_h index = svs_index_build_dynamic(
+            builder, data.data(), ids.data(), NUM_VECTORS, BLOCK_SIZE, error
+        );
+        CATCH_REQUIRE(index != nullptr);
+
+        MemoryStream stream;
+        svs_stream_interface_ops write_ops =
+            SVS_INIT_STREAM_OPS(nullptr, memory_stream_write);
+        svs_stream_interface out_stream = SVS_MAKE_INTERFACE(&stream, write_ops);
+        CATCH_REQUIRE(svs_index_save_stream(index, &out_stream, error));
+        CATCH_REQUIRE(svs_error_ok(error));
+        CATCH_REQUIRE(stream.bytes.size() > 16);
+        stream.bytes.resize(stream.bytes.size() - 16);
+        stream.pos = 0;
+
+        svs_stream_interface_ops read_ops =
+            SVS_INIT_STREAM_OPS(memory_stream_read, nullptr);
+        svs_stream_interface in_stream = SVS_MAKE_INTERFACE(&stream, read_ops);
+        svs_index_h loaded =
+            svs_index_load_stream_dynamic(builder, &in_stream, BLOCK_SIZE, error);
+        CATCH_REQUIRE(loaded == nullptr);
+        CATCH_REQUIRE_FALSE(svs_error_ok(error));
+
+        svs_index_free(index);
+    }
+
+    CATCH_SECTION("Read callback returning more bytes than requested fails the load") {
+        svs_stream_interface_ops fail_ops = SVS_INIT_STREAM_OPS(over_report_read, nullptr);
+        svs_stream_interface fail_stream = SVS_MAKE_INTERFACE(nullptr, fail_ops);
+        svs_index_h loaded = svs_index_load_stream(builder, &fail_stream, error);
+        CATCH_REQUIRE(loaded == nullptr);
+        CATCH_REQUIRE_FALSE(svs_error_ok(error));
+    }
+
+    CATCH_SECTION("Read callback error is honored even when it also returns bytes") {
+        svs_index_h index = svs_index_build(builder, data.data(), NUM_VECTORS, error);
+        CATCH_REQUIRE(index != nullptr);
+
+        MemoryStream stream;
+        svs_stream_interface_ops write_ops =
+            SVS_INIT_STREAM_OPS(nullptr, memory_stream_write);
+        svs_stream_interface out_stream = SVS_MAKE_INTERFACE(&stream, write_ops);
+        CATCH_REQUIRE(svs_index_save_stream(index, &out_stream, error));
+        CATCH_REQUIRE(svs_error_ok(error));
+
+        svs_stream_interface_ops read_ops =
+            SVS_INIT_STREAM_OPS(error_with_bytes_read, nullptr);
+        svs_stream_interface in_stream = SVS_MAKE_INTERFACE(&stream, read_ops);
+        svs_index_h loaded = svs_index_load_stream(builder, &in_stream, error);
+        CATCH_REQUIRE(loaded == nullptr);
+        CATCH_REQUIRE(svs_error_get_code(error) == SVS_ERROR_RUNTIME);
+
+        svs_index_free(index);
+    }
+
+    CATCH_SECTION("Write callback failure with SVS_OK error is not reported as success") {
+        svs_index_h index = svs_index_build(builder, data.data(), NUM_VECTORS, error);
+        CATCH_REQUIRE(index != nullptr);
+
+        svs_stream_interface_ops fail_ops =
+            SVS_INIT_STREAM_OPS(nullptr, fail_write_with_ok_error);
+        svs_stream_interface fail_stream = SVS_MAKE_INTERFACE(nullptr, fail_ops);
+        CATCH_REQUIRE_FALSE(svs_index_save_stream(index, &fail_stream, error));
+        CATCH_REQUIRE_FALSE(svs_error_ok(error));
+        CATCH_REQUIRE(svs_error_get_code(error) == SVS_ERROR_UNKNOWN);
+
+        svs_index_free(index);
+    }
+
     CATCH_SECTION("Dynamic round-trip, add_points, and search") {
         std::vector<size_t> ids(NUM_VECTORS);
         std::iota(ids.begin(), ids.end(), size_t{0});
@@ -483,9 +574,8 @@ CATCH_TEST_CASE("C API Stream Save and Load", "[c_api][index][stream]") {
         CATCH_REQUIRE(loaded != nullptr);
         CATCH_REQUIRE(svs_error_ok(error));
 
-        // A stream load that corrupted data or graph structure must not be able to pass
-        // this: compare against the pre-save index element-by-element, as the static
-        // round-trip does, instead of only checking the query count came back.
+        // Compares element-by-element against the pre-save index, so a load that
+        // corrupts data or graph cannot pass just by returning.
         svs_search_results_t after = SVS_INIT_SEARCH_RESULTS();
         CATCH_REQUIRE(svs_index_search_topk(
             loaded, queries.data(), 3, K, &after, nullptr, nullptr, error
@@ -516,9 +606,8 @@ CATCH_TEST_CASE("C API Stream Save and Load", "[c_api][index][stream]") {
         CATCH_REQUIRE(svs_error_ok(error));
         CATCH_REQUIRE(results.num_queries == 3);
 
-        // Query with the exact vector of a newly added point and require its id shows up
-        // among the neighbors, so a load that silently dropped or corrupted the loaded
-        // graph/data cannot pass just because a search still returns *some* results.
+        // Queries with a newly added point's exact vector and requires its id in the
+        // result, so a load that dropped or corrupted the graph cannot pass on count alone.
         std::vector<float> probe_query(
             new_data.begin(), new_data.begin() + static_cast<ptrdiff_t>(DIMENSION)
         );
