@@ -46,7 +46,7 @@ CATCH_TEST_CASE("VamanaSearcmParameters", "[index][vamana]") {
     CATCH_SECTION("Constructors") {
         auto p = VamanaSearchParameters{};
         CATCH_REQUIRE(p.buffer_config_ == svs::index::vamana::SearchBufferConfig{});
-        CATCH_REQUIRE(p.search_buffer_visited_set_ == false);
+        CATCH_REQUIRE(p.search_buffer_visited_set_ == true);
         CATCH_REQUIRE(p.prefetch_lookahead_ == DEFAULT_PREFETCH_LOOKAHEAD);
         CATCH_REQUIRE(p.prefetch_step_ == DEFAULT_PREFETCH_STEP);
 
