@@ -69,9 +69,7 @@ class SimpleDataBuilder {
         return total_size;
     }
 
-    auto get_dataset(const data_type& data) const {
-        return svs::c_runtime::decompressed_dataset(data, svs::data::GetDatumAccessor{});
-    }
+    auto get_dataset(const data_type& data) const { return data; }
 };
 
 template <Arithmetic T, typename Alloc>
