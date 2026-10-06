@@ -774,7 +774,7 @@ CATCH_TEST_CASE("Vamana Index Save and Load SQ", "[vamana][index][saveload][scal
 
 CATCH_TEST_CASE("Vamana Index Bugcheck and Regression", "[vamana][index][regression]") {
     // This test case is intended to catch any unexpected behavior or crashes in the Vamana
-    // index. Currently, it does not perform any specific checks.
+    // index.
     using namespace svs;
     using namespace svs::index::vamana;
 
