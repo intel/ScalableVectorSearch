@@ -373,7 +373,8 @@ class DynamicVamana : public manager::IndexManager<DynamicVamanaInterface> {
     /// @tparam Distance     Distance functor or ``svs::DistanceType`` enum.
     /// @tparam ThreadPoolProto  Thread pool type or size_t.
     /// @tparam DataAllocator  The type of allocator used for the dataset.
-    /// @tparam GraphAllocator The type of allocator used for the graph.
+    /// @tparam GraphAllocator The type of allocator used for the graph. Defaults to an
+    /// exact-size ``HugepageAllocator<uint32_t>``; a blocked default commits a full block.
     ///
     /// @param stream Stream containing the serialized index.
     /// @param distance Distance functor or enum.
@@ -387,7 +388,7 @@ class DynamicVamana : public manager::IndexManager<DynamicVamanaInterface> {
         typename Distance,
         typename ThreadPoolProto,
         typename DataAllocator = typename Data::allocator_type,
-        typename GraphAllocator = data::Blocked<HugepageAllocator<uint32_t>>>
+        typename GraphAllocator = HugepageAllocator<uint32_t>>
     static DynamicVamana assemble(
         std::istream& stream,
         const Distance& distance,

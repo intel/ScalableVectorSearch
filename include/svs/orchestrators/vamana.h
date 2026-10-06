@@ -510,13 +510,27 @@ class Vamana : public manager::IndexManager<VamanaInterface> {
         const GraphAllocator& graph_allocator = {}
     ) {
         auto deserializer = svs::lib::detail::Deserializer::build(stream);
+        // A view's allocator must bind to this specific stream; an explicit
+        // allocator argument would bypass that binding and break the load.
+        constexpr bool is_view = is_view_type_v<typename Data::allocator_type>;
         if (deserializer.is_native()) {
             auto threadpool = threads::as_threadpool(std::move(threadpool_proto));
 
             using GraphType = graphs::SimpleGraph<uint32_t, GraphAllocator>;
-            // A view's allocator must bind to this specific stream; an explicit
-            // allocator argument would bypass that binding and break the load.
-            constexpr bool is_view = is_view_type_v<typename Data::allocator_type>;
+            auto load_graph = [&]() -> GraphType {
+                if constexpr (is_view) {
+                    return GraphType::load(stream);
+                } else {
+                    return GraphType::load(stream, graph_allocator);
+                }
+            };
+            auto load_data = [&]() -> Data {
+                if constexpr (is_view) {
+                    return lib::load_from_stream<Data>(stream);
+                } else {
+                    return lib::load_from_stream<Data>(stream, data_allocator);
+                }
+            };
 
             if constexpr (std::is_same_v<Distance, DistanceType>) {
                 auto dispatcher = DistanceDispatcher(distance);
@@ -524,22 +538,8 @@ class Vamana : public manager::IndexManager<VamanaInterface> {
                     return make_vamana<manager::as_typelist<QueryTypes>>(
                         AssembleTag(),
                         stream,
-                        // lazy-loader
-                        [&]() -> GraphType {
-                            if constexpr (is_view) {
-                                return GraphType::load(stream);
-                            } else {
-                                return GraphType::load(stream, graph_allocator);
-                            }
-                        },
-                        // lazy-loader
-                        [&]() -> Data {
-                            if constexpr (is_view) {
-                                return lib::load_from_stream<Data>(stream);
-                            } else {
-                                return lib::load_from_stream<Data>(stream, data_allocator);
-                            }
-                        },
+                        load_graph,
+                        load_data,
                         distance_function,
                         std::move(threadpool)
                     );
@@ -548,22 +548,8 @@ class Vamana : public manager::IndexManager<VamanaInterface> {
                 return make_vamana<manager::as_typelist<QueryTypes>>(
                     AssembleTag(),
                     stream,
-                    // lazy-loader
-                    [&]() -> GraphType {
-                        if constexpr (is_view) {
-                            return GraphType::load(stream);
-                        } else {
-                            return GraphType::load(stream, graph_allocator);
-                        }
-                    },
-                    // lazy-loader
-                    [&]() -> Data {
-                        if constexpr (is_view) {
-                            return lib::load_from_stream<Data>(stream);
-                        } else {
-                            return lib::load_from_stream<Data>(stream, data_allocator);
-                        }
-                    },
+                    load_graph,
+                    load_data,
                     distance,
                     std::move(threadpool)
                 );
@@ -590,13 +576,23 @@ class Vamana : public manager::IndexManager<VamanaInterface> {
                 throw ANNEXCEPTION("Invalid Vamana index archive: missing data directory!");
             }
 
-            return assemble<QueryTypes>(
-                config_path,
-                svs::GraphLoader<uint32_t, GraphAllocator>{graph_path, graph_allocator},
-                lib::load_from_disk<Data>(data_path, data_allocator),
-                distance,
-                threads::as_threadpool(std::move(threadpool_proto))
-            );
+            if constexpr (is_view) {
+                return assemble<QueryTypes>(
+                    config_path,
+                    svs::GraphLoader<uint32_t, GraphAllocator>{graph_path},
+                    lib::load_from_disk<Data>(data_path),
+                    distance,
+                    threads::as_threadpool(std::move(threadpool_proto))
+                );
+            } else {
+                return assemble<QueryTypes>(
+                    config_path,
+                    svs::GraphLoader<uint32_t, GraphAllocator>{graph_path, graph_allocator},
+                    lib::load_from_disk<Data>(data_path, data_allocator),
+                    distance,
+                    threads::as_threadpool(std::move(threadpool_proto))
+                );
+            }
         }
     }
 
