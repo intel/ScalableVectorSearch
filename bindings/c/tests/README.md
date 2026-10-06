@@ -140,12 +140,9 @@ The tests cover the following aspects of the C API:
 
 ### Logging
 
-- Logger handle creation (one per output: none, stdout, stderr, file truncate/append,
-  custom callback) and cleanup; invalid kinds/paths and invalid custom ops are rejected
-- Custom logging callback receives the bare message, including ops version/struct_size
-  validation
-- Level and pattern getters/setters, defaults, filtering, pattern applied to file output
-- Default logger receives SVS internal messages; NULL resets it; it outlives the handle
+- Logger creation for each output kind and custom callbacks; invalid arguments rejected
+- Level and pattern getters/setters
+- Default logger set/reset
 
 ### Dynamic Index Operations
 

@@ -43,8 +43,7 @@ static_assert(static_cast<int>(SVS_LOG_LEVEL_OFF) == SPDLOG_LEVEL_OFF);
 /// Name given to every spdlog logger created by the C API.
 inline constexpr const char* logger_name = "svs_c";
 
-/// Default pattern of every logger handle: the bare message. Patterns apply to the
-/// stdout, stderr and file outputs; custom callbacks always receive the bare message.
+/// Default pattern of every logger handle: the bare message.
 inline constexpr const char* default_log_pattern = "%v";
 
 /// Checks the version, struct size and NULL pointers of a user-provided custom logger.
@@ -88,8 +87,7 @@ inline svs::logging::Level to_logging_level(svs_log_level_t level) {
     }
 }
 
-/// Creates the spdlog sink for a built-in output kind. `path` is only used by the file
-/// kinds.
+/// Creates the spdlog sink for a built-in output kind.
 inline svs::logging::sink_ptr make_sink(svs_logging_kind_t kind, const char* path) {
     switch (kind) {
         case SVS_LOGGING_KIND_NONE:
@@ -111,8 +109,7 @@ inline svs::logging::sink_ptr make_sink(svs_logging_kind_t kind, const char* pat
     }
 }
 
-/// Creates the spdlog sink that forwards every message to a user callback. The callback
-/// receives the bare message text; the logger pattern does not apply to it.
+/// Creates the spdlog sink that forwards every message to a user callback.
 inline svs::logging::sink_ptr make_custom_sink(const svs_logging_i user_logger) {
     validate_custom_logger(user_logger);
     auto log = user_logger->ops->log;
@@ -130,12 +127,7 @@ inline svs::logging::sink_ptr make_custom_sink(const svs_logging_i user_logger) 
 
 /// The logger handle of the C API (svs_logger_h).
 struct svs_logger {
-    // The handle keeps this one spdlog logger for its whole life. Indexes and the SVS
-    // global default logger hold references to it, so level and pattern changes made
-    // through the handle apply to them immediately. The output sink is fixed at
-    // creation: to log somewhere else, create another logger.
     svs::logging::logger_ptr impl;
-    // Current pattern; returned by svs_logger_get_pattern().
     std::string pattern = svs::c_runtime::default_log_pattern;
 
     explicit svs_logger(svs::logging::sink_ptr sink)

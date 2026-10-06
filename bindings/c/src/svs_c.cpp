@@ -96,7 +96,6 @@ extern "C" bool svs_logger_set_level(
     return wrap_exceptions(
         [&]() {
             INVALID_ARGUMENT_IF(logger == nullptr, "Logger must not be null");
-            // Set the logging level for the logger here
             svs::logging::set_level(logger->impl, to_logging_level(level));
             return true;
         },
@@ -156,7 +155,6 @@ extern "C" bool svs_set_default_logger(svs_logger_h logger, svs_error_h out_err 
     return wrap_exceptions(
         [&]() {
             if (logger == nullptr) {
-                // NULL restores the SVS built-in default logger.
                 svs::logging::reset_to_default();
             } else {
                 svs::logging::set(logger->impl);

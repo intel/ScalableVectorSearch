@@ -62,9 +62,7 @@ void record_log(void* self, enum svs_log_level level, const char* message) {
 
 void noop_log(void* /*self*/, enum svs_log_level /*level*/, const char* /*message*/) {}
 
-// Restores the SVS built-in default logger when a test that calls
-// svs_set_default_logger ends, so later tests never log through a callback whose `self`
-// has been destroyed.
+// Restores the SVS default logger so later tests never log through a destroyed callback.
 struct DefaultLoggerGuard {
     DefaultLoggerGuard() = default;
     DefaultLoggerGuard(const DefaultLoggerGuard&) = delete;
@@ -72,8 +70,7 @@ struct DefaultLoggerGuard {
     ~DefaultLoggerGuard() { svs_set_default_logger(nullptr, nullptr); }
 };
 
-// Builds (and frees) a small static index. Vamana build logs at TRACE level through the
-// global default logger, e.g. "Number of syncs: ..." and "Completed pass ...".
+// Builds a small index; Vamana logs at TRACE level through the global default logger.
 void build_small_index() {
     const size_t num_vectors = 100;
     const size_t dimension = 16;
@@ -122,7 +119,6 @@ CATCH_TEST_CASE("C API Logger Handle", "[c_api][logging]") {
 
         for (auto kind :
              {SVS_LOGGING_KIND_NONE, SVS_LOGGING_KIND_STDOUT, SVS_LOGGING_KIND_STDERR}) {
-            // The path is ignored by these kinds.
             svs_logger_h logger = svs_logger_create(kind, nullptr, error);
             CATCH_REQUIRE(logger != nullptr);
             CATCH_REQUIRE(svs_error_ok(error));
@@ -141,7 +137,6 @@ CATCH_TEST_CASE("C API Logger Handle", "[c_api][logging]") {
             svs_logger_free(logger);
         }
 
-        // NULL error handle and freeing NULL are allowed.
         svs_logger_h logger = svs_logger_create(SVS_LOGGING_KIND_NONE, nullptr, nullptr);
         CATCH_REQUIRE(logger != nullptr);
         svs_logger_free(logger);
@@ -152,7 +147,6 @@ CATCH_TEST_CASE("C API Logger Handle", "[c_api][logging]") {
     CATCH_SECTION("Create Invalid") {
         svs_error_h error = svs_error_create();
 
-        // Out-of-range kinds (the enum ends at SVS_LOGGING_KIND_FILE_TRUNCATE = 4).
         CATCH_REQUIRE(
             svs_logger_create(static_cast<svs_logging_kind_t>(5), nullptr, error) == nullptr
         );
@@ -162,7 +156,6 @@ CATCH_TEST_CASE("C API Logger Handle", "[c_api][logging]") {
         );
         CATCH_REQUIRE(svs_error_get_code(error) == SVS_ERROR_INVALID_ARGUMENT);
 
-        // File kinds need a non-empty path.
         for (auto kind : {SVS_LOGGING_KIND_FILE_APPEND, SVS_LOGGING_KIND_FILE_TRUNCATE}) {
             CATCH_REQUIRE(svs_logger_create(kind, nullptr, error) == nullptr);
             CATCH_REQUIRE(svs_error_get_code(error) == SVS_ERROR_INVALID_ARGUMENT);
@@ -170,7 +163,6 @@ CATCH_TEST_CASE("C API Logger Handle", "[c_api][logging]") {
             CATCH_REQUIRE(svs_error_get_code(error) == SVS_ERROR_INVALID_ARGUMENT);
         }
 
-        // A path that cannot be opened as a file (an existing directory).
         TempDir tmp;
         CATCH_REQUIRE(
             svs_logger_create(
@@ -179,7 +171,6 @@ CATCH_TEST_CASE("C API Logger Handle", "[c_api][logging]") {
         );
         CATCH_REQUIRE(svs_error_get_code(error) != SVS_OK);
 
-        // NULL error handle: failure is still reported by the return value.
         CATCH_REQUIRE(
             svs_logger_create(SVS_LOGGING_KIND_FILE_APPEND, nullptr, nullptr) == nullptr
         );
@@ -231,7 +222,6 @@ CATCH_TEST_CASE("C API Logger Handle", "[c_api][logging]") {
         svs_logging_t bad_size_logger = {&bad_size, nullptr};
         expect_invalid(&bad_size_logger);
 
-        // NULL error handle: failure is still reported by the return value.
         CATCH_REQUIRE(svs_logger_create_custom(nullptr, nullptr) == nullptr);
 
         svs_error_free(error);
@@ -258,7 +248,6 @@ CATCH_TEST_CASE("C API Logger Handle", "[c_api][logging]") {
         expect_invalid(svs_logger_get_pattern(nullptr, &pattern, error));
         expect_invalid(svs_logger_get_pattern(logger, nullptr, error));
 
-        // NULL error handle: failure is still reported by the return value.
         CATCH_REQUIRE(svs_logger_set_level(nullptr, SVS_LOG_LEVEL_INFO, nullptr) == false);
 
         svs_logger_free(logger);
@@ -353,10 +342,7 @@ CATCH_TEST_CASE("C API Logger Output", "[c_api][logging]") {
 
         build_small_index();
 
-        // Default pattern "%v": the callback gets the bare message, no timestamp/level
-        // prefix, no trailing newline. build_small_index() builds 100 vectors, which
-        // Vamana splits into max(40, ceil(100 / 4096)) = 40 batches, so the exact text
-        // is known.
+        // Vamana splits the 100 vectors into max(40, ceil(100 / 4096)) = 40 batches.
         {
             std::lock_guard lock{recorder.mutex};
             bool found = std::any_of(
@@ -381,8 +367,6 @@ CATCH_TEST_CASE("C API Logger Output", "[c_api][logging]") {
         svs_logger_h logger = svs_logger_create(SVS_LOGGING_KIND_NONE, nullptr, error);
         CATCH_REQUIRE(logger != nullptr);
 
-        // No output: using it as default (even at TRACE) writes nothing and must not
-        // crash.
         CATCH_REQUIRE(svs_logger_set_level(logger, SVS_LOG_LEVEL_TRACE, error));
         CATCH_REQUIRE(svs_set_default_logger(logger, error));
         build_small_index();
@@ -408,7 +392,6 @@ CATCH_TEST_CASE("C API Logger Output", "[c_api][logging]") {
         build_small_index();
         CATCH_REQUIRE(recorder.contains(SVS_LOG_LEVEL_TRACE, "Number of syncs"));
 
-        // Level changes apply without calling svs_set_default_logger again.
         {
             std::lock_guard lock{recorder.mutex};
             recorder.messages.clear();
@@ -472,7 +455,6 @@ CATCH_TEST_CASE("C API Logger Output", "[c_api][logging]") {
         svs_logging_t user_logger = {&ops, &recorder};
         svs_logger_h logger = svs_logger_create_custom(&user_logger, error);
         CATCH_REQUIRE(logger != nullptr);
-        // Default level is WARN: the TRACE/DEBUG build messages must be filtered.
         CATCH_REQUIRE(svs_set_default_logger(logger, error));
         build_small_index();
         CATCH_REQUIRE(!recorder.any_below(SVS_LOG_LEVEL_WARN));
@@ -508,8 +490,7 @@ CATCH_TEST_CASE("C API Logger Output", "[c_api][logging]") {
             CATCH_REQUIRE(svs_set_default_logger(nullptr, error));
             svs_error_free(error);
         }
-        // Resetting the default logger released the last reference, which closes (and
-        // flushes) the file.
+        // Resetting the default logger released the last reference, which flushes the file.
         auto content = read_file(path);
         CATCH_REQUIRE(content.find("[x] Number of syncs") != std::string::npos);
     }
@@ -549,7 +530,6 @@ CATCH_TEST_CASE("C API Logger Output", "[c_api][logging]") {
         build_small_index();
         CATCH_REQUIRE(recorder.contains(SVS_LOG_LEVEL_TRACE, "Number of syncs"));
 
-        // NULL restores the built-in default; the callback must no longer be called.
         CATCH_REQUIRE(svs_set_default_logger(nullptr, error));
         CATCH_REQUIRE(svs_error_ok(error));
         {
@@ -590,7 +570,6 @@ CATCH_TEST_CASE("C API Logger Output", "[c_api][logging]") {
             CATCH_REQUIRE(second.messages.empty());
         }
 
-        // The output of a logger cannot change; to log elsewhere, install another logger.
         {
             std::lock_guard lock{first.mutex};
             first.messages.clear();
@@ -667,7 +646,6 @@ CATCH_TEST_CASE("C API Logger Output", "[c_api][logging]") {
         CATCH_REQUIRE(svs_logger_set_level(logger, SVS_LOG_LEVEL_TRACE, error));
         CATCH_REQUIRE(svs_set_default_logger(logger, error));
 
-        // A dynamic index captures the default logger current at build time ...
         const size_t num_vectors = 100;
         const size_t dimension = 16;
         std::vector<float> data;
@@ -691,8 +669,7 @@ CATCH_TEST_CASE("C API Logger Output", "[c_api][logging]") {
         CATCH_REQUIRE(index != nullptr);
         CATCH_REQUIRE(recorder.contains(SVS_LOG_LEVEL_TRACE, "Number of syncs"));
 
-        // ... and keeps using it after the default is restored: later operations on the
-        // index still reach the callback, so its `self` must outlive the index.
+        // The index keeps the logger captured at build time after the default is restored.
         CATCH_REQUIRE(svs_set_default_logger(nullptr, error));
         {
             std::lock_guard lock{recorder.mutex};
@@ -707,8 +684,7 @@ CATCH_TEST_CASE("C API Logger Output", "[c_api][logging]") {
         CATCH_REQUIRE(svs_index_dynamic_add_points(
             index, new_data.data(), new_ids.data(), num_vectors, nullptr, error
         ));
-        // Deleting every original point deletes the entry point, so consolidate logs
-        // "Replacing entry point." at DEBUG level through the index's logger.
+        // Deleting every original point makes consolidate log "Replacing entry point.".
         CATCH_REQUIRE(
             svs_index_dynamic_delete_points(index, ids.data(), num_vectors, nullptr, error)
         );
