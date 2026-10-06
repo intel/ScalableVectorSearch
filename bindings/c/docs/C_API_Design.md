@@ -350,7 +350,7 @@ Controls parallelization strategy for index operations.
 | Type | Configuration | Use Case |
 |------|---------------|----------|
 | **Native** | Thread count | Default SVS thread pool (recommended) |
-| **OpenMP** | Uses OMP_NUM_THREADS | Integration with OpenMP applications |
+| **OpenMP** | Thread count | Integration with OpenMP applications; requires a build with OpenMP support, otherwise `SVS_ERROR_NOT_IMPLEMENTED` |
 | **Single Thread** | No parallelization | Debugging or minimal overhead |
 | **Custom** | User-defined interface | Custom scheduling/work-stealing |
 

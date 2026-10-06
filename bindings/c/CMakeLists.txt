@@ -66,16 +66,17 @@ target_include_directories(${TARGET_NAME}
     PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src
 )
 
-find_package(OpenMP REQUIRED)
-# PRIVATE: OpenMP is an implementation detail linked into the shared library.
-# Exporting it would force consumers of the C ABI to resolve a C++ OpenMP
-# target they never asked for.
-target_link_libraries(${TARGET_NAME} PRIVATE OpenMP::OpenMP_CXX)
+# Set default visibility to hidden for all symbols in the shared library.
+target_compile_options(${TARGET_NAME} PRIVATE -fvisibility=hidden)
 
-target_compile_options(${TARGET_NAME} PRIVATE
-    -DSVS_ENABLE_OMP=1
-    -fvisibility=hidden
-)
+find_package(OpenMP)
+if (OpenMP_CXX_FOUND)
+    # PRIVATE: OpenMP is an implementation detail linked into the shared library.
+    # Exporting it would force consumers of the C ABI to resolve a C++ OpenMP
+    # target they never asked for.
+    target_link_libraries(${TARGET_NAME} PRIVATE OpenMP::OpenMP_CXX)
+    target_compile_definitions(${TARGET_NAME} PRIVATE SVS_ENABLE_OMP=1)
+endif() # OpenMP_CXX_FOUND
 
 if(UNIX AND NOT APPLE)
     # Don't export 3rd-party symbols from the lib
