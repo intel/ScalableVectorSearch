@@ -164,9 +164,10 @@ enum svs_threadpool_kind {
 ///   Function pointer to log a message.
 ///   @param self Pointer to the logging interface instance.
 ///   @param level Logging level of the message.
-///   @param message Null-terminated string containing the message formatted with the
-///   logger pattern (see svs_logger_set_pattern), without a trailing newline. The
-///   pointer is only valid for the duration of the call.
+///   @param message Null-terminated string containing the bare message text, without a
+///   trailing newline. The logger pattern (see svs_logger_set_pattern) is not applied;
+///   use @p level and @p self to format it. The pointer is only valid for the duration
+///   of the call.
 struct svs_logging_interface_ops {
     uint32_t version;
     size_t struct_size;
@@ -667,8 +668,9 @@ SVS_API bool svs_logger_set_kind(
 /// @remarks @p user_logger->ops must be initialized with SVS_INIT_LOGGING_OPS; the
 /// version and struct_size fields are validated. See svs_logging_interface_ops for the
 /// lifetime and thread-safety requirements of the callback.
-/// @remarks The current level and pattern of the handle are kept. The new output applies
-/// immediately to everything already using this logger.
+/// @remarks The callback always receives the bare message text (plus level and self);
+/// the logger pattern does not apply to it. The current level of the handle is kept.
+/// The new output applies immediately to everything already using this logger.
 SVS_API bool svs_logger_set_custom(
     svs_logger_h logger, svs_logging_i user_logger, svs_error_h out_err /*=NULL*/
 );
@@ -698,16 +700,18 @@ SVS_API bool svs_logger_get_level(
 /// the bare message, or "[index A] %v" to prefix every message). Must not be NULL.
 /// @param out_err An optional error handle to capture errors
 /// @return true on success, false on failure
-/// @remarks The pattern applies to all output kinds and is kept across
-/// svs_logger_set_kind / svs_logger_set_custom. Applies immediately to everything
-/// already using this logger.
+/// @remarks The pattern applies to the stdout, stderr and file output kinds and is kept
+/// across svs_logger_set_kind / svs_logger_set_custom. It does not apply to custom
+/// callbacks (svs_logger_set_custom), which always receive the bare message text.
+/// Applies immediately to everything already using this logger.
 SVS_API bool svs_logger_set_pattern(
     svs_logger_h logger, const char* pattern, svs_error_h out_err /*=NULL*/
 );
 
 /// @brief Get the format pattern for a logger
 /// @param logger The logger handle
-/// @param out_pattern Pointer to store the retrieved format pattern. The string is
+/// @param out_pattern Pointer to store the retrieved format pattern (used by the
+/// stdout, stderr and file outputs, not by custom callbacks). The string is
 /// owned by the logger handle and stays valid until the next svs_logger_set_pattern
 /// call on the handle or until svs_logger_free. If no pattern was set, returns the
 /// default pattern "%v".

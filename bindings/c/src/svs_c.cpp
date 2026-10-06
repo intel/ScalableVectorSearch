@@ -180,8 +180,16 @@ extern "C" bool svs_logger_set_custom(
     return wrap_exceptions(
         [&]() {
             INVALID_ARGUMENT_IF(logger == nullptr, "Logger must not be null");
-            CallbackSink::validate(user_logger);
-            logger->set_output(std::make_shared<CallbackSink>(user_logger));
+            validate_custom_logger(user_logger);
+            // Forward the bare message; the logger pattern does not apply here.
+            auto log = user_logger->ops->log;
+            auto self = user_logger->self;
+            logger->set_output(std::make_shared<spdlog::sinks::callback_sink_mt>(
+                [log, self](const spdlog::details::log_msg& msg) {
+                    std::string text(msg.payload.data(), msg.payload.size());
+                    log(self, static_cast<svs_log_level_t>(msg.level), text.c_str());
+                }
+            ));
             return true;
         },
         out_err

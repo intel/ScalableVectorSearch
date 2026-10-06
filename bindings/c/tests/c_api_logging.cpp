@@ -443,7 +443,7 @@ CATCH_TEST_CASE("C API Logger Output", "[c_api][logging]") {
         svs_error_free(error);
     }
 
-    CATCH_SECTION("Pattern Prefix Per Logger") {
+    CATCH_SECTION("Pattern Not Applied To Custom Callback") {
         LogRecorder recorder; // Declared first: must outlive the guard.
         DefaultLoggerGuard guard;
         svs_error_h error = svs_error_create();
@@ -455,26 +455,21 @@ CATCH_TEST_CASE("C API Logger Output", "[c_api][logging]") {
         CATCH_REQUIRE(svs_logger_set_custom(logger, &user_logger, error));
         CATCH_REQUIRE(svs_logger_set_level(logger, SVS_LOG_LEVEL_TRACE, error));
         CATCH_REQUIRE(svs_set_default_logger(logger, error));
+        CATCH_REQUIRE(svs_logger_set_pattern(logger, "[x] %v", error));
 
-        // Pattern set after the output (and after svs_set_default_logger).
-        CATCH_REQUIRE(svs_logger_set_pattern(logger, "[index A] %v", error));
         build_small_index();
 
-        {
-            std::lock_guard lock{recorder.mutex};
-            CATCH_REQUIRE(!recorder.messages.empty());
-            for (const auto& [level, text] : recorder.messages) {
-                CATCH_REQUIRE(text.rfind("[index A] ", 0) == 0);
-            }
-            bool found = std::any_of(
-                recorder.messages.begin(),
-                recorder.messages.end(),
-                [](const auto& m) {
-                    return m.second.rfind("[index A] Number of syncs: ", 0) == 0;
-                }
-            );
-            CATCH_REQUIRE(found);
+        std::lock_guard lock{recorder.mutex};
+        CATCH_REQUIRE(!recorder.messages.empty());
+        for (const auto& [level, text] : recorder.messages) {
+            CATCH_REQUIRE(text.rfind("[x] ", 0) == std::string::npos);
         }
+        bool found = std::any_of(
+            recorder.messages.begin(),
+            recorder.messages.end(),
+            [](const auto& m) { return m.second.rfind("Number of syncs: ", 0) == 0; }
+        );
+        CATCH_REQUIRE(found);
 
         svs_logger_free(logger);
         svs_error_free(error);
@@ -529,27 +524,28 @@ CATCH_TEST_CASE("C API Logger Output", "[c_api][logging]") {
         svs_error_free(error);
     }
 
-    CATCH_SECTION("Pattern Set Before Custom Output Applies") {
-        LogRecorder recorder; // Declared first: must outlive the guard.
-        DefaultLoggerGuard guard;
-        svs_error_h error = svs_error_create();
-        svs_logger_h logger = svs_logger_create(error);
-        CATCH_REQUIRE(logger != nullptr);
+    CATCH_SECTION("Pattern Applied To File Output") {
+        TempDir tmp;
+        const std::string path = (tmp.path() / "svs.log").string();
+        {
+            DefaultLoggerGuard guard;
+            svs_error_h error = svs_error_create();
+            svs_logger_h logger = svs_logger_create(error);
+            CATCH_REQUIRE(logger != nullptr);
+            // Set before the output: carried over to the file output.
+            CATCH_REQUIRE(svs_logger_set_pattern(logger, "[x] %v", error));
+            CATCH_REQUIRE(svs_logger_set_level(logger, SVS_LOG_LEVEL_TRACE, error));
+            CATCH_REQUIRE(svs_logger_set_kind(
+                logger, SVS_LOGGING_KIND_FILE_TRUNCATE, path.c_str(), error
+            ));
+            CATCH_REQUIRE(svs_set_default_logger(logger, error));
+            svs_logger_free(logger);
 
-        // Level and pattern are set first, then carried over to the custom output.
-        CATCH_REQUIRE(svs_logger_set_level(logger, SVS_LOG_LEVEL_TRACE, error));
-        CATCH_REQUIRE(svs_logger_set_pattern(logger, "<%l> %v", error));
-        svs_logging_ops_t ops = SVS_INIT_LOGGING_OPS(record_log);
-        svs_logging_t user_logger = {&ops, &recorder};
-        CATCH_REQUIRE(svs_logger_set_custom(logger, &user_logger, error));
-        CATCH_REQUIRE(svs_set_default_logger(logger, error));
-
-        build_small_index();
-
-        CATCH_REQUIRE(recorder.contains(SVS_LOG_LEVEL_TRACE, "<trace> Number of syncs"));
-
-        svs_logger_free(logger);
-        svs_error_free(error);
+            build_small_index();
+            svs_error_free(error);
+        }
+        auto content = read_file(path);
+        CATCH_REQUIRE(content.find("[x] Number of syncs") != std::string::npos);
     }
 
     CATCH_SECTION("Default Logger Outlives Handle") {
