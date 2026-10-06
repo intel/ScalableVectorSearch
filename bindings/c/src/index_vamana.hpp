@@ -92,11 +92,7 @@ struct DynamicIndexVamana : public DynamicIndex {
         const IDFilterInterface* id_filter
     ) override;
 
-    void save(const std::filesystem::path& directory) override {
-        // Saving consolidates and compacts the index, so it requires exclusive access.
-        auto lock = write_lock();
-        index.save(directory / "config", directory / "graph", directory / "data");
-    }
+    void save(const std::filesystem::path& directory) override;
 
     void save(std::ostream& stream) override {
         // Saving consolidates and compacts the index, so it requires exclusive access.
@@ -128,19 +124,9 @@ struct DynamicIndexVamana : public DynamicIndex {
         index.reconstruct_at(dst, ids);
     }
 
-    void consolidate() override {
-        auto lock = write_lock();
-        index.consolidate();
-    }
+    void consolidate() override;
 
-    void compact(size_t batchsize) override {
-        auto lock = write_lock();
-        if (batchsize == 0) {
-            index.compact(); // Use default batch size
-        } else {
-            index.compact(batchsize);
-        }
-    }
+    void compact(size_t batchsize) override;
 
     size_t get_num_threads() const override {
         auto lock = read_lock();
@@ -158,5 +144,8 @@ struct DynamicIndexVamana : public DynamicIndex {
         auto lock = read_lock();
         return index.size();
     }
+
+  private:
+    bool consolidated = true;
 };
 } // namespace svs::c_runtime
