@@ -36,6 +36,7 @@ set(SVS_C_API_SOURCES
     src/error.hpp
     src/filtered_search.hpp
     src/index.hpp
+    src/index_vamana.hpp
     src/index_builder.hpp
     src/leanvec_training_data.hpp
     src/storage.hpp
@@ -48,6 +49,8 @@ set(SVS_C_API_SOURCES
     src/dispatcher_dynamic_vamana.cpp
     src/leanvec_training_data.cpp
     src/data_builder.cpp
+    src/index_builder.cpp
+    src/index_vamana.cpp
 )
 
 add_library(${TARGET_NAME} SHARED

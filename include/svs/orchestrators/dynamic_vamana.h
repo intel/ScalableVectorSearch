@@ -336,12 +336,13 @@ class DynamicVamana : public manager::IndexManager<DynamicVamanaInterface> {
     // Assembly
     template <
         manager::QueryTypeDefinition QueryTypes,
+        typename ConfigProto,
         typename GraphLoader,
         typename DataLoader,
         typename Distance,
         typename ThreadPoolProto>
     static DynamicVamana assemble(
-        const std::filesystem::path& config_path,
+        ConfigProto&& config_proto,
         GraphLoader&& graph_loader,
         DataLoader&& data_loader,
         const Distance& distance,
@@ -352,7 +353,7 @@ class DynamicVamana : public manager::IndexManager<DynamicVamanaInterface> {
             AssembleTag(),
             manager::as_typelist<QueryTypes>(),
             index::vamana::auto_dynamic_assemble(
-                config_path,
+                std::forward<ConfigProto>(config_proto),
                 std::forward<GraphLoader>(graph_loader),
                 std::forward<DataLoader>(data_loader),
                 distance,
@@ -509,6 +510,10 @@ class DynamicVamana : public manager::IndexManager<DynamicVamanaInterface> {
         // Create AnonymousArray from the query
         AnonymousArray<1> query_array{query.data(), query.size()};
         return impl_->get_distance(id, query_array);
+    }
+
+    svs::index::vamana::VamanaIndexParameters parameters() const {
+        return impl_->parameters();
     }
 };
 
