@@ -73,8 +73,7 @@ enum svs_logging_kind {
     SVS_LOGGING_KIND_STDOUT = 1,
     SVS_LOGGING_KIND_STDERR = 2,
     SVS_LOGGING_KIND_FILE_APPEND = 3,
-    SVS_LOGGING_KIND_FILE_TRUNCATE = 4,
-    SVS_LOGGING_KIND_CUSTOM = 5
+    SVS_LOGGING_KIND_FILE_TRUNCATE = 4
 };
 
 typedef struct svs_error_desc* svs_error_h;
@@ -622,16 +621,14 @@ SVS_API void svs_error_free(svs_error_h err);
 /// @brief Create a logger writing to a built-in output
 /// @param kind The output of the logger: SVS_LOGGING_KIND_NONE (discard everything),
 /// SVS_LOGGING_KIND_STDOUT, SVS_LOGGING_KIND_STDERR, SVS_LOGGING_KIND_FILE_APPEND or
-/// SVS_LOGGING_KIND_FILE_TRUNCATE. SVS_LOGGING_KIND_CUSTOM is rejected; use
-/// svs_logger_create_custom() instead.
+/// SVS_LOGGING_KIND_FILE_TRUNCATE. For a user callback use svs_logger_create_custom().
 /// @param path The file to write to for SVS_LOGGING_KIND_FILE_APPEND and
 /// SVS_LOGGING_KIND_FILE_TRUNCATE (must not be NULL or empty; missing directories are
 /// created). Ignored by the other kinds; may be NULL.
 /// @param out_err An optional error handle to capture errors
 /// @return A handle to the created logger or NULL if creation failed
 /// @remarks The output of a logger is fixed at creation. To log somewhere else, create
-/// another logger and pass it to svs_set_default_logger() or
-/// svs_index_builder_set_logger().
+/// another logger and pass it to svs_set_default_logger().
 /// @remarks A new logger has level SVS_LOG_LEVEL_WARN and pattern "%v" (the bare
 /// message). The SVS_LOG_SINK / SVS_LOG_LEVEL environment variables are not read here;
 /// they only configure the SVS built-in default logger.
@@ -662,9 +659,9 @@ svs_logger_create_custom(svs_logging_i user_logger, svs_error_h out_err /*=NULL*
 /// @brief Free a logger handle
 /// @param logger The logger handle to free. Passing NULL is a no-op.
 /// @remarks The SVS global default logger (see svs_set_default_logger) and indexes built
-/// with the logger keep their own reference to the underlying logger, so freeing the
-/// handle does not stop it from logging. User data referenced by a custom logger must
-/// stay valid as long as such a reference exists.
+/// or loaded while it was the default keep their own reference to the underlying logger,
+/// so freeing the handle does not stop it from logging. User data referenced by a custom
+/// logger must stay valid as long as such a reference exists.
 SVS_API void svs_logger_free(svs_logger_h logger);
 
 /// @brief Set the logging level for a logger
@@ -714,12 +711,13 @@ SVS_API bool svs_logger_get_pattern(
 
 /// @brief Set default logger for SVS library
 /// @param logger The logger handle to set as default. NULL restores the SVS built-in
-/// default logger (configured from the SVS_LOG_LEVEL / SVS_LOG_SINK environment
-/// variables).
+/// default logger, which is rebuilt from the SVS_LOG_SINK / SVS_LOG_LEVEL environment
+/// variables (for a "file:" sink this reopens the file in truncate mode).
 /// @param out_err An optional error handle to capture errors
 /// @return true on success, false on failure
-/// @remarks The default logger will be used for all subsequent logging operations unless
-/// explicitly overridden by index builder.
+/// @remarks Indexes capture the default logger current when they are built or loaded and
+/// keep using it. Setting a new default (or NULL) does not change already-built indexes,
+/// so a custom logger's callback and @p self must stay valid while any such index exists.
 SVS_API bool svs_set_default_logger(
     svs_logger_h logger, svs_error_h out_err /*=NULL*/
 );
@@ -955,15 +953,6 @@ SVS_API svs_index_builder_h svs_index_builder_create(
 /// @brief Free the index builder handle
 /// @param builder The index builder handle to free
 SVS_API void svs_index_builder_free(svs_index_builder_h builder);
-
-/// @brief Set the logger for the index builder
-/// @param builder The index builder handle
-/// @param logger The logger handle to set for the index builder
-/// @param out_err An optional error handle to capture errors
-/// @return true on success, false on failure
-SVS_API bool svs_index_builder_set_logger(
-    svs_index_builder_h builder, svs_logger_h logger, svs_error_h out_err /*=NULL*/
-);
 
 /// @brief Set the storage configuration for the index builder
 /// @param builder The index builder handle

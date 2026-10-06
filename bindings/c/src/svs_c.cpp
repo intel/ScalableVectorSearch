@@ -37,7 +37,6 @@
 
 #include <svs/core/allocator.h>
 #include <svs/core/data.h>
-#include <svs/core/logging.h>
 #include <svs/core/query_result.h>
 #include <svs/lib/memory.h>
 #include <svs/orchestrators/vamana.h>
@@ -66,9 +65,6 @@ struct svs_storage {
 struct svs_leanvec_training_data {
     std::shared_ptr<const svs::c_runtime::LeanVecTrainingData> impl;
 };
-
-// Defined in logger.hpp
-struct svs_logger;
 
 extern "C" uint32_t svs_get_version() { return SVS_C_API_VERSION; }
 

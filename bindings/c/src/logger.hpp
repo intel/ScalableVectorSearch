@@ -89,7 +89,7 @@ inline svs::logging::Level to_logging_level(svs_log_level_t level) {
 }
 
 /// Creates the spdlog sink for a built-in output kind. `path` is only used by the file
-/// kinds. SVS_LOGGING_KIND_CUSTOM is rejected: use svs_logger_create_custom().
+/// kinds.
 inline svs::logging::sink_ptr make_sink(svs_logging_kind_t kind, const char* path) {
     switch (kind) {
         case SVS_LOGGING_KIND_NONE:
@@ -106,10 +106,6 @@ inline svs::logging::sink_ptr make_sink(svs_logging_kind_t kind, const char* pat
                 );
             }
             return svs::logging::file_sink(path, kind == SVS_LOGGING_KIND_FILE_TRUNCATE);
-        case SVS_LOGGING_KIND_CUSTOM:
-            throw std::invalid_argument(
-                "Custom loggers must be created with svs_logger_create_custom"
-            );
         default:
             throw std::invalid_argument("Invalid logging kind");
     }

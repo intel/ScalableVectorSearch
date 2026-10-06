@@ -152,16 +152,11 @@ CATCH_TEST_CASE("C API Logger Handle", "[c_api][logging]") {
     CATCH_SECTION("Create Invalid") {
         svs_error_h error = svs_error_create();
 
-        // Custom output must go through svs_logger_create_custom.
+        // Out-of-range kinds (the enum ends at SVS_LOGGING_KIND_FILE_TRUNCATE = 4).
         CATCH_REQUIRE(
-            svs_logger_create(SVS_LOGGING_KIND_CUSTOM, nullptr, error) == nullptr
+            svs_logger_create(static_cast<svs_logging_kind_t>(5), nullptr, error) == nullptr
         );
         CATCH_REQUIRE(svs_error_get_code(error) == SVS_ERROR_INVALID_ARGUMENT);
-        CATCH_REQUIRE(
-            std::string(svs_error_get_message(error)).find("svs_logger_create_custom") !=
-            std::string::npos
-        );
-
         CATCH_REQUIRE(
             svs_logger_create(static_cast<svs_logging_kind_t>(6), nullptr, error) == nullptr
         );
@@ -358,15 +353,21 @@ CATCH_TEST_CASE("C API Logger Output", "[c_api][logging]") {
 
         build_small_index();
 
-        CATCH_REQUIRE(recorder.contains(SVS_LOG_LEVEL_TRACE, "Number of syncs"));
-        // Default pattern "%v": bare message, no timestamp/level prefix, no newline.
+        // Default pattern "%v": the callback gets the bare message, no timestamp/level
+        // prefix, no trailing newline. build_small_index() builds 100 vectors, which
+        // Vamana splits into max(40, ceil(100 / 4096)) = 40 batches, so the exact text
+        // is known.
         {
             std::lock_guard lock{recorder.mutex};
-            for (const auto& [level, text] : recorder.messages) {
-                CATCH_REQUIRE(!text.empty());
-                CATCH_REQUIRE(text.front() != '[');
-                CATCH_REQUIRE(text.back() != '\n');
-            }
+            bool found = std::any_of(
+                recorder.messages.begin(),
+                recorder.messages.end(),
+                [](const auto& m) {
+                    return m.first == SVS_LOG_LEVEL_TRACE &&
+                           m.second == "Number of syncs: 40";
+                }
+            );
+            CATCH_REQUIRE(found);
         }
 
         CATCH_REQUIRE(svs_set_default_logger(nullptr, error));
@@ -652,5 +653,73 @@ CATCH_TEST_CASE("C API Logger Output", "[c_api][logging]") {
         auto content = read_file(path);
         CATCH_REQUIRE(content.rfind("OLD CONTENT\n", 0) == 0);
         CATCH_REQUIRE(content.find("Number of syncs") != std::string::npos);
+    }
+
+    CATCH_SECTION("Default Logger Change Does Not Affect Built Index") {
+        LogRecorder recorder; // Declared first: must outlive the guard and the index.
+        DefaultLoggerGuard guard;
+        svs_error_h error = svs_error_create();
+
+        svs_logging_ops_t ops = SVS_INIT_LOGGING_OPS(record_log);
+        svs_logging_t user_logger = {&ops, &recorder};
+        svs_logger_h logger = svs_logger_create_custom(&user_logger, error);
+        CATCH_REQUIRE(logger != nullptr);
+        CATCH_REQUIRE(svs_logger_set_level(logger, SVS_LOG_LEVEL_TRACE, error));
+        CATCH_REQUIRE(svs_set_default_logger(logger, error));
+
+        // A dynamic index captures the default logger current at build time ...
+        const size_t num_vectors = 100;
+        const size_t dimension = 16;
+        std::vector<float> data;
+        generate_test_data(data, num_vectors, dimension);
+        std::vector<size_t> ids(num_vectors);
+        for (size_t i = 0; i < num_vectors; ++i) {
+            ids[i] = i;
+        }
+        svs_algorithm_h algorithm = svs_algorithm_create_vamana(16, 32, 50, error);
+        CATCH_REQUIRE(algorithm != nullptr);
+        svs_index_builder_h builder = svs_index_builder_create(
+            SVS_DISTANCE_METRIC_EUCLIDEAN, dimension, algorithm, error
+        );
+        CATCH_REQUIRE(builder != nullptr);
+        CATCH_REQUIRE(
+            svs_index_builder_set_threadpool(builder, SVS_THREADPOOL_KIND_NATIVE, 2, error)
+        );
+        svs_index_h index = svs_index_build_dynamic(
+            builder, data.data(), ids.data(), num_vectors, 0, error
+        );
+        CATCH_REQUIRE(index != nullptr);
+        CATCH_REQUIRE(recorder.contains(SVS_LOG_LEVEL_TRACE, "Number of syncs"));
+
+        // ... and keeps using it after the default is restored: later operations on the
+        // index still reach the callback, so its `self` must outlive the index.
+        CATCH_REQUIRE(svs_set_default_logger(nullptr, error));
+        {
+            std::lock_guard lock{recorder.mutex};
+            recorder.messages.clear();
+        }
+        std::vector<float> new_data;
+        generate_test_data(new_data, num_vectors, dimension);
+        std::vector<size_t> new_ids(num_vectors);
+        for (size_t i = 0; i < num_vectors; ++i) {
+            new_ids[i] = num_vectors + i;
+        }
+        CATCH_REQUIRE(svs_index_dynamic_add_points(
+            index, new_data.data(), new_ids.data(), num_vectors, nullptr, error
+        ));
+        // Deleting every original point deletes the entry point, so consolidate logs
+        // "Replacing entry point." at DEBUG level through the index's logger.
+        CATCH_REQUIRE(
+            svs_index_dynamic_delete_points(index, ids.data(), num_vectors, nullptr, error)
+        );
+        CATCH_REQUIRE(svs_index_dynamic_consolidate(index, error));
+        CATCH_REQUIRE(svs_error_ok(error));
+        CATCH_REQUIRE(recorder.contains(SVS_LOG_LEVEL_DEBUG, "Replacing entry point"));
+
+        svs_index_free(index);
+        svs_index_builder_free(builder);
+        svs_algorithm_free(algorithm);
+        svs_logger_free(logger);
+        svs_error_free(error);
     }
 }
