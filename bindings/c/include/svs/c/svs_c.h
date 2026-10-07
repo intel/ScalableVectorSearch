@@ -644,6 +644,7 @@ SVS_API void svs_logger_free(svs_logger_h logger);
 /// @param level The logging level to set
 /// @param out_err An optional error handle to capture errors
 /// @return true on success, false on failure
+/// @remarks Unknown level values fail with SVS_ERROR_INVALID_ARGUMENT.
 SVS_API bool svs_logger_set_level(
     svs_logger_h logger, svs_log_level_t level, svs_error_h out_err /*=NULL*/
 );
@@ -660,6 +661,7 @@ SVS_API bool svs_logger_get_level(
 /// @brief Set format pattern for a logger
 /// @param logger The logger handle
 /// @param pattern The format pattern to set, in spdlog syntax (e.g. "[index A] %v")
+/// Pattern syntax: https://github.com/gabime/spdlog/wiki/Custom-formatting
 /// @param out_err An optional error handle to capture errors
 /// @return true on success, false on failure
 /// @remarks The pattern applies to the stdout, stderr and file outputs; custom callbacks

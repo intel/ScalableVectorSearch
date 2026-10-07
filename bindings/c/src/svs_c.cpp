@@ -127,6 +127,7 @@ extern "C" bool svs_logger_set_pattern(
             INVALID_ARGUMENT_IF(logger == nullptr, "Logger must not be null");
             EXPECT_ARG_NOT_NULL(pattern);
             auto new_pattern = std::string(pattern);
+            INVALID_ARGUMENT_IF(new_pattern.empty(), "Pattern should not be empty");
             logger->impl->set_pattern(new_pattern);
             logger->pattern = std::move(new_pattern);
             return true;

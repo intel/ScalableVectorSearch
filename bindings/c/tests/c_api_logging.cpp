@@ -303,6 +303,14 @@ CATCH_TEST_CASE("C API Logger Handle", "[c_api][logging]") {
             CATCH_REQUIRE(out_level == level);
         }
 
+        CATCH_REQUIRE(svs_logger_set_level(logger, SVS_LOG_LEVEL_WARN, error));
+        CATCH_REQUIRE(!svs_logger_set_level(logger, static_cast<svs_log_level_t>(7), error)
+        );
+        CATCH_REQUIRE(svs_error_get_code(error) == SVS_ERROR_INVALID_ARGUMENT);
+        svs_log_level_t out_level = SVS_LOG_LEVEL_OFF;
+        CATCH_REQUIRE(svs_logger_get_level(logger, &out_level, error));
+        CATCH_REQUIRE(out_level == SVS_LOG_LEVEL_WARN);
+
         svs_logger_free(logger);
         svs_error_free(error);
     }
@@ -318,6 +326,11 @@ CATCH_TEST_CASE("C API Logger Handle", "[c_api][logging]") {
         CATCH_REQUIRE(std::string(pattern) == "%v");
 
         CATCH_REQUIRE(svs_logger_set_pattern(logger, "[%l] %v", error));
+        CATCH_REQUIRE(svs_logger_get_pattern(logger, &pattern, error));
+        CATCH_REQUIRE(std::string(pattern) == "[%l] %v");
+
+        CATCH_REQUIRE(!svs_logger_set_pattern(logger, "", error));
+        CATCH_REQUIRE(svs_error_get_code(error) == SVS_ERROR_INVALID_ARGUMENT);
         CATCH_REQUIRE(svs_logger_get_pattern(logger, &pattern, error));
         CATCH_REQUIRE(std::string(pattern) == "[%l] %v");
 

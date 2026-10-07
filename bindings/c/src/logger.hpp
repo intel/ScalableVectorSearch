@@ -65,7 +65,7 @@ inline void validate_custom_logger(const svs_logging_i user_logger) {
     }
 }
 
-/// Maps a C API log level to the SVS logging level. Unknown values map to Info.
+/// Maps a C API log level to the SVS logging level. Throws on unknown values.
 inline svs::logging::Level to_logging_level(svs_log_level_t level) {
     switch (level) {
         case SVS_LOG_LEVEL_TRACE:
@@ -83,7 +83,7 @@ inline svs::logging::Level to_logging_level(svs_log_level_t level) {
         case SVS_LOG_LEVEL_OFF:
             return svs::logging::Level::Off;
         default:
-            return svs::logging::Level::Info;
+            throw std::invalid_argument("Invalid log level");
     }
 }
 
