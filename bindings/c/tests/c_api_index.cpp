@@ -25,6 +25,7 @@
 
 // Standard library
 #include <algorithm>
+#include <cmath>
 #include <vector>
 
 CATCH_TEST_CASE("C API Index Build and Search", "[c_api][index][build][search]") {

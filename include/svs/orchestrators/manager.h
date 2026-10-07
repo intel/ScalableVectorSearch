@@ -103,6 +103,8 @@ template <typename IFace> class ManagerInterface : public IFace {
     virtual ~ManagerInterface() = default;
 };
 
+template <typename IFace> class IndexManager;
+
 ///
 /// The base implementation for types meant to implement polymorphic Manager interface.
 /// The goal of this type is to wrap a concrete implementation of type `T` with the
@@ -190,6 +192,7 @@ class ManagerImpl : public ManagerInterface<IFace> {
     const Impl& impl() const { return implementation_; }
 
   private:
+    friend class IndexManager<IFace>;
     Impl implementation_;
 };
 
@@ -277,6 +280,17 @@ template <typename IFace> class IndexManager {
     ///
     threads::ThreadPoolHandle& get_threadpool_handle() {
         return impl_->get_threadpool_handle();
+    }
+
+    template <lib::TypeList QueryTypes, typename Impl> Impl* get_typed_impl() {
+        auto typed_impl = dynamic_cast<ManagerImpl<QueryTypes, Impl, IFace>*>(impl_.get());
+        return typed_impl != nullptr ? &typed_impl->impl() : nullptr;
+    }
+
+    template <lib::TypeList QueryTypes, typename Impl> const Impl* get_typed_impl() const {
+        auto typed_impl =
+            dynamic_cast<const ManagerImpl<QueryTypes, Impl, IFace>*>(impl_.get());
+        return typed_impl != nullptr ? &typed_impl->impl() : nullptr;
     }
 
     // The implementation is `protected` instead of private because derived classes

@@ -45,7 +45,7 @@ class VamanaCommonTester(unittest.TestCase):
         # Default definitions.
         x = svs.VamanaSearchParameters()
         self.assertEqual(x.buffer_config, svs.SearchBufferConfig())
-        self.assertEqual(x.search_buffer_visited_set, False)
+        self.assertEqual(x.search_buffer_visited_set, True)
         self.assertEqual(x, svs.VamanaSearchParameters())
 
         x.buffer_config = svs.SearchBufferConfig(20)
@@ -57,7 +57,7 @@ class VamanaCommonTester(unittest.TestCase):
 
         x = svs.VamanaSearchParameters(svs.SearchBufferConfig(10, 20))
         self.assertEqual(x.buffer_config, svs.SearchBufferConfig(10, 20))
-        self.assertEqual(x.search_buffer_visited_set, False)
+        self.assertEqual(x.search_buffer_visited_set, True)
         self.assertNotEqual(x, svs.VamanaSearchParameters())
         self.assertEqual(x, svs.VamanaSearchParameters(svs.SearchBufferConfig(10, 20)))
 
