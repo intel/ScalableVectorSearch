@@ -45,6 +45,7 @@
 #include "svs/core/recall.h"
 #include "svs/index/vamana/index.h"
 #include "svs/lib/boundscheck.h"
+#include "svs/lib/neighbor.h"
 #include "svs/lib/preprocessor.h"
 #include "svs/lib/scopeguard.h"
 #include "svs/lib/segmented_vector.h"
@@ -141,6 +142,9 @@ enum class ReplaceExternalIdResult : uint8_t {
     NewIdExists,
 };
 
+inline constexpr size_t no_external_id =
+    type_traits::sentinel_v<Neighbor<size_t>, std::less<>>.id();
+
 class ValidBuilder {
   public:
     ValidBuilder(const lib::SegmentedVector<SlotMetadata>& status)
@@ -167,6 +171,7 @@ class ValidBuilder {
 template <graphs::MemoryGraph Graph, typename Data, typename Dist>
 class MutableVamanaIndex {
     friend class MultiMutableVamanaIndex<Graph, Data, Dist>;
+    template <typename, typename> friend class BatchIterator;
 
   public:
     // Traits
@@ -248,6 +253,8 @@ class MutableVamanaIndex {
     // (add_points takes them sequentially), so they have no relative order.
     std::unique_ptr<std::shared_mutex> compact_mutex_{
         std::make_unique<std::shared_mutex>()};
+    // Iterators check this under compact_mutex_ before reusing cached internal IDs.
+    size_t compaction_epoch_ = 0;
     // Writer-only mutex serializing slot allocation in add_points
     std::unique_ptr<std::mutex> slot_alloc_mutex_{std::make_unique<std::mutex>()};
 
@@ -571,7 +578,8 @@ class MutableVamanaIndex {
     ///
     /// @param i The internal ID to translate to an external ID.
     ///
-    /// Requires that mapping for `i` exists. Otherwise, all bets are off.
+    /// Returns `no_external_id` if `i` has no mapping (a concurrent consolidation erased
+    /// it).
     ///
     size_t translate_internal_id(Idx i) const {
         std::shared_lock lock{*translator_mutex_};
@@ -581,9 +589,8 @@ class MutableVamanaIndex {
     /// @copydoc translate_internal_id
     /// Requires the caller to hold `lock_for_translation()`.
     size_t unsafe_translate_internal_id(Idx i) const {
-        // Use get_external_or to handle concurrent consolidate erasing entries.
-        // If the entry was erased, return the internal ID as-is (stale result).
-        return translator_.get_external_or(i, static_cast<size_t>(i));
+        // Not `i` itself: an internal ID is no label, and a caller would report it as one.
+        return translator_.get_external_or(i, no_external_id);
     }
 
     ///
@@ -641,8 +648,9 @@ class MutableVamanaIndex {
     /// (1) This is definitely not safe to call multiple times on the same array for obvious
     ///     reasons.
     ///
-    /// (2) All entries in `ids` should have valid translations. Otherwise, this function's
-    ///     behavior is undefined.
+    /// (2) An entry without a translation becomes `no_external_id`; callers skip it.
+    ///
+    /// (3) Exclude compaction from the production of these internal IDs through this call.
     ///
     template <class Dims, class Base>
         requires(std::tuple_size_v<Dims> == 2)
@@ -698,6 +706,23 @@ class MutableVamanaIndex {
     }
 
     ///
+    /// @brief Call `f` with the raw data of external id `e` while it is locked.
+    ///
+    /// @returns Whether `e` was live
+    ///
+    template <typename F>
+        requires std::invocable<F&, typename Data::const_value_type> bool
+    on_datum(size_t e, F&& f) const {
+        std::shared_lock compact_lock{*compact_mutex_};
+        std::shared_lock lock{*translator_mutex_};
+        if (!unsafe_has_id(e)) {
+            return false;
+        }
+        f(data_.get_datum(translator_.get_internal(e)));
+        return true;
+    }
+
+    ///
     /// @brief Return the dimensionality of the stored dataset.
     ///
     /// TODO (MH): This somewhat limits us to using only R^n type datasets. I'd like to see
@@ -714,10 +739,8 @@ class MutableVamanaIndex {
     /// greedy traversal — mirrors the shared lock taken by search(). Growth by
     /// add_points needs no lock (grow-stable SegmentedVector storage).
     ///
-    /// Acquire this only around graph traversal, and release it before
-    /// acquiring lock_for_translation(): the two must never be held nested in
-    /// the compact->translator order reversed, which would invert the global
-    /// lock order (compact -> translator) and deadlock against compact.
+    /// Hold this through internal-to-external ID translation. Acquire the translation
+    /// lock inside this guard, preserving the compact -> translator lock order.
     [[nodiscard]] std::shared_lock<std::shared_mutex> lock_for_search() const {
         return std::shared_lock<std::shared_mutex>(*compact_mutex_);
     }
@@ -760,7 +783,8 @@ class MutableVamanaIndex {
         };
     }
 
-    // Single Search
+    // The scratch buffer contains internal IDs. Consuming them after this call requires
+    // external exclusion of compaction; use the result-view overload for external IDs.
     template <typename Query>
     void search(
         const Query& query,
@@ -787,11 +811,9 @@ class MutableVamanaIndex {
         const search_parameters_type& sp,
         const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>())
     ) {
+        // Internal IDs must retain their meaning until translation has completed.
+        std::shared_lock compact_lock{*compact_mutex_};
         {
-            // compact_mutex_ shared: blocks compact()'s segment-freeing shrink
-            // during the traversal. Released before translate_to_external() takes
-            // translator_mutex_ to keep the compact->translator lock order.
-            std::shared_lock compact_lock{*compact_mutex_};
             threads::parallel_for(
                 threadpool_,
                 threads::StaticPartition{queries.size()},
@@ -1376,6 +1398,7 @@ class MutableVamanaIndex {
             re->set_recording(true);
         }
         graph_.rebuild_reverse_edges(threadpool_);
+        ++compaction_epoch_;
     }
 
     ///// Threading Interface

@@ -104,14 +104,18 @@ template <typename Index, typename QueryType> class BatchIterator {
         results_.clear();
         const auto& buffer = scratchspace_.buffer;
         for (size_t i = 0, imax = buffer.size(); i < imax; ++i) {
-            auto neighbor = buffer[i];
+            auto neighbor = adapt(buffer[i]);
+            // Erased by a concurrent consolidation.
+            if (neighbor.id() == no_external_id) {
+                continue;
+            }
             auto result = yielded_.insert(neighbor.id());
             if (result.second /* inserted */) {
                 // Rollback insertion into the yielded set if push_back throws.
                 auto guard = lib::make_dismissable_scope_guard([&]() noexcept {
                     yielded_.erase(result.first);
                 });
-                results_.push_back(adapt(neighbor));
+                results_.push_back(neighbor);
                 guard.dismiss();
             }
 
@@ -226,11 +230,21 @@ template <typename Index, typename QueryType> class BatchIterator {
     /// @brief Returns whether iterator can find more neighbors or not for the given query.
     ///
     /// The iterator is considered done when all the available nodes have been yielded or
-    /// when the search can not find any more neighbors. The transition from not done to
-    /// done will be triggered by a call to ``next()``. The contents of ``batch_number()``
-    /// and ``parameters_for_current_iteration()`` will then remain unchanged by subsequent
-    /// invocations of ``next()``.
-    bool done() const { return (yielded_.size() == parent_->size() || is_exhausted_); }
+    /// when the search can not find any more neighbors. Deleted IDs in the yielded set
+    /// do not count as coverage of the current live IDs.
+    bool done() const {
+        if (is_exhausted_) {
+            return true;
+        }
+        if (yielded_.size() < parent_->size()) {
+            return false;
+        }
+        bool all_yielded = true;
+        parent_->on_ids([&](size_t id) {
+            all_yielded = all_yielded && yielded_.contains(id);
+        });
+        return all_yielded;
+    }
 
     /// @brief Forces the next iteration to restart the search from scratch.
     void restart_next_search() { restart_search_ = true; }
@@ -257,19 +271,20 @@ template <typename Index, typename QueryType> class BatchIterator {
             return;
         }
 
+        // Keep internal IDs stable through traversal, reranking, and translation.
+        [[maybe_unused]] auto search_guard = parent_->lock_for_search();
+        if (compaction_epoch_ != parent_->compaction_epoch_) {
+            // Reranking touches cached IDs before the restart initializer runs.
+            // Preserve the grown window so the restart can reach unreturned neighbors.
+            scratchspace_.buffer.clear();
+            restart_search_ = true;
+            compaction_epoch_ = parent_->compaction_epoch_;
+        }
         increment_buffer(batch_size);
 
         bool restart_search_copy = std::exchange(restart_search_, true);
 
-        // Hold the search lock (compact_mutex_ shared for a dynamic index; a
-        // no-op for a static one) so a concurrent compact() cannot free the
-        // segments under us. add_points growth is lock-free (grow-stable
-        // storage). The guard is released at the end of this scope — before
-        // acquiring the translation lock. The two locks must never be held
-        // nested in the translator-before-compact order: that would invert the
-        // global lock order (compact -> translator) and deadlock against compact.
         {
-            [[maybe_unused]] auto search_guard = parent_->lock_for_search();
             parent_->experimental_escape_hatch([&]<std::integral I>(
                                                    const auto& graph,
                                                    const auto& data,
@@ -343,7 +358,8 @@ template <typename Index, typename QueryType> class BatchIterator {
     std::vector<QueryType> query_;                      // Local buffer for the query.
     scratchspace_type scratchspace_;                    // Scratch space for search.
     std::vector<Neighbor<external_id_type>> results_{}; // Filtered results from search.
-    std::unordered_set<internal_id_type> yielded_{};    // Set of yielded neighbors.
+    std::unordered_set<external_id_type> yielded_{};    // Set of yielded neighbors.
+    size_t compaction_epoch_ = 0;                       // Epoch of scratchspace_ IDs.
     size_t iteration_ = 0;                              // Current iteration number.
     bool restart_search_ = true; // Whether the next search should restart from scratch.
     size_t extra_search_buffer_capacity_ =
