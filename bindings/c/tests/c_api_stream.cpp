@@ -25,6 +25,8 @@
 
 // Standard library
 #include <algorithm>
+#include <array>
+#include <cmath>
 #include <cstring>
 #include <limits>
 #include <numeric>
@@ -162,6 +164,51 @@ bool fail_after_n_write(void* self, const void* /*buf*/, size_t n, svs_error_h o
         return false;
     }
     return true;
+}
+
+enum class StorageKind { Float16, ScalarQuantization, Lvq, LeanVec };
+
+constexpr std::array<StorageKind, 4> STORAGE_KINDS = {
+    StorageKind::Float16,
+    StorageKind::ScalarQuantization,
+    StorageKind::Lvq,
+    StorageKind::LeanVec,
+};
+
+const char* storage_kind_name(StorageKind kind) {
+    switch (kind) {
+        case StorageKind::Float16:
+            return "float16";
+        case StorageKind::ScalarQuantization:
+            return "scalar quantization (int8)";
+        case StorageKind::Lvq:
+            return "LVQ (int4 primary, int8 residual)";
+        case StorageKind::LeanVec:
+            return "LeanVec (int4 primary, int8 secondary)";
+    }
+    return "unknown";
+}
+
+svs_storage_h create_storage_case(StorageKind kind, size_t dimension, svs_error_h error) {
+    switch (kind) {
+        case StorageKind::Float16:
+            return svs_storage_create_simple(SVS_DATA_TYPE_FLOAT16, error);
+        case StorageKind::ScalarQuantization:
+            return svs_storage_create_sq(SVS_DATA_TYPE_INT8, error);
+        case StorageKind::Lvq:
+            return svs_storage_create_lvq(SVS_DATA_TYPE_INT4, SVS_DATA_TYPE_INT8, error);
+        case StorageKind::LeanVec:
+            return svs_storage_create_leanvec(
+                dimension / 2, SVS_DATA_TYPE_INT4, SVS_DATA_TYPE_INT8, error
+            );
+    }
+    return nullptr;
+}
+
+// Compressed storages need not reproduce pre-save distances bit for bit.
+bool distance_within_tolerance(float reloaded, float original) {
+    float scale = std::max({std::fabs(reloaded), std::fabs(original), 1.0f});
+    return std::fabs(reloaded - original) <= 1e-3f * scale;
 }
 
 } // namespace
@@ -849,4 +896,222 @@ CATCH_TEST_CASE("C API Stream Interface Validation", "[c_api][index][stream][err
     svs_index_builder_free(builder);
     svs_algorithm_free(algorithm);
     svs_error_free(error);
+}
+
+CATCH_TEST_CASE("C API Stream Storage Round Trips", "[c_api][index][stream][storage]") {
+    const size_t NUM_VECTORS = 100;
+    const size_t DIMENSION = 32;
+    const size_t K = 5;
+
+    std::vector<float> data;
+    std::vector<float> queries;
+    generate_test_data(data, NUM_VECTORS, DIMENSION);
+    generate_test_data(queries, 3, DIMENSION);
+
+    CATCH_SECTION("Static round trip per storage kind") {
+        for (StorageKind kind : STORAGE_KINDS) {
+            CATCH_INFO("storage kind: " << storage_kind_name(kind));
+            svs_error_h error = svs_error_create();
+
+            svs_storage_h build_storage = create_storage_case(kind, DIMENSION, error);
+            CATCH_REQUIRE(check_storage_support(build_storage, error));
+            if (!storage_usable(build_storage)) {
+                svs_storage_free(build_storage);
+                svs_error_free(error);
+                continue;
+            }
+
+            svs_algorithm_h algorithm = svs_algorithm_create_vamana(16, 32, 50, error);
+            CATCH_REQUIRE(algorithm != nullptr);
+            svs_index_builder_h builder = svs_index_builder_create(
+                SVS_DISTANCE_METRIC_EUCLIDEAN, DIMENSION, algorithm, error
+            );
+            CATCH_REQUIRE(builder != nullptr);
+            CATCH_REQUIRE(svs_index_builder_set_threadpool(
+                builder, SVS_THREADPOOL_KIND_SINGLE_THREAD, 1, error
+            ));
+            CATCH_REQUIRE(svs_index_builder_set_storage(builder, build_storage, error));
+            svs_storage_free(build_storage);
+
+            svs_index_h index = svs_index_build(builder, data.data(), NUM_VECTORS, error);
+            CATCH_REQUIRE(index != nullptr);
+            CATCH_REQUIRE(svs_error_ok(error));
+
+            svs_search_results_t before = SVS_INIT_SEARCH_RESULTS();
+            CATCH_REQUIRE(svs_index_search_topk(
+                index, queries.data(), 3, K, &before, nullptr, nullptr, error
+            ));
+            CATCH_REQUIRE(svs_error_ok(error));
+
+            MemoryStream stream;
+            svs_stream_interface_ops write_ops =
+                SVS_INIT_STREAM_OPS(nullptr, memory_stream_write);
+            svs_stream_interface out_stream = SVS_MAKE_INTERFACE(&stream, write_ops);
+            CATCH_REQUIRE(svs_index_save_stream(index, &out_stream, error));
+            CATCH_REQUIRE(svs_error_ok(error));
+
+            // Load dispatch follows the builder's storage, not the stream's metadata, so
+            // the load builder must use the kind that saved it.
+            svs_storage_h load_storage = create_storage_case(kind, DIMENSION, error);
+            CATCH_REQUIRE(storage_usable(load_storage));
+            svs_index_builder_h load_builder = svs_index_builder_create(
+                SVS_DISTANCE_METRIC_EUCLIDEAN, DIMENSION, algorithm, error
+            );
+            CATCH_REQUIRE(load_builder != nullptr);
+            CATCH_REQUIRE(svs_index_builder_set_threadpool(
+                load_builder, SVS_THREADPOOL_KIND_SINGLE_THREAD, 1, error
+            ));
+            CATCH_REQUIRE(svs_index_builder_set_storage(load_builder, load_storage, error));
+            svs_storage_free(load_storage);
+
+            svs_stream_interface_ops read_ops =
+                SVS_INIT_STREAM_OPS(memory_stream_read, nullptr);
+            svs_stream_interface in_stream = SVS_MAKE_INTERFACE(&stream, read_ops);
+            svs_index_h loaded = svs_index_load_stream(load_builder, &in_stream, error);
+            CATCH_REQUIRE(loaded != nullptr);
+            CATCH_REQUIRE(svs_error_ok(error));
+
+            svs_search_results_t after = SVS_INIT_SEARCH_RESULTS();
+            CATCH_REQUIRE(svs_index_search_topk(
+                loaded, queries.data(), 3, K, &after, nullptr, nullptr, error
+            ));
+            CATCH_REQUIRE(svs_error_ok(error));
+            CATCH_REQUIRE(after.num_queries == before.num_queries);
+            for (size_t i = 0; i < before.num_queries * K; ++i) {
+                CATCH_REQUIRE(after.indices[i] == before.indices[i]);
+                CATCH_REQUIRE(
+                    distance_within_tolerance(after.distances[i], before.distances[i])
+                );
+            }
+
+            svs_search_results_free(&before);
+            svs_search_results_free(&after);
+            svs_index_free(loaded);
+            svs_index_free(index);
+            svs_index_builder_free(load_builder);
+            svs_index_builder_free(builder);
+            svs_algorithm_free(algorithm);
+            svs_error_free(error);
+        }
+    }
+
+    CATCH_SECTION("Dynamic round trip, add_points, and search per storage kind") {
+        std::vector<size_t> ids(NUM_VECTORS);
+        std::iota(ids.begin(), ids.end(), size_t{0});
+        const size_t BLOCK_SIZE = 1024 * 1024;
+
+        for (StorageKind kind : STORAGE_KINDS) {
+            CATCH_INFO("storage kind: " << storage_kind_name(kind));
+            svs_error_h error = svs_error_create();
+
+            svs_storage_h build_storage = create_storage_case(kind, DIMENSION, error);
+            CATCH_REQUIRE(check_storage_support(build_storage, error));
+            if (!storage_usable(build_storage)) {
+                svs_storage_free(build_storage);
+                svs_error_free(error);
+                continue;
+            }
+
+            svs_algorithm_h algorithm = svs_algorithm_create_vamana(16, 32, 50, error);
+            CATCH_REQUIRE(algorithm != nullptr);
+            svs_index_builder_h builder = svs_index_builder_create(
+                SVS_DISTANCE_METRIC_EUCLIDEAN, DIMENSION, algorithm, error
+            );
+            CATCH_REQUIRE(builder != nullptr);
+            CATCH_REQUIRE(svs_index_builder_set_threadpool(
+                builder, SVS_THREADPOOL_KIND_SINGLE_THREAD, 1, error
+            ));
+            CATCH_REQUIRE(svs_index_builder_set_storage(builder, build_storage, error));
+            svs_storage_free(build_storage);
+
+            svs_index_h index = svs_index_build_dynamic(
+                builder, data.data(), ids.data(), NUM_VECTORS, BLOCK_SIZE, error
+            );
+            CATCH_REQUIRE(index != nullptr);
+            CATCH_REQUIRE(svs_error_ok(error));
+
+            svs_search_results_t before = SVS_INIT_SEARCH_RESULTS();
+            CATCH_REQUIRE(svs_index_search_topk(
+                index, queries.data(), 3, K, &before, nullptr, nullptr, error
+            ));
+            CATCH_REQUIRE(svs_error_ok(error));
+
+            MemoryStream stream;
+            svs_stream_interface_ops write_ops =
+                SVS_INIT_STREAM_OPS(nullptr, memory_stream_write);
+            svs_stream_interface out_stream = SVS_MAKE_INTERFACE(&stream, write_ops);
+            CATCH_REQUIRE(svs_index_save_stream(index, &out_stream, error));
+            CATCH_REQUIRE(svs_error_ok(error));
+
+            svs_storage_h load_storage = create_storage_case(kind, DIMENSION, error);
+            CATCH_REQUIRE(storage_usable(load_storage));
+            svs_index_builder_h load_builder = svs_index_builder_create(
+                SVS_DISTANCE_METRIC_EUCLIDEAN, DIMENSION, algorithm, error
+            );
+            CATCH_REQUIRE(load_builder != nullptr);
+            CATCH_REQUIRE(svs_index_builder_set_threadpool(
+                load_builder, SVS_THREADPOOL_KIND_SINGLE_THREAD, 1, error
+            ));
+            CATCH_REQUIRE(svs_index_builder_set_storage(load_builder, load_storage, error));
+            svs_storage_free(load_storage);
+
+            svs_stream_interface_ops read_ops =
+                SVS_INIT_STREAM_OPS(memory_stream_read, nullptr);
+            svs_stream_interface in_stream = SVS_MAKE_INTERFACE(&stream, read_ops);
+            svs_index_h loaded =
+                svs_index_load_stream_dynamic(load_builder, &in_stream, BLOCK_SIZE, error);
+            CATCH_REQUIRE(loaded != nullptr);
+            CATCH_REQUIRE(svs_error_ok(error));
+
+            svs_search_results_t after = SVS_INIT_SEARCH_RESULTS();
+            CATCH_REQUIRE(svs_index_search_topk(
+                loaded, queries.data(), 3, K, &after, nullptr, nullptr, error
+            ));
+            CATCH_REQUIRE(svs_error_ok(error));
+            CATCH_REQUIRE(after.num_queries == before.num_queries);
+            for (size_t i = 0; i < before.num_queries * K; ++i) {
+                CATCH_REQUIRE(after.indices[i] == before.indices[i]);
+                CATCH_REQUIRE(
+                    distance_within_tolerance(after.distances[i], before.distances[i])
+                );
+            }
+            svs_search_results_free(&before);
+            svs_search_results_free(&after);
+
+            std::vector<float> new_data;
+            std::vector<size_t> new_ids = {NUM_VECTORS, NUM_VECTORS + 1};
+            generate_test_data(new_data, 2, DIMENSION);
+            size_t added_count = 0;
+            CATCH_REQUIRE(svs_index_dynamic_add_points(
+                loaded, new_data.data(), new_ids.data(), 2, &added_count, error
+            ));
+            CATCH_REQUIRE(added_count == 2);
+            CATCH_REQUIRE(svs_error_ok(error));
+
+            // An exact-vector probe must return the new id; a corrupted graph would still
+            // pass a count check.
+            std::vector<float> probe_query(
+                new_data.begin(), new_data.begin() + static_cast<ptrdiff_t>(DIMENSION)
+            );
+            svs_search_results_t probe_results = SVS_INIT_SEARCH_RESULTS();
+            CATCH_REQUIRE(svs_index_search_topk(
+                loaded, probe_query.data(), 1, K, &probe_results, nullptr, nullptr, error
+            ));
+            CATCH_REQUIRE(svs_error_ok(error));
+            bool found_new_id = std::any_of(
+                probe_results.indices,
+                probe_results.indices + K,
+                [new_id = new_ids[0]](size_t idx) { return idx == new_id; }
+            );
+            CATCH_REQUIRE(found_new_id);
+
+            svs_search_results_free(&probe_results);
+            svs_index_free(loaded);
+            svs_index_free(index);
+            svs_index_builder_free(load_builder);
+            svs_index_builder_free(builder);
+            svs_algorithm_free(algorithm);
+            svs_error_free(error);
+        }
+    }
 }

@@ -189,9 +189,9 @@ class OutputStream : private detail::StreamBufHolder, public std::ostream {
     OutputStream(const svs_stream_ops_t& ops, void* self)
         : detail::StreamBufHolder(ops, self, StreamBuf::Direction::write)
         , std::ostream(&buf) {
-        // Without this, the sentry swallows a write-callback exception into a silent
-        // badbit instead of rethrowing it, so a failed save would report success.
-        exceptions(std::ios_base::badbit);
+        // A write-callback throw surfaces as badbit from the sentry and as failbit from
+        // the streambuf inserter in write_table; a missing bit loses the callback's code.
+        exceptions(std::ios_base::badbit | std::ios_base::failbit);
     }
 };
 
