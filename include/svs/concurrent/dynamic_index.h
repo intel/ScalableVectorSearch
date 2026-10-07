@@ -275,8 +275,11 @@ class MutableVamanaIndex {
     // Methods
   public:
     // Constructors
+    struct DeferReverseEdgesTag {};
+
     template <typename ExternalIds, typename ThreadPoolProto>
     MutableVamanaIndex(
+        DeferReverseEdgesTag,
         Graph graph,
         Data data,
         Idx entry_point,
@@ -307,6 +310,28 @@ class MutableVamanaIndex {
             throw ANNEXCEPTION("Graph node count does not match external IDs size");
         }
         translator_.insert(external_ids, threads::UnitRange<Idx>(0, external_ids.size()));
+    }
+
+    template <typename ExternalIds, typename ThreadPoolProto>
+    MutableVamanaIndex(
+        Graph graph,
+        Data data,
+        Idx entry_point,
+        Dist distance_function,
+        const ExternalIds& external_ids,
+        ThreadPoolProto threadpool_proto,
+        // Optional logger parameter
+        svs::logging::logger_ptr logger = svs::logging::get()
+    )
+        : MutableVamanaIndex{
+              DeferReverseEdgesTag{},
+              std::move(graph),
+              std::move(data),
+              entry_point,
+              std::move(distance_function),
+              external_ids,
+              std::move(threadpool_proto),
+              std::move(logger)} {
         graph_.enable_reverse_edges();
         graph_.rebuild_reverse_edges(threadpool_);
     }
@@ -319,7 +344,6 @@ class MutableVamanaIndex {
         const VamanaBuildParameters& parameters,
         Graph graph,
         Data data,
-        Idx entry_point,
         Dist distance_function,
         const ExternalIds& external_ids,
         ThreadPoolProto threadpool_proto,
@@ -327,9 +351,10 @@ class MutableVamanaIndex {
         svs::logging::logger_ptr logger = svs::logging::get()
     )
         : MutableVamanaIndex{
+              DeferReverseEdgesTag{},
               std::move(graph),
               std::move(data),
-              entry_point,
+              NO_ENTRY,
               std::move(distance_function),
               external_ids,
               std::move(threadpool_proto),
@@ -352,81 +377,6 @@ class MutableVamanaIndex {
         max_candidates_ = build_parameters_.max_candidate_pool_size;
         prune_to_ = build_parameters_.prune_to;
         use_full_search_history_ = build_parameters_.use_full_search_history;
-
-        // An empty index has no medoid and no graph-construction work.
-        if (data_.size() == 0) {
-            return;
-        }
-
-        // Construction rewrites whole adjacency lists; derive reverse edges once at the
-        // end.
-        auto* reverse_edges = graph_.reverse_edges();
-        reverse_edges->set_recording(false);
-
-        // Perform graph construction.
-        auto sp = get_search_parameters();
-        auto prefetch_parameters =
-            GreedySearchPrefetchParameters{sp.prefetch_lookahead_, sp.prefetch_step_};
-        auto builder = VamanaBuilder(
-            graph_,
-            data_,
-            distance_,
-            build_parameters_,
-            threadpool_,
-            prefetch_parameters,
-            logger_
-        );
-        builder.construct(1.0f, entry_point_[0], logging::Level::Trace, logger_);
-        builder.construct(
-            build_parameters_.alpha, entry_point_[0], logging::Level::Trace, logger_
-        );
-
-        reverse_edges->set_recording(true);
-        graph_.rebuild_reverse_edges(threadpool_);
-    }
-
-    ///
-    /// Build a graph from scratch.
-    ///
-    template <typename ExternalIds, typename ThreadPoolProto>
-    MutableVamanaIndex(
-        const VamanaBuildParameters& parameters,
-        Data data,
-        const ExternalIds& external_ids,
-        Dist distance_function,
-        ThreadPoolProto threadpool_proto,
-        svs::logging::logger_ptr logger = svs::logging::get()
-    )
-        : graph_(Graph{data.size(), parameters.graph_max_degree})
-        , data_(std::move(data))
-        , entry_point_{NO_ENTRY}
-        , status_(data_.size(), SlotMetadata::Valid)
-        , first_empty_{std::make_unique<std::atomic<size_t>>(data_.size())}
-        , first_reusable_{std::make_unique<std::atomic<size_t>>(data_.size())}
-        , translator_()
-        , num_valid_{std::make_unique<std::atomic<size_t>>(data_.size())}
-        , distance_(std::move(distance_function))
-        , threadpool_(threads::as_threadpool(std::move(threadpool_proto)))
-        , search_parameters_(vamana::construct_default_search_parameters(data_))
-        , build_parameters_(parameters)
-        , logger_{std::move(logger)} {
-        if (data_.size() != external_ids.size()) {
-            throw ANNEXCEPTION("Data size does not match external IDs size");
-        }
-
-        // Verify and set defaults directly on the input parameters
-        verify_and_set_default_index_parameters(build_parameters_, distance_);
-
-        // Set graph again as verify function might change graph_max_degree parameter
-        graph_ = Graph{data_.size(), build_parameters_.graph_max_degree};
-        construction_window_size_ = build_parameters_.window_size;
-        max_candidates_ = build_parameters_.max_candidate_pool_size;
-        prune_to_ = build_parameters_.prune_to;
-        alpha_ = build_parameters_.alpha;
-        use_full_search_history_ = build_parameters_.use_full_search_history;
-
-        // Setup the initial translation of external to internal ids.
-        translator_.insert(external_ids, threads::UnitRange<Idx>(0, external_ids.size()));
 
         // An empty index has no medoid and no graph-construction work.
         if (data_.size() == 0) {
@@ -457,6 +407,27 @@ class MutableVamanaIndex {
         graph_.enable_reverse_edges();
         graph_.rebuild_reverse_edges(threadpool_);
     }
+
+    ///
+    /// Build a graph from scratch.
+    ///
+    template <typename ExternalIds, typename ThreadPoolProto>
+    MutableVamanaIndex(
+        const VamanaBuildParameters& parameters,
+        Data data,
+        const ExternalIds& external_ids,
+        Dist distance_function,
+        ThreadPoolProto threadpool_proto,
+        svs::logging::logger_ptr logger = svs::logging::get()
+    )
+        : MutableVamanaIndex{
+              parameters,
+              Graph{data.size(), parameters.graph_max_degree},
+              std::move(data),
+              std::move(distance_function),
+              external_ids,
+              std::move(threadpool_proto),
+              std::move(logger)} {}
 
     /// @brief Post re-load / copy constructor; the state may contain holes.
     ///
@@ -2296,11 +2267,6 @@ auto auto_dynamic_build(
         graphs::SimpleBlockedGraph<uint32_t, typename GraphAllocator::allocator_type>;
     using index_type = MutableVamanaIndex<graph_type, data_type, Distance>;
 
-    const auto entry_point =
-        data.size() == 0
-            ? index_type::NO_ENTRY
-            : lib::narrow<uint32_t>(extensions::compute_entry_point(data, threadpool));
-
     auto verified_parameters = parameters;
     verify_and_set_default_index_parameters(verified_parameters, distance);
 
@@ -2310,7 +2276,6 @@ auto auto_dynamic_build(
         verified_parameters,
         std::move(graph),
         std::move(data),
-        entry_point,
         std::move(distance),
         external_ids,
         std::move(threadpool),
