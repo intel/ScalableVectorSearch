@@ -423,6 +423,53 @@ CATCH_TEST_CASE("Vamana Index Save and Load", "[vamana][index][saveload]") {
         CATCH_REQUIRE(modified_distance == Catch::Approx(0.0).epsilon(1e-5));
     }
 
+    CATCH_SECTION("Load view with explicit stream-bound allocator") {
+        using ViewData_t =
+            svs::data::SimpleData<Eltype, N, svs::io::MemoryStreamAllocator<Eltype>>;
+
+        // Save the full index to a stringstream.
+        auto ss = std::stringstream{};
+        index.save(ss);
+
+        // Load the Vamana index from the stream, passing the allocator explicitly.
+        ss.seekg(0);
+        auto loaded_index = svs::Vamana::assemble<float, ViewData_t>(
+            ss,
+            distance_function,
+            svs::threads::DefaultThreadPool(1),
+            svs::io::MemoryStreamAllocator<Eltype>{ss}
+        );
+
+        CATCH_REQUIRE(loaded_index.size() == index.size());
+        CATCH_REQUIRE(loaded_index.dimensions() == index.dimensions());
+    }
+
+    CATCH_SECTION("Load view from directory archive throws") {
+        using ViewData_t =
+            svs::data::SimpleData<Eltype, N, svs::io::MemoryStreamAllocator<Eltype>>;
+
+        std::stringstream ss;
+        {
+            svs::lib::UniqueTempDirectory tempdir{"svs_vamana_save"};
+            const auto config_dir = tempdir.get() / "config";
+            const auto graph_dir = tempdir.get() / "graph";
+            const auto data_dir = tempdir.get() / "data";
+            std::filesystem::create_directories(config_dir);
+            std::filesystem::create_directories(graph_dir);
+            std::filesystem::create_directories(data_dir);
+            index.save(config_dir, graph_dir, data_dir);
+            svs::lib::DirectoryArchiver::pack(tempdir, ss);
+        }
+
+        // A directory archive cannot back a view-backed Data; assemble must throw.
+        CATCH_REQUIRE_THROWS_AS(
+            (svs::Vamana::assemble<float, ViewData_t>(
+                ss, distance_function, svs::threads::DefaultThreadPool(1)
+            )),
+            svs::ANNException
+        );
+    }
+
     CATCH_SECTION("Load with SimpleDataView pointing to memory mapped file") {
         // We will load the Vamana index's data as a SimpleDataView directly from the
         // stream, without copying.

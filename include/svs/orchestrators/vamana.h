@@ -484,6 +484,8 @@ class Vamana : public manager::IndexManager<VamanaInterface> {
     /// @param threadpool_proto Precursor for the thread pool to use. Can either be an
     ///     acceptable thread pool instance or an integer specifying the number of
     ///     threads to use.
+    /// @param data_args Forwarded to the dataset loader. An allocator passed here must be
+    ///     bound to ``stream``.
     ///
     /// The stream must be an in-memory stream in native format; the returned index views
     /// its buffer directly, so the stream must outlive the index.
@@ -496,10 +498,14 @@ class Vamana : public manager::IndexManager<VamanaInterface> {
         manager::QueryTypeDefinition QueryTypes,
         typename Data,
         typename Distance,
-        typename ThreadPoolProto>
+        typename ThreadPoolProto,
+        typename... DataLoaderArgs>
         requires is_view_type_v<typename Data::allocator_type>
     static Vamana assemble(
-        std::istream& stream, const Distance& distance, ThreadPoolProto threadpool_proto
+        std::istream& stream,
+        const Distance& distance,
+        ThreadPoolProto threadpool_proto,
+        DataLoaderArgs&&... data_args
     ) {
         auto deserializer = svs::lib::detail::Deserializer::build(stream);
         if (!deserializer.is_native()) {
@@ -513,7 +519,9 @@ class Vamana : public manager::IndexManager<VamanaInterface> {
         using Allocator = lib::rebind_allocator_t<uint32_t, typename Data::allocator_type>;
         using GraphType = graphs::SimpleGraph<uint32_t, Allocator>;
         auto load_graph = [&]() -> GraphType { return GraphType::load(stream); };
-        auto load_data = [&]() -> Data { return lib::load_from_stream<Data>(stream); };
+        auto load_data = [&]() -> Data {
+            return lib::load_from_stream<Data>(stream, SVS_FWD(data_args)...);
+        };
 
         return assemble_native<QueryTypes>(
             stream, load_graph, load_data, distance, std::move(threadpool_proto)
