@@ -215,7 +215,7 @@ svs::DynamicVamana copy_dynamic_vamana_index(
     svs::data::copy(src_graph.get_data(), graph.get_data());
 
     // Copy/convert the data from the source index to the new data instance
-    const auto src_data = src_builder.get_dataset(src_index_impl->view_data());
+    decltype(auto) src_data = src_builder.get_dataset(src_index_impl->view_data());
 
     using allocator_type = typename DstDataBuilder::allocator_type;
     using value_type = typename allocator_type::value_type;
