@@ -26,6 +26,7 @@
 // stdlib
 #include <filesystem>
 #include <istream>
+#include <span>
 #include <type_traits>
 
 namespace svs {
@@ -108,24 +109,28 @@ class ConcurrentDynamicVamana : public DynamicVamana {
     ///
     /// @brief Reload a ConcurrentDynamicVamana index from separate config, graph and data.
     ///
-    /// @param config_path Directory holding the saved index configuration.
+    /// @param config_proto Directory holding the saved index configuration, or an
+    ///     already-loaded ``index::vamana::concurrent::detail::VamanaStateLoader``.
     /// @param graph_loader Loader (or graph) producing a concurrent ``SimpleBlockedGraph``.
     /// @param data_loader Loader (or dataset) producing ``SegmentedBlocked`` storage.
     /// @param distance Distance functor or ``svs::DistanceType`` enum.
     /// @param threadpool_proto Thread pool or number of threads to use.
+    /// @param debug_load_from_static Load a static index config with identity IDs.
     ///
     template <
         manager::QueryTypeDefinition QueryTypes,
+        typename ConfigProto,
         typename GraphLoader,
         typename DataLoader,
         typename Distance,
         typename ThreadPoolProto>
     static ConcurrentDynamicVamana assemble(
-        const std::filesystem::path& config_path,
+        ConfigProto&& config_proto,
         GraphLoader&& graph_loader,
         DataLoader&& data_loader,
-        const Distance& distance,
-        ThreadPoolProto threadpool_proto
+        Distance distance,
+        ThreadPoolProto threadpool_proto,
+        bool debug_load_from_static = false
     ) {
         auto threadpool = threads::as_threadpool(std::move(threadpool_proto));
         auto make = [&](auto distance_function) {
@@ -133,18 +138,19 @@ class ConcurrentDynamicVamana : public DynamicVamana {
                 AssembleTag{},
                 manager::as_typelist<QueryTypes>(),
                 index::vamana::concurrent::auto_dynamic_assemble(
-                    config_path,
+                    std::forward<ConfigProto>(config_proto),
                     std::forward<GraphLoader>(graph_loader),
                     std::forward<DataLoader>(data_loader),
                     std::move(distance_function),
-                    std::move(threadpool)
+                    std::move(threadpool),
+                    debug_load_from_static
                 )
             );
         };
         if constexpr (std::is_same_v<std::decay_t<Distance>, DistanceType>) {
             return DistanceDispatcher(distance)(make);
         } else {
-            return make(distance);
+            return make(std::move(distance));
         }
     }
 
@@ -163,7 +169,7 @@ class ConcurrentDynamicVamana : public DynamicVamana {
         typename... DataLoaderArgs>
     static ConcurrentDynamicVamana assemble(
         std::istream& stream,
-        const Distance& distance,
+        Distance distance,
         ThreadPoolProto threadpool_proto,
         DataLoaderArgs&&... data_args
     ) {
@@ -197,7 +203,7 @@ class ConcurrentDynamicVamana : public DynamicVamana {
             if constexpr (std::is_same_v<std::decay_t<Distance>, DistanceType>) {
                 return DistanceDispatcher(distance)(make);
             } else {
-                return make(distance);
+                return make(std::move(distance));
             }
         }
 
@@ -221,7 +227,7 @@ class ConcurrentDynamicVamana : public DynamicVamana {
             config_path,
             SVS_LAZY(default_graph_type::load(graph_path)),
             lib::load_from_disk<Data>(data_path, SVS_FWD(data_args)...),
-            distance,
+            std::move(distance),
             std::move(threadpool)
         );
     }

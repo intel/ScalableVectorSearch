@@ -35,6 +35,7 @@
 // stl
 #include <atomic>
 #include <numeric>
+#include <span>
 #include <sstream>
 #include <thread>
 #include <unordered_set>
