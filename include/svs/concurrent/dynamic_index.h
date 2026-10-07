@@ -331,7 +331,7 @@ class MutableVamanaIndex {
     /// Build a graph from scratch, allocating the graph with ``graph_allocator``.
     ///
     template <typename ExternalIds, typename ThreadPoolProto, typename GraphAllocator>
-        requires(!std::is_same_v<GraphAllocator, svs::logging::logger_ptr>)
+        requires(!std::is_convertible_v<const GraphAllocator&, svs::logging::logger_ptr>)
     MutableVamanaIndex(
         const VamanaBuildParameters& parameters,
         Data data,
@@ -2299,9 +2299,17 @@ auto auto_dynamic_assemble(
     // Load the dataset
     auto threadpool = threads::as_threadpool(std::move(threadpool_proto));
     auto data = svs::detail::dispatch_load(SVS_FWD(data_loader), threadpool);
+    static_assert(
+        is_segmented_blocked_v<typename decltype(data)::allocator_type>,
+        "The concurrent index requires a dataset with a SegmentedBlocked allocator."
+    );
 
     // Load the graph.
     auto graph = svs::detail::dispatch_load(SVS_FWD(graph_loader), threadpool);
+    static_assert(
+        is_segmented_blocked_v<typename decltype(graph)::allocator_type>,
+        "The concurrent index requires a graph with a SegmentedBlocked allocator."
+    );
 
     // Make sure the data and the graph have the same size.
     auto datasize = data.size();

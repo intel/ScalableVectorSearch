@@ -128,13 +128,6 @@ class ConcurrentDynamicVamana : public DynamicVamana {
         ThreadPoolProto threadpool_proto
     ) {
         auto threadpool = threads::as_threadpool(std::move(threadpool_proto));
-        auto data =
-            svs::detail::dispatch_load(std::forward<DataLoader>(data_loader), threadpool);
-        static_assert(
-            index::vamana::concurrent::is_segmented_blocked_v<typename decltype(data
-            )::allocator_type>,
-            "The concurrent index requires a dataset with a SegmentedBlocked allocator."
-        );
         auto make = [&](auto distance_function) {
             return ConcurrentDynamicVamana(
                 AssembleTag{},
@@ -142,7 +135,7 @@ class ConcurrentDynamicVamana : public DynamicVamana {
                 index::vamana::concurrent::auto_dynamic_assemble(
                     config_path,
                     std::forward<GraphLoader>(graph_loader),
-                    std::move(data),
+                    std::forward<DataLoader>(data_loader),
                     std::move(distance_function),
                     std::move(threadpool)
                 )
