@@ -489,6 +489,9 @@ class MutableVamanaIndex {
             switch (s) {
                 case SlotMetadata::Valid: {
                     ++num_valid;
+                    if (!translator_.has_internal(i)) {
+                        throw ANNEXCEPTION("Translator is missing internal id {}", i);
+                    }
                     break;
                 }
                 case SlotMetadata::Deleted: {

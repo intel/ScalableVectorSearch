@@ -58,7 +58,7 @@ class VamanaIterator {
             std::span<const QueryType> query,
             size_t extra_search_buffer_capacity = svs::UNSIGNED_INTEGER_PLACEHOLDER
         )
-            : impl_{index, query, extra_search_buffer_capacity} {}
+            : impl_{index.make_batch_iterator(query, extra_search_buffer_capacity)} {}
 
         svs::index::vamana::VamanaSearchParameters
         parameters_for_current_iteration() const override {
