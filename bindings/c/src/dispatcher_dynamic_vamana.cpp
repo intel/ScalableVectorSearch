@@ -31,6 +31,7 @@
 #include <svs/orchestrators/dynamic_vamana.h>
 
 #include <filesystem>
+#include <istream>
 #include <memory>
 #include <span>
 #include <utility>
@@ -104,6 +105,36 @@ svs::DynamicVamana load_dynamic_vamana_index(
     );
 }
 
+template <typename DataLoader, typename Distance>
+svs::DynamicVamana load_stream_dynamic_vamana_index(
+    const svs::index::vamana::VamanaBuildParameters& SVS_UNUSED(build_params),
+    std::unique_ptr<std::istream> stream,
+    DataLoader SVS_UNUSED(loader),
+    Distance distance,
+    svs::threads::ThreadPoolHandle pool,
+    const AllocatorBuilder& allocator_builder,
+    size_t blocksize_bytes
+) {
+    svs::data::BlockingParameters block_params;
+    if (blocksize_bytes != 0) {
+        block_params.blocksize_bytes = svs::lib::prevpow2(blocksize_bytes);
+    }
+    using allocator_type = typename DataLoader::allocator_type;
+    using value_type = typename allocator_type::value_type;
+    using data_type = typename DataLoader::data_type;
+    auto data_allocator_handle = allocator_builder.build<value_type>();
+    auto allocator = allocator_type{block_params, data_allocator_handle};
+
+    auto graph_allocator_handle = allocator_builder.build_for_graph<uint32_t>();
+    auto graph_allocator = svs::data::Blocked{block_params, graph_allocator_handle};
+
+    // svs_c.h lets the caller drop the stream once loading returns. That holds only while
+    // assemble copies data out; a view allocator here would leave the index dangling.
+    return svs::DynamicVamana::assemble<float, data_type>(
+        *stream, distance, std::move(pool), allocator, graph_allocator
+    );
+}
+
 template <typename Dispatcher>
 void register_dynamic_vamana_index_specializations(Dispatcher& dispatcher) {
     auto build_closure = [&dispatcher]<typename DataBuilder, typename Distance>() {
@@ -112,20 +143,30 @@ void register_dynamic_vamana_index_specializations(Dispatcher& dispatcher) {
     auto load_closure = [&dispatcher]<typename DataLoader, typename Distance>() {
         dispatcher.register_target(&load_dynamic_vamana_index<DataLoader, Distance>);
     };
+    auto load_stream_closure = [&dispatcher]<typename DataLoader, typename Distance>() {
+        dispatcher.register_target(&load_stream_dynamic_vamana_index<DataLoader, Distance>);
+    };
 
     for_simple_specializations<true>(build_closure);
     for_simple_specializations<true>(load_closure);
+    for_simple_specializations<true>(load_stream_closure);
     for_leanvec_specializations<true>(build_closure);
     for_leanvec_specializations<true>(load_closure);
+    for_leanvec_specializations<true>(load_stream_closure);
     for_lvq_specializations<true>(build_closure);
     for_lvq_specializations<true>(load_closure);
+    for_lvq_specializations<true>(load_stream_closure);
     for_sq_specializations<true>(build_closure);
     for_sq_specializations<true>(load_closure);
+    for_sq_specializations<true>(load_stream_closure);
 }
 
+// Stream load alternative, matched via generic variant DispatchConverter like the
+// existing build and directory-load alternatives.
 using DynamicVamanaSource = std::variant<
     std::pair<svs::data::ConstSimpleDataView<float>, std::span<const size_t>>,
-    std::filesystem::path>;
+    std::filesystem::path,
+    std::unique_ptr<std::istream>>;
 
 using BuildDynamicIndexDispatcher = svs::lib::Dispatcher<
     svs::DynamicVamana,
@@ -215,7 +256,7 @@ svs::DynamicVamana copy_dynamic_vamana_index(
     svs::data::copy(src_graph.get_data(), graph.get_data());
 
     // Copy/convert the data from the source index to the new data instance
-    const auto src_data = src_builder.get_dataset(src_index_impl->view_data());
+    decltype(auto) src_data = src_builder.get_dataset(src_index_impl->view_data());
 
     using allocator_type = typename DstDataBuilder::allocator_type;
     using value_type = typename allocator_type::value_type;
@@ -326,6 +367,26 @@ svs::DynamicVamana dispatch_dynamic_vamana_index_load(
     return build_dynamic_vamana_index_dispatcher().invoke(
         build_params,
         DynamicVamanaSource{directory},
+        storage,
+        distance_type,
+        std::move(pool),
+        allocator_builder,
+        blocksize_bytes
+    );
+}
+
+svs::DynamicVamana dispatch_dynamic_vamana_index_load_stream(
+    const svs::index::vamana::VamanaBuildParameters& build_params,
+    std::unique_ptr<std::istream> stream,
+    const Storage* storage,
+    svs::DistanceType distance_type,
+    svs::threads::ThreadPoolHandle pool,
+    const AllocatorBuilder& allocator_builder,
+    size_t blocksize_bytes
+) {
+    return build_dynamic_vamana_index_dispatcher().invoke(
+        build_params,
+        DynamicVamanaSource{std::move(stream)},
         storage,
         distance_type,
         std::move(pool),

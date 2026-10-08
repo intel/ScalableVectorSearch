@@ -40,6 +40,7 @@ set(SVS_C_API_SOURCES
     src/index_builder.hpp
     src/leanvec_training_data.hpp
     src/storage.hpp
+    src/stream.hpp
     src/threadpool.hpp
     src/types_support.hpp
 
@@ -145,7 +146,7 @@ if (SVS_RUNTIME_ENABLE_LVQ_LEANVEC)
     else()
         # Links to LTO-enabled static library, requires GCC/G++ 11.2
         if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" AND CMAKE_CXX_COMPILER_VERSION VERSION_GREATER_EQUAL "11.2" AND CMAKE_CXX_COMPILER_VERSION VERSION_LESS "11.3")
-            set(SVS_URL "https://github.com/intel/ScalableVectorSearch/releases/download/nightly/svs-shared-library-lto-nightly-2026-09-11-1512.tar.gz"
+            set(SVS_URL "https://github.com/intel/ScalableVectorSearch/releases/download/nightly/svs-shared-library-lto-nightly-2026-10-08-1629.tar.gz"
                 CACHE STRING "URL to download SVS shared library")
         else()
             # The fallback is correct but slower, so nothing downstream fails and CI
