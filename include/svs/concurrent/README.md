@@ -251,7 +251,7 @@ The rules from section 1 apply unchanged: `save()`, `set_threadpool()` and the
 build-parameter setters still need exclusive access.
 
 ```cpp
-using Data = svs::concurrent::SegmentedBlockedData<float>;
+using Data = svs::index::vamana::concurrent::SegmentedBlockedData<float>;
 auto index = svs::ConcurrentDynamicVamana::build<float>(
     parameters, Data::load(path), ids, svs::DistanceType::L2, num_threads
 );

@@ -530,6 +530,29 @@ class MutableVamanaIndex {
         graph_.rebuild_reverse_edges(threadpool_);
     }
 
+    /// @brief Post-reload backward compatible .ctor
+    /// @remarks just calls the main post-reload constructor with full-valid status.
+    template <threads::ThreadPool Pool>
+    MutableVamanaIndex(
+        const VamanaIndexParameters& config,
+        data_type data,
+        graph_type graph,
+        const Dist& distance_function,
+        IDTranslator translator,
+        Pool threadpool,
+        svs::logging::logger_ptr logger = svs::logging::get()
+    )
+        : MutableVamanaIndex{
+              config,
+              std::move(data),
+              std::move(graph),
+              distance_function,
+              // braced initializer is left-to-right - translator is not yet moved.
+              std::vector<SlotMetadata>(translator.size(), SlotMetadata::Valid),
+              std::move(translator),
+              std::move(threadpool),
+              std::move(logger)} {}
+
     ///// Scratchspace
     scratchspace_type scratchspace(const search_parameters_type& sp) const {
         return scratchspace_type{

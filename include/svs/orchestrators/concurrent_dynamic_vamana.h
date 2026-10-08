@@ -41,8 +41,8 @@ namespace svs {
 /// ``save``, ``set_threadpool`` and the build-parameter setters are not; call them only
 /// when no other thread uses the index. See ``include/svs/concurrent/README.md``.
 ///
-/// The dataset must use a ``svs::concurrent::SegmentedBlocked`` allocator so that growing
-/// it never relocates storage under concurrent readers.
+/// The dataset must use a ``svs::index::vamana::concurrent::SegmentedBlocked`` allocator so
+/// that growing it never relocates storage under concurrent readers.
 ///
 class ConcurrentDynamicVamana : public DynamicVamana {
   public:
