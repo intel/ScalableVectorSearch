@@ -605,6 +605,23 @@ extern "C" bool svs_index_builder_set_storage(
     );
 }
 
+extern "C" bool svs_index_builder_set_logger(
+    svs_index_builder_h builder, svs_logger_h logger, svs_error_h out_err /*=NULL*/
+) {
+    using namespace svs::c_runtime;
+    return wrap_exceptions(
+        [&]() {
+            EXPECT_ARG_NOT_NULL(builder);
+            // NULL clears the builder logger: indexes then use the global default logger.
+            // Otherwise share the handle's spdlog logger, so the handle may be freed.
+            builder->impl->set_logger(logger == nullptr ? nullptr : logger->impl);
+            return true;
+        },
+        out_err,
+        false
+    );
+}
+
 extern "C" bool svs_index_builder_set_threadpool(
     svs_index_builder_h builder,
     svs_threadpool_kind_t kind,

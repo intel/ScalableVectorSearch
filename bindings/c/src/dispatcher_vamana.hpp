@@ -22,6 +22,7 @@
 #include <svs/concepts/data.h>
 #include <svs/core/data/simple.h>
 #include <svs/core/distance.h>
+#include <svs/core/logging.h>
 #include <svs/index/vamana/build_params.h>
 #include <svs/lib/threads/threadpool.h>
 #include <svs/orchestrators/vamana.h>
@@ -37,7 +38,8 @@ svs::Vamana dispatch_vamana_index_build(
     const Storage* storage,
     svs::DistanceType distance_type,
     svs::threads::ThreadPoolHandle pool,
-    const AllocatorBuilder& allocator_builder
+    const AllocatorBuilder& allocator_builder,
+    svs::logging::logger_ptr logger
 );
 
 svs::Vamana dispatch_vamana_index_load(
@@ -46,7 +48,8 @@ svs::Vamana dispatch_vamana_index_load(
     const Storage* storage,
     svs::DistanceType distance_type,
     svs::threads::ThreadPoolHandle pool,
-    const AllocatorBuilder& allocator_builder
+    const AllocatorBuilder& allocator_builder,
+    svs::logging::logger_ptr logger
 );
 
 svs::Vamana dispatch_vamana_index_load_stream(
@@ -65,7 +68,8 @@ svs::Vamana dispatch_vamana_index_copy(
     const Storage* dst_storage,
     svs::DistanceType distance_type,
     svs::threads::ThreadPoolHandle pool,
-    const AllocatorBuilder& allocator_builder
+    const AllocatorBuilder& allocator_builder,
+    svs::logging::logger_ptr logger
 );
 
 svs::index::vamana::MemoryBreakdown dispatch_vamana_memory_estimate(

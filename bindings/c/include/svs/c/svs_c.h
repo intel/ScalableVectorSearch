@@ -986,6 +986,18 @@ SVS_API svs_index_builder_h svs_index_builder_create(
 /// @param builder The index builder handle to free
 SVS_API void svs_index_builder_free(svs_index_builder_h builder);
 
+/// @brief Set the logger for the index builder
+/// @param builder The index builder handle
+/// @param logger The logger handle for indexes built, loaded or converted with this
+/// builder; NULL uses the global default logger
+/// @param out_err An optional error handle to capture errors
+/// @return true on success, false on failure
+/// @remarks Indexes keep the logger they were created with; the handle may be freed after
+/// this call. Stream loads ignore it and use the global default logger.
+SVS_API bool svs_index_builder_set_logger(
+    svs_index_builder_h builder, svs_logger_h logger, svs_error_h out_err /*=NULL*/
+);
+
 /// @brief Set the storage configuration for the index builder
 /// @param builder The index builder handle
 /// @param storage The storage configuration handle
