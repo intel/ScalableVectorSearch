@@ -25,7 +25,6 @@
 #include <shared_mutex>
 #include <span>
 #include <type_traits>
-#include <variant>
 #include <vector>
 
 // Include the flat index to spin-up exhaustive searches on demand.
@@ -273,10 +272,9 @@ class MutableVamanaIndex {
     svs::logging::logger_ptr logger_;
 
     // Methods
-  public:
     // Constructors
     struct DeferReverseEdgesTag {};
-
+    // Private constructor which defers the reverse edges building in the graph.
     template <typename ExternalIds, typename ThreadPoolProto>
     MutableVamanaIndex(
         DeferReverseEdgesTag,
@@ -312,6 +310,7 @@ class MutableVamanaIndex {
         translator_.insert(external_ids, threads::UnitRange<Idx>(0, external_ids.size()));
     }
 
+  public:
     template <typename ExternalIds, typename ThreadPoolProto>
     MutableVamanaIndex(
         Graph graph,
