@@ -29,6 +29,7 @@
 #include <svs/index/vamana/index.h>
 
 #include <filesystem>
+#include <istream>
 #include <memory>
 #include <span>
 #include <utility>
@@ -98,6 +99,8 @@ struct IndexBuilder {
 
     std::shared_ptr<Index> load(const std::filesystem::path& directory);
 
+    std::shared_ptr<Index> load_stream(std::unique_ptr<std::istream>&& stream);
+
     std::shared_ptr<Index> copy(const std::shared_ptr<Index>& src_index);
 
     std::shared_ptr<DynamicIndex> build_dynamic(
@@ -108,6 +111,9 @@ struct IndexBuilder {
 
     std::shared_ptr<DynamicIndex>
     load_dynamic(const std::filesystem::path& directory, size_t blocksize_bytes);
+
+    std::shared_ptr<DynamicIndex>
+    load_stream_dynamic(std::unique_ptr<std::istream>&& stream, size_t blocksize_bytes);
 
     std::shared_ptr<DynamicIndex>
     copy_dynamic(const std::shared_ptr<Index>& src_index, size_t blocksize_bytes);
