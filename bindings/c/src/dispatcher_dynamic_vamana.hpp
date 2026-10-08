@@ -24,6 +24,8 @@
 #include <svs/orchestrators/dynamic_vamana.h>
 
 #include <filesystem>
+#include <istream>
+#include <memory>
 #include <span>
 #include <utility>
 #include <variant>
@@ -45,6 +47,27 @@ svs::DynamicVamana dispatch_dynamic_vamana_index_load(
     const svs::index::vamana::VamanaBuildParameters& build_params,
     const std::filesystem::path& directory,
     const Storage* storage,
+    svs::DistanceType distance_type,
+    svs::threads::ThreadPoolHandle pool,
+    const AllocatorBuilder& allocator_builder,
+    size_t blocksize_bytes
+);
+
+svs::DynamicVamana dispatch_dynamic_vamana_index_load_stream(
+    const svs::index::vamana::VamanaBuildParameters& build_params,
+    std::unique_ptr<std::istream> stream,
+    const Storage* storage,
+    svs::DistanceType distance_type,
+    svs::threads::ThreadPoolHandle pool,
+    const AllocatorBuilder& allocator_builder,
+    size_t blocksize_bytes
+);
+
+svs::DynamicVamana dispatch_dynamic_vamana_index_copy(
+    const svs::index::vamana::VamanaBuildParameters& build_params,
+    const svs::DynamicVamana& src_index,
+    const Storage* src_storage,
+    const Storage* dst_storage,
     svs::DistanceType distance_type,
     svs::threads::ThreadPoolHandle pool,
     const AllocatorBuilder& allocator_builder,
