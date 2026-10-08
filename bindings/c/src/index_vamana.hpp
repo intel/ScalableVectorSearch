@@ -144,8 +144,5 @@ struct DynamicIndexVamana : public DynamicIndex {
         auto lock = read_lock();
         return index.size();
     }
-
-  private:
-    bool consolidated = true;
 };
 } // namespace svs::c_runtime

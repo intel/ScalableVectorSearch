@@ -19,6 +19,7 @@
 // stdlib
 #include <algorithm>
 #include <memory>
+#include <stdexcept>
 
 // Include the flat index to spin-up exhaustive searches on demand.
 #include "svs/index/flat/flat.h"
@@ -888,20 +889,10 @@ class MutableVamanaIndex {
         return entry_point_[0];
     }
 
-    ///
-    /// @brief Return all the non-missing internal IDs.
-    ///
-    /// This includes both valid and soft-deleted entries.
-    ///
-    std::vector<Idx> nonmissing_indices() const {
-        auto indices = std::vector<Idx>();
-        indices.reserve(size());
-        for (size_t i = 0, imax = status_.size(); i < imax; ++i) {
-            if (!is_deleted(i)) {
-                indices.push_back(i);
-            }
-        }
-        return indices;
+    /// @brief Check if the index has been consolidated - no `Deleted` entries remain.
+    bool is_consolidated() const {
+        return std::find(status_.begin(), status_.end(), SlotMetadata::Deleted) ==
+               status_.end();
     }
 
     ///
@@ -916,7 +907,18 @@ class MutableVamanaIndex {
         //
         // In the returned data structure, an entry `j` at index `i` means that the
         // data at index `j` is to be moved to index `i`.
-        auto new_to_old_id_map = nonmissing_indices();
+        // Collect all the non-missing internal IDs.
+        std::vector<Idx> new_to_old_id_map{};
+        new_to_old_id_map.reserve(size());
+        for (size_t i = 0, imax = status_.size(); i < imax; ++i) {
+            if (status_[i] == SlotMetadata::Deleted) {
+                // specificly throw logic_error to indicate wrong API usage
+                throw std::logic_error("Index have to be consolidated before compaction.");
+            }
+            if (status_[i] == SlotMetadata::Valid) {
+                new_to_old_id_map.push_back(i);
+            }
+        }
 
         // Construct an associative data structure to facilitate graph adjacency list
         // remapping.

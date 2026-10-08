@@ -202,7 +202,6 @@ size_t DynamicIndexVamana::delete_points(std::span<const size_t> ids) {
     }
 
     if (!ids_to_delete.empty()) {
-        consolidated = false;
         index.delete_points(svs::lib::as_const_span(ids_to_delete));
     }
     return ids_to_delete.size();
@@ -212,22 +211,18 @@ void DynamicIndexVamana::save(const std::filesystem::path& directory) {
     // Saving consolidates and compacts the index, so it requires exclusive access.
     auto lock = write_lock();
     index.save(directory / "config", directory / "graph", directory / "data");
-    // MutableVamanaIndex::save() implies consolidate() and compact().
-    consolidated = true;
 }
 
 void DynamicIndexVamana::consolidate() {
     auto lock = write_lock();
     index.consolidate();
-    consolidated = true;
 }
 
 void DynamicIndexVamana::compact(size_t batchsize) {
     auto lock = write_lock();
     // Ensure the index is consolidated before compacting.
-    if (!consolidated) {
+    if (!index.is_consolidated()) {
         index.consolidate();
-        consolidated = true;
     }
     if (batchsize == 0) {
         index.compact(); // Use default batch size
