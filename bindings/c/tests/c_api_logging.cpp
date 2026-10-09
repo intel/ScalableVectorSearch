@@ -1022,6 +1022,40 @@ CATCH_TEST_CASE("C API Index Builder Logger", "[c_api][logging]") {
         svs_error_free(error);
     }
 
+    CATCH_SECTION("Synchronized Dynamic Index Uses Builder Logger") {
+        LogRecorder global_recorder; // Declared first: must outlive the guard.
+        LogRecorder recorder;
+        DefaultLoggerGuard guard;
+        svs_error_h error = svs_error_create();
+        svs_logger_h global_logger = make_recording_logger(global_recorder, error);
+        CATCH_REQUIRE(svs_set_default_logger(global_logger, error));
+        svs_logger_h logger = make_recording_logger(recorder, error);
+        {
+            BuilderFixture fixture;
+            CATCH_REQUIRE(svs_index_builder_set_logger(fixture.builder, logger, error));
+            svs_dynamic_index_params_t params = SVS_INIT_DYNAMIC_INDEX_PARAMS();
+            params.sync_kind = SVS_SYNC_KIND_GLOBAL;
+            svs_index_h index = svs_index_build_dynamic_ex(
+                fixture.builder,
+                fixture.data.data(),
+                nullptr,
+                kBuilderLoggerNumVectors,
+                &params,
+                error
+            );
+            CATCH_REQUIRE(index != nullptr);
+            CATCH_REQUIRE(svs_error_ok(error));
+            CATCH_REQUIRE(recorder.contains(SVS_LOG_LEVEL_TRACE, "Number of syncs"));
+            svs_index_free(index);
+        }
+        CATCH_REQUIRE(message_count(global_recorder) == 0);
+
+        svs_logger_free(logger);
+        CATCH_REQUIRE(svs_set_default_logger(nullptr, error));
+        svs_logger_free(global_logger);
+        svs_error_free(error);
+    }
+
     CATCH_SECTION("NULL Logger Clears And NULL Builder Fails") {
         LogRecorder global_recorder; // Declared first: must outlive the guard.
         LogRecorder builder_recorder;

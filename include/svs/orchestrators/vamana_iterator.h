@@ -21,6 +21,8 @@
 
 // stl
 #include <memory>
+#include <span>
+#include <utility>
 
 namespace svs {
 
@@ -46,16 +48,17 @@ class VamanaIterator {
     };
 
     template <typename Index, typename QueryType> struct Implementation : Interface {
-        // For the type-erased implementation - require the schedule to be type-erased as
-        // well.
-        using type = svs::index::vamana::BatchIterator<Index, QueryType>;
+        // Each index type selects its own batch iterator.
+        using type = decltype(std::declval<const Index&>().make_batch_iterator(
+            std::declval<std::span<const QueryType>>(), size_t{}
+        ));
 
         Implementation(
             const Index& index,
             std::span<const QueryType> query,
             size_t extra_search_buffer_capacity = svs::UNSIGNED_INTEGER_PLACEHOLDER
         )
-            : impl_{index, query, extra_search_buffer_capacity} {}
+            : impl_{index.make_batch_iterator(query, extra_search_buffer_capacity)} {}
 
         svs::index::vamana::VamanaSearchParameters
         parameters_for_current_iteration() const override {

@@ -226,3 +226,36 @@ and save/load all work with no extra code.
 `resize()` publishes the new size with a release store, and `size()` reads it
 with an acquire load. A search that overlaps an `add_points` therefore sees
 either the old size or the new one, never a broken value.
+
+The graph uses the same storage: `graphs::SimpleBlockedGraph<Idx, Alloc>` keeps its
+adjacency lists in `SegmentedBlockedData<Idx, Dynamic, Alloc>`. `Alloc` defaults to
+`HugepageAllocator<Idx>`; pass a `SegmentedBlocked<Alloc>` to `auto_dynamic_build`
+to choose another one.
+
+## 4. Type-erased wrapper
+
+`svs::ConcurrentDynamicVamana`
+([../orchestrators/concurrent_dynamic_vamana.h](../orchestrators/concurrent_dynamic_vamana.h))
+wraps this index behind the `svs::DynamicVamana` API. It derives from
+`svs::DynamicVamana` and only replaces the factory functions:
+
+- `build<QueryTypes>(parameters, data, ids, distance, threadpool, graph_allocator)`
+- `assemble<QueryTypes>(config_dir, graph_loader, data_loader, distance, threadpool)`
+- `assemble<QueryTypes, Data>(stream, distance, threadpool, data_args...)`
+
+The dataset must use a `SegmentedBlocked` allocator; this is checked at compile
+time. `distance` may be a functor or a `svs::DistanceType`. `batch_iterator()`
+returns this index's own `BatchIterator`, so it takes the locks described in 1a.
+
+The rules from section 1 apply unchanged: `save()`, `set_threadpool()` and the
+build-parameter setters still need exclusive access.
+
+```cpp
+using Data = svs::index::vamana::concurrent::SegmentedBlockedData<float>;
+auto index = svs::ConcurrentDynamicVamana::build<float>(
+    parameters, Data::load(path), ids, svs::DistanceType::L2, num_threads
+);
+// Safe from several threads at once:
+index.add_points(points, new_ids);
+auto results = index.search(queries, 10);
+```

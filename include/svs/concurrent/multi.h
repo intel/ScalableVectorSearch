@@ -315,6 +315,7 @@ class MultiMutableVamanaIndex {
             std::move(data),
             std::move(graph),
             distance_,
+            std::vector<SlotMetadata>(adds.size(), SlotMetadata::Valid),
             remapped_translator,
             std::move(threadpool),
             std::move(logger)
@@ -358,6 +359,7 @@ class MultiMutableVamanaIndex {
             std::move(data),
             std::move(graph),
             distance_,
+            std::vector<SlotMetadata>(adds.size(), SlotMetadata::Valid),
             remapped_translator,
             std::move(threadpool),
             std::move(logger)
