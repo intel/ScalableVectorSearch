@@ -560,6 +560,203 @@ CATCH_TEST_CASE("C API Dynamic Index Sync Sequential", "[c_api][index][dynamic][
     svs_index_free(index);
 }
 
+CATCH_TEST_CASE(
+    "C API Dynamic Index Sync Kind Conversion", "[c_api][index][dynamic][sync]"
+) {
+    // FINE_GRAIN uses a different index implementation; convert between all pairs.
+    const auto src_kind = GENERATE(SVS_SYNC_KIND_NONE, SVS_SYNC_KIND_FINE_GRAIN);
+    const auto dst_kind = GENERATE(SVS_SYNC_KIND_NONE, SVS_SYNC_KIND_FINE_GRAIN);
+    CATCH_CAPTURE(src_kind, dst_kind);
+
+    SyncFixture fx;
+    svs_index_h source = fx.build(src_kind);
+    CATCH_REQUIRE(source != nullptr);
+
+    // Leave deletions unconsolidated so the copy must skip them.
+    constexpr size_t NUM_DELETED = 10;
+    size_t count = 0;
+    CATCH_REQUIRE(svs_index_dynamic_delete_points(
+        source, fx.ids.data(), NUM_DELETED, &count, fx.error
+    ));
+    CATCH_REQUIRE(count == NUM_DELETED);
+
+    svs_dynamic_index_params_t params = SVS_INIT_DYNAMIC_INDEX_PARAMS();
+    params.blocksize_bytes = BLOCK_SIZE;
+    params.sync_kind = dst_kind;
+    svs_index_h converted =
+        svs_index_convert_dynamic_ex(fx.builder, source, &params, fx.error);
+    CATCH_REQUIRE(converted != nullptr);
+    CATCH_REQUIRE(svs_error_ok(fx.error));
+
+    size_t size = 0;
+    CATCH_REQUIRE(svs_index_get_size(converted, &size, fx.error));
+    CATCH_REQUIRE(size == NUM_VECTORS - NUM_DELETED);
+    for (size_t i = 0; i < NUM_VECTORS; ++i) {
+        bool has_id = false;
+        CATCH_REQUIRE(svs_index_dynamic_has_id(converted, fx.ids[i], &has_id, fx.error));
+        CATCH_REQUIRE(has_id == (i >= NUM_DELETED));
+    }
+
+    // The converted index stays fully usable.
+    svs_search_results_t results = SVS_INIT_SEARCH_RESULTS();
+    CATCH_REQUIRE(svs_index_search_topk(
+        converted, fx.queries.data(), NUM_QUERIES, K, &results, nullptr, nullptr, fx.error
+    ));
+    for (size_t i = 0; i < results.total_results; ++i) {
+        CATCH_REQUIRE(results.indices[i] >= NUM_DELETED);
+        CATCH_REQUIRE(results.indices[i] < NUM_VECTORS);
+    }
+    svs_search_results_free(&results);
+
+    std::vector<size_t> new_ids = {fx.ids[0], NUM_VECTORS};
+    std::vector<float> new_data;
+    generate_test_data(new_data, new_ids.size(), DIMENSION);
+    CATCH_REQUIRE(svs_index_dynamic_add_points(
+        converted, new_data.data(), new_ids.data(), new_ids.size(), &count, fx.error
+    ));
+    CATCH_REQUIRE(count == new_ids.size());
+    CATCH_REQUIRE(svs_index_dynamic_consolidate(converted, fx.error));
+    CATCH_REQUIRE(svs_index_dynamic_compact(converted, 0, fx.error));
+    CATCH_REQUIRE(svs_index_get_size(converted, &size, fx.error));
+    CATCH_REQUIRE(size == NUM_VECTORS - NUM_DELETED + new_ids.size());
+
+    svs_index_free(converted);
+    svs_index_free(source);
+}
+
+CATCH_TEST_CASE("C API Dynamic Index Fine Grain Storage", "[c_api][index][dynamic][sync]") {
+    const int storage_id = GENERATE(0, 1, 2, 3, 4);
+    CATCH_CAPTURE(storage_id);
+
+    SyncFixture fx;
+    svs_storage_h storage = nullptr;
+    switch (storage_id) {
+        case 0:
+            storage = svs_storage_create_simple(SVS_DATA_TYPE_FLOAT16, fx.error);
+            break;
+        case 1:
+            storage = svs_storage_create_sq(SVS_DATA_TYPE_INT8, fx.error);
+            break;
+        case 2:
+            storage =
+                svs_storage_create_lvq(SVS_DATA_TYPE_INT4, SVS_DATA_TYPE_INT8, fx.error);
+            break;
+        case 3:
+            storage =
+                svs_storage_create_lvq(SVS_DATA_TYPE_INT8, SVS_DATA_TYPE_VOID, fx.error);
+            break;
+        default:
+            storage = svs_storage_create_leanvec(
+                DIMENSION / 2, SVS_DATA_TYPE_INT4, SVS_DATA_TYPE_INT8, fx.error
+            );
+            break;
+    }
+    CATCH_REQUIRE(check_storage_support(storage, fx.error));
+    if (!storage_usable(storage)) {
+        return;
+    }
+
+    svs_index_builder_h builder = svs_index_builder_create(
+        SVS_DISTANCE_METRIC_EUCLIDEAN, DIMENSION, fx.algorithm, fx.error
+    );
+    CATCH_REQUIRE(builder != nullptr);
+    CATCH_REQUIRE(svs_index_builder_set_storage(builder, storage, fx.error));
+    CATCH_REQUIRE(
+        svs_index_builder_set_threadpool(builder, SVS_THREADPOOL_KIND_NATIVE, 2, fx.error)
+    );
+
+    svs_dynamic_index_params_t params = SVS_INIT_DYNAMIC_INDEX_PARAMS();
+    params.blocksize_bytes = BLOCK_SIZE;
+    params.sync_kind = SVS_SYNC_KIND_FINE_GRAIN;
+    svs_index_h index = svs_index_build_dynamic_ex(
+        builder, fx.data.data(), fx.ids.data(), NUM_VECTORS, &params, fx.error
+    );
+    CATCH_REQUIRE(index != nullptr);
+    CATCH_REQUIRE(svs_error_ok(fx.error));
+
+    run_concurrent_workload(fx, index);
+
+    // Save and load keep the concurrent index usable.
+    TempDir dir;
+    CATCH_REQUIRE(svs_index_save(index, dir.string().c_str(), fx.error));
+    svs_index_h loaded =
+        svs_index_load_dynamic_ex(builder, dir.string().c_str(), &params, fx.error);
+    CATCH_REQUIRE(loaded != nullptr);
+    CATCH_REQUIRE(svs_error_ok(fx.error));
+    size_t expected_size = 0;
+    size_t size = 0;
+    CATCH_REQUIRE(svs_index_get_size(index, &expected_size, fx.error));
+    CATCH_REQUIRE(svs_index_get_size(loaded, &size, fx.error));
+    CATCH_REQUIRE(size == expected_size);
+
+    svs_search_results_t results = SVS_INIT_SEARCH_RESULTS();
+    CATCH_REQUIRE(svs_index_search_topk(
+        loaded, fx.queries.data(), NUM_QUERIES, K, &results, nullptr, nullptr, fx.error
+    ));
+    svs_search_results_free(&results);
+
+    // Compressed (concurrent) -> simple (regular), then simple (concurrent) -> compressed.
+    params.sync_kind = SVS_SYNC_KIND_NONE;
+    svs_index_h decompressed =
+        svs_index_convert_dynamic_ex(fx.builder, loaded, &params, fx.error);
+    CATCH_REQUIRE(decompressed != nullptr);
+    CATCH_REQUIRE(svs_index_get_size(decompressed, &size, fx.error));
+    CATCH_REQUIRE(size == expected_size);
+
+    svs_index_h simple = fx.build(SVS_SYNC_KIND_FINE_GRAIN);
+    CATCH_REQUIRE(simple != nullptr);
+    params.sync_kind = SVS_SYNC_KIND_FINE_GRAIN;
+    svs_index_h compressed =
+        svs_index_convert_dynamic_ex(builder, simple, &params, fx.error);
+    CATCH_REQUIRE(compressed != nullptr);
+    CATCH_REQUIRE(svs_index_get_size(compressed, &size, fx.error));
+    CATCH_REQUIRE(size == NUM_VECTORS);
+
+    svs_index_free(compressed);
+    svs_index_free(simple);
+    svs_index_free(decompressed);
+    svs_index_free(loaded);
+    svs_index_free(index);
+    svs_index_builder_free(builder);
+    svs_storage_free(storage);
+}
+
+CATCH_TEST_CASE("C API Dynamic Index Sync Kind Memory", "[c_api][index][dynamic][sync]") {
+    SyncFixture fx;
+
+    auto estimate = [&](svs_sync_kind_t kind) {
+        svs_dynamic_index_params_t params = SVS_INIT_DYNAMIC_INDEX_PARAMS();
+        params.blocksize_bytes = BLOCK_SIZE;
+        params.sync_kind = kind;
+        svs_memory_breakdown_t breakdown = SVS_INIT_MEMORY_BREAKDOWN();
+        CATCH_REQUIRE(svs_index_builder_estimate_memory_dynamic_ex(
+            fx.builder, NUM_VECTORS, &params, &breakdown, fx.error
+        ));
+        return breakdown;
+    };
+
+    const auto regular = estimate(SVS_SYNC_KIND_NONE);
+    const auto global = estimate(SVS_SYNC_KIND_GLOBAL);
+    const auto fine_grain = estimate(SVS_SYNC_KIND_FINE_GRAIN);
+    CATCH_REQUIRE(global.graph_bytes == regular.graph_bytes);
+    // The concurrent index also keeps reverse edges, counted as graph memory.
+    CATCH_REQUIRE(fine_grain.graph_bytes > regular.graph_bytes);
+    CATCH_REQUIRE(fine_grain.data_bytes == regular.data_bytes);
+    CATCH_REQUIRE(fine_grain.metadata_bytes == regular.metadata_bytes);
+
+    svs_index_h index = fx.build(SVS_SYNC_KIND_FINE_GRAIN);
+    CATCH_REQUIRE(index != nullptr);
+    svs_memory_breakdown_t breakdown = SVS_INIT_MEMORY_BREAKDOWN();
+    CATCH_REQUIRE(svs_index_get_memory_breakdown(index, &breakdown, fx.error));
+    size_t usage = 0;
+    CATCH_REQUIRE(svs_index_get_memory_usage(index, &usage, fx.error));
+    CATCH_REQUIRE(
+        usage == breakdown.graph_bytes + breakdown.data_bytes + breakdown.metadata_bytes
+    );
+    CATCH_REQUIRE(breakdown.graph_bytes > 0);
+    svs_index_free(index);
+}
+
 CATCH_TEST_CASE("C API Dynamic Index Sync Concurrent", "[c_api][index][dynamic][sync]") {
     const auto sync_kind = GENERATE(SVS_SYNC_KIND_GLOBAL, SVS_SYNC_KIND_FINE_GRAIN);
     CATCH_CAPTURE(sync_kind);

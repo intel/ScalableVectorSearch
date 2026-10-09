@@ -33,6 +33,8 @@ set(SVS_C_API_HEADERS
 
 set(SVS_C_API_SOURCES
     src/algorithm.hpp
+    src/dispatcher_concurrent_vamana.hpp
+    src/dispatcher_dynamic_vamana_copy.hpp
     src/error.hpp
     src/filtered_search.hpp
     src/index.hpp
@@ -48,6 +50,7 @@ set(SVS_C_API_SOURCES
     src/svs_c.cpp
     src/dispatcher_vamana.cpp
     src/dispatcher_dynamic_vamana.cpp
+    src/dispatcher_concurrent_vamana.cpp
     src/leanvec_training_data.cpp
     src/data_builder.cpp
     src/index_builder.cpp

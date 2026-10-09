@@ -41,6 +41,8 @@
 #include <svs/extensions/vamana/leanvec.h>
 #endif // SVS_LEANVEC_HEADER
 
+#include <svs/concurrent/extensions/leanvec.h>
+
 #include <cstddef>
 #include <filesystem>
 #include <optional>
@@ -172,10 +174,10 @@ struct lib::
     }
 };
 
-template <bool UseBlocked, typename F> void for_leanvec_specializations(F&& f) {
-    using byte_alloc = svs::c_runtime::
-        MaybeBlockedAlloc<std::byte, UseBlocked, AllocatorHandle<std::byte>>;
-
+template <auto KindArg, typename F> void for_leanvec_specializations(F&& f) {
+    constexpr auto Kind = c_runtime::block_kind_v<KindArg>;
+    using byte_alloc =
+        svs::c_runtime::MaybeBlockedAlloc<std::byte, Kind, AllocatorHandle<std::byte>>;
 #define X(P, S, D) f.template operator()<LeanVecDataBuilder<P, S, byte_alloc>, D>();
 #define XX(P, S) X(P, S, DistanceL2) X(P, S, DistanceIP) X(P, S, DistanceCosineSimilarity)
     // Pattern:
@@ -192,7 +194,7 @@ template <bool UseBlocked, typename F> void for_leanvec_specializations(F&& f) {
 #else // SVS_RUNTIME_ENABLE_LVQ_LEANVEC not enabled
 namespace svs {
 // Define empty stubs for LeanVec-related functions when LVQ/LeanVec support is disabled
-template <bool UseBlocked, typename F> void for_leanvec_specializations(F&&) {}
+template <auto KindArg, typename F> void for_leanvec_specializations(F&&) {}
 } // namespace svs
 
 #endif // SVS_RUNTIME_ENABLE_LVQ_LEANVEC

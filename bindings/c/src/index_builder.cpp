@@ -17,6 +17,7 @@
 
 #include "algorithm.hpp"
 #include "data_builder.hpp"
+#include "dispatcher_concurrent_vamana.hpp"
 #include "dispatcher_dynamic_vamana.hpp"
 #include "dispatcher_vamana.hpp"
 #include "error.hpp"
@@ -130,6 +131,22 @@ void validate_builder_compatibility(
         );
     }
 }
+
+// FINE_GRAIN is served by the concurrent index; other kinds by the regular one.
+bool uses_concurrent_index(svs_sync_kind_t sync_kind) {
+    return sync_kind == SVS_SYNC_KIND_FINE_GRAIN;
+}
+
+std::shared_ptr<DynamicIndex> make_dynamic_index(
+    const IndexBuilder& builder, svs::DynamicVamana&& index, svs_sync_kind_t sync_kind
+) {
+    if (uses_concurrent_index(sync_kind)) {
+        return std::make_shared<ConcurrentIndexVamana>(
+            builder, std::move(index), sync_kind
+        );
+    }
+    return std::make_shared<DynamicIndexVamana>(builder, std::move(index), sync_kind);
+}
 } // namespace
 
 std::shared_ptr<Index> IndexBuilder::copy(const std::shared_ptr<Index>& src_index) {
@@ -204,23 +221,44 @@ std::shared_ptr<DynamicIndex> IndexBuilder::copy_dynamic(
         throw std::invalid_argument("Source index must be a valid Dynamic Vamana index.");
     }
 
-    auto src_lock = vamana_index->read_lock();
-    auto index = std::make_shared<DynamicIndexVamana>(
-        *this,
-        dispatch_dynamic_vamana_index_copy(
-            dst_build_parameters,
-            vamana_index->index,
-            src_builder.storage.get(),
-            storage.get(),
-            to_distance_type(distance_metric),
-            pool_builder.build(),
-            allocator_builder,
-            block_params
-        ),
-        sync_kind
-    );
+    const bool src_concurrent =
+        std::dynamic_pointer_cast<ConcurrentIndexVamana>(vamana_index) != nullptr;
+    const bool dst_concurrent = uses_concurrent_index(sync_kind);
 
-    return index;
+    // The concurrent index may be updated under the shared lock, so reading its whole
+    // state needs the exclusive one.
+    std::shared_lock<std::shared_mutex> src_read_lock;
+    std::unique_lock<std::shared_mutex> src_write_lock;
+    if (src_concurrent) {
+        src_write_lock = vamana_index->write_lock();
+    } else {
+        src_read_lock = vamana_index->read_lock();
+    }
+
+    auto copied = (src_concurrent || dst_concurrent)
+                      ? dispatch_concurrent_vamana_index_copy(
+                            dst_build_parameters,
+                            vamana_index->index,
+                            src_concurrent,
+                            src_builder.storage.get(),
+                            storage.get(),
+                            dst_concurrent,
+                            to_distance_type(distance_metric),
+                            pool_builder.build(),
+                            allocator_builder,
+                            block_params
+                        )
+                      : dispatch_dynamic_vamana_index_copy(
+                            dst_build_parameters,
+                            vamana_index->index,
+                            src_builder.storage.get(),
+                            storage.get(),
+                            to_distance_type(distance_metric),
+                            pool_builder.build(),
+                            allocator_builder,
+                            block_params
+                        );
+    return make_dynamic_index(*this, std::move(copied), sync_kind);
 }
 
 std::shared_ptr<DynamicIndex> IndexBuilder::build_dynamic(
@@ -231,24 +269,29 @@ std::shared_ptr<DynamicIndex> IndexBuilder::build_dynamic(
 ) {
     if (algorithm->type == SVS_ALGORITHM_TYPE_VAMANA) {
         auto vamana_algorithm = static_cast<AlgorithmVamana*>(algorithm.get());
-
-        auto index = std::make_shared<DynamicIndexVamana>(
-            *this,
-            // vamana_algorithm,
-            dispatch_dynamic_vamana_index_build(
-                vamana_algorithm->build_parameters(),
-                data,
-                ids,
-                storage.get(),
-                to_distance_type(distance_metric),
-                pool_builder.build(),
-                allocator_builder,
-                block_params
-            ),
-            sync_kind
-        );
-
-        return index;
+        const auto& build_params = vamana_algorithm->build_parameters();
+        auto index = uses_concurrent_index(sync_kind)
+                         ? dispatch_concurrent_vamana_index_build(
+                               build_params,
+                               data,
+                               ids,
+                               storage.get(),
+                               to_distance_type(distance_metric),
+                               pool_builder.build(),
+                               allocator_builder,
+                               block_params
+                           )
+                         : dispatch_dynamic_vamana_index_build(
+                               build_params,
+                               data,
+                               ids,
+                               storage.get(),
+                               to_distance_type(distance_metric),
+                               pool_builder.build(),
+                               allocator_builder,
+                               block_params
+                           );
+        return make_dynamic_index(*this, std::move(index), sync_kind);
     }
     return nullptr;
 }
@@ -260,23 +303,27 @@ std::shared_ptr<DynamicIndex> IndexBuilder::load_dynamic(
 ) {
     if (algorithm->type == SVS_ALGORITHM_TYPE_VAMANA) {
         auto vamana_algorithm = static_cast<AlgorithmVamana*>(algorithm.get());
-
-        auto index = std::make_shared<DynamicIndexVamana>(
-            *this,
-            // vamana_algorithm,
-            dispatch_dynamic_vamana_index_load(
-                vamana_algorithm->build_parameters(),
-                directory,
-                storage.get(),
-                to_distance_type(distance_metric),
-                pool_builder.build(),
-                allocator_builder,
-                block_params
-            ),
-            sync_kind
-        );
-
-        return index;
+        const auto& build_params = vamana_algorithm->build_parameters();
+        auto index = uses_concurrent_index(sync_kind)
+                         ? dispatch_concurrent_vamana_index_load(
+                               build_params,
+                               directory,
+                               storage.get(),
+                               to_distance_type(distance_metric),
+                               pool_builder.build(),
+                               allocator_builder,
+                               block_params
+                           )
+                         : dispatch_dynamic_vamana_index_load(
+                               build_params,
+                               directory,
+                               storage.get(),
+                               to_distance_type(distance_metric),
+                               pool_builder.build(),
+                               allocator_builder,
+                               block_params
+                           );
+        return make_dynamic_index(*this, std::move(index), sync_kind);
     }
     return nullptr;
 }
@@ -326,14 +373,19 @@ IndexBuilder::estimate_memory_breakdown(size_t num_vectors) const {
 }
 
 svs::index::vamana::MemoryBreakdown IndexBuilder::estimate_memory_breakdown_dynamic(
-    size_t num_vectors, const svs::data::BlockingParameters& block_params
+    size_t num_vectors,
+    const svs::data::BlockingParameters& block_params,
+    svs_sync_kind_t sync_kind
 ) const {
     NOT_IMPLEMENTED_IF(
         algorithm->type != SVS_ALGORITHM_TYPE_VAMANA,
         "Memory estimation is currently supported only for Vamana algorithm"
     );
     auto vamana_algorithm = static_cast<AlgorithmVamana*>(algorithm.get());
-    return dispatch_dynamic_vamana_memory_estimate(
+    auto estimate = uses_concurrent_index(sync_kind)
+                        ? &dispatch_concurrent_vamana_memory_estimate
+                        : &dispatch_dynamic_vamana_memory_estimate;
+    return estimate(
         vamana_algorithm->build_parameters(),
         num_vectors,
         dimension,

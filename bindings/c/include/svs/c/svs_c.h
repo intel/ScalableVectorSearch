@@ -527,23 +527,31 @@ struct svs_memory_breakdown {
 /// @brief Dynamic index synchronization kind.
 ///
 /// With synchronization enabled, the dynamic index handle guards itself with an internal
-/// reader/writer lock: read-only operations (search, has_id, get_distance, reconstruct,
-/// get_size, get_num_threads, memory queries, and use as a conversion source) take a
-/// shared lock and may run concurrently, while mutating operations (add_points,
-/// delete_points, consolidate, compact, save, set_num_threads) take an exclusive lock.
+/// reader/writer lock. Read-only operations (search, has_id, get_distance, reconstruct,
+/// get_size, get_num_threads) always take a shared lock and may run concurrently.
+///
+/// With SVS_SYNC_KIND_GLOBAL, mutating operations (add_points, delete_points,
+/// consolidate, compact, save, set_num_threads) take an exclusive lock.
+///
+/// With SVS_SYNC_KIND_FINE_GRAIN, the handle is backed by a concurrent index that
+/// synchronizes updates itself: add_points, delete_points, consolidate and compact take a
+/// shared lock and run alongside searches and each other (compact still waits for
+/// in-flight operations inside the index). Only save, set_num_threads, memory queries
+/// and use as a conversion source take an exclusive lock.
 ///
 /// @remarks Synchronization covers operations on the index only:
 /// * svs_index_free() must not run concurrently with any other call on the same handle.
 /// * Each thread must use its own svs_search_results_t and svs_error_h.
 /// * The lock gives no writer priority: under sustained read load, readers may starve
-///   writers.
+///   operations that need an exclusive lock.
+/// * With FINE_GRAIN, counts returned by add_points/delete_points and the index size
+///   reflect a point in time and may be affected by concurrent updates.
 /// * The sync kind is a runtime property: it is not persisted by svs_index_save(), so
 ///   pass it again to svs_index_load_dynamic_ex().
 enum svs_sync_kind {
     SVS_SYNC_KIND_NONE = 0,      ///< No internal synchronization; caller must synchronize
     SVS_SYNC_KIND_GLOBAL = 1,    ///< Index-wide reader/writer lock
-    SVS_SYNC_KIND_FINE_GRAIN = 2 ///< Currently the same as GLOBAL; reserved for
-                                 ///< finer-grained locking
+    SVS_SYNC_KIND_FINE_GRAIN = 2 ///< Concurrent index; updates run in parallel
 };
 
 /// @brief Structure to hold dynamic index parameters.
@@ -1001,7 +1009,8 @@ SVS_API bool svs_index_builder_estimate_memory_dynamic(
 /// @param builder The index builder handle
 /// @param num_vectors The number of vectors to be indexed
 /// @param params Pointer to the dynamic index parameters structure, or NULL for defaults;
-/// only the block size fields are used
+/// the block size fields and @p sync_kind are used (SVS_SYNC_KIND_FINE_GRAIN adds the
+/// concurrent index's reverse edges to graph_bytes)
 /// @param out_breakdown Pointer to a structure to hold the memory breakdown
 /// @param out_err An optional error handle to capture errors
 /// @return true on success, false on failure

@@ -137,7 +137,9 @@ struct IndexBuilder {
     // for `num_vectors` vectors. Mirrors the accounting done by
     // svs::index::vamana::MutableVamanaIndex::get_memory_breakdown().
     svs::index::vamana::MemoryBreakdown estimate_memory_breakdown_dynamic(
-        size_t num_vectors, const svs::data::BlockingParameters& block_params
+        size_t num_vectors,
+        const svs::data::BlockingParameters& block_params,
+        svs_sync_kind_t sync_kind = SVS_SYNC_KIND_NONE
     ) const;
 
     size_t estimate_search_memory(

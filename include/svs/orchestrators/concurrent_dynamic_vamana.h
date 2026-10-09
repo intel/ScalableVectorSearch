@@ -49,8 +49,6 @@ class ConcurrentDynamicVamana : public DynamicVamana {
     using base_type = DynamicVamana;
     using default_graph_allocator_type =
         index::vamana::concurrent::SegmentedBlocked<HugepageAllocator<uint32_t>>;
-    using default_graph_type =
-        index::vamana::concurrent::graphs::SimpleBlockedGraph<uint32_t>;
 
     template <lib::TypeList QueryTypes, typename Impl>
     explicit ConcurrentDynamicVamana(AssembleTag tag, QueryTypes types, Impl impl)
@@ -80,7 +78,8 @@ class ConcurrentDynamicVamana : public DynamicVamana {
         std::span<const size_t> ids,
         Distance distance,
         ThreadPoolProto threadpool_proto,
-        const GraphAllocator& graph_allocator = {}
+        const GraphAllocator& graph_allocator = {},
+        svs::logging::logger_ptr logger = svs::logging::get()
     ) {
         auto threadpool = threads::as_threadpool(std::move(threadpool_proto));
         auto data =
@@ -95,7 +94,8 @@ class ConcurrentDynamicVamana : public DynamicVamana {
                     ids,
                     std::move(distance_function),
                     std::move(threadpool),
-                    graph_allocator
+                    graph_allocator,
+                    std::move(logger)
                 )
             );
         };
@@ -130,7 +130,8 @@ class ConcurrentDynamicVamana : public DynamicVamana {
         DataLoader&& data_loader,
         Distance distance,
         ThreadPoolProto threadpool_proto,
-        bool debug_load_from_static = false
+        bool debug_load_from_static = false,
+        svs::logging::logger_ptr logger = svs::logging::get()
     ) {
         auto threadpool = threads::as_threadpool(std::move(threadpool_proto));
         auto make = [&](auto distance_function) {
@@ -143,7 +144,8 @@ class ConcurrentDynamicVamana : public DynamicVamana {
                     std::forward<DataLoader>(data_loader),
                     std::move(distance_function),
                     std::move(threadpool),
-                    debug_load_from_static
+                    debug_load_from_static,
+                    std::move(logger)
                 )
             );
         };
@@ -173,11 +175,13 @@ class ConcurrentDynamicVamana : public DynamicVamana {
         ThreadPoolProto threadpool_proto,
         DataLoaderArgs&&... data_args
     ) {
+        namespace cc = index::vamana::concurrent;
         static_assert(
-            index::vamana::concurrent::is_segmented_blocked_v<
-                typename Data::allocator_type>,
+            cc::is_segmented_blocked_v<typename Data::allocator_type>,
             "The concurrent index requires a dataset with a SegmentedBlocked allocator."
         );
+        using graph_type = cc::graphs::SimpleBlockedGraph<uint32_t>;
+
         auto threadpool = threads::as_threadpool(std::move(threadpool_proto));
         auto deserializer = svs::lib::detail::Deserializer::build(stream);
         if (deserializer.is_native()) {
@@ -187,9 +191,7 @@ class ConcurrentDynamicVamana : public DynamicVamana {
                     manager::as_typelist<QueryTypes>(),
                     index::vamana::concurrent::auto_dynamic_assemble(
                         stream,
-                        [&]() -> default_graph_type {
-                            return default_graph_type::load(stream);
-                        },
+                        [&]() -> graph_type { return graph_type::load(stream); },
                         [&]() -> Data {
                             return lib::load_from_stream<Data>(
                                 stream, SVS_FWD(data_args)...
@@ -225,7 +227,7 @@ class ConcurrentDynamicVamana : public DynamicVamana {
 
         return assemble<QueryTypes>(
             config_path,
-            SVS_LAZY(default_graph_type::load(graph_path)),
+            SVS_LAZY(graph_type::load(graph_path)),
             lib::load_from_disk<Data>(data_path, SVS_FWD(data_args)...),
             std::move(distance),
             std::move(threadpool)

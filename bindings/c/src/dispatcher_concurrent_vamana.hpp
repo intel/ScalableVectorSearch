@@ -25,15 +25,12 @@
 #include <svs/orchestrators/dynamic_vamana.h>
 
 #include <filesystem>
-#include <istream>
-#include <memory>
 #include <span>
-#include <utility>
-#include <variant>
 
 namespace svs::c_runtime {
 
-svs::DynamicVamana dispatch_dynamic_vamana_index_build(
+// The returned index wraps svs::ConcurrentDynamicVamana.
+svs::DynamicVamana dispatch_concurrent_vamana_index_build(
     const svs::index::vamana::VamanaBuildParameters& build_params,
     svs::data::ConstSimpleDataView<float> data,
     std::span<const size_t> ids,
@@ -44,7 +41,7 @@ svs::DynamicVamana dispatch_dynamic_vamana_index_build(
     const svs::data::BlockingParameters& block_params
 );
 
-svs::DynamicVamana dispatch_dynamic_vamana_index_load(
+svs::DynamicVamana dispatch_concurrent_vamana_index_load(
     const svs::index::vamana::VamanaBuildParameters& build_params,
     const std::filesystem::path& directory,
     const Storage* storage,
@@ -54,28 +51,22 @@ svs::DynamicVamana dispatch_dynamic_vamana_index_load(
     const svs::data::BlockingParameters& block_params
 );
 
-svs::DynamicVamana dispatch_dynamic_vamana_index_load_stream(
-    const svs::index::vamana::VamanaBuildParameters& build_params,
-    std::unique_ptr<std::istream> stream,
-    const Storage* storage,
-    svs::DistanceType distance_type,
-    svs::threads::ThreadPoolHandle pool,
-    const AllocatorBuilder& allocator_builder,
-    const svs::data::BlockingParameters& block_params
-);
-
-svs::DynamicVamana dispatch_dynamic_vamana_index_copy(
+// Copies between a concurrent and a regular or concurrent dynamic index;
+// at least one of `src_concurrent` and `dst_concurrent` must be true.
+svs::DynamicVamana dispatch_concurrent_vamana_index_copy(
     const svs::index::vamana::VamanaBuildParameters& build_params,
     const svs::DynamicVamana& src_index,
+    bool src_concurrent,
     const Storage* src_storage,
     const Storage* dst_storage,
+    bool dst_concurrent,
     svs::DistanceType distance_type,
     svs::threads::ThreadPoolHandle pool,
     const AllocatorBuilder& allocator_builder,
     const svs::data::BlockingParameters& block_params
 );
 
-svs::index::vamana::MemoryBreakdown dispatch_dynamic_vamana_memory_estimate(
+svs::index::vamana::MemoryBreakdown dispatch_concurrent_vamana_memory_estimate(
     const svs::index::vamana::VamanaBuildParameters& build_params,
     size_t num_vectors,
     size_t dimension,

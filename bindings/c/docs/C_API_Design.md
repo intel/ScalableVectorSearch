@@ -277,12 +277,20 @@ Invalid parameters are rejected with `SVS_ERROR_INVALID_ARGUMENT`; unlike the le
 |-----------------|----------|
 | `SVS_SYNC_KIND_NONE` | No internal synchronization (default); the caller must serialize access |
 | `SVS_SYNC_KIND_GLOBAL` | Index-wide reader/writer lock: read-only operations (search, `has_id`, `get_distance`, reconstruct, `get_size`, `get_num_threads`, memory queries, use as a conversion source) run concurrently; mutating operations (add/delete points, consolidate, compact, save, `set_num_threads`) are exclusive |
-| `SVS_SYNC_KIND_FINE_GRAIN` | Currently behaves as `SVS_SYNC_KIND_GLOBAL`; reserved for finer-grained locking in future releases |
+| `SVS_SYNC_KIND_FINE_GRAIN` | Backed by the concurrent Vamana index, which synchronizes updates itself: read-only operations and add/delete points, consolidate, compact all take a shared lock and run in parallel (compact still waits inside the index). Save, `set_num_threads`, memory queries and use as a conversion source are exclusive |
 
 Synchronization limits:
 - `svs_index_free()` must not run concurrently with any other call on the same handle.
 - Each thread must use its own `svs_search_results_t` and `svs_error_h`.
-- The lock gives no writer priority; sustained read load may starve writers.
+- The lock gives no writer priority; sustained read load may starve operations that
+  need an exclusive lock.
+- With `SVS_SYNC_KIND_FINE_GRAIN`, add/delete counts and the index size are a snapshot
+  and may be affected by concurrent updates.
+- The concurrent index keeps a reverse-edge list per node; its memory is reported (and
+  estimated, when `sync_kind` is passed to
+  `svs_index_builder_estimate_memory_dynamic_ex`) as part of `graph_bytes`.
+- Conversion (`svs_index_convert_dynamic_ex`) works between any sync kinds; deleted but
+  not yet consolidated vectors are not copied.
 - The sync kind is not persisted by `svs_index_save()`; pass it again on load. Query it
   with `svs_index_dynamic_get_sync_kind()`.
 
@@ -325,7 +333,8 @@ plan capacity up front:
   for the block size; `svs_index_builder_get_default_blocksize_bytes` returns the
   default block size (`blocksize_bytes = 0` selects it).
   `svs_index_builder_estimate_memory_dynamic_ex` takes the block size from
-  `svs_dynamic_index_params_t` instead, including `blocksize_elements`.
+  `svs_dynamic_index_params_t` instead, including `blocksize_elements`, and accounts
+  for the reverse edges of the `SVS_SYNC_KIND_FINE_GRAIN` index.
 - `svs_index_builder_estimate_search_memory` /
   `svs_index_builder_estimate_search_memory_dynamic` /
   `svs_index_builder_estimate_search_memory_dynamic_ex` — estimate the scratch memory a
