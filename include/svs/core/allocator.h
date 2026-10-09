@@ -233,7 +233,8 @@ template <typename T> class HugepageAllocator {
     HugepageAllocator(const HugepageAllocator<U>& other)
         : force_{other.force_} {}
 
-    template <typename U> bool operator==(const HugepageAllocator<U>& SVS_UNUSED(other)) {
+    template <typename U>
+    bool operator==(const HugepageAllocator<U>& SVS_UNUSED(other)) const {
         return true;
     }
 
