@@ -542,8 +542,7 @@ class Vamana : public manager::IndexManager<VamanaInterface> {
     /// @param threadpool_proto Precursor for the thread pool to use. Can either be an
     ///     acceptable thread pool instance or an integer specifying the number of
     ///     threads to use.
-    /// @param data_allocator Allocator to use for the loaded data.
-    /// @param graph_allocator Allocator to use for the loaded graph.
+    /// @param data_args Forwarded to the loader of ``Data``, e.g. an allocator.
     ///
     /// @copydoc threadpool_requirements
     ///
@@ -554,24 +553,61 @@ class Vamana : public manager::IndexManager<VamanaInterface> {
         typename Data,
         typename Distance,
         typename ThreadPoolProto,
-        typename DataAllocator = typename Data::allocator_type,
-        typename GraphAllocator = HugepageAllocator<uint32_t>>
+        typename... DataLoaderArgs>
+        requires(!is_view_type_v<typename Data::allocator_type> && !detail::first_is_stream_graph_loader_v<DataLoaderArgs...>)
+    static Vamana assemble(
+        std::istream& stream,
+        const Distance& distance,
+        ThreadPoolProto threadpool_proto,
+        DataLoaderArgs&&... data_args
+    ) {
+        return assemble<QueryTypes, Data>(
+            stream,
+            distance,
+            std::move(threadpool_proto),
+            StreamGraphLoader<>{},
+            SVS_FWD(data_args)...
+        );
+    }
+
+    ///
+    /// @brief Assemble a Vamana index from a stream.
+    ///
+    /// @param stream The stream to load from. See ``svs::Vamana::save``.
+    /// @param distance The distance functor or ``svs::DistanceType`` enum to use for
+    ///     similarity search computations.
+    /// @param threadpool_proto Precursor for the thread pool to use. Can either be an
+    ///     acceptable thread pool instance or an integer specifying the number of
+    ///     threads to use.
+    /// @param graph_loader Selects the allocator to use for the loaded graph. See
+    ///     ``svs::StreamGraphLoader``.
+    /// @param data_args Forwarded to the loader of ``Data``, e.g. an allocator.
+    ///
+    /// @copydoc threadpool_requirements
+    ///
+    /// @sa save, build
+    ///
+    template <
+        manager::QueryTypeDefinition QueryTypes,
+        typename Data,
+        typename Distance,
+        typename ThreadPoolProto,
+        typename GraphAllocator,
+        typename... DataLoaderArgs>
         requires(!is_view_type_v<typename Data::allocator_type>)
     static Vamana assemble(
         std::istream& stream,
         const Distance& distance,
         ThreadPoolProto threadpool_proto,
-        const DataAllocator& data_allocator = {},
-        const GraphAllocator& graph_allocator = {}
+        const StreamGraphLoader<uint32_t, GraphAllocator>& graph_loader,
+        DataLoaderArgs&&... data_args
     ) {
         auto deserializer = svs::lib::detail::Deserializer::build(stream);
         if (deserializer.is_native()) {
             using GraphType = graphs::SimpleGraph<uint32_t, GraphAllocator>;
-            auto load_graph = [&]() -> GraphType {
-                return GraphType::load(stream, graph_allocator);
-            };
+            auto load_graph = [&]() -> GraphType { return graph_loader.load(stream); };
             auto load_data = [&]() -> Data {
-                return lib::load_from_stream<Data>(stream, data_allocator);
+                return lib::load_from_stream<Data>(stream, SVS_FWD(data_args)...);
             };
 
             return assemble_native<QueryTypes>(
@@ -601,8 +637,9 @@ class Vamana : public manager::IndexManager<VamanaInterface> {
 
             return assemble<QueryTypes>(
                 config_path,
-                svs::GraphLoader<uint32_t, GraphAllocator>{graph_path, graph_allocator},
-                lib::load_from_disk<Data>(data_path, data_allocator),
+                svs::GraphLoader<uint32_t, GraphAllocator>{
+                    graph_path, graph_loader.allocator_},
+                lib::load_from_disk<Data>(data_path, SVS_FWD(data_args)...),
                 distance,
                 threads::as_threadpool(std::move(threadpool_proto))
             );
