@@ -1397,6 +1397,10 @@ class MutableVamanaIndex {
         compact_locked(batch_size);
     }
 
+    /// @brief Check if the index has been consolidated.
+    /// @remarks compact() always call consolidate_locked(), this query always returns true.
+    bool is_consolidated() const noexcept { return true; }
+
     // Body of compact() with no compact_mutex_ locking. The caller MUST hold
     // compact_mutex_ exclusive
     void compact_locked(Idx batch_size = 1'000) {
