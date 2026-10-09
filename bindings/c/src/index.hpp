@@ -28,7 +28,9 @@
 
 #include <filesystem>
 #include <memory>
+#include <optional>
 #include <ostream>
+#include <shared_mutex>
 #include <span>
 #include <utility>
 #include <vector>
@@ -61,9 +63,29 @@ struct Index {
 };
 
 struct DynamicIndex : public Index {
-    explicit DynamicIndex(std::unique_ptr<IndexBuilder> builder)
-        : Index(std::move(builder)) {}
+    svs_sync_kind_t sync_kind;
+    mutable std::optional<std::shared_mutex> mutex;
+
+    explicit DynamicIndex(
+        std::unique_ptr<IndexBuilder> builder,
+        svs_sync_kind_t sync_kind = SVS_SYNC_KIND_NONE
+    )
+        : Index(std::move(builder))
+        , sync_kind(sync_kind) {
+        if (sync_kind != SVS_SYNC_KIND_NONE) {
+            mutex.emplace();
+        }
+    }
     ~DynamicIndex() = default;
+
+    // An empty lock (no mutex) is returned when synchronization is disabled.
+    [[nodiscard]] std::shared_lock<std::shared_mutex> read_lock() const {
+        return mutex ? std::shared_lock{*mutex} : std::shared_lock<std::shared_mutex>{};
+    }
+
+    [[nodiscard]] std::unique_lock<std::shared_mutex> write_lock() const {
+        return mutex ? std::unique_lock{*mutex} : std::unique_lock<std::shared_mutex>{};
+    }
 
     virtual size_t add_points(
         svs::data::ConstSimpleDataView<float> new_points, std::span<const size_t> ids
