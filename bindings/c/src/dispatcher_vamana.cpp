@@ -98,8 +98,9 @@ svs::Vamana load_stream_vamana_index(
         *stream,
         distance,
         std::move(pool),
-        allocator_builder.build<value_type>(),
-        allocator_builder.build_for_graph<uint32_t>()
+        svs::StreamGraphLoader<uint32_t, AllocatorHandle<uint32_t>>{
+            allocator_builder.build_for_graph<uint32_t>()},
+        allocator_builder.build<value_type>()
     );
 }
 

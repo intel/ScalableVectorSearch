@@ -33,6 +33,7 @@
 #include <catch2/catch_approx.hpp>
 
 // tests
+#include "tests/utils/aligned_data.h"
 #include "tests/utils/generators.h"
 #include "tests/utils/test_dataset.h"
 #include "tests/utils/utils.h"
@@ -231,7 +232,7 @@ CATCH_TEST_CASE("Vamana Index Memory Usage", "[vamana][index]") {
     CATCH_REQUIRE(usage == expected_total_bytes);
 }
 
-CATCH_TEST_CASE("Vamana Index Save and Load", "[vamana][index][saveload]") {
+CATCH_TEST_CASE("Vamana Index Save and Load", "[vamana][index][saveload][stream]") {
     const size_t N = 128;
     using Eltype = float;
     auto data = svs::data::SimpleData<Eltype, N>::load(test_dataset::data_svs_file());
@@ -564,6 +565,91 @@ CATCH_TEST_CASE("Vamana Index Save and Load", "[vamana][index][saveload]") {
         auto modified_distance =
             loaded_index.get_distance(data_index, queries.get_datum(query_index));
         CATCH_REQUIRE(modified_distance == Catch::Approx(0.0).epsilon(1e-5));
+    }
+
+    CATCH_SECTION("Stream assemble forwards all dataset loader arguments") {
+        using Data_t = svs_test::AlignedData<std::allocator<Eltype>>;
+        constexpr size_t alignment = 64;
+
+        auto make_native_stream = [&]() {
+            std::stringstream stream;
+            index.save(stream);
+            return stream;
+        };
+        auto make_archive_stream = [&]() {
+            std::stringstream stream;
+            svs::lib::UniqueTempDirectory tempdir{"svs_vamana_save"};
+            const auto config_dir = tempdir.get() / "config";
+            const auto graph_dir = tempdir.get() / "graph";
+            const auto data_dir = tempdir.get() / "data";
+            std::filesystem::create_directories(config_dir);
+            std::filesystem::create_directories(graph_dir);
+            std::filesystem::create_directories(data_dir);
+            index.save(config_dir, graph_dir, data_dir);
+            svs::lib::DirectoryArchiver::pack(tempdir, stream);
+            return stream;
+        };
+
+        auto check_loaded = [&](const svs::Vamana& loaded_index) {
+            CATCH_REQUIRE(Data_t::last_alignment == alignment);
+            CATCH_REQUIRE(loaded_index.size() == index.size());
+            CATCH_REQUIRE(loaded_index.dimensions() == index.dimensions());
+            Data_t::last_alignment = 0;
+        };
+
+        CATCH_SECTION("Native stream") {
+            auto stream = make_native_stream();
+            Data_t::last_alignment = 0;
+            auto loaded_index = svs::Vamana::assemble<Eltype, Data_t>(
+                stream,
+                distance_function,
+                svs::threads::DefaultThreadPool(1),
+                alignment,
+                std::allocator<Eltype>{}
+            );
+            check_loaded(loaded_index);
+        }
+
+        CATCH_SECTION("Native stream, explicit StreamGraphLoader call shape") {
+            auto stream = make_native_stream();
+            Data_t::last_alignment = 0;
+            auto loaded_index = svs::Vamana::assemble<Eltype, Data_t>(
+                stream,
+                distance_function,
+                svs::threads::DefaultThreadPool(1),
+                svs::StreamGraphLoader<uint32_t, svs::HugepageAllocator<uint32_t>>{},
+                alignment,
+                std::allocator<Eltype>{}
+            );
+            check_loaded(loaded_index);
+        }
+
+        CATCH_SECTION("Directory archive stream") {
+            auto stream = make_archive_stream();
+            Data_t::last_alignment = 0;
+            auto loaded_index = svs::Vamana::assemble<Eltype, Data_t>(
+                stream,
+                distance_function,
+                svs::threads::DefaultThreadPool(1),
+                alignment,
+                std::allocator<Eltype>{}
+            );
+            check_loaded(loaded_index);
+        }
+
+        CATCH_SECTION("Directory archive stream, explicit StreamGraphLoader call shape") {
+            auto stream = make_archive_stream();
+            Data_t::last_alignment = 0;
+            auto loaded_index = svs::Vamana::assemble<Eltype, Data_t>(
+                stream,
+                distance_function,
+                svs::threads::DefaultThreadPool(1),
+                svs::StreamGraphLoader<uint32_t, svs::HugepageAllocator<uint32_t>>{},
+                alignment,
+                std::allocator<Eltype>{}
+            );
+            check_loaded(loaded_index);
+        }
     }
 }
 

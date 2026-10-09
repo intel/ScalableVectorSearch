@@ -25,6 +25,7 @@
 #include "svs/core/distance.h"
 
 // Test dataset utilities
+#include "tests/utils/aligned_data.h"
 #include "tests/utils/test_dataset.h"
 #include "tests/utils/utils.h"
 #include "tests/utils/vamana_reference.h"
@@ -41,6 +42,7 @@
 #include <algorithm>
 #include <memory>
 #include <numeric>
+#include <sstream>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -310,5 +312,98 @@ CATCH_TEST_CASE("DynamicVamana Per-Index Logger", "[managers][dynamic_vamana][lo
         with_default.add_points(second_data.cview(), second_ids);
         CATCH_REQUIRE(global.contains("Vamana Build Parameters:"));
         CATCH_REQUIRE(custom.messages->empty());
+    }
+}
+
+CATCH_TEST_CASE(
+    "DynamicVamana Stream Assemble Forwards Alignment", "[managers][dynamic_vamana][stream]"
+) {
+    using Allocator = svs::data::Blocked<std::allocator<float>>;
+    using Data_t = svs_test::AlignedData<Allocator>;
+    constexpr size_t alignment = 64;
+
+    auto distance = svs::distance::DistanceL2();
+    auto expected_result = test_dataset::vamana::expected_build_results(
+        distance, svsbenchmark::Uncompressed(svs::DataType::float32)
+    );
+    auto build_params = expected_result.build_parameters_.value();
+    size_t num_threads = 2;
+
+    auto data = svs::data::SimpleData<float>::load(test_dataset::data_svs_file());
+    std::vector<size_t> ids(data.size());
+    std::iota(ids.begin(), ids.end(), 0);
+
+    svs::DynamicVamana index =
+        svs::DynamicVamana::build<float>(build_params, data, ids, distance, num_threads);
+
+    auto make_native_stream = [&]() {
+        std::stringstream stream;
+        index.save(stream);
+        return stream;
+    };
+    auto make_archive_stream = [&]() {
+        std::stringstream stream;
+        svs::lib::UniqueTempDirectory tempdir{"svs_dynamic_vamana_save"};
+        const auto config_dir = tempdir.get() / "config";
+        const auto graph_dir = tempdir.get() / "graph";
+        const auto data_dir = tempdir.get() / "data";
+        std::filesystem::create_directories(config_dir);
+        std::filesystem::create_directories(graph_dir);
+        std::filesystem::create_directories(data_dir);
+        index.save(config_dir, graph_dir, data_dir);
+        svs::lib::DirectoryArchiver::pack(tempdir, stream);
+        return stream;
+    };
+
+    auto check_loaded = [&](const svs::DynamicVamana& loaded_index) {
+        CATCH_REQUIRE(Data_t::last_alignment == alignment);
+        CATCH_REQUIRE(loaded_index.size() == index.size());
+        Data_t::last_alignment = 0;
+    };
+
+    CATCH_SECTION("Native stream") {
+        auto stream = make_native_stream();
+        Data_t::last_alignment = 0;
+        auto loaded_index = svs::DynamicVamana::assemble<float, Data_t>(
+            stream, distance, svs::threads::DefaultThreadPool(1), alignment, Allocator{}
+        );
+        check_loaded(loaded_index);
+    }
+
+    CATCH_SECTION("Native stream, explicit StreamGraphLoader call shape") {
+        auto stream = make_native_stream();
+        Data_t::last_alignment = 0;
+        auto loaded_index = svs::DynamicVamana::assemble<float, Data_t>(
+            stream,
+            distance,
+            svs::threads::DefaultThreadPool(1),
+            svs::StreamGraphLoader<uint32_t, svs::HugepageAllocator<uint32_t>>{},
+            alignment,
+            Allocator{}
+        );
+        check_loaded(loaded_index);
+    }
+
+    CATCH_SECTION("Directory archive stream") {
+        auto stream = make_archive_stream();
+        Data_t::last_alignment = 0;
+        auto loaded_index = svs::DynamicVamana::assemble<float, Data_t>(
+            stream, distance, svs::threads::DefaultThreadPool(1), alignment, Allocator{}
+        );
+        check_loaded(loaded_index);
+    }
+
+    CATCH_SECTION("Directory archive stream, explicit StreamGraphLoader call shape") {
+        auto stream = make_archive_stream();
+        Data_t::last_alignment = 0;
+        auto loaded_index = svs::DynamicVamana::assemble<float, Data_t>(
+            stream,
+            distance,
+            svs::threads::DefaultThreadPool(1),
+            svs::StreamGraphLoader<uint32_t, svs::HugepageAllocator<uint32_t>>{},
+            alignment,
+            Allocator{}
+        );
+        check_loaded(loaded_index);
     }
 }

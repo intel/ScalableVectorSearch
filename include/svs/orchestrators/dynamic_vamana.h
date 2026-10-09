@@ -398,34 +398,72 @@ class DynamicVamana : public manager::IndexManager<DynamicVamanaInterface> {
     /// @tparam Data         The dataset type to load.
     /// @tparam Distance     Distance functor or ``svs::DistanceType`` enum.
     /// @tparam ThreadPoolProto  Thread pool type or size_t.
-    /// @tparam DataAllocator  The type of allocator used for the dataset.
-    /// @tparam GraphAllocator The type of allocator used for the graph. Defaults to an
-    /// exact-size ``HugepageAllocator<uint32_t>``; a blocked default commits a full block.
     ///
     /// @param stream Stream containing the serialized index.
     /// @param distance Distance functor or enum.
     /// @param threadpool_proto Thread pool or number of threads to use.
-    /// @param data_allocator Allocator instance to use for the dataset.
-    /// @param graph_allocator Allocator instance to use for the graph.
+    /// @param data_args Forwarded to the loader of ``Data``, e.g. an allocator.
     ///
     template <
         manager::QueryTypeDefinition QueryTypes,
         typename Data,
         typename Distance,
         typename ThreadPoolProto,
-        typename DataAllocator = typename Data::allocator_type,
-        typename GraphAllocator = HugepageAllocator<uint32_t>>
+        typename... DataLoaderArgs>
+        requires(!detail::first_is_stream_graph_loader_v<DataLoaderArgs...>)
     static DynamicVamana assemble(
         std::istream& stream,
         const Distance& distance,
         ThreadPoolProto threadpool_proto,
-        const DataAllocator& data_allocator = {},
-        const GraphAllocator& graph_allocator = {}
+        DataLoaderArgs&&... data_args
+    ) {
+        return assemble<QueryTypes, Data>(
+            stream,
+            distance,
+            std::move(threadpool_proto),
+            StreamGraphLoader<>{},
+            SVS_FWD(data_args)...
+        );
+    }
+
+    ///
+    /// @brief Assemble a DynamicVamana index from a serialized stream.
+    ///
+    /// @tparam QueryTypes   The set of query element types supported by the resulting
+    /// index.
+    /// @tparam Data         The dataset type to load.
+    /// @tparam Distance     Distance functor or ``svs::DistanceType`` enum.
+    /// @tparam ThreadPoolProto  Thread pool type or size_t.
+    /// @tparam GraphAllocator The type of allocator used for the graph. Without a graph
+    /// loader it is an exact-size ``HugepageAllocator<uint32_t>``; a blocked one commits a
+    /// full block.
+    ///
+    /// @param stream Stream containing the serialized index.
+    /// @param distance Distance functor or enum.
+    /// @param threadpool_proto Thread pool or number of threads to use.
+    /// @param graph_loader Selects the allocator to use for the loaded graph. See
+    ///     ``svs::StreamGraphLoader``.
+    /// @param data_args Forwarded to the loader of ``Data``, e.g. an allocator.
+    ///
+    template <
+        manager::QueryTypeDefinition QueryTypes,
+        typename Data,
+        typename Distance,
+        typename ThreadPoolProto,
+        typename GraphAllocator,
+        typename... DataLoaderArgs>
+    static DynamicVamana assemble(
+        std::istream& stream,
+        const Distance& distance,
+        ThreadPoolProto threadpool_proto,
+        const StreamGraphLoader<uint32_t, GraphAllocator>& graph_loader,
+        DataLoaderArgs&&... data_args
     ) {
         auto deserializer = svs::lib::detail::Deserializer::build(stream);
         if (deserializer.is_native()) {
             auto threadpool = threads::as_threadpool(std::move(threadpool_proto));
-            using GraphType = graphs::SimpleGraph<uint32_t, GraphAllocator>;
+            using GraphType =
+                typename StreamGraphLoader<uint32_t, GraphAllocator>::return_type;
             if constexpr (std::is_same_v<std::decay_t<Distance>, DistanceType>) {
                 auto dispatcher = DistanceDispatcher(distance);
                 return dispatcher([&](auto distance_function) {
@@ -433,12 +471,12 @@ class DynamicVamana : public manager::IndexManager<DynamicVamanaInterface> {
                         index::vamana::auto_dynamic_assemble(
                             stream,
                             // lazy graph loader
-                            [&]() -> GraphType {
-                                return GraphType::load(stream, graph_allocator);
-                            },
+                            [&]() -> GraphType { return graph_loader.load(stream); },
                             // lazy data loader
                             [&]() -> Data {
-                                return lib::load_from_stream<Data>(stream, data_allocator);
+                                return lib::load_from_stream<Data>(
+                                    stream, SVS_FWD(data_args)...
+                                );
                             },
                             distance_function,
                             std::move(threadpool)
@@ -450,12 +488,12 @@ class DynamicVamana : public manager::IndexManager<DynamicVamanaInterface> {
                     index::vamana::auto_dynamic_assemble(
                         stream,
                         // lazy graph loader
-                        [&]() -> GraphType {
-                            return GraphType::load(stream, graph_allocator);
-                        },
+                        [&]() -> GraphType { return graph_loader.load(stream); },
                         // lazy data loader
                         [&]() -> Data {
-                            return lib::load_from_stream<Data>(stream, data_allocator);
+                            return lib::load_from_stream<Data>(
+                                stream, SVS_FWD(data_args)...
+                            );
                         },
                         distance,
                         std::move(threadpool)
@@ -486,8 +524,9 @@ class DynamicVamana : public manager::IndexManager<DynamicVamanaInterface> {
 
             return assemble<QueryTypes>(
                 config_path,
-                svs::GraphLoader{graph_path, graph_allocator},
-                lib::load_from_disk<Data>(data_path, data_allocator),
+                svs::GraphLoader<uint32_t, GraphAllocator>{
+                    graph_path, graph_loader.allocator_},
+                lib::load_from_disk<Data>(data_path, SVS_FWD(data_args)...),
                 distance,
                 threads::as_threadpool(std::move(threadpool_proto)),
                 false

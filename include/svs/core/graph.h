@@ -21,6 +21,7 @@
 
 // stl
 #include <filesystem>
+#include <istream>
 #include <optional>
 #include <string>
 
@@ -57,6 +58,46 @@ struct GraphLoader {
     std::filesystem::path path_{};
     Allocator allocator_{};
 };
+
+///
+/// @brief Loader selecting the graph allocator for stream-based index assembly.
+///
+/// @tparam Idx The type used to encode nodes in the graph.
+/// @tparam Allocator The type used for allocations in the graph. This must be a valid SVS
+/// allocator type.
+///
+template <typename Idx = uint32_t, typename Allocator = HugepageAllocator<Idx>>
+struct StreamGraphLoader {
+    // Type aliases
+    using return_type = graphs::SimpleGraph<Idx, Allocator>;
+
+    /// @brief Construct a new StreamGraphLoader
+    ///
+    /// @param allocator The allocator instance to use for the graph.
+    ///
+    explicit StreamGraphLoader(const Allocator& allocator = {})
+        : allocator_{allocator} {}
+
+    /// @brief Load the graph from the given stream.
+    return_type load(std::istream& stream) const {
+        return return_type::load(stream, allocator_);
+    }
+
+    ///// Members
+    Allocator allocator_{};
+};
+
+template <typename T> inline constexpr bool is_stream_graph_loader_v = false;
+template <typename Idx, typename Allocator>
+inline constexpr bool is_stream_graph_loader_v<StreamGraphLoader<Idx, Allocator>> = true;
+
+namespace detail {
+// Helper that answers: "Is the first template argument a StreamGraphLoader?"
+template <typename... Args> inline constexpr bool first_is_stream_graph_loader_v = false;
+template <typename First, typename... Rest>
+inline constexpr bool first_is_stream_graph_loader_v<First, Rest...> =
+    is_stream_graph_loader_v<std::decay_t<First>>;
+} // namespace detail
 
 ///
 /// @brief Allocate a default graph with the given capacity.
