@@ -27,6 +27,7 @@
 #include "svs/lib/narrow.h"
 #include "svs/lib/readwrite.h"
 #include "svs/lib/saveload.h"
+#include "svs/lib/segmented_vector.h"
 #include "svs/lib/threads.h"
 
 #include "svs/third-party/fmt.h"
@@ -35,13 +36,61 @@
 #include "tsl/robin_map.h"
 
 // stl
+#include <algorithm>
+#include <atomic>
 #include <functional>
 #include <iterator>
+#include <limits>
+#include <stdexcept>
 #include <string_view>
+#include <utility>
+#include <vector>
 
 namespace svs {
 
-class IDTranslator {
+namespace detail {
+
+template <typename T, bool MT> struct VectorMapTraits;
+
+template <typename T> struct VectorMapTraits<T, false> {
+    using value_type = T;
+    using vector_type = std::vector<value_type>;
+
+    static value_type load(vector_type const& table, size_t i, value_type default_val) {
+        return i < table.size() ? table[i] : default_val;
+    }
+
+    static void store(vector_type& table, size_t i, value_type external, value_type def) {
+        if (i >= table.size()) {
+            table.resize(i + 1, def);
+        }
+        table[i] = external;
+    }
+};
+
+template <typename T> struct VectorMapTraits<T, true> {
+    using value_type = T;
+    using vector_type = lib::SegmentedVector<value_type>;
+
+    static value_type load(vector_type const& table, size_t i, value_type default_val) {
+        if (i >= table.size()) {
+            return default_val;
+        }
+        return std::atomic_ref<value_type>(const_cast<value_type&>(table[i]))
+            .load(std::memory_order_acquire);
+    }
+
+    static void
+    store(vector_type& table, size_t i, value_type external, value_type default_val) {
+        if (i >= table.size()) {
+            table.resize(i + 1, default_val);
+        }
+        std::atomic_ref<value_type>(table[i]).store(external, std::memory_order_release);
+    }
+};
+} // namespace detail
+
+template <bool Concurrent = false> class IDTranslator {
   public:
     using internal_id_type = uint32_t;
     using external_id_type = uint64_t;
@@ -49,6 +98,12 @@ class IDTranslator {
     using const_iterator =
         tsl::robin_map<external_id_type, internal_id_type>::const_iterator;
     using value_type = typename const_iterator::value_type;
+
+    using i_to_e_traits = detail::VectorMapTraits<external_id_type, Concurrent>;
+
+    /// Marks an unmapped slot in the internal-to-external table.
+    static constexpr external_id_type invalid_external_id =
+        std::numeric_limits<external_id_type>::max();
 
     // Construct the identity transformation of size `n`.
     struct Identity {
@@ -67,16 +122,27 @@ class IDTranslator {
     ///
     /// @brief Return the number of translations.
     ///
-    size_t size() const {
-        if constexpr (checkbounds_v) {
-            const size_t e2i = external_to_internal_.size();
-            const size_t i2e = internal_to_external_.size();
+    size_t size() const { return external_to_internal_.size(); }
 
-            if (e2i != i2e) {
-                throw ANNEXCEPTION("Size mismatch! E2I is {} while I2E is {}!", e2i, i2e);
-            }
-        }
-        return external_to_internal_.size();
+    ///
+    /// @brief Return the number of bytes allocated for both translation tables.
+    ///
+    size_t get_memory_usage() const {
+        // The external->internal map is approximated by its entries, ignoring load-factor
+        // slack. An exact count depends on tsl::robin_map internals:
+        //   using bucket_type = tsl::detail_robin_hash::
+        //       bucket_entry<std::pair<external_id_type, internal_id_type>, false>;
+        //   external_to_internal_.bucket_count() * sizeof(bucket_type)
+        return size() * (sizeof(external_id_type) + sizeof(internal_id_type)) +
+               internal_to_external_.capacity() * sizeof(external_id_type);
+    }
+
+    ///
+    /// @brief Estimate ``get_memory_usage()`` for ``n`` translations over slots ``[0, n)``.
+    ///
+    static constexpr size_t estimate_memory_usage(size_t n) {
+        return n * (sizeof(external_id_type) + sizeof(internal_id_type)) +
+               n * sizeof(external_id_type);
     }
 
     ///
@@ -124,6 +190,7 @@ class IDTranslator {
             if (!lib::all_unique(int_begin, int_end)) {
                 throw ANNEXCEPTION("Internal IDs contain repeat elements!");
             }
+            check_external_not_reserved(ext_begin, ext_end);
             check_external_free(ext_begin, ext_end);
             check_internal_free(int_begin, int_end);
         }
@@ -141,7 +208,7 @@ class IDTranslator {
     template <typename Ext, typename Int>
     void insert_translation(Ext external_id, Int internal_id) {
         external_to_internal_[external_id] = lib::narrow<internal_id_type>(internal_id);
-        internal_to_external_[internal_id] = lib::narrow<external_id_type>(external_id);
+        store_external(internal_id, lib::narrow<external_id_type>(external_id));
     }
 
     ///
@@ -183,6 +250,8 @@ class IDTranslator {
             throw ANNEXCEPTION("Internal IDs contain repeat elements!");
         }
 
+        check_external_not_reserved(ext_begin, ext_end);
+
         // Validation pass
         for (auto e = ext_begin; e != ext_end; ++e) {
             auto found = external_to_internal_.find(*e);
@@ -197,7 +266,7 @@ class IDTranslator {
         for (; e != ext_end; ++e, ++i) {
             auto found = external_to_internal_.find(*e);
             if (found != external_to_internal_.end()) {
-                internal_to_external_.erase(found->second);
+                store_external(found->second, invalid_external_id);
             }
             insert_translation(*e, *i);
         }
@@ -218,7 +287,7 @@ class IDTranslator {
     /// @param e The internal ID to check.
     ///
     bool has_internal(internal_id_type e) const {
-        return internal_to_external_.contains(e);
+        return load_external(e) != invalid_external_id;
     }
 
     ///
@@ -236,17 +305,17 @@ class IDTranslator {
     /// @param i The internal ID to translate to an external ID.
     ///
     external_id_type get_external(internal_id_type i) const {
-        return internal_to_external_.at(i);
+        auto e = load_external(i);
+        if (e == invalid_external_id) {
+            throw std::out_of_range("IDTranslator: internal ID not found");
+        }
+        return e;
     }
 
     /// @brief Return the external ID, or a default if not found.
     external_id_type
     get_external_or(internal_id_type i, external_id_type default_val) const {
-        auto it = internal_to_external_.find(i);
-        if (it == internal_to_external_.end()) {
-            return default_val;
-        }
-        return it->second;
+        return load_external(i, default_val);
     }
 
     /// @brief Return the internal ID, or a default if not found.
@@ -280,13 +349,12 @@ class IDTranslator {
         assert(has_internal(from));
         assert(!has_internal(to));
 
-        auto itr = internal_to_external_.find(from);
-        auto external = itr->second;
+        auto external = load_external(from);
 
         // Updating the internal-to-external ID is easy.
         external_to_internal_[external] = to;
-        internal_to_external_.erase(itr);
-        internal_to_external_.insert({to, external});
+        store_external(from, invalid_external_id);
+        store_external(to, external);
     }
 
     ///
@@ -314,7 +382,7 @@ class IDTranslator {
         auto internal = itr->second;
 
         // Updating the external-to-internal ID is easy.
-        internal_to_external_[internal] = to;
+        store_external(internal, to);
         external_to_internal_.erase(itr);
         external_to_internal_.insert({to, internal});
     }
@@ -340,7 +408,7 @@ class IDTranslator {
 
         for (const auto i : internal_ids) {
             auto e = get_external(i);
-            internal_to_external_.erase(i);
+            store_external(i, invalid_external_id);
             external_to_internal_.erase(e);
         }
     }
@@ -366,7 +434,7 @@ class IDTranslator {
 
         for (const auto e : external_ids) {
             auto i = get_internal(e);
-            internal_to_external_.erase(i);
+            store_external(i, invalid_external_id);
             external_to_internal_.erase(e);
         }
     }
@@ -378,8 +446,23 @@ class IDTranslator {
     /// @param end End forward iterator to the external IDs to check.
     ///
     template <class Begin, class End>
+    void check_external_not_reserved(const Begin& begin, const End& end) const {
+        check(
+            begin,
+            end,
+            [](auto e) { return std::cmp_equal(e, invalid_external_id); },
+            "Reserved external"
+        );
+    }
+
+    template <class Begin, class End>
     void check_external_free(const Begin& begin, const End& end) const {
-        check(begin, end, external_to_internal_, "Index already contains external");
+        check(
+            begin,
+            end,
+            [this](auto e) { return has_external(e); },
+            "Index already contains external"
+        );
     }
 
     ///
@@ -393,7 +476,7 @@ class IDTranslator {
         check(
             begin,
             end,
-            external_to_internal_,
+            [this](auto e) { return has_external(e); },
             "Index does not contain external",
             std::logical_not()
         );
@@ -407,7 +490,12 @@ class IDTranslator {
     ///
     template <class Begin, class End>
     void check_internal_free(const Begin& begin, const End& end) const {
-        check(begin, end, internal_to_external_, "Index already contains internal");
+        check(
+            begin,
+            end,
+            [this](auto i) { return has_internal(i); },
+            "Index already contains internal"
+        );
     }
 
     ///
@@ -421,7 +509,7 @@ class IDTranslator {
         check(
             begin,
             end,
-            internal_to_external_,
+            [this](auto i) { return has_internal(i); },
             "Index does not contain internal",
             std::logical_not()
         );
@@ -501,23 +589,42 @@ class IDTranslator {
     }
 
   private:
-    template <class Begin, class End, class Map, class Modifier = lib::identity>
+    template <class Begin, class End, class Contains, class Modifier = lib::identity>
     void check(
         const Begin& begin,
         const End& end,
-        const Map& map,
+        const Contains& contains,
         const char* message,
         Modifier modify = lib::identity()
     ) const {
         for (auto i = begin; i != end; ++i) {
-            if (modify(map.contains(*i))) {
+            if (modify(contains(*i))) {
                 throw ANNEXCEPTION("{} ID {}!", message, *i);
             }
         }
     }
 
     tsl::robin_map<external_id_type, internal_id_type> external_to_internal_{};
-    tsl::robin_map<internal_id_type, external_id_type> internal_to_external_{};
+    i_to_e_traits::vector_type internal_to_external_{};
+
+    external_id_type load_external(
+        internal_id_type i, external_id_type default_value = invalid_external_id
+    ) const {
+        return i_to_e_traits::load(
+            internal_to_external_, static_cast<size_t>(i), default_value
+        );
+    }
+
+    // Writers only; grows the table first when `i` is beyond it.
+    void store_external(
+        internal_id_type i,
+        external_id_type e,
+        external_id_type default_value = invalid_external_id
+    ) {
+        i_to_e_traits::store(
+            internal_to_external_, static_cast<size_t>(i), e, default_value
+        );
+    }
 };
 
 } // namespace svs

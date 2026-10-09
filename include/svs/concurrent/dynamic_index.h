@@ -229,7 +229,7 @@ class MutableVamanaIndex {
     // < *first_reusable_ is Empty.
     std::unique_ptr<std::atomic<size_t>> first_reusable_{
         std::make_unique<std::atomic<size_t>>(0)};
-    IDTranslator translator_;
+    IDTranslator<true> translator_;
     // Count of Valid slots. Maintained atomically in add_points/delete_entry.
     // Wrapped in unique_ptr because std::atomic is not movable.
     std::unique_ptr<std::atomic<size_t>> num_valid_{
