@@ -117,6 +117,8 @@ enum svs_storage_kind {
 };
 
 /// @brief Thread pool implementation used for parallel operations.
+/// @remarks SVS_THREADPOOL_KIND_OMP is available only if the library was built with
+/// OpenMP support; otherwise selecting it fails with SVS_ERROR_NOT_IMPLEMENTED.
 enum svs_threadpool_kind {
     SVS_THREADPOOL_KIND_NATIVE = 0,
     SVS_THREADPOOL_KIND_OMP = 1,
@@ -853,9 +855,15 @@ SVS_API bool svs_index_builder_set_storage(
 /// @brief Set the thread pool configuration for the index builder
 /// @param builder The index builder handle
 /// @param kind The kind of thread pool to use
-/// @param num_threads The number of threads to use (if applicable)
+/// @param num_threads The number of threads to use; must be greater than zero (ignored
+/// for SVS_THREADPOOL_KIND_SINGLE_THREAD)
 /// @param out_err An optional error handle to capture errors
 /// @return true on success, false on failure
+/// @error On failure, if out_err is provided, it will contain:
+/// - SVS_ERROR_INVALID_ARGUMENT if builder is NULL, num_threads is zero, or @p kind is
+///   SVS_THREADPOOL_KIND_CUSTOM (use svs_index_builder_set_threadpool_custom() instead)
+/// - SVS_ERROR_NOT_IMPLEMENTED if @p kind is SVS_THREADPOOL_KIND_OMP and the library was
+///   built without OpenMP support
 SVS_API bool svs_index_builder_set_threadpool(
     svs_index_builder_h builder,
     svs_threadpool_kind_t kind,
@@ -1336,9 +1344,10 @@ SVS_API bool svs_index_get_num_threads(
 /// @param out_err An optional error handle to capture errors
 /// @return true on success, false on failure
 /// @remarks This function is only supported for indices built with threadpool kinds
-/// SVS_THREADPOOL_KIND_NATIVE or SVS_THREADPOOL_KIND_OMP. Attempting to call this
-/// function on indices built with SVS_THREADPOOL_KIND_CUSTOM or
-/// SVS_THREADPOOL_KIND_SINGLE_THREAD will fail and return false.
+/// SVS_THREADPOOL_KIND_NATIVE or SVS_THREADPOOL_KIND_OMP (when built with OpenMP
+/// support). Attempting to call this function on indices built with
+/// SVS_THREADPOOL_KIND_CUSTOM or SVS_THREADPOOL_KIND_SINGLE_THREAD will fail and return
+/// false.
 /// @error On failure, if out_err is provided, it will contain:
 /// - SVS_ERROR_INVALID_OPERATION if the index's threadpool kind is unresizable
 /// - SVS_ERROR_INVALID_ARGUMENT if num_threads is invalid or zero
