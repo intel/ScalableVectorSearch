@@ -206,6 +206,7 @@ class MutableVamanaIndex {
         if (graph_.n_nodes() != external_ids.size()) {
             throw ANNEXCEPTION("Graph node count does not match external IDs size");
         }
+        translator_.reserve(external_ids.size());
         translator_.insert(external_ids, threads::UnitRange<Idx>(0, external_ids.size()));
     }
 
@@ -302,6 +303,7 @@ class MutableVamanaIndex {
         use_full_search_history_ = build_parameters_.use_full_search_history;
 
         // Setup the initial translation of external to internal ids.
+        translator_.reserve(external_ids.size());
         translator_.insert(external_ids, threads::UnitRange<Idx>(0, external_ids.size()));
 
         // Compute the entry point.
@@ -402,8 +404,8 @@ class MutableVamanaIndex {
     ///
     /// Reports the allocated memory for graph, data, and metadata components. Uses
     /// capacity-based accounting for datasets that expose ``capacity()``, so that block
-    /// over-allocation is reflected. Metadata includes status array, entry points, and an
-    /// estimated size of the ID translation maps (external/internal ID translation maps).
+    /// over-allocation is reflected. Metadata includes status array, entry points, and the
+    /// allocated size of the ID translation tables.
     MemoryBreakdown get_memory_breakdown() const {
         using namespace svs::data;
         MemoryBreakdown usage{};
@@ -413,14 +415,7 @@ class MutableVamanaIndex {
         size_t metadata_bytes = status_.capacity() * sizeof(SlotMetadata);
         metadata_bytes +=
             entry_point_.capacity() * sizeof(typename entry_point_type::value_type);
-        // The IDTranslator holds two tsl::robin_map instances (external->internal and
-        // internal->external), neither of which exposes its allocated byte count. We
-        // approximate the storage as the id pair held in each of the two directions. This
-        // ignores the maps' load-factor slack and control bytes, so it is an estimate of
-        // the hash-map overhead that is accurate to within a few percent.
-        metadata_bytes += 2 * translator_.size() *
-                          (sizeof(IDTranslator::external_id_type) +
-                           sizeof(IDTranslator::internal_id_type));
+        metadata_bytes += translator_.get_memory_usage();
         usage.metadata_bytes = metadata_bytes;
         return usage;
     }
@@ -806,6 +801,7 @@ class MutableVamanaIndex {
         // Try to update the id translation now that we have internal ids.
         // If this fails, we still haven't mutated the index data structure so we're safe
         // to throw an exception.
+        translator_.reserve(status_.size());
         translator_.insert(external_ids, slots);
 
         // Copy the given points into the data and clear the adjacency lists for the graph.
@@ -1006,6 +1002,7 @@ class MutableVamanaIndex {
             }
         }
         status_.resize(max_index);
+        translator_.shrink(max_index);
 
         // Update entry points.
         for (auto& ep : entry_point_) {

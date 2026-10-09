@@ -428,17 +428,10 @@ svs::index::vamana::MemoryBreakdown dispatch_dynamic_vamana_memory_estimate(
         estimate_data_size_blocked(storage, num_vectors, dimension, block_params);
 
     // Metadata: single entry point held as Idx, plus the SlotMetadata vector, plus the
-    // IDTranslator maps.
+    // IDTranslator tables.
     size_t metadata_bytes =
         sizeof(index_type) + sizeof(svs::index::vamana::SlotMetadata) * num_vectors;
-    // The IDTranslator holds two tsl::robin_map instances (external->internal and
-    // internal->external), neither of which exposes its allocated byte count. We
-    // approximate the storage as the id pair held in each of the two directions. This
-    // ignores the maps' load-factor slack and control bytes, so it is an estimate of
-    // the hash-map overhead that is accurate to within a few percent.
-    metadata_bytes +=
-        2 * num_vectors *
-        (sizeof(IDTranslator::external_id_type) + sizeof(IDTranslator::internal_id_type));
+    metadata_bytes += IDTranslator::estimate_memory_usage(num_vectors);
     breakdown.metadata_bytes = metadata_bytes;
     return breakdown;
 }
