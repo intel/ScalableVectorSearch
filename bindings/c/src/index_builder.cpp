@@ -38,6 +38,7 @@
 
 #include <algorithm>
 #include <cassert>
+#include <istream>
 #include <memory>
 #include <stdexcept>
 
@@ -75,6 +76,27 @@ std::shared_ptr<Index> IndexBuilder::load(const std::filesystem::path& directory
             dispatch_vamana_index_load(
                 vamana_algorithm->build_parameters(),
                 directory,
+                storage.get(),
+                to_distance_type(distance_metric),
+                pool_builder.build(),
+                allocator_builder
+            )
+        );
+
+        return index;
+    }
+    return nullptr;
+}
+
+std::shared_ptr<Index> IndexBuilder::load_stream(std::unique_ptr<std::istream>&& stream) {
+    if (algorithm->type == SVS_ALGORITHM_TYPE_VAMANA) {
+        auto vamana_algorithm = static_cast<AlgorithmVamana*>(algorithm.get());
+
+        auto index = std::make_shared<IndexVamana>(
+            *this,
+            dispatch_vamana_index_load_stream(
+                vamana_algorithm->build_parameters(),
+                std::move(stream),
                 storage.get(),
                 to_distance_type(distance_metric),
                 pool_builder.build(),
@@ -236,6 +258,30 @@ IndexBuilder::load_dynamic(const std::filesystem::path& directory, size_t blocks
             dispatch_dynamic_vamana_index_load(
                 vamana_algorithm->build_parameters(),
                 directory,
+                storage.get(),
+                to_distance_type(distance_metric),
+                pool_builder.build(),
+                allocator_builder,
+                blocksize_bytes
+            )
+        );
+
+        return index;
+    }
+    return nullptr;
+}
+
+std::shared_ptr<DynamicIndex> IndexBuilder::load_stream_dynamic(
+    std::unique_ptr<std::istream>&& stream, size_t blocksize_bytes
+) {
+    if (algorithm->type == SVS_ALGORITHM_TYPE_VAMANA) {
+        auto vamana_algorithm = static_cast<AlgorithmVamana*>(algorithm.get());
+
+        auto index = std::make_shared<DynamicIndexVamana>(
+            *this,
+            dispatch_dynamic_vamana_index_load_stream(
+                vamana_algorithm->build_parameters(),
+                std::move(stream),
                 storage.get(),
                 to_distance_type(distance_metric),
                 pool_builder.build(),

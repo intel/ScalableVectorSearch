@@ -26,6 +26,7 @@
 
 #include <filesystem>
 #include <memory>
+#include <ostream>
 #include <span>
 #include <utility>
 #include <vector>
@@ -47,6 +48,8 @@ struct IndexVamana : public Index {
     void save(const std::filesystem::path& directory) override {
         index.save(directory / "config", directory / "graph", directory / "data");
     }
+
+    void save(std::ostream& stream) override { index.save(stream); }
 
     size_t dimensions() const override { return index.dimensions(); }
 
@@ -88,6 +91,8 @@ struct DynamicIndexVamana : public DynamicIndex {
     void save(const std::filesystem::path& directory) override {
         index.save(directory / "config", directory / "graph", directory / "data");
     }
+
+    void save(std::ostream& stream) override { index.save(stream); }
 
     size_t dimensions() const override { return index.dimensions(); }
 

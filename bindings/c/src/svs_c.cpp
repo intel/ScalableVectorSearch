@@ -23,6 +23,7 @@
 #include "index_builder.hpp"
 #include "leanvec_training_data.hpp"
 #include "storage.hpp"
+#include "stream.hpp"
 #include "threadpool.hpp"
 #include "types_support.hpp"
 
@@ -882,6 +883,65 @@ svs_index_load(svs_index_builder_h builder, const char* directory, svs_error_h o
     );
 }
 
+extern "C" svs_index_h svs_index_load_stream(
+    svs_index_builder_h builder, svs_stream_i stream, svs_error_h out_err
+) {
+    using namespace svs::c_runtime;
+    return wrap_exceptions(
+        [&]() {
+            EXPECT_ARG_NOT_NULL(builder);
+            EXPECT_ARG_NOT_NULL(stream);
+            NOT_IMPLEMENTED_IF(
+                (builder->impl->algorithm->type != SVS_ALGORITHM_TYPE_VAMANA),
+                "Only Vamana algorithm is currently supported for index loading"
+            );
+            StreamBuf::validate(stream, /*need_write=*/false);
+            auto index = builder->impl->load_stream(
+                std::make_unique<InputStream>(*stream->ops, stream->self)
+            );
+            if (index == nullptr) {
+                SET_ERROR(out_err, SVS_ERROR_RUNTIME, "Index load failed");
+                return svs_index_h{nullptr};
+            }
+            auto result = new svs_index;
+            result->impl = index;
+            return result;
+        },
+        out_err
+    );
+}
+
+extern "C" svs_index_h svs_index_load_stream_dynamic(
+    svs_index_builder_h builder,
+    svs_stream_i stream,
+    size_t blocksize_bytes,
+    svs_error_h out_err
+) {
+    using namespace svs::c_runtime;
+    return wrap_exceptions(
+        [&]() {
+            EXPECT_ARG_NOT_NULL(builder);
+            EXPECT_ARG_NOT_NULL(stream);
+            NOT_IMPLEMENTED_IF(
+                (builder->impl->algorithm->type != SVS_ALGORITHM_TYPE_VAMANA),
+                "Only Vamana algorithm is currently supported for dynamic index loading"
+            );
+            StreamBuf::validate(stream, /*need_write=*/false);
+            auto index = builder->impl->load_stream_dynamic(
+                std::make_unique<InputStream>(*stream->ops, stream->self), blocksize_bytes
+            );
+            if (index == nullptr) {
+                SET_ERROR(out_err, SVS_ERROR_RUNTIME, "Dynamic index load failed");
+                return svs_index_h{nullptr};
+            }
+            auto result = new svs_index;
+            result->impl = index;
+            return result;
+        },
+        out_err
+    );
+}
+
 extern "C" svs_index_h
 svs_index_convert(svs_index_builder_h builder, svs_index_h src_index, svs_error_h out_err) {
     using namespace svs::c_runtime;
@@ -1103,6 +1163,25 @@ svs_index_save(svs_index_h index, const char* directory, svs_error_h out_err) {
             EXPECT_ARG_NOT_NULL(index);
             EXPECT_ARG_NOT_NULL(directory);
             index->impl->save(std::filesystem::path{directory});
+            return true;
+        },
+        out_err
+    );
+}
+
+extern "C" bool
+svs_index_save_stream(svs_index_h index, svs_stream_i stream, svs_error_h out_err) {
+    using namespace svs::c_runtime;
+    return wrap_exceptions(
+        [&]() {
+            EXPECT_ARG_NOT_NULL(index);
+            EXPECT_ARG_NOT_NULL(stream);
+            StreamBuf::validate(stream, /*need_write=*/true);
+            OutputStream os(*stream->ops, stream->self);
+            index->impl->save(os);
+            // The core never flushes and ~StreamBuf drops unflushed bytes, so without this
+            // the final partial buffer would be lost while the save reports success.
+            os.flush();
             return true;
         },
         out_err

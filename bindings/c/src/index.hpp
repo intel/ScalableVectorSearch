@@ -28,6 +28,7 @@
 
 #include <filesystem>
 #include <memory>
+#include <ostream>
 #include <span>
 #include <utility>
 #include <vector>
@@ -48,6 +49,7 @@ struct Index {
         const IDFilterInterface* id_filter = nullptr
     ) = 0;
     virtual void save(const std::filesystem::path& directory) = 0;
+    virtual void save(std::ostream& stream) = 0;
     virtual size_t dimensions() const = 0;
     virtual float get_distance(size_t id, std::span<const float> query) const = 0;
     virtual void
