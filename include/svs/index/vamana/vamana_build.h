@@ -42,6 +42,7 @@
 
 // stdlib
 #include <algorithm>
+#include <bit>
 #include <concepts>
 #include <memory>
 #include <optional>
@@ -251,6 +252,33 @@ class VamanaBuilder {
         size_t batchsize = lib::div_round_up(num_nodes, num_batches);
         std::vector entry_points{entry_point};
 
+        // Nodes linked before this call; non-zero for dynamic inserts (includes deleted
+        // slots, which only makes the estimate optimistic).
+        const size_t preexisting =
+            graph_.n_nodes() > num_nodes ? graph_.n_nodes() - num_nodes : 0;
+        // Enough nodes per thread to keep the pool busy despite uneven search costs.
+        constexpr size_t nodes_per_thread = 4;
+        constexpr size_t min_batches = 8;
+        batchsize = std::max(
+            batchsize,
+            std::min(threadpool_.size() * nodes_per_thread, num_nodes / min_batches)
+        );
+
+        // A batch never exceeds the number of nodes it can link to; otherwise nodes in one
+        // batch, unable to see each other, collapse onto a hub whose pruning orphans them.
+        std::vector<size_t> batch_bounds;
+        // Bound: full-size batches + ramp-up batches + leading 0.
+        batch_bounds.reserve(
+            lib::div_round_up(num_nodes, batchsize) + std::bit_width(batchsize) + 2
+        );
+        batch_bounds.push_back(0);
+        while (batch_bounds.back() < num_nodes) {
+            size_t inserted = batch_bounds.back();
+            size_t size = std::clamp(preexisting + inserted, size_t{1}, batchsize);
+            batch_bounds.push_back(std::min(num_nodes, inserted + size));
+        }
+        num_batches = batch_bounds.size() - 1;
+
         // Runtime variables
         double search_time = 0;
         double reverse_time = 0;
@@ -264,8 +292,8 @@ class VamanaBuilder {
         auto timer = lib::Timer();
         for (size_t batch_id = 0; batch_id < num_batches; ++batch_id) {
             // Set up batch parameters
-            auto start = std::min(num_nodes, batchsize * batch_id) + base;
-            auto stop = std::min(num_nodes, batchsize * (batch_id + 1)) + base;
+            auto start = batch_bounds[batch_id] + base;
+            auto stop = batch_bounds[batch_id + 1] + base;
 
             // Perform search.
             // N.B. - We purposely pass "params_.alpha" instead of the external "alpha"
