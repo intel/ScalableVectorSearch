@@ -22,6 +22,7 @@
 #include "index.hpp"
 #include "index_builder.hpp"
 #include "leanvec_training_data.hpp"
+#include "logger.hpp"
 #include "storage.hpp"
 #include "stream.hpp"
 #include "threadpool.hpp"
@@ -33,6 +34,7 @@
 #include <memory>
 #include <numeric>
 #include <span>
+#include <string>
 #include <vector>
 
 #include <svs/core/allocator.h>
@@ -69,6 +71,102 @@ struct svs_leanvec_training_data {
 extern "C" uint32_t svs_get_version() { return SVS_C_API_VERSION; }
 
 extern "C" const char* svs_get_version_string() { return SVS_C_API_VERSION_STRING; }
+
+extern "C" svs_logger_h svs_logger_create(
+    svs_logging_kind_t kind, const char* path, svs_error_h out_err /*=NULL*/
+) {
+    using namespace svs::c_runtime;
+    return wrap_exceptions(
+        [&]() { return new svs_logger{make_sink(kind, path)}; }, out_err
+    );
+}
+
+extern "C" svs_logger_h
+svs_logger_create_custom(svs_logging_i user_logger, svs_error_h out_err /*=NULL*/) {
+    using namespace svs::c_runtime;
+    return wrap_exceptions(
+        [&]() { return new svs_logger{make_custom_sink(user_logger)}; }, out_err
+    );
+}
+
+extern "C" void svs_logger_free(svs_logger_h logger) { delete logger; }
+
+extern "C" bool svs_logger_set_level(
+    svs_logger_h logger, svs_log_level_t level, svs_error_h out_err /*=NULL*/
+) {
+    using namespace svs::c_runtime;
+    return wrap_exceptions(
+        [&]() {
+            INVALID_ARGUMENT_IF(logger == nullptr, "Logger must not be null");
+            svs::logging::set_level(logger->impl, to_logging_level(level));
+            return true;
+        },
+        out_err
+    );
+}
+
+extern "C" bool svs_logger_get_level(
+    svs_logger_h logger, svs_log_level_t* out_level, svs_error_h out_err /*=NULL*/
+) {
+    using namespace svs::c_runtime;
+    return wrap_exceptions(
+        [&]() {
+            INVALID_ARGUMENT_IF(logger == nullptr, "Logger must not be null");
+            EXPECT_ARG_NOT_NULL(out_level);
+            *out_level = static_cast<svs_log_level_t>(logger->impl->level());
+            return true;
+        },
+        out_err
+    );
+}
+
+extern "C" bool svs_logger_set_pattern(
+    svs_logger_h logger, const char* pattern, svs_error_h out_err /*=NULL*/
+) {
+    using namespace svs::c_runtime;
+    return wrap_exceptions(
+        [&]() {
+            INVALID_ARGUMENT_IF(logger == nullptr, "Logger must not be null");
+            EXPECT_ARG_NOT_NULL(pattern);
+            auto new_pattern = std::string(pattern);
+            INVALID_ARGUMENT_IF(new_pattern.empty(), "Pattern should not be empty");
+            logger->impl->set_pattern(new_pattern);
+            logger->pattern = std::move(new_pattern);
+            return true;
+        },
+        out_err
+    );
+}
+
+extern "C" bool svs_logger_get_pattern(
+    svs_logger_h logger, const char** out_pattern, svs_error_h out_err /*=NULL*/
+) {
+    using namespace svs::c_runtime;
+    return wrap_exceptions(
+        [&]() {
+            INVALID_ARGUMENT_IF(logger == nullptr, "Logger must not be null");
+            EXPECT_ARG_NOT_NULL(out_pattern);
+            *out_pattern = logger->pattern.c_str();
+            return true;
+        },
+        out_err
+    );
+}
+
+extern "C" bool svs_set_default_logger(svs_logger_h logger, svs_error_h out_err /*=NULL*/) {
+    using namespace svs::c_runtime;
+    return wrap_exceptions(
+        [&]() {
+            if (logger == nullptr) {
+                svs::logging::reset_to_default();
+            } else {
+                svs::logging::set(logger->impl);
+            }
+            return true;
+        },
+        out_err
+    );
+}
 
 extern "C" svs_algorithm_h svs_algorithm_create_vamana(
     size_t graph_degree,
@@ -505,6 +603,23 @@ extern "C" bool svs_index_builder_set_storage(
             return true;
         },
         out_err
+    );
+}
+
+extern "C" bool svs_index_builder_set_logger(
+    svs_index_builder_h builder, svs_logger_h logger, svs_error_h out_err /*=NULL*/
+) {
+    using namespace svs::c_runtime;
+    return wrap_exceptions(
+        [&]() {
+            EXPECT_ARG_NOT_NULL(builder);
+            // NULL clears the builder logger: indexes then use the global default logger.
+            // Otherwise share the handle's spdlog logger, so the handle may be freed.
+            builder->impl->set_logger(logger == nullptr ? nullptr : logger->impl);
+            return true;
+        },
+        out_err,
+        false
     );
 }
 

@@ -19,6 +19,7 @@
 
 #include <svs/core/data/simple.h>
 #include <svs/core/distance.h>
+#include <svs/core/logging.h>
 #include <svs/index/vamana/build_params.h>
 #include <svs/lib/threads/threadpool.h>
 #include <svs/orchestrators/dynamic_vamana.h>
@@ -40,7 +41,8 @@ svs::DynamicVamana dispatch_dynamic_vamana_index_build(
     svs::DistanceType distance_type,
     svs::threads::ThreadPoolHandle pool,
     const AllocatorBuilder& allocator_builder,
-    const svs::data::BlockingParameters& block_params
+    const svs::data::BlockingParameters& block_params,
+    svs::logging::logger_ptr logger
 );
 
 svs::DynamicVamana dispatch_dynamic_vamana_index_load(
@@ -50,7 +52,8 @@ svs::DynamicVamana dispatch_dynamic_vamana_index_load(
     svs::DistanceType distance_type,
     svs::threads::ThreadPoolHandle pool,
     const AllocatorBuilder& allocator_builder,
-    const svs::data::BlockingParameters& block_params
+    const svs::data::BlockingParameters& block_params,
+    svs::logging::logger_ptr logger
 );
 
 svs::DynamicVamana dispatch_dynamic_vamana_index_load_stream(
@@ -71,7 +74,8 @@ svs::DynamicVamana dispatch_dynamic_vamana_index_copy(
     svs::DistanceType distance_type,
     svs::threads::ThreadPoolHandle pool,
     const AllocatorBuilder& allocator_builder,
-    const svs::data::BlockingParameters& block_params
+    const svs::data::BlockingParameters& block_params,
+    svs::logging::logger_ptr logger
 );
 
 svs::index::vamana::MemoryBreakdown dispatch_dynamic_vamana_memory_estimate(

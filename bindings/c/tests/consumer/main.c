@@ -48,6 +48,33 @@ static void report(const char* name, svs_storage_h storage, svs_error_h error) {
     printf("%-24s %s (%s)\n", name, reason, svs_error_get_message(error));
 }
 
+/* Custom logging callback; counts the messages it receives. */
+static void count_log(void* self, enum svs_log_level level, const char* message) {
+    (void)level;
+    (void)message;
+    ++*(int*)self;
+}
+
+/* Compile SVS_INIT_LOGGING_OPS as C and route a logger handle to a C callback. */
+static int check_logging(svs_error_h error) {
+    int count = 0;
+    svs_logging_ops_t ops = SVS_INIT_LOGGING_OPS(count_log);
+    svs_logging_t user_logger;
+    user_logger.ops = &ops;
+    user_logger.self = &count;
+
+    svs_logger_h logger = svs_logger_create_custom(&user_logger, error);
+    if (logger == NULL) {
+        fprintf(
+            stderr, "failed to create a custom logger: %s\n", svs_error_get_message(error)
+        );
+        return 0;
+    }
+    svs_logger_free(logger);
+    printf("%-24s available\n", "logging/custom");
+    return 1;
+}
+
 int main(void) {
     svs_error_h error = svs_error_create();
     if (error == NULL) {
@@ -67,6 +94,11 @@ int main(void) {
     }
     printf("%-24s available\n", "simple/float32");
     svs_storage_free(simple);
+
+    if (!check_logging(error)) {
+        svs_error_free(error);
+        return EXIT_FAILURE;
+    }
 
     report("sq/int8", svs_storage_create_sq(SVS_DATA_TYPE_INT8, error), error);
 
