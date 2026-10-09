@@ -31,6 +31,19 @@
 namespace svs {
 namespace c_runtime {
 
+// Zero values select the defaults; non-zero values are rounded down to a power of two.
+inline svs::data::BlockingParameters
+make_blocking_parameters(size_t blocksize_bytes, size_t blocksize_elements = 0) {
+    svs::data::BlockingParameters block_params;
+    if (blocksize_bytes != 0) {
+        block_params.blocksize_bytes = svs::lib::prevpow2(blocksize_bytes);
+    }
+    if (blocksize_elements != 0) {
+        block_params.blocksize_elements = svs::lib::prevpow2(blocksize_elements);
+    }
+    return block_params;
+}
+
 inline svs::DistanceType to_distance_type(svs_distance_metric_t distance_metric) {
     switch (distance_metric) {
         case SVS_DISTANCE_METRIC_EUCLIDEAN:

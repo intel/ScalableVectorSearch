@@ -53,6 +53,9 @@ class DynamicVamanaInterface : public VamanaInterface {
 
     // Non-templated virtual method for distance calculation
     virtual double get_distance(size_t id, const AnonymousArray<1>& query) const = 0;
+
+    // Check if the index has been consolidated - no `Deleted` entries remain.
+    virtual bool is_consolidated() const = 0;
 };
 
 template <lib::TypeList QueryTypes, typename Impl>
@@ -103,6 +106,9 @@ class DynamicVamanaImpl : public VamanaImpl<QueryTypes, Impl, DynamicVamanaInter
             }
         );
     }
+
+    // Check if the index has been consolidated - no `Deleted` entries remain.
+    bool is_consolidated() const override { return impl().is_consolidated(); }
 };
 
 // Forward Declaractions.
@@ -555,6 +561,9 @@ class DynamicVamana : public manager::IndexManager<DynamicVamanaInterface> {
     svs::index::vamana::VamanaIndexParameters parameters() const {
         return impl_->parameters();
     }
+
+    /// @brief Check if the index has been consolidated - no `Deleted` entries remain.
+    bool is_consolidated() const { return impl_->is_consolidated(); }
 };
 
 ///

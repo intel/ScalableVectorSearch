@@ -147,6 +147,9 @@ Result wrap_exceptions(Callable&& func, svs_error_h err, Result err_res = {}) no
         // Must precede std::runtime_error, its base class, or this clause is unreachable.
         SET_ERROR(err, ex.code(), ex.what());
         return err_res;
+    } catch (const std::logic_error& ex) {
+        SET_ERROR(err, SVS_ERROR_INVALID_OPERATION, ex.what());
+        return err_res;
     } catch (const std::runtime_error& ex) {
         SET_ERROR(err, SVS_ERROR_RUNTIME, ex.what());
         return err_res;

@@ -510,11 +510,11 @@ static inline void svs_search_results_row(
 /// the caller opts in by supplying a large-enough @p struct_size (e.g. via the
 /// SVS_INIT_MEMORY_BREAKDOWN() macro from the newer header).
 struct svs_memory_breakdown {
-    uint32_t version;      /// Version of the memory breakdown structure
-    size_t struct_size;    /// Size of the structure, used for versioning
-    size_t graph_bytes;    /// Allocated bytes for the graph structure
-    size_t data_bytes;     /// Allocated bytes for the data vectors
-    size_t metadata_bytes; /// Allocated bytes for metadata (entry points, status, etc.)
+    uint32_t version;      ///< Version of the memory breakdown structure
+    size_t struct_size;    ///< Size of the structure, used for versioning
+    size_t graph_bytes;    ///< Allocated bytes for the graph structure
+    size_t data_bytes;     ///< Allocated bytes for the data vectors
+    size_t metadata_bytes; ///< Allocated bytes for metadata (entry points, status, etc.)
 };
 
 /// @brief Macro to initialize a svs_memory_breakdown structure with default values
@@ -524,12 +524,65 @@ struct svs_memory_breakdown {
         .graph_bytes = 0, .data_bytes = 0, .metadata_bytes = 0                            \
     }
 
+/// @brief Dynamic index synchronization kind.
+///
+/// With synchronization enabled, the dynamic index handle guards itself with an internal
+/// reader/writer lock: read-only operations (search, has_id, get_distance, reconstruct,
+/// get_size, get_num_threads, memory queries, and use as a conversion source) take a
+/// shared lock and may run concurrently, while mutating operations (add_points,
+/// delete_points, consolidate, compact, save, set_num_threads) take an exclusive lock.
+///
+/// @remarks Synchronization covers operations on the index only:
+/// * svs_index_free() must not run concurrently with any other call on the same handle.
+/// * Each thread must use its own svs_search_results_t and svs_error_h.
+/// * The lock gives no writer priority: under sustained read load, readers may starve
+///   writers.
+/// * The sync kind is a runtime property: it is not persisted by svs_index_save(), so
+///   pass it again to svs_index_load_dynamic_ex().
+enum svs_sync_kind {
+    SVS_SYNC_KIND_NONE = 0,      ///< No internal synchronization; caller must synchronize
+    SVS_SYNC_KIND_GLOBAL = 1,    ///< Index-wide reader/writer lock
+    SVS_SYNC_KIND_FINE_GRAIN = 2 ///< Currently the same as GLOBAL; reserved for
+                                 ///< finer-grained locking
+};
+
+/// @brief Structure to hold dynamic index parameters.
+///
+/// Forward-compatibility contract: fields not covered by the caller-supplied
+/// @p struct_size are treated as their defaults. Initialize with
+/// SVS_INIT_DYNAMIC_INDEX_PARAMS(). Passing NULL to an `_ex` function is equivalent to
+/// passing a structure with all defaults.
+///
+/// The `_ex` functions reject (with SVS_ERROR_INVALID_ARGUMENT) a @p version newer than
+/// the library, a @p struct_size larger than the library's structure, block sizes that
+/// are not 0 or a power of two, and unknown @p sync_kind values. Unlike the legacy
+/// `blocksize_bytes` arguments, block sizes are not rounded down to a power of two.
+struct svs_dynamic_index_params {
+    uint32_t version;          ///< Version of the dynamic index parameters structure
+    size_t struct_size;        ///< Size of the structure, used for versioning
+    size_t blocksize_bytes;    ///< Bytes per block: 0 (default) or a power of two
+    size_t blocksize_elements; ///< Vectors (graph nodes) per block: 0 (unset) or a power
+                               ///< of two; takes precedence over blocksize_bytes
+    uint32_t sync_kind;        ///< Synchronization kind, one of svs_sync_kind values
+};
+
+/// @brief Macro to initialize a svs_dynamic_index_params structure with default values
+#define SVS_INIT_DYNAMIC_INDEX_PARAMS()                                               \
+    {                                                                                 \
+        .version = SVS_C_API_VERSION,                                                 \
+        .struct_size = sizeof(struct svs_dynamic_index_params), .blocksize_bytes = 0, \
+        .blocksize_elements = 0, .sync_kind = SVS_SYNC_KIND_NONE                      \
+    }
+
 // Handle typedefs; "_h" suffix indicates a handle to an opaque struct
 ///
 /// @remarks Thread-safety: unless a specific function documents otherwise, handles
 /// (svs_error_h, svs_index_h, svs_index_builder_h, svs_algorithm_h, svs_storage_h,
 /// svs_search_params_h) are not internally synchronized. Do not operate on the same
 /// handle from multiple threads concurrently without external synchronization.
+/// Exception: dynamic indices built or loaded with a svs_sync_kind other than
+/// SVS_SYNC_KIND_NONE are internally synchronized, with the limits listed in
+/// svs_sync_kind.
 typedef struct svs_index* svs_index_h;
 typedef struct svs_index_builder* svs_index_builder_h;
 typedef struct svs_algorithm* svs_algorithm_h;
@@ -545,6 +598,7 @@ typedef enum svs_data_type svs_data_type_t;
 typedef enum svs_storage_kind svs_storage_kind_t;
 typedef enum svs_threadpool_kind svs_threadpool_kind_t;
 typedef enum svs_allocator_kind svs_allocator_kind_t;
+typedef enum svs_sync_kind svs_sync_kind_t;
 
 typedef struct svs_threadpool_interface_ops svs_threadpool_ops_t;
 typedef struct svs_threadpool_interface svs_threadpool_t;
@@ -563,6 +617,7 @@ typedef struct svs_stream_interface* svs_stream_i;
 
 typedef struct svs_search_results svs_search_results_t;
 typedef struct svs_memory_breakdown svs_memory_breakdown_t;
+typedef struct svs_dynamic_index_params svs_dynamic_index_params_t;
 
 /// @brief Get SVS version information
 /// @return An integer representing the version of the SVS library, encoded as (major << 16)
@@ -941,6 +996,25 @@ SVS_API bool svs_index_builder_estimate_memory_dynamic(
     svs_error_h out_err /*=NULL*/
 );
 
+/// @brief Estimate the memory usage of a dynamic index based on the builder configuration,
+/// number of vectors and parameters
+/// @param builder The index builder handle
+/// @param num_vectors The number of vectors to be indexed
+/// @param params Pointer to the dynamic index parameters structure, or NULL for defaults;
+/// only the block size fields are used
+/// @param out_breakdown Pointer to a structure to hold the memory breakdown
+/// @param out_err An optional error handle to capture errors
+/// @return true on success, false on failure
+/// @remarks The estimated memory size is approximate.
+/// @error SVS_ERROR_INVALID_ARGUMENT if @p params is invalid (see svs_dynamic_index_params)
+SVS_API bool svs_index_builder_estimate_memory_dynamic_ex(
+    svs_index_builder_h builder,
+    size_t num_vectors,
+    const svs_dynamic_index_params_t* params /*=NULL*/,
+    svs_memory_breakdown_t* out_breakdown,
+    svs_error_h out_err /*=NULL*/
+);
+
 /// @brief Estimate the memory usage of a search operation based on the builder
 /// configuration, search parameters, number of queries, and nearest neighbors to retrieve
 /// @param builder The index builder handle
@@ -1000,6 +1074,34 @@ SVS_API bool svs_index_builder_estimate_search_memory_dynamic(
     svs_error_h out_err /*=NULL*/
 );
 
+/// @brief Estimate the memory usage of a dynamic index search operation based on the
+/// builder configuration, search parameters, number of queries, nearest neighbors to
+/// retrieve, and dynamic parameters
+/// @param builder The index builder handle
+/// @param num_queries The number of queries to be performed
+/// @param num_neighbors The number of nearest neighbors to retrieve per query
+/// @param search_params The search parameters handle; if NULL, the builder's default search
+/// parameters are used
+/// @param id_filter An optional ID filter interface; if NULL, no filtering is applied
+/// @param params Pointer to the dynamic index parameters structure, or NULL for defaults;
+/// validated but currently not used in the estimate - reserved for future use
+/// @param out_size Pointer to a variable to receive the estimated memory size
+/// @param out_err An optional error handle to capture errors
+/// @return true on success, false on failure
+/// @remarks See svs_index_builder_estimate_search_memory_dynamic(). The result is
+/// currently identical to that function's result.
+/// @error SVS_ERROR_INVALID_ARGUMENT if @p params is invalid (see svs_dynamic_index_params)
+SVS_API bool svs_index_builder_estimate_search_memory_dynamic_ex(
+    svs_index_builder_h builder,
+    size_t num_queries,
+    size_t num_neighbors,
+    svs_search_params_h search_params,
+    svs_id_filter_i id_filter /*=NULL*/,
+    const svs_dynamic_index_params_t* params /*=NULL*/,
+    size_t* out_size,
+    svs_error_h out_err /*=NULL*/
+);
+
 /// @brief Build an index from the provided data
 /// @param builder The index builder handle
 /// @param data Pointer to the vector data (float array)
@@ -1037,6 +1139,27 @@ SVS_API svs_index_h svs_index_build_dynamic(
     svs_error_h out_err /*=NULL*/
 );
 
+/// @brief Build a dynamic index from the provided data and parameters
+/// @param builder The index builder handle
+/// @param data Pointer to the vector data (float array)
+/// @param ids Pointer to the vector IDs (size_t array). Can be NULL if IDs should be
+/// auto-generated from 0 to num_vectors-1.
+/// @param num_vectors The number of vectors in the data
+/// @param params Pointer to the dynamic index parameters structure, or NULL for defaults
+/// @param out_err An optional error handle to capture errors
+/// @return A handle to the built dynamic index
+/// @remarks Both @p data and @p ids are copied into the index's internal storage; the
+/// caller may free or modify them once this call returns. @p params is not retained.
+/// @error SVS_ERROR_INVALID_ARGUMENT if @p params is invalid (see svs_dynamic_index_params)
+SVS_API svs_index_h svs_index_build_dynamic_ex(
+    svs_index_builder_h builder,
+    const float* data,
+    const size_t* ids /*=NULL*/,
+    size_t num_vectors,
+    const svs_dynamic_index_params_t* params /*=NULL*/,
+    svs_error_h out_err /*=NULL*/
+);
+
 /// @brief Load an index from disk
 /// @param builder The index builder handle (used for configuration)
 /// @param directory The directory path to load the index from
@@ -1056,6 +1179,22 @@ SVS_API svs_index_h svs_index_load_dynamic(
     svs_index_builder_h builder,
     const char* directory,
     size_t blocksize_bytes /*=0*/,
+    svs_error_h out_err /*=NULL*/
+);
+
+/// @brief Load a dynamic index from disk with explicit parameters
+/// @param builder The index builder handle (used for configuration)
+/// @param directory The directory path to load the index from
+/// @param params Pointer to the dynamic index parameters structure, or NULL for defaults
+/// @param out_err An optional error handle to capture errors
+/// @return A handle to the loaded dynamic index
+/// @remarks The block parameters only affect the in-memory layout, not the on-disk
+/// format. The sync kind is not persisted with the index and must be passed on every load.
+/// @error SVS_ERROR_INVALID_ARGUMENT if @p params is invalid (see svs_dynamic_index_params)
+SVS_API svs_index_h svs_index_load_dynamic_ex(
+    svs_index_builder_h builder,
+    const char* directory,
+    const svs_dynamic_index_params_t* params /*=NULL*/,
     svs_error_h out_err /*=NULL*/
 );
 
@@ -1117,6 +1256,23 @@ SVS_API svs_index_h svs_index_convert_dynamic(
     svs_index_builder_h builder,
     svs_index_h src_index,
     size_t blocksize_bytes /*=0*/,
+    svs_error_h out_err /*=NULL*/
+);
+
+/// @brief Convert dynamic index using new builder configuration and explicit parameters
+/// @param builder The index builder handle (used for configuration)
+/// @param src_index The source dynamic index handle to convert from
+/// @param params Pointer to the dynamic index parameters structure for the converted
+/// index, or NULL for defaults
+/// @param out_err An optional error handle to capture errors
+/// @return A handle to the newly converted dynamic index
+/// @remarks The sync kind of the converted index is taken from @p params, not from
+/// @p src_index.
+/// @error SVS_ERROR_INVALID_ARGUMENT if @p params is invalid (see svs_dynamic_index_params)
+SVS_API svs_index_h svs_index_convert_dynamic_ex(
+    svs_index_builder_h builder,
+    svs_index_h src_index,
+    const svs_dynamic_index_params_t* params /*=NULL*/,
     svs_error_h out_err /*=NULL*/
 );
 
@@ -1267,6 +1423,15 @@ SVS_API bool svs_index_dynamic_delete_points(
 /// @return true on success, false on failure
 SVS_API bool svs_index_dynamic_has_id(
     svs_index_h index, size_t id, bool* out_has_id, svs_error_h out_err /*=NULL*/
+);
+
+/// @brief Get the synchronization kind of a dynamic index
+/// @param index The dynamic index handle
+/// @param out_sync_kind Pointer to store the synchronization kind
+/// @param out_err An optional error handle to capture errors
+/// @return true on success, false on failure
+SVS_API bool svs_index_dynamic_get_sync_kind(
+    svs_index_h index, svs_sync_kind_t* out_sync_kind, svs_error_h out_err /*=NULL*/
 );
 
 /// @brief Get the distance from a specific ID to a query vector in an index
