@@ -114,7 +114,8 @@ inline constexpr bool is_lvq_storage(StorageKind kind) {
 
 inline constexpr bool is_leanvec_storage(StorageKind kind) {
     return kind == StorageKind::LeanVec4x4 || kind == StorageKind::LeanVec4x8 ||
-           kind == StorageKind::LeanVec8x8;
+           kind == StorageKind::LeanVec8x8 || kind == StorageKind::LeanVecLVQ4PrimaryOnly ||
+           kind == StorageKind::LeanVecLVQ8PrimaryOnly;
 }
 
 inline bool is_supported_storage_kind(StorageKind kind) {
@@ -344,6 +345,24 @@ template <typename Alloc> struct StorageType<StorageKind::LeanVec8x8, Alloc> {
     using type = LeanDatasetType<8, 8, allocator_type>;
 };
 
+// Primary-only LeanVec: secondary tier type is `void`.
+template <
+    size_t I1,
+    typename Alloc,
+    size_t LeanVecDims = svs::Dynamic,
+    size_t Extent = svs::Dynamic>
+using LeanDatasetPrimaryOnlyType =
+    svs::leanvec::LeanDataset<svs::leanvec::UsingLVQ<I1>, void, LeanVecDims, Extent, Alloc>;
+
+template <typename Alloc> struct StorageType<StorageKind::LeanVecLVQ4PrimaryOnly, Alloc> {
+    using allocator_type = rebind_extracted_allocator_t<std::byte, Alloc>;
+    using type = LeanDatasetPrimaryOnlyType<4, allocator_type>;
+};
+template <typename Alloc> struct StorageType<StorageKind::LeanVecLVQ8PrimaryOnly, Alloc> {
+    using allocator_type = rebind_extracted_allocator_t<std::byte, Alloc>;
+    using type = LeanDatasetPrimaryOnlyType<8, allocator_type>;
+};
+
 template <svs::leanvec::IsLeanDataset LeanVecStorageType>
 struct StorageFactory<LeanVecStorageType> {
     using StorageType = LeanVecStorageType;
@@ -394,6 +413,8 @@ auto dispatch_storage_kind(StorageKind kind, F&& f, Args&&... args) {
         SVS_DISPATCH_STORAGE_KIND(LeanVec4x4);
         SVS_DISPATCH_STORAGE_KIND(LeanVec4x8);
         SVS_DISPATCH_STORAGE_KIND(LeanVec8x8);
+        SVS_DISPATCH_STORAGE_KIND(LeanVecLVQ4PrimaryOnly);
+        SVS_DISPATCH_STORAGE_KIND(LeanVecLVQ8PrimaryOnly);
         default:
             throw StatusException(
                 ErrorCode::INVALID_ARGUMENT, "Unknown or unsupported SVS storage kind"
