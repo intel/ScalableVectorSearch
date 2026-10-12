@@ -75,6 +75,10 @@ if(SVS_RUNTIME_ENABLE_LVQ_LEANVEC)
     target_compile_definitions(${TARGET_NAME} PRIVATE SVS_TEST_EXPECT_LVQ_LEANVEC)
 endif()
 
+if(OpenMP_CXX_FOUND)
+    target_compile_definitions(${TARGET_NAME} PRIVATE SVS_TEST_EXPECT_OPENMP)
+endif()
+
 # Set C++ standard
 target_compile_features(${TARGET_NAME} PRIVATE cxx_std_20)
 set_target_properties(${TARGET_NAME} PROPERTIES

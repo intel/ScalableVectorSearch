@@ -266,3 +266,14 @@ inline void* failing_allocator_allocate(
 inline void failing_allocator_deallocate(
     void* /*self*/, void* /*ptr*/, size_t /*size*/, size_t /*alignment*/
 ) {}
+
+// If OMP is not implemented, success will be false and the error code will be
+// SVS_ERROR_NOT_IMPLEMENTED. Otherwise, success should be true and the error should
+// be OK.
+inline bool check_openmp_support(bool success, svs_error_h error) {
+#ifdef SVS_TEST_EXPECT_OPENMP
+    return success && svs_error_ok(error);
+#else
+    return !success && svs_error_get_code(error) == SVS_ERROR_NOT_IMPLEMENTED;
+#endif
+}
