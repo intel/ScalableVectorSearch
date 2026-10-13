@@ -51,16 +51,6 @@ template <typename Allocator> struct BlockedAllocSelector<BlockKind::Segmented, 
 template <typename T, BlockKind Kind, typename Allocator = svs::lib::Allocator<T>>
 using MaybeBlockedAlloc = typename detail::BlockedAllocSelector<Kind, Allocator>::type;
 
-// Accepts a BlockKind, or a bool meaning Blocked (true) / None (false).
-template <auto Kind>
-inline constexpr BlockKind block_kind_v = [] {
-    if constexpr (std::is_same_v<decltype(Kind), bool>) {
-        return Kind ? BlockKind::Blocked : BlockKind::None;
-    } else {
-        return Kind;
-    }
-}();
-
 class AllocatorBuilder {
     template <typename T> class CustomAllocator {
       public:

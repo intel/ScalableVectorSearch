@@ -92,8 +92,7 @@ struct lib::DispatchConverter<const c_runtime::Storage*, SimpleDataBuilder<T, Al
     static To convert(From SVS_UNUSED(from)) { return To{}; }
 };
 
-template <auto KindArg, typename F> void for_simple_specializations(F&& f) {
-    constexpr auto Kind = c_runtime::block_kind_v<KindArg>;
+template <c_runtime::BlockKind Kind, typename F> void for_simple_specializations(F&& f) {
     using float_alloc =
         svs::c_runtime::MaybeBlockedAlloc<float, Kind, AllocatorHandle<float>>;
     using float16_alloc = svs::c_runtime::

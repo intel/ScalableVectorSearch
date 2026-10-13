@@ -19,6 +19,7 @@
 
 #include "svs/c/svs_c.h"
 
+#include "allocator.hpp"
 #include "data_builder/lvq.hpp"
 #include "leanvec_training_data.hpp"
 #include "storage.hpp"
@@ -174,8 +175,7 @@ struct lib::
     }
 };
 
-template <auto KindArg, typename F> void for_leanvec_specializations(F&& f) {
-    constexpr auto Kind = c_runtime::block_kind_v<KindArg>;
+template <c_runtime::BlockKind Kind, typename F> void for_leanvec_specializations(F&& f) {
     using byte_alloc =
         svs::c_runtime::MaybeBlockedAlloc<std::byte, Kind, AllocatorHandle<std::byte>>;
 #define X(P, S, D) f.template operator()<LeanVecDataBuilder<P, S, byte_alloc>, D>();
@@ -192,9 +192,10 @@ template <auto KindArg, typename F> void for_leanvec_specializations(F&& f) {
 } // namespace svs
 
 #else // SVS_RUNTIME_ENABLE_LVQ_LEANVEC not enabled
+#include "allocator.hpp"
 namespace svs {
 // Define empty stubs for LeanVec-related functions when LVQ/LeanVec support is disabled
-template <auto KindArg, typename F> void for_leanvec_specializations(F&&) {}
+template <c_runtime::BlockKind Kind, typename F> void for_leanvec_specializations(F&&) {}
 } // namespace svs
 
 #endif // SVS_RUNTIME_ENABLE_LVQ_LEANVEC

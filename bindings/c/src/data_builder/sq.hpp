@@ -100,8 +100,7 @@ struct lib::DispatchConverter<const c_runtime::Storage*, SQDataBuilder<T, Alloc>
     static To convert(From SVS_UNUSED(from)) { return To{}; }
 };
 
-template <auto KindArg, typename F> void for_sq_specializations(F&& f) {
-    constexpr auto Kind = c_runtime::block_kind_v<KindArg>;
+template <c_runtime::BlockKind Kind, typename F> void for_sq_specializations(F&& f) {
     using int8_alloc =
         svs::c_runtime::MaybeBlockedAlloc<int8_t, Kind, AllocatorHandle<int8_t>>;
     using uint8_alloc =

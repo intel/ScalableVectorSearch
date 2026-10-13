@@ -76,6 +76,8 @@ cc::SlotMetadata to_concurrent_slot(RegularSlot s) {
 struct ConcurrentVamanaFlavor {
     static constexpr BlockKind block_kind = BlockKind::Segmented;
 
+    using graph_allocator_type = ConcurrentGraphAllocator;
+
     template <typename Data, typename Distance>
     using impl_type = cc::MutableVamanaIndex<ConcurrentGraph, Data, Distance>;
 
@@ -99,14 +101,13 @@ struct ConcurrentVamanaFlavor {
         std::span<const uint32_t> internal_ids,
         Distance distance,
         svs::threads::ThreadPoolHandle pool,
-        AllocatorHandle<uint32_t> graph_handle,
-        const svs::data::BlockingParameters& block_params,
+        graph_allocator_type graph_allocator,
         svs::logging::logger_ptr logger
     ) {
         auto graph = ConcurrentGraph(
             src_graph.n_nodes(),
             config.build_parameters.graph_max_degree,
-            ConcurrentGraphAllocator{block_params, std::move(graph_handle)}
+            std::move(graph_allocator)
         );
         svs::data::copy(src_graph.get_data(), graph.get_data());
 
@@ -221,14 +222,9 @@ const BuildConcurrentIndexDispatcher& build_concurrent_vamana_index_dispatcher()
         };
 
         constexpr auto kind = ConcurrentVamanaFlavor::block_kind;
-        for_simple_specializations<kind>(build_closure);
-        for_simple_specializations<kind>(load_closure);
-        for_leanvec_specializations<kind>(build_closure);
-        for_leanvec_specializations<kind>(load_closure);
-        for_lvq_specializations<kind>(build_closure);
-        for_lvq_specializations<kind>(load_closure);
-        for_sq_specializations<kind>(build_closure);
-        for_sq_specializations<kind>(load_closure);
+
+        for_all_specializations<kind>(build_closure);
+        for_all_specializations<kind>(load_closure);
         return d;
     }();
     return dispatcher;
