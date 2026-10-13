@@ -24,6 +24,8 @@
 #include <svs/orchestrators/dynamic_vamana.h>
 
 #include <filesystem>
+#include <istream>
+#include <memory>
 #include <span>
 #include <utility>
 #include <variant>
@@ -38,7 +40,7 @@ svs::DynamicVamana dispatch_dynamic_vamana_index_build(
     svs::DistanceType distance_type,
     svs::threads::ThreadPoolHandle pool,
     const AllocatorBuilder& allocator_builder,
-    size_t blocksize_bytes
+    const svs::data::BlockingParameters& block_params
 );
 
 svs::DynamicVamana dispatch_dynamic_vamana_index_load(
@@ -48,7 +50,17 @@ svs::DynamicVamana dispatch_dynamic_vamana_index_load(
     svs::DistanceType distance_type,
     svs::threads::ThreadPoolHandle pool,
     const AllocatorBuilder& allocator_builder,
-    size_t blocksize_bytes
+    const svs::data::BlockingParameters& block_params
+);
+
+svs::DynamicVamana dispatch_dynamic_vamana_index_load_stream(
+    const svs::index::vamana::VamanaBuildParameters& build_params,
+    std::unique_ptr<std::istream> stream,
+    const Storage* storage,
+    svs::DistanceType distance_type,
+    svs::threads::ThreadPoolHandle pool,
+    const AllocatorBuilder& allocator_builder,
+    const svs::data::BlockingParameters& block_params
 );
 
 svs::DynamicVamana dispatch_dynamic_vamana_index_copy(
@@ -59,7 +71,7 @@ svs::DynamicVamana dispatch_dynamic_vamana_index_copy(
     svs::DistanceType distance_type,
     svs::threads::ThreadPoolHandle pool,
     const AllocatorBuilder& allocator_builder,
-    size_t blocksize_bytes
+    const svs::data::BlockingParameters& block_params
 );
 
 svs::index::vamana::MemoryBreakdown dispatch_dynamic_vamana_memory_estimate(
@@ -68,7 +80,7 @@ svs::index::vamana::MemoryBreakdown dispatch_dynamic_vamana_memory_estimate(
     size_t dimension,
     const Storage* storage,
     svs::DistanceType distance_type,
-    size_t blocksize_bytes
+    const svs::data::BlockingParameters& block_params
 );
 
 } // namespace svs::c_runtime
