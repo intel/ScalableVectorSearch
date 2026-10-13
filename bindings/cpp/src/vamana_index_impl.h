@@ -502,11 +502,13 @@ class VamanaIndexImpl {
             using storage_type = storage::StorageType_t<Kind, Alloc>;
             auto threadpool = default_threadpool();
 
-            return new svs::Vamana(svs::Vamana::assemble<float, storage_type>(
+            return new svs::Vamana(svs::Vamana::assemble<float>(
                 stream,
+                svs::StreamLoader<svs::Vamana::default_graph_type<storage_type>>{},
+                svs::StreamLoader<storage_type, std::decay_t<Args>...>{
+                    std::forward<Args>(args)...},
                 to_svs_distance(metric),
-                std::move(threadpool),
-                std::forward<Args>(args)...
+                std::move(threadpool)
             ));
         }
     }

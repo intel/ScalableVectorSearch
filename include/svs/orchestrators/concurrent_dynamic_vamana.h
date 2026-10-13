@@ -132,47 +132,75 @@ class ConcurrentDynamicVamana : public DynamicVamana {
         ThreadPoolProto threadpool_proto,
         bool debug_load_from_static = false
     ) {
-        auto threadpool = threads::as_threadpool(std::move(threadpool_proto));
-        auto make = [&](auto distance_function) {
-            return ConcurrentDynamicVamana(
-                AssembleTag{},
-                manager::as_typelist<QueryTypes>(),
-                index::vamana::concurrent::auto_dynamic_assemble(
-                    std::forward<ConfigProto>(config_proto),
-                    std::forward<GraphLoader>(graph_loader),
-                    std::forward<DataLoader>(data_loader),
-                    std::move(distance_function),
-                    std::move(threadpool),
-                    debug_load_from_static
-                )
+        if constexpr (std::is_base_of_v<std::istream, std::remove_cvref_t<ConfigProto>>) {
+            static_assert(
+                is_stream_loader_v<std::remove_cvref_t<GraphLoader>> &&
+                    is_stream_loader_v<std::remove_cvref_t<DataLoader>>,
+                "Assembling from a std::istream requires svs::StreamLoader graph and "
+                "data loaders."
             );
-        };
-        if constexpr (std::is_same_v<std::decay_t<Distance>, DistanceType>) {
-            return DistanceDispatcher(distance)(make);
+            return assemble_from_stream<QueryTypes>(
+                config_proto,
+                std::forward<GraphLoader>(graph_loader),
+                std::forward<DataLoader>(data_loader),
+                std::move(distance),
+                std::move(threadpool_proto),
+                debug_load_from_static
+            );
         } else {
-            return make(std::move(distance));
+            static_assert(
+                !is_stream_loader_v<std::remove_cvref_t<GraphLoader>>,
+                "StreamLoader requires a std::istream config."
+            );
+            static_assert(
+                !is_stream_loader_v<std::remove_cvref_t<DataLoader>>,
+                "StreamLoader requires a std::istream config."
+            );
+            auto threadpool = threads::as_threadpool(std::move(threadpool_proto));
+            auto make = [&](auto distance_function) {
+                return ConcurrentDynamicVamana(
+                    AssembleTag{},
+                    manager::as_typelist<QueryTypes>(),
+                    index::vamana::concurrent::auto_dynamic_assemble(
+                        std::forward<ConfigProto>(config_proto),
+                        std::forward<GraphLoader>(graph_loader),
+                        std::forward<DataLoader>(data_loader),
+                        std::move(distance_function),
+                        std::move(threadpool),
+                        debug_load_from_static
+                    )
+                );
+            };
+            if constexpr (std::is_same_v<std::decay_t<Distance>, DistanceType>) {
+                return DistanceDispatcher(distance)(make);
+            } else {
+                return make(std::move(distance));
+            }
         }
     }
 
+  private:
     ///
     /// @brief Reload a ConcurrentDynamicVamana index saved with ``save(std::ostream&)``.
     ///
     /// Accepts both the native stream format and the directory-archive format.
     ///
-    /// @tparam Data The ``SegmentedBlocked`` dataset type to load.
-    ///
     template <
         manager::QueryTypeDefinition QueryTypes,
-        typename Data,
+        typename GraphLoader,
+        typename DataLoader,
         typename Distance,
-        typename ThreadPoolProto,
-        typename... DataLoaderArgs>
-    static ConcurrentDynamicVamana assemble(
+        typename ThreadPoolProto>
+    static ConcurrentDynamicVamana assemble_from_stream(
         std::istream& stream,
+        GraphLoader&& graph_loader,
+        DataLoader&& data_loader,
         Distance distance,
         ThreadPoolProto threadpool_proto,
-        DataLoaderArgs&&... data_args
+        bool debug_load_from_static
     ) {
+        using Graph = typename std::remove_cvref_t<GraphLoader>::return_type;
+        using Data = typename std::remove_cvref_t<DataLoader>::return_type;
         static_assert(
             index::vamana::concurrent::is_segmented_blocked_v<
                 typename Data::allocator_type>,
@@ -187,16 +215,11 @@ class ConcurrentDynamicVamana : public DynamicVamana {
                     manager::as_typelist<QueryTypes>(),
                     index::vamana::concurrent::auto_dynamic_assemble(
                         stream,
-                        [&]() -> default_graph_type {
-                            return default_graph_type::load(stream);
-                        },
-                        [&]() -> Data {
-                            return lib::load_from_stream<Data>(
-                                stream, SVS_FWD(data_args)...
-                            );
-                        },
+                        [&]() -> Graph { return graph_loader.load(stream); },
+                        [&]() -> Data { return data_loader.load(stream); },
                         std::move(distance_function),
-                        std::move(threadpool)
+                        std::move(threadpool),
+                        debug_load_from_static
                     )
                 );
             };
@@ -225,10 +248,11 @@ class ConcurrentDynamicVamana : public DynamicVamana {
 
         return assemble<QueryTypes>(
             config_path,
-            SVS_LAZY(default_graph_type::load(graph_path)),
-            lib::load_from_disk<Data>(data_path, SVS_FWD(data_args)...),
+            SVS_LAZY(graph_loader.load(graph_path)),
+            data_loader.load(data_path),
             std::move(distance),
-            std::move(threadpool)
+            std::move(threadpool),
+            debug_load_from_static
         );
     }
 };
