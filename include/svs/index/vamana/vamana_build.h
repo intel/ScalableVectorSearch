@@ -42,6 +42,7 @@
 
 // stdlib
 #include <algorithm>
+#include <bit>
 #include <concepts>
 #include <memory>
 #include <optional>
@@ -251,6 +252,18 @@ class VamanaBuilder {
         size_t batchsize = lib::div_round_up(num_nodes, num_batches);
         std::vector entry_points{entry_point};
 
+        // Grow batches geometrically so early inserts can see each other in the sparse
+        // graph; otherwise a batch collapses onto one hub whose pruning orphans nodes.
+        std::vector<size_t> batch_bounds;
+        // Bound: ramp-up batches + full-size batches + leading 0.
+        batch_bounds.reserve(std::bit_width(batchsize) + num_batches + 1);
+        batch_bounds.push_back(0);
+        for (size_t size = 1; batch_bounds.back() < num_nodes;
+             size = std::min(2 * size, batchsize)) {
+            batch_bounds.push_back(std::min(num_nodes, batch_bounds.back() + size));
+        }
+        num_batches = batch_bounds.size() - 1;
+
         // Runtime variables
         double search_time = 0;
         double reverse_time = 0;
@@ -264,8 +277,8 @@ class VamanaBuilder {
         auto timer = lib::Timer();
         for (size_t batch_id = 0; batch_id < num_batches; ++batch_id) {
             // Set up batch parameters
-            auto start = std::min(num_nodes, batchsize * batch_id) + base;
-            auto stop = std::min(num_nodes, batchsize * (batch_id + 1)) + base;
+            auto start = batch_bounds[batch_id] + base;
+            auto stop = batch_bounds[batch_id + 1] + base;
 
             // Perform search.
             // N.B. - We purposely pass "params_.alpha" instead of the external "alpha"
