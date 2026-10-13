@@ -22,35 +22,25 @@
 #include <svs/lib/dispatcher.h>
 #include <svs/lib/misc.h>
 
+#include <optional>
 #include <variant>
 
 namespace svs::c_runtime {
-// namespace {
-template <typename DataBuilder>
-size_t
-estimate_size(DataBuilder builder, size_t num_vectors, size_t dimension, svs::lib::Empty) {
-    using allocator_type = typename DataBuilder::allocator_type;
-    static_assert(
-        !svs::data::is_blocked_v<allocator_type>,
-        "estimate_size requires a non-blocked allocator type."
-    );
-    return builder.estimate_size(num_vectors, dimension, allocator_type{});
-}
+namespace {
 
 template <typename DataBuilder>
-size_t estimate_blocked_size(
+size_t estimate_size(
     DataBuilder builder,
     size_t num_vectors,
     size_t dimension,
-    svs::data::BlockingParameters block_params
+    const svs::data::BlockingParameters& block_params
 ) {
     using allocator_type = typename DataBuilder::allocator_type;
-    static_assert(
-        svs::data::is_blocked_v<allocator_type>,
-        "estimate_blocked_size requires a blocked allocator type."
-    );
-    auto allocator = allocator_type{block_params};
-    return builder.estimate_size(num_vectors, dimension, allocator);
+    if constexpr (svs::data::is_blocked_v<allocator_type>) {
+        return builder.estimate_size(num_vectors, dimension, allocator_type{block_params});
+    } else {
+        return builder.estimate_size(num_vectors, dimension, allocator_type{});
+    }
 }
 
 template <typename Dispatcher>
@@ -59,25 +49,12 @@ void register_data_size_specializations(Dispatcher& dispatcher) {
         dispatcher.register_target(&estimate_size<DataBuilder>);
     };
 
-    for_simple_specializations<false>(size_closure);
-    for_leanvec_specializations<false>(size_closure);
-    for_lvq_specializations<false>(size_closure);
-    for_sq_specializations<false>(size_closure);
-
-    auto blocked_size_closure = [&dispatcher]<typename DataBuilder, typename = void>() {
-        dispatcher.register_target(&estimate_blocked_size<DataBuilder>);
-    };
-
-    for_simple_specializations<true>(blocked_size_closure);
-    for_leanvec_specializations<true>(blocked_size_closure);
-    for_lvq_specializations<true>(blocked_size_closure);
-    for_sq_specializations<true>(blocked_size_closure);
+    for_all_specializations<BlockKind::None>(size_closure);
+    for_all_specializations<BlockKind::Blocked>(size_closure);
 }
 
-using BlocksizeArg = std::variant<svs::lib::Empty, svs::data::BlockingParameters>;
-
-using EstimateSizeDispatcher =
-    svs::lib::Dispatcher<size_t, const Storage*, size_t, size_t, BlocksizeArg>;
+using EstimateSizeDispatcher = svs::lib::
+    Dispatcher<size_t, const Storage*, size_t, size_t, svs::data::BlockingParameters>;
 
 const EstimateSizeDispatcher& build_data_size_dispatcher() {
     static EstimateSizeDispatcher dispatcher = [] {
@@ -89,13 +66,16 @@ const EstimateSizeDispatcher& build_data_size_dispatcher() {
 }
 
 size_t dispatch_data_size_estimation(
-    const Storage* storage, size_t num_vectors, size_t dimension, BlocksizeArg block_params
+    const Storage* storage,
+    size_t num_vectors,
+    size_t dimension,
+    const svs::data::BlockingParameters& block_params = {}
 ) {
     return build_data_size_dispatcher().invoke(
-        storage, num_vectors, dimension, std::move(block_params)
+        storage, num_vectors, dimension, block_params
     );
 }
-//} // namespace
+} // namespace
 
 size_t estimate_data_size(const Storage* storage, size_t num_vectors, size_t dimension) {
     if (storage == nullptr) {
@@ -107,9 +87,7 @@ size_t estimate_data_size(const Storage* storage, size_t num_vectors, size_t dim
     if (dimension == 0) {
         throw std::invalid_argument("Dimension must be greater than zero.");
     }
-    return dispatch_data_size_estimation(
-        storage, num_vectors, dimension, svs::lib::Empty{}
-    );
+    return dispatch_data_size_estimation(storage, num_vectors, dimension);
 }
 
 size_t estimate_data_size_blocked(

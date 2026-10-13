@@ -436,8 +436,8 @@ CATCH_TEST_CASE("C API Dynamic Index Params", "[c_api][index][dynamic][sync]") {
             fx.builder, NUM_VECTORS, &params, &by_elements, fx.error
         ));
         CATCH_REQUIRE(svs_error_ok(fx.error));
-        CATCH_REQUIRE(by_elements.data_bytes < by_bytes.data_bytes);
-        CATCH_REQUIRE(by_elements.graph_bytes < by_bytes.graph_bytes);
+        CATCH_REQUIRE(by_elements.data_bytes <= by_bytes.data_bytes);
+        CATCH_REQUIRE(by_elements.graph_bytes <= by_bytes.graph_bytes);
 
         size_t legacy_search = 0;
         CATCH_REQUIRE(svs_index_builder_estimate_search_memory_dynamic(

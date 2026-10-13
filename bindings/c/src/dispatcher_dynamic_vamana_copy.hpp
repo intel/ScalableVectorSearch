@@ -57,8 +57,8 @@ using CopyDynamicIndexDispatcher = svs::lib::Dispatcher<
     svs::logging::logger_ptr>;
 
 struct RegularVamanaFlavor {
-    using graph_type =
-        svs::graphs::SimpleGraph<uint32_t, svs::data::Blocked<AllocatorHandle<uint32_t>>>;
+    using graph_allocator_type = svs::data::Blocked<AllocatorHandle<uint32_t>>;
+    using graph_type = svs::graphs::SimpleGraph<uint32_t, graph_allocator_type>;
     static constexpr BlockKind block_kind = BlockKind::Blocked;
 
     template <typename Data, typename Distance>
@@ -79,14 +79,11 @@ struct RegularVamanaFlavor {
         std::span<const uint32_t> internal_ids,
         Distance distance,
         svs::threads::ThreadPoolHandle pool,
-        AllocatorHandle<uint32_t> graph_handle,
-        const svs::data::BlockingParameters& block_params,
+        const graph_allocator_type& graph_allocator,
         svs::logging::logger_ptr logger
     ) {
         auto graph = graph_type(
-            src_graph.n_nodes(),
-            config.build_parameters.graph_max_degree,
-            svs::data::Blocked{block_params, std::move(graph_handle)}
+            src_graph.n_nodes(), config.build_parameters.graph_max_degree, graph_allocator
         );
         svs::data::copy(src_graph.get_data(), graph.get_data());
 
@@ -168,6 +165,9 @@ svs::DynamicVamana copy_dynamic_vamana_index(
         allocator_type{block_params, allocator_builder.build<value_type>()};
     auto data = dst_builder.build(src_data, pool, data_allocator);
 
+    auto graph_allocator = typename DstFlavor::graph_allocator_type{
+        block_params, allocator_builder.build_for_graph<uint32_t>()};
+
     return DstFlavor::assemble(
         config,
         std::move(data),
@@ -177,8 +177,7 @@ svs::DynamicVamana copy_dynamic_vamana_index(
         internal_ids,
         std::move(distance),
         std::move(pool),
-        allocator_builder.build_for_graph<uint32_t>(),
-        block_params,
+        graph_allocator,
         std::move(logger)
     );
 }
@@ -202,10 +201,7 @@ void register_copy_specializations(CopyDynamicIndexDispatcher& dispatcher) {
     auto compression_closure = [&]<typename SrcDataBuilder, typename Dist>() {
         if constexpr (std::is_same_v<Dist, DistanceL2>) {
             auto inner = register_pair.template operator()<SrcDataBuilder>();
-            for_simple_specializations<DstFlavor::block_kind>(inner);
-            for_sq_specializations<DstFlavor::block_kind>(inner);
-            for_lvq_specializations<DstFlavor::block_kind>(inner);
-            for_leanvec_specializations<DstFlavor::block_kind>(inner);
+            for_all_specializations<DstFlavor::block_kind>(inner);
         }
     };
     for_simple_specializations<SrcFlavor::block_kind>(compression_closure);

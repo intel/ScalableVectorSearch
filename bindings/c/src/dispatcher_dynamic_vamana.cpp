@@ -145,18 +145,9 @@ void register_dynamic_vamana_index_specializations(Dispatcher& dispatcher) {
     };
 
     constexpr auto kind = BlockKind::Blocked;
-    for_simple_specializations<kind>(build_closure);
-    for_simple_specializations<kind>(load_closure);
-    for_simple_specializations<kind>(load_stream_closure);
-    for_leanvec_specializations<kind>(build_closure);
-    for_leanvec_specializations<kind>(load_closure);
-    for_leanvec_specializations<kind>(load_stream_closure);
-    for_lvq_specializations<kind>(build_closure);
-    for_lvq_specializations<kind>(load_closure);
-    for_lvq_specializations<kind>(load_stream_closure);
-    for_sq_specializations<kind>(build_closure);
-    for_sq_specializations<kind>(load_closure);
-    for_sq_specializations<kind>(load_stream_closure);
+    for_all_specializations<kind>(build_closure);
+    for_all_specializations<kind>(load_closure);
+    for_all_specializations<kind>(load_stream_closure);
 }
 
 // Stream load alternative, matched via generic variant DispatchConverter like the
