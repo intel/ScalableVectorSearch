@@ -365,6 +365,7 @@ class DynamicVamana : public manager::IndexManager<DynamicVamanaInterface> {
         typename DataLoader,
         typename Distance,
         typename ThreadPoolProto>
+        requires(!std::is_base_of_v<std::istream, std::remove_cvref_t<ConfigProto>> && !is_stream_loader_v<std::decay_t<GraphLoader>> && !is_stream_loader_v<std::decay_t<DataLoader>>)
     static DynamicVamana assemble(
         ConfigProto&& config_proto,
         GraphLoader&& graph_loader,
@@ -374,50 +375,134 @@ class DynamicVamana : public manager::IndexManager<DynamicVamanaInterface> {
         bool debug_load_from_static = false,
         svs::logging::logger_ptr logger = svs::logging::get()
     ) {
-        if constexpr (std::is_base_of_v<std::istream, std::remove_cvref_t<ConfigProto>>) {
-            static_assert(
-                is_stream_loader_v<std::decay_t<GraphLoader>>,
-                "Assembling from a stream requires a StreamLoader for the graph."
-            );
-            static_assert(
-                is_stream_loader_v<std::decay_t<DataLoader>>,
-                "Assembling from a stream requires a StreamLoader for the data."
-            );
-            return assemble_from_stream<QueryTypes>(
-                config_proto,
-                graph_loader,
-                data_loader,
+        return DynamicVamana(
+            AssembleTag(),
+            manager::as_typelist<QueryTypes>(),
+            index::vamana::auto_dynamic_assemble(
+                std::forward<ConfigProto>(config_proto),
+                std::forward<GraphLoader>(graph_loader),
+                std::forward<DataLoader>(data_loader),
                 distance,
-                std::move(threadpool_proto),
+                threads::as_threadpool(std::move(threadpool_proto)),
                 debug_load_from_static,
                 std::move(logger)
-            );
+            )
+        );
+    }
+
+    // Assembly from stream
+    ///
+    /// @brief Assemble a DynamicVamana index from a serialized stream.
+    ///
+    /// Accepts either the native stream format or a directory archive packed into the
+    /// stream.
+    ///
+    /// @tparam QueryTypes   The set of query element types supported by the resulting
+    /// index.
+    /// @tparam Graph        The graph type to load.
+    /// @tparam GraphArgs    Types of extra arguments forwarded to the graph loader.
+    /// @tparam Data         The dataset type to load.
+    /// @tparam DataArgs     Types of extra arguments forwarded to the data loader.
+    /// @tparam Distance     Distance functor or ``svs::DistanceType`` enum.
+    /// @tparam ThreadPoolProto  Thread pool type or size_t.
+    ///
+    /// @param stream Stream containing the serialized index.
+    /// @param graph_loader The ``StreamLoader`` for the graph to use.
+    /// @param data_loader The ``StreamLoader`` for the data to use.
+    /// @param distance Distance functor or ``svs::DistanceType`` enum.
+    /// @param threadpool_proto Thread pool or number of threads to use.
+    /// @param debug_load_from_static Internal/unstable: load files produced by the static
+    ///     index using an identity ID translation.
+    /// @param logger The logger to use for this index. Defaults to the global SVS logger
+    ///     (``svs::logging::get()``).
+    ///
+    template <
+        manager::QueryTypeDefinition QueryTypes,
+        typename Graph,
+        typename... GraphArgs,
+        typename Data,
+        typename... DataArgs,
+        typename Distance,
+        typename ThreadPoolProto>
+    static DynamicVamana assemble(
+        std::istream& stream,
+        const StreamLoader<Graph, GraphArgs...>& graph_loader,
+        const StreamLoader<Data, DataArgs...>& data_loader,
+        const Distance& distance,
+        ThreadPoolProto threadpool_proto,
+        bool debug_load_from_static = false,
+        svs::logging::logger_ptr logger = svs::logging::get()
+    ) {
+        auto deserializer = svs::lib::detail::Deserializer::build(stream);
+        if (deserializer.is_native()) {
+            auto threadpool = threads::as_threadpool(std::move(threadpool_proto));
+            if constexpr (std::is_same_v<std::decay_t<Distance>, DistanceType>) {
+                auto dispatcher = DistanceDispatcher(distance);
+                return dispatcher([&](auto distance_function) {
+                    return make_dynamic_vamana<manager::as_typelist<QueryTypes>>(
+                        index::vamana::auto_dynamic_assemble(
+                            stream,
+                            // lazy graph loader
+                            [&]() -> Graph { return graph_loader.load(stream); },
+                            // lazy data loader
+                            [&]() -> Data { return data_loader.load(stream); },
+                            distance_function,
+                            std::move(threadpool),
+                            debug_load_from_static,
+                            logger
+                        )
+                    );
+                });
+            } else {
+                return make_dynamic_vamana<manager::as_typelist<QueryTypes>>(
+                    index::vamana::auto_dynamic_assemble(
+                        stream,
+                        // lazy graph loader
+                        [&]() -> Graph { return graph_loader.load(stream); },
+                        // lazy data loader
+                        [&]() -> Data { return data_loader.load(stream); },
+                        distance,
+                        std::move(threadpool),
+                        debug_load_from_static,
+                        logger
+                    )
+                );
+            }
         } else {
-            static_assert(
-                !is_stream_loader_v<std::decay_t<GraphLoader>>,
-                "A StreamLoader requires a std::istream config to assemble from."
-            );
-            static_assert(
-                !is_stream_loader_v<std::decay_t<DataLoader>>,
-                "A StreamLoader requires a std::istream config to assemble from."
-            );
-            return DynamicVamana(
-                AssembleTag(),
-                manager::as_typelist<QueryTypes>(),
-                index::vamana::auto_dynamic_assemble(
-                    std::forward<ConfigProto>(config_proto),
-                    std::forward<GraphLoader>(graph_loader),
-                    std::forward<DataLoader>(data_loader),
-                    distance,
-                    threads::as_threadpool(std::move(threadpool_proto)),
-                    debug_load_from_static,
-                    std::move(logger)
-                )
+            namespace fs = std::filesystem;
+            lib::UniqueTempDirectory tempdir{"svs_vamana_load"};
+            lib::DirectoryArchiver::unpack(stream, tempdir, deserializer.magic());
+
+            const auto config_path = tempdir.get() / "config";
+            if (!fs::is_directory(config_path)) {
+                throw ANNEXCEPTION("Invalid Vamana index archive: missing config directory!"
+                );
+            }
+
+            const auto graph_path = tempdir.get() / "graph";
+            if (!fs::is_directory(graph_path)) {
+                throw ANNEXCEPTION("Invalid Vamana index archive: missing graph directory!"
+                );
+            }
+
+            const auto data_path = tempdir.get() / "data";
+            if (!fs::is_directory(data_path)) {
+                throw ANNEXCEPTION("Invalid Vamana index archive: missing data directory!");
+            }
+
+            return assemble<QueryTypes>(
+                config_path,
+                SVS_LAZY(graph_loader.load(graph_path)),
+                data_loader.load(data_path),
+                distance,
+                threads::as_threadpool(std::move(threadpool_proto)),
+                debug_load_from_static,
+                logger
             );
         }
     }
 
-    // Assembly from stream
+    // Assembly from stream (released wrapper)
     ///
     /// @brief Assemble a DynamicVamana index from a serialized stream.
     ///
@@ -525,93 +610,6 @@ class DynamicVamana : public manager::IndexManager<DynamicVamanaInterface> {
 
     /// @brief Check if the index has been consolidated - no `Deleted` entries remain.
     bool is_consolidated() const { return impl_->is_consolidated(); }
-
-  private:
-    template <
-        manager::QueryTypeDefinition QueryTypes,
-        typename GraphLoader,
-        typename DataLoader,
-        typename Distance,
-        typename ThreadPoolProto>
-    static DynamicVamana assemble_from_stream(
-        std::istream& stream,
-        const GraphLoader& graph_loader,
-        const DataLoader& data_loader,
-        const Distance& distance,
-        ThreadPoolProto threadpool_proto,
-        bool debug_load_from_static,
-        svs::logging::logger_ptr logger
-    ) {
-        using Data = typename DataLoader::return_type;
-        using GraphType = typename GraphLoader::return_type;
-        auto deserializer = svs::lib::detail::Deserializer::build(stream);
-        if (deserializer.is_native()) {
-            auto threadpool = threads::as_threadpool(std::move(threadpool_proto));
-            if constexpr (std::is_same_v<std::decay_t<Distance>, DistanceType>) {
-                auto dispatcher = DistanceDispatcher(distance);
-                return dispatcher([&](auto distance_function) {
-                    return make_dynamic_vamana<manager::as_typelist<QueryTypes>>(
-                        index::vamana::auto_dynamic_assemble(
-                            stream,
-                            // lazy graph loader
-                            [&]() -> GraphType { return graph_loader.load(stream); },
-                            // lazy data loader
-                            [&]() -> Data { return data_loader.load(stream); },
-                            distance_function,
-                            std::move(threadpool),
-                            debug_load_from_static,
-                            logger
-                        )
-                    );
-                });
-            } else {
-                return make_dynamic_vamana<manager::as_typelist<QueryTypes>>(
-                    index::vamana::auto_dynamic_assemble(
-                        stream,
-                        // lazy graph loader
-                        [&]() -> GraphType { return graph_loader.load(stream); },
-                        // lazy data loader
-                        [&]() -> Data { return data_loader.load(stream); },
-                        distance,
-                        std::move(threadpool),
-                        debug_load_from_static,
-                        logger
-                    )
-                );
-            }
-        } else {
-            namespace fs = std::filesystem;
-            lib::UniqueTempDirectory tempdir{"svs_vamana_load"};
-            lib::DirectoryArchiver::unpack(stream, tempdir, deserializer.magic());
-
-            const auto config_path = tempdir.get() / "config";
-            if (!fs::is_directory(config_path)) {
-                throw ANNEXCEPTION("Invalid Vamana index archive: missing config directory!"
-                );
-            }
-
-            const auto graph_path = tempdir.get() / "graph";
-            if (!fs::is_directory(graph_path)) {
-                throw ANNEXCEPTION("Invalid Vamana index archive: missing graph directory!"
-                );
-            }
-
-            const auto data_path = tempdir.get() / "data";
-            if (!fs::is_directory(data_path)) {
-                throw ANNEXCEPTION("Invalid Vamana index archive: missing data directory!");
-            }
-
-            return assemble<QueryTypes>(
-                config_path,
-                SVS_LAZY(graph_loader.load(graph_path)),
-                data_loader.load(data_path),
-                distance,
-                threads::as_threadpool(std::move(threadpool_proto)),
-                debug_load_from_static,
-                logger
-            );
-        }
-    }
 };
 
 ///
