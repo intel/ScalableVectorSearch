@@ -128,6 +128,8 @@ inline svs::logging::sink_ptr make_custom_sink(const svs_logging_i user_logger) 
 /// The logger handle of the C API (svs_logger_h).
 struct svs_logger {
     svs::logging::logger_ptr impl;
+    /// Last pattern set, returned by svs_logger_get_pattern(): spdlog has no
+    /// getter for a logger's pattern.
     std::string pattern = svs::c_runtime::default_log_pattern;
 
     explicit svs_logger(svs::logging::sink_ptr sink)
