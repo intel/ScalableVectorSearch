@@ -29,6 +29,38 @@ import sys
 import urllib.request
 import uuid
 
+# Synthetic CI settings. Dataset paths are relative to the PR checkout so base
+# and PR calculations share the same persisted vectors.
+CONFIGURATION = {
+    "threads": "auto",
+    "graph_type": "both",
+    "build_methods": ["sample_by_sample", "single_batch", "batches"],
+    "batch_size": 1000,
+    "recompute_entry_point": False,
+    "build_parameters": {
+        "degree": 24,
+        "window": 512,
+        "max_candidates": 750,
+        "alpha": {"L2": 1.2, "MIP": 0.95},
+        "use_full_search_history": True,
+    },
+    "datasets": [
+        {
+            "name": "synthetic-64",
+            "vectors": 50000,
+            "dimensions": 64,
+            "distance": "L2",
+            "source": {
+                "type": "synthetic",
+                "path": "data/graph-metrics/synthetic-64.fvecs",
+                "distribution": "normal",
+                "mean": 0.0,
+                "stddev": 1.0,
+                "seed": 12345,
+            },
+        },
+    ],
+}
 
 TARGET = "graph_metrics"
 TOOL_DIRECTORY = Path(__file__).resolve().parent
@@ -64,12 +96,11 @@ def compiler():
 
 
 def configuration(head):
-    path = (head / os.environ["GRAPH_METRICS_CONFIG"]).resolve()
-    config = json.loads(path.read_text())
+    config = copy.deepcopy(CONFIGURATION)
     for dataset in config["datasets"]:
         if dataset["source"]["type"] != "synthetic":
             raise ValueError("This workflow requires synthetic datasets")
-        dataset["source"]["path"] = str((path.parent / dataset["source"]["path"]).resolve())
+        dataset["source"]["path"] = str((head / dataset["source"]["path"]).resolve())
     return config
 
 
@@ -207,6 +238,12 @@ def detect(args):
             dependencies.update(workflow_dependencies(source, tool_relative))
         matched = sorted(changed & dependencies)
         needed = bool(matched) or os.environ.get("FORCE_RUN") == "true"
+        # Cache paths cross jobs, whose absolute workspace directories may differ.
+        workspace = os.environ.get("GITHUB_WORKSPACE", os.getcwd())
+        cache_paths = []
+        for dataset in configuration(args.head)["datasets"]:
+            path = os.path.relpath(dataset["source"]["path"], workspace)
+            cache_paths.extend([path, path + ".meta.json"])
         record.update(
             status="needed" if needed else "skipped",
             changed_files=sorted(changed),
@@ -217,6 +254,7 @@ def detect(args):
         output("needed", str(needed).lower())
         output("base_sha", base_sha)
         output("head_sha", head_sha)
+        output("cache_paths", "\n".join(cache_paths))
         message = ("Graph metrics required: " + (", ".join(matched) or "manual run")
                    if needed else "Graph metrics skipped: no changed files affect the calculator or workflow.")
         print(message)
@@ -225,14 +263,6 @@ def detect(args):
                 stream.write(message + "\n")
     finally:
         write_json(args.result / "detection.json", record)
-
-
-def paths(args):
-    cache_paths = []
-    for dataset in configuration(args.head)["datasets"]:
-        path = dataset["source"]["path"]
-        cache_paths.extend([path, path + ".meta.json"])
-    output("cache_paths", "\n".join(cache_paths))
 
 
 def calculate(args):
@@ -256,14 +286,12 @@ def calculate(args):
                 os.environ.get("CMAKE", "cmake"), "--build", str(build),
                 "--target", TARGET, "--parallel", str(cpu_count()),
             ], args.result / f"{label}-build.log")
-            effective = copy.deepcopy(config)
-            effective["output_json"] = str(args.result / f"{label}.json")
-            # Keep progress on stderr so logged() can stream it and save the artifact.
-            effective.pop("output_log", None)
+            effective = {**config, "output_json": str(args.result / f"{label}.json")}
             config_path = args.result / f"{label}-config.json"
             write_json(config_path, effective)
             print(f"{label}: calculating graph metrics", flush=True)
-            logged([str(build / TARGET), "--config", str(config_path)],
+            logged([sys.executable, str(TOOL_DIRECTORY / "run.py"),
+                    "--binary", str(build / TARGET), "--config", str(config_path)],
                    args.result / f"{label}-metrics.log")
         reports = [json.loads((args.result / f"{label}.json").read_text()) for label in ("base", "head")]
         identities = [
@@ -406,94 +434,81 @@ def comparison(base, head):
 
 def comment(args):
     event = json.loads(Path(os.environ["GITHUB_EVENT_PATH"]).read_text())
-    run = event.get("workflow_run")
-    if (run is not None and run["event"] != "pull_request") or (
-        run is None and "pull_request" not in event
-    ):
+    if "pull_request" not in event:
         print("No PR comment: this event is not a pull request.", flush=True)
         return
     api = GitHub()
     prefix = f"/repos/{api.repository}"
-    if run is None:
-        pr = event["pull_request"]
-        if pr["head"]["repo"]["full_name"] != api.repository:
-            print("Fork PR comments are handled by the default-branch reporter.", flush=True)
-            return
-        run = api.request("GET", f"{prefix}/actions/runs/{int(os.environ['GITHUB_RUN_ID'])}")
-        # The current workflow has not finished, but both producer jobs have.
-        run["conclusion"] = os.environ["GRAPH_METRICS_CONCLUSION"]
-        run["pull_requests"] = [pr]
-    # Resolve the PR through GitHub's event/run association, never an artifact's
-    # claimed PR number. Only current PR heads may update the comment.
-    run_prs = run.get("pull_requests") or []
-    candidates = run_prs or api.pages(f"{prefix}/commits/{run['head_sha']}/pulls")
-    if not candidates:
-        print(f"No PR associated with graph-metrics run {run['id']}.", flush=True)
+    event_pr = event["pull_request"]
+    if event_pr["head"]["repo"]["full_name"] != api.repository:
+        print("No PR comment: fork PRs publish artifacts only.", flush=True)
         return
-    run_heads = {item["number"]: item.get("head", {}).get("sha", run["head_sha"]) for item in run_prs}
+    run = api.request("GET", f"{prefix}/actions/runs/{int(os.environ['GITHUB_RUN_ID'])}")
+    # The current workflow has not finished, but both producer jobs have.
+    run["conclusion"] = os.environ["GRAPH_METRICS_CONCLUSION"]
+    # Resolve the PR through GitHub's event, never an artifact's
+    # claimed PR number. Only current PR heads may update the comment.
     artifacts = api.pages(f"{prefix}/actions/runs/{run['id']}/artifacts", "artifacts")
     detection_path = args.artifacts / "graph-metrics-results-detection/detection.json"
     result_dir = args.artifacts / "graph-metrics-results-run"
     detection = artifact_record(detection_path)
     result_path = result_dir / "run.json"
     result = artifact_record(result_path)
-    for candidate in candidates:
-        pr = api.request("GET", f"{prefix}/pulls/{int(candidate['number'])}")
-        associated_sha = run_heads.get(candidate["number"], run["head_sha"])
-        if pr["state"] != "open" or pr["head"]["sha"] != associated_sha:
-            print(f"No comment on PR #{pr['number']}: closed or its head has changed.", flush=True)
-            continue
-        current_sha = pr["head"]["sha"]
-        if any(record and record.get("head_sha") != current_sha for record in (detection, result)):
-            print(f"No comment on PR #{pr['number']}: artifact revision does not match.", flush=True)
-            continue
-        base_sha = (detection or result or {}).get("base_sha", "")
-        if not re.fullmatch(r"[0-9a-f]{40}", base_sha):
-            base_sha = pr["base"]["sha"]
-        run_url = run["html_url"]
-        lines = [
-            COMMENT_MARKER,
-            f"<!-- run={int(run['id'])} attempt={int(run.get('run_attempt', 1))} -->",
-            "### Synthetic graph metrics", "",
-            f"Base `{base_sha[:12]}` → PR `{current_sha[:12]}`.",
-        ]
-        if detection and detection["status"] == "skipped" and run["conclusion"] == "success":
-            lines.extend(["", "Skipped: no changed files affect the calculator or workflow dependencies."])
-        elif result and result["status"] == "completed" and run["conclusion"] == "success":
-            try:
-                summary = comparison(
-                    artifact_json(result_dir / "base.json"),
-                    artifact_json(result_dir / "head.json"),
-                )
-                lines.extend(["", f"Compiler: {text(result['compiler'])}.", "", summary])
-            except (KeyError, TypeError, ValueError, OSError):
-                lines.extend(["", "The metrics report could not be validated. See the run and artifacts."])
-        else:
-            lines.extend(["", f"Graph metrics are unavailable (run: {text(run['conclusion'])}). See the run logs."])
-        links = ["", f"[Workflow run and logs]({run_url})"]
-        for artifact in artifacts:
-            if artifact["name"] == "graph-metrics-results-run" and not artifact.get("expired"):
-                artifact_url = f"{run_url}/artifacts/{int(artifact['id'])}"
-                links.append(f"[Full base/PR JSON reports, configurations, and logs]({artifact_url})")
-        body = "\n".join(lines)[:60000] + "\n" + "\n".join(links)
-        existing = next((
-            item for item in api.pages(f"{prefix}/issues/{pr['number']}/comments")
-            if item["user"]["login"] == "github-actions[bot]" and COMMENT_MARKER in item["body"]
-        ), None)
-        if existing:
-            sequence = re.search(r"<!-- run=(\d+) attempt=(\d+) -->", existing["body"])
-            current = (int(run["id"]), int(run.get("run_attempt", 1)))
-            if sequence and tuple(map(int, sequence.groups())) > current:
-                print(f"PR #{pr['number']} already has results from a newer run.", flush=True)
-                continue
-            if existing["body"] == body:
-                print(f"PR #{pr['number']} already has this graph-metrics comment.", flush=True)
-                continue
-            api.request("PATCH", f"{prefix}/issues/comments/{existing['id']}", {"body": body})
-            print(f"Updated graph-metrics comment on PR #{pr['number']}.", flush=True)
-        else:
-            api.request("POST", f"{prefix}/issues/{pr['number']}/comments", {"body": body})
-            print(f"Created graph-metrics comment on PR #{pr['number']}.", flush=True)
+    pr = api.request("GET", f"{prefix}/pulls/{int(event_pr['number'])}")
+    if pr["state"] != "open" or pr["head"]["sha"] != event_pr["head"]["sha"]:
+        print(f"No comment on PR #{pr['number']}: closed or its head has changed.", flush=True)
+        return
+    current_sha = pr["head"]["sha"]
+    if any(record and record.get("head_sha") != current_sha for record in (detection, result)):
+        print(f"No comment on PR #{pr['number']}: artifact revision does not match.", flush=True)
+        return
+    base_sha = (detection or result or {}).get("base_sha", "")
+    if not re.fullmatch(r"[0-9a-f]{40}", base_sha):
+        base_sha = pr["base"]["sha"]
+    run_url = run["html_url"]
+    lines = [
+        COMMENT_MARKER,
+        f"<!-- run={int(run['id'])} attempt={int(run.get('run_attempt', 1))} -->",
+        "### Synthetic graph metrics", "",
+        f"Base `{base_sha[:12]}` → PR `{current_sha[:12]}`.",
+    ]
+    if detection and detection["status"] == "skipped" and run["conclusion"] == "success":
+        lines.extend(["", "Skipped: no changed files affect the calculator or workflow dependencies."])
+    elif result and result["status"] == "completed" and run["conclusion"] == "success":
+        try:
+            summary = comparison(
+                artifact_json(result_dir / "base.json"),
+                artifact_json(result_dir / "head.json"),
+            )
+            lines.extend(["", f"Compiler: {text(result['compiler'])}.", "", summary])
+        except (KeyError, TypeError, ValueError, OSError):
+            lines.extend(["", "The metrics report could not be validated. See the run and artifacts."])
+    else:
+        lines.extend(["", f"Graph metrics are unavailable (run: {text(run['conclusion'])}). See the run logs."])
+    links = ["", f"[Workflow run and logs]({run_url})"]
+    for artifact in artifacts:
+        if artifact["name"] == "graph-metrics-results-run" and not artifact.get("expired"):
+            artifact_url = f"{run_url}/artifacts/{int(artifact['id'])}"
+            links.append(f"[Full base/PR JSON reports, configurations, and logs]({artifact_url})")
+    body = "\n".join(lines)[:60000] + "\n" + "\n".join(links)
+    existing = next((
+        item for item in api.pages(f"{prefix}/issues/{pr['number']}/comments")
+        if item["user"]["login"] == "github-actions[bot]" and COMMENT_MARKER in item["body"]
+    ), None)
+    if existing:
+        sequence = re.search(r"<!-- run=(\d+) attempt=(\d+) -->", existing["body"])
+        current = (int(run["id"]), int(run.get("run_attempt", 1)))
+        if sequence and tuple(map(int, sequence.groups())) > current:
+            print(f"PR #{pr['number']} already has results from a newer run.", flush=True)
+            return
+        if existing["body"] == body:
+            print(f"PR #{pr['number']} already has this graph-metrics comment.", flush=True)
+            return
+        api.request("PATCH", f"{prefix}/issues/comments/{existing['id']}", {"body": body})
+        print(f"Updated graph-metrics comment on PR #{pr['number']}.", flush=True)
+    else:
+        api.request("POST", f"{prefix}/issues/{pr['number']}/comments", {"body": body})
+        print(f"Created graph-metrics comment on PR #{pr['number']}.", flush=True)
 
 
 def main():
@@ -506,15 +521,13 @@ def main():
         sub.add_argument("--work", type=Path, required=True)
         sub.add_argument("--result", type=Path, required=True)
         sub.add_argument("--cmake-arg", action="append", default=[])
-    sub = commands.add_parser("paths")
-    sub.add_argument("--head", type=Path, required=True)
     sub = commands.add_parser("comment")
     sub.add_argument("--artifacts", type=Path, required=True)
     args = parser.parse_args()
     for key in ("head", "base", "work", "result", "artifacts"):
         if hasattr(args, key):
             setattr(args, key, getattr(args, key).resolve())
-    {"detect": detect, "calculate": calculate, "paths": paths, "comment": comment}[args.action](args)
+    {"detect": detect, "calculate": calculate, "comment": comment}[args.action](args)
 
 
 if __name__ == "__main__":

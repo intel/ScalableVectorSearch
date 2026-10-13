@@ -17,20 +17,34 @@ set -euo pipefail
 
 graph_metric_root="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." && pwd)"
 
-# Dataset definitions, graph parameters, thread count, and report paths live in JSON.
-graph_metric_config="${1:-${graph_metric_root}/graph_metrics_config.json}"
 graph_metric_output_dir="${graph_metric_root}/build/graph-metrics"
-graph_metric_build_dir="${graph_metric_output_dir}/build"
+graph_metric_config="${1:-${graph_metric_output_dir}/local/config.json}"
+# CMake caches the source directory, so the previous build cannot be reused
+# after moving the standalone project out of .github.
+graph_metric_build_dir="${graph_metric_output_dir}/standalone"
 graph_metric_build_type="Release"
 graph_metric_build_jobs=8
 graph_metric_cmake="auto" # Reuse the build directory's CMake, otherwise use PATH.
 graph_metric_build_log="${graph_metric_output_dir}/build.log"
 
 if (( $# > 1 )); then
-    printf 'Usage: bash .github/graph-metrics/graph_metric.sh [configuration.json]\n' >&2
+    printf 'Usage: bash tests/graph-metrics/graph_metric.sh [configuration.json]\n' >&2
     exit 2
 fi
-if [[ ! -f "${graph_metric_config}" ]]; then
+if (( $# == 0 )); then
+    # Generate the local config from CI settings so the two launches cannot drift.
+    python3 - "${graph_metric_root}" "${graph_metric_config}" <<'PY'
+from pathlib import Path
+import runpy
+import sys
+
+root, config_path = map(Path, sys.argv[1:])
+ci = runpy.run_path(str(root / "tests/graph-metrics/ci.py"))
+config = ci["configuration"](root)
+config["output_json"] = str(config_path.parent / "metrics.json")
+ci["write_json"](config_path, config)
+PY
+elif [[ ! -f "${graph_metric_config}" ]]; then
     printf 'Configuration not found: %s\n' "${graph_metric_config}" >&2
     exit 2
 fi
@@ -54,10 +68,10 @@ fi
 
 printf 'Configuration: %s\nBuild log: %s\n' "${graph_metric_config}" "${graph_metric_build_log}"
 
-# The calculator handles runtime JSON/log destinations from the config itself.
+# The runner owns JSON/log destinations so local and CI launches share validation.
 mkdir -p -- "$(dirname -- "${graph_metric_build_log}")"
 {
-    "${graph_metric_cmake}" -S "${graph_metric_root}/.github/graph-metrics" \
+    "${graph_metric_cmake}" -S "${graph_metric_root}/tests/graph-metrics" \
         -B "${graph_metric_build_dir}" \
         -DCMAKE_BUILD_TYPE="${graph_metric_build_type}" \
         -DSVS_SOURCE_DIR="${graph_metric_root}"
@@ -65,4 +79,5 @@ mkdir -p -- "$(dirname -- "${graph_metric_build_log}")"
         --parallel "${graph_metric_build_jobs}"
 } > "${graph_metric_build_log}" 2>&1
 
-exec "${graph_metric_build_dir}/graph_metrics" --config "${graph_metric_config}"
+exec python3 "${graph_metric_root}/tests/graph-metrics/run.py" \
+    --binary "${graph_metric_build_dir}/graph_metrics" --config "${graph_metric_config}"

@@ -72,7 +72,6 @@ using Index = std::conditional_t<
         MutableVamanaIndex<NonConcurrentGraph, NonConcurrentData, Distance>>;
 
 using graph_metrics::Input;
-using graph_metrics::Json;
 using graph_metrics::Options;
 
 struct BuildPlan {
@@ -115,13 +114,15 @@ std::vector<BuildPlan> build_plans(const Options& options) {
     return plans;
 }
 
-constexpr std::string_view help = R"(Usage: graph_metrics --config FILE.json
+constexpr std::string_view help =
+    R"(Usage: python3 tests/graph-metrics/run.py --binary graph_metrics --config FILE.json
        graph_metrics --self-test
 
-All dataset definitions and run parameters come from FILE.json. See
-graph_metrics_config.json for an example configuration.
+All dataset definitions and run parameters come from FILE.json.
 Relative source, synthetic-cache, and output paths resolve beside the config file.
 threads may be a positive integer or "auto" (CPUs available to this process).
+The Python launcher validates JSON and checksums using its standard library.
+The C++ executable accepts its temporary TOML file via --prepared-config.
 
 File inputs use little-endian vecs layout with uint32 dimensions before every row.
 Coordinates may be uint8, int8, float16, or float32 and are indexed as float32.
@@ -163,7 +164,6 @@ template <typename T>
 void load_vecs(const Input& input, svs::data::SimpleData<float>& points) {
     std::ifstream stream{input.path, std::ios::binary};
     std::vector<T> row(points.dimensions());
-    graph_metrics::Sha256 hash;
     for (size_t i = 0; i < points.size(); ++i) {
         uint32_t dimensions = 0;
         if (!stream.read(reinterpret_cast<char*>(&dimensions), sizeof(dimensions)) ||
@@ -173,8 +173,6 @@ void load_vecs(const Input& input, svs::data::SimpleData<float>& points) {
                 fmt::format("Invalid or truncated vector {} in {}", i, input.path.string())
             );
         }
-        hash.update(&dimensions, sizeof(dimensions));
-        hash.update(row.data(), row.size() * sizeof(T));
         auto destination = points.get_datum(i);
         for (size_t d = 0; d < row.size(); ++d) {
             const float value = source_float(row[d]);
@@ -189,10 +187,6 @@ void load_vecs(const Input& input, svs::data::SimpleData<float>& points) {
             destination[d] = value;
         }
     }
-    graph_metrics::require(
-        hash.finish() == input.sha256,
-        "Dataset changed after checksum validation: " + input.path.string()
-    );
 }
 
 svs::data::SimpleData<float> load_points(const Options& options, const Input& input) {
@@ -641,7 +635,8 @@ void print_field_descriptions() {
          "<path>.meta.json, with an additional sha256 field."},
         {"dataset_parameters.sha256",
          "SHA-256 of the selected prefix's raw vecs bytes, including row headers. "
-         "Rechecked while loading every build; covers the complete file for synthetic "
+         "Validated by the launcher before and after calculation; covers the complete file "
+         "for synthetic "
          "data."},
         {"configuration", "Effective construction and insertion parameters for this run."},
         {"configuration.insertion_batch_size",
@@ -776,9 +771,9 @@ void print_dataset_header(const Options& options, const Input& input) {
         options.total,
         options.dimensions,
         json_string(input.distance),
-        input.generation.is_null() ? "null" : input.generation.at("seed").dump(),
-        input.generation.is_null() ? "null" : input.generation.at("distribution").dump(),
-        input.generation.dump(),
+        input.seed ? fmt::format("{}", *input.seed) : "null",
+        input.seed ? json_string(input.distribution) : "null",
+        input.generation_json,
         json_string(input.sha256)
     );
 }
@@ -1133,16 +1128,21 @@ int main(int argc, char** argv) {
             self_test();
             return 0;
         }
-        if (argc != 3 || std::string_view{argv[1]} != "--config") {
-            throw std::invalid_argument("Usage: graph_metrics --config FILE.json");
+        if (argc != 3 || (std::string_view{argv[1]} != "--prepared-config" &&
+                          std::string_view{argv[1]} != "--generate")) {
+            throw std::invalid_argument("JSON configurations require the Python launcher: "
+                                        "python3 tests/graph-metrics/run.py --binary "
+                                        "graph_metrics --config FILE.json");
         }
-        auto config = graph_metrics::read_configuration(argv[2]);
-        fmt::print(stderr, "JSON: {}\n", config.output_json.string());
-        if (!config.output_log.empty()) {
-            fmt::print(stderr, "Log:  {}\n", config.output_log.string());
-            graph_metrics::redirect_stream(stderr, config.output_log);
+        auto config = graph_metrics::read_prepared(argv[2]);
+        if (std::string_view{argv[1]} == "--generate") {
+            graph_metrics::require(
+                config.inputs.size() == 1, "Generation requires exactly one dataset"
+            );
+            const auto& [options, input] = config.inputs.front();
+            graph_metrics::generate_vectors(options, input);
+            return 0;
         }
-        graph_metrics::prepare_inputs(config);
         // Publish a complete report atomically. Invalid configurations or failed
         // builds leave any previous report intact.
         graph_metrics::TemporaryFile output{config.output_json};
