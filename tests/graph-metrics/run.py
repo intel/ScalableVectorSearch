@@ -103,21 +103,7 @@ def sidecars(path):
     return Path(str(path) + ".meta.json"), Path(str(path) + ".lock")
 
 
-def read_configuration(filename):
-    path = filename.resolve(strict=True)
-    source = read_json(path)
-    object_keys(source, "config", (
-        "threads", "graph_type", "build_methods", "batch_size", "recompute_entry_point",
-        "build_parameters", "datasets", "output_json",
-    ), ("output_log",))
-    threads = source["threads"]
-    if threads == "auto":
-        threads = len(os.sched_getaffinity(0)) if hasattr(os, "sched_getaffinity") else os.cpu_count() or 1
-    threads = integer(threads, "threads")
-    graph_type = source["graph_type"]
-    require(graph_type in ("concurrent", "non_concurrent", "both"),
-            f"graph_type must be concurrent, non_concurrent, or both; got {graph_type!r}")
-    methods = source["build_methods"]
+def read_build_methods(methods, graph_type):
     require(isinstance(methods, list) and methods, "build_methods must be a nonempty array")
     seen = set()
     for method in methods:
@@ -128,6 +114,18 @@ def read_configuration(filename):
         seen.add(name)
     require(graph_type != "non_concurrent" or seen != {"sample_by_sample"},
             "sample_by_sample requires a concurrent index")
+    return methods
+
+
+def read_build_parameters(source):
+    threads = source["threads"]
+    if threads == "auto":
+        threads = len(os.sched_getaffinity(0)) if hasattr(os, "sched_getaffinity") else os.cpu_count() or 1
+    threads = integer(threads, "threads")
+    graph_type = source["graph_type"]
+    require(graph_type in ("concurrent", "non_concurrent", "both"),
+            f"graph_type must be concurrent, non_concurrent, or both; got {graph_type!r}")
+    methods = read_build_methods(source["build_methods"], graph_type)
     build = source["build_parameters"]
     object_keys(build, "build_parameters", ("degree", "window", "max_candidates", "alpha"),
                 ("use_full_search_history",))
@@ -152,71 +150,87 @@ def read_configuration(filename):
         "max_candidates": candidates,
         "use_full_search_history": boolean(build.get("use_full_search_history", True), "use_full_search_history"),
     }
-    datasets = source["datasets"]
+    return common, alphas
+
+
+def read_generation(data, total, dimensions):
+    require("distribution" in data, "Missing source.distribution")
+    distribution = data["distribution"]
+    if distribution == "normal":
+        fields = ("mean", "stddev")
+    elif distribution == "uniform":
+        fields = ("lower", "upper")
+    else:
+        raise ValueError(f"Unsupported distribution {distribution!r}; expected normal or uniform")
+    object_keys(data, "source", ("type", "path", "distribution", "seed", *fields))
+    parameters = {key: number(data[key], key) for key in fields}
+    if distribution == "normal":
+        require(parameters["stddev"] > 0, "stddev must be > 0")
+    else:
+        require(parameters["lower"] < parameters["upper"], "Require lower < upper")
+    return {
+        "schema_version": 1, "generator": "svs-mt19937-box-muller-v1",
+        "vectors": total, "dimensions": dimensions, "data_type": "float32",
+        "distribution": distribution, "parameters": parameters,
+        "seed": integer(data["seed"], "seed", 0, (1 << 32) - 1),
+    }
+
+
+def read_dataset(dataset, directory, alphas, names):
+    object_keys(dataset, "dataset", ("name", "vectors", "dimensions", "distance", "source"))
+    name = text(dataset["name"], "dataset.name")
+    require(name not in names, f"Duplicate dataset name: {name}")
+    names.add(name)
+    total = integer(dataset["vectors"], "vectors", maximum=(1 << 32) - 2)
+    dimensions = integer(dataset["dimensions"], "dimensions", maximum=(1 << 32) - 1)
+    require(total * (4 + 4 * dimensions) <= MAX_SIZE, "Vector data size overflows size_t")
+    distance = dataset["distance"]
+    require(distance in ("L2", "MIP"), f"distance must be L2 or MIP; got {distance!r}")
+    data = dataset["source"]
+    require(isinstance(data, dict) and "type" in data, "Missing source.type")
+    kind = data["type"]
+    generation = None
+    if kind == "file":
+        object_keys(data, "source", ("type", "path", "data_type"))
+        data_type = text(data["data_type"], "source.data_type")
+        require(data_type in ELEMENT_SIZES,
+                f"Unsupported source type {data_type!r}; expected one of {tuple(ELEMENT_SIZES)}")
+    elif kind == "synthetic":
+        generation = read_generation(data, total, dimensions)
+        data_type = "float32"
+    else:
+        raise ValueError(f"Unsupported source.type {kind!r}; expected file or synthetic")
+    return {
+        "name": name, "vectors": total, "dimensions": dimensions, "distance": distance,
+        "alpha": alphas[distance], "path": resolve(directory, data["path"]), "kind": kind,
+        "source_type": data_type, "generation": generation,
+        "source_vectors": total, "sha256": "",
+    }
+
+
+def read_inputs(datasets, path, alphas):
     require(isinstance(datasets, list) and datasets, "datasets must be a nonempty array")
     names, generators, inputs = set(), {}, []
     protected = {path}
     for dataset in datasets:
-        object_keys(dataset, "dataset", ("name", "vectors", "dimensions", "distance", "source"))
-        name = text(dataset["name"], "dataset.name")
-        require(name not in names, f"Duplicate dataset name: {name}")
-        names.add(name)
-        total = integer(dataset["vectors"], "vectors", maximum=(1 << 32) - 2)
-        dimensions = integer(dataset["dimensions"], "dimensions", maximum=(1 << 32) - 1)
-        require(total * (4 + 4 * dimensions) <= MAX_SIZE, "Vector data size overflows size_t")
-        distance = dataset["distance"]
-        require(distance in ("L2", "MIP"), f"distance must be L2 or MIP; got {distance!r}")
-        data = dataset["source"]
-        require(isinstance(data, dict) and "type" in data, "Missing source.type")
-        kind = data["type"]
-        generation = None
-        if kind == "file":
-            object_keys(data, "source", ("type", "path", "data_type"))
-            data_type = text(data["data_type"], "source.data_type")
-            require(data_type in ELEMENT_SIZES,
-                    f"Unsupported source type {data_type!r}; expected one of {tuple(ELEMENT_SIZES)}")
-        elif kind == "synthetic":
-            require("distribution" in data, "Missing source.distribution")
-            distribution = data["distribution"]
-            if distribution == "normal":
-                fields = ("mean", "stddev")
-            elif distribution == "uniform":
-                fields = ("lower", "upper")
-            else:
-                raise ValueError(f"Unsupported distribution {distribution!r}; expected normal or uniform")
-            object_keys(data, "source", ("type", "path", "distribution", "seed", *fields))
-            parameters = {key: number(data[key], key) for key in fields}
-            if distribution == "normal":
-                require(parameters["stddev"] > 0, "stddev must be > 0")
-            else:
-                require(parameters["lower"] < parameters["upper"], "Require lower < upper")
-            data_type = "float32"
-            generation = {
-                "schema_version": 1, "generator": "svs-mt19937-box-muller-v1",
-                "vectors": total, "dimensions": dimensions, "data_type": data_type,
-                "distribution": distribution, "parameters": parameters,
-                "seed": integer(data["seed"], "seed", 0, (1 << 32) - 1),
-            }
-        else:
-            raise ValueError(f"Unsupported source.type {kind!r}; expected file or synthetic")
-        data_path = resolve(path.parent, data["path"])
+        item = read_dataset(dataset, path.parent, alphas, names)
+        data_path, generation = item["path"], item["generation"]
         protected.add(data_path)
         if generation is not None:
             require(data_path not in generators or generators[data_path] == generation,
                     f"Conflicting synthetic configurations for {data_path}")
             generators[data_path] = generation
-        inputs.append({
-            "name": name, "vectors": total, "dimensions": dimensions, "distance": distance,
-            "alpha": alphas[distance], "path": data_path, "kind": kind,
-            "source_type": data_type, "generation": generation,
-            "source_vectors": total, "sha256": "",
-        })
+        inputs.append(item)
     for data_path in generators:
         for sidecar in sidecars(data_path):
             require(not any(same_path(sidecar, item) for item in protected),
                     f"Synthetic sidecar collides with a dataset or configuration: {sidecar}")
     for data_path in generators:
         protected.update(sidecars(data_path))
+    return inputs, protected
+
+
+def read_output_paths(source, path, protected):
     output_json = resolve(path.parent, source["output_json"])
     output_log = resolve(path.parent, source["output_log"]) if "output_log" in source else None
     for output in (output_json, output_log):
@@ -225,6 +239,19 @@ def read_configuration(filename):
                     f"Output path aliases an input: {output}")
     require(output_log is None or not same_path(output_json, output_log),
             "JSON and log paths must differ and must not alias the same file")
+    return output_json, output_log
+
+
+def read_configuration(filename):
+    path = filename.resolve(strict=True)
+    source = read_json(path)
+    object_keys(source, "config", (
+        "threads", "graph_type", "build_methods", "batch_size", "recompute_entry_point",
+        "build_parameters", "datasets", "output_json",
+    ), ("output_log",))
+    common, alphas = read_build_parameters(source)
+    inputs, protected = read_inputs(source["datasets"], path, alphas)
+    output_json, output_log = read_output_paths(source, path, protected)
     return {"path": path, "output_json": output_json, "output_log": output_log,
             "common": common, "inputs": inputs}
 

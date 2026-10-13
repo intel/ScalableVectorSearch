@@ -386,6 +386,77 @@ Metrics measure(const ForwardGraph& graph, std::span<const Idx> entry_points) {
     return result;
 }
 
+struct InsertionState {
+    std::atomic<size_t> next{0};
+    std::atomic<size_t> completed{0};
+    std::atomic<size_t> calls{0};
+    std::atomic<bool> failed{false};
+    std::mutex error_mutex;
+    std::exception_ptr error;
+
+    void record_failure() {
+        failed.store(true, std::memory_order_relaxed);
+        std::lock_guard lock{error_mutex};
+        if (!error) {
+            error = std::current_exception();
+        }
+    }
+};
+
+template <typename IndexType>
+void insert_batches(
+    IndexType& index,
+    const svs::data::SimpleData<float>& points,
+    size_t total,
+    size_t step,
+    InsertionState& state
+) {
+    while (!state.failed.load(std::memory_order_relaxed)) {
+        const size_t first = state.next.fetch_add(step, std::memory_order_relaxed);
+        if (first >= total) {
+            break;
+        }
+        const size_t last = first + std::min(step, total - first);
+        const auto ids = svs::threads::UnitRange<size_t>{first, last};
+        const auto batch = svs::data::make_const_view(points, ids);
+        index.add_points(batch, ids);
+        state.calls.fetch_add(1, std::memory_order_relaxed);
+        const size_t count =
+            state.completed.fetch_add(last - first, std::memory_order_relaxed) + last -
+            first;
+        if (count % 10'000 == 0 || count == total) {
+            fmt::print(stderr, "Inserted {}/{}\n", count, total);
+        }
+    }
+}
+
+template <typename Worker>
+void run_insertion_workers(
+    size_t caller_threads, const Worker& insert, std::atomic<bool>& failed
+) {
+    std::vector<std::thread> workers;
+    workers.reserve(caller_threads);
+    try {
+        if (caller_threads == 1) {
+            // Non-concurrent indexes are never called from overlapping writers.
+            insert();
+        } else {
+            for (size_t i = 0; i < caller_threads; ++i) {
+                workers.emplace_back(insert);
+            }
+        }
+    } catch (...) {
+        failed.store(true, std::memory_order_relaxed);
+        for (auto& worker : workers) {
+            worker.join();
+        }
+        throw;
+    }
+    for (auto& worker : workers) {
+        worker.join();
+    }
+}
+
 template <typename IndexType>
 void insert_points(
     IndexType& index,
@@ -403,64 +474,18 @@ void insert_points(
         plan.worker_threads
     );
     const size_t step = std::min(plan.batch_size, options.total);
-    std::atomic<size_t> next{0};
-    std::atomic<size_t> completed{0};
-    std::atomic<size_t> calls{0};
-    std::atomic<bool> failed{false};
-    std::mutex error_mutex;
-    std::exception_ptr error;
-    std::vector<std::thread> workers;
-    workers.reserve(plan.caller_threads);
+    InsertionState state;
     const auto insert = [&] {
         try {
-            while (!failed.load(std::memory_order_relaxed)) {
-                const size_t first = next.fetch_add(step, std::memory_order_relaxed);
-                if (first >= options.total) {
-                    break;
-                }
-                const size_t last = first + std::min(step, options.total - first);
-                const auto ids = svs::threads::UnitRange<size_t>{first, last};
-                const auto batch = svs::data::make_const_view(points, ids);
-                index.add_points(batch, ids);
-                calls.fetch_add(1, std::memory_order_relaxed);
-                const size_t count =
-                    completed.fetch_add(last - first, std::memory_order_relaxed) + last -
-                    first;
-                if (count % 10'000 == 0 || count == options.total) {
-                    fmt::print(stderr, "Inserted {}/{}\n", count, options.total);
-                }
-            }
-        } catch (...) {
-            failed.store(true, std::memory_order_relaxed);
-            std::lock_guard lock{error_mutex};
-            if (!error) {
-                error = std::current_exception();
-            }
-        }
+            insert_batches(index, points, options.total, step, state);
+        } catch (...) { state.record_failure(); }
     };
-    try {
-        if (plan.caller_threads == 1) {
-            // Non-concurrent indexes are never called from overlapping writers.
-            insert();
-        } else {
-            for (size_t i = 0; i < plan.caller_threads; ++i) {
-                workers.emplace_back(insert);
-            }
-        }
-    } catch (...) {
-        failed.store(true, std::memory_order_relaxed);
-        for (auto& worker : workers) {
-            worker.join();
-        }
-        throw;
+    run_insertion_workers(plan.caller_threads, insert, state.failed);
+    if (state.error) {
+        std::rethrow_exception(state.error);
     }
-    for (auto& worker : workers) {
-        worker.join();
-    }
-    if (error) {
-        std::rethrow_exception(error);
-    }
-    if (completed.load() != options.total || calls.load() != plan.insertion_calls) {
+    if (state.completed.load() != options.total ||
+        state.calls.load() != plan.insertion_calls) {
         throw std::runtime_error("Insertion workload did not match the requested build plan"
         );
     }
@@ -880,9 +905,67 @@ void print_build_report(
     }
 }
 
+struct InsertionTestIndex {
+    std::vector<std::atomic<size_t>> visits;
+    bool fail = false;
+
+    explicit InsertionTestIndex(size_t count)
+        : visits(count) {}
+
+    template <typename Batch, typename Ids>
+    void add_points(const Batch& batch, const Ids& ids) {
+        if (fail) {
+            throw std::runtime_error("insertion self-test failure");
+        }
+        size_t row = 0;
+        for (size_t id : ids) {
+            graph_metrics::require(
+                batch.get_datum(row++)[0] == static_cast<float>(id),
+                "Self-test: insertion IDs must match the source rows"
+            );
+            visits.at(id).fetch_add(1, std::memory_order_relaxed);
+        }
+    }
+};
+
+void insertion_self_test() {
+    Options options;
+    options.total = 17;
+    options.dimensions = 3;
+    options.threads = 3;
+    options.batch_size = 4;
+    options.graph_type = "both";
+    options.build_methods = {"sample_by_sample", "single_batch", "batches"};
+    svs::data::SimpleData<float> points(options.total, options.dimensions);
+    for (size_t i = 0; i < options.total; ++i) {
+        auto row = points.get_datum(i);
+        std::fill(row.begin(), row.end(), static_cast<float>(i));
+    }
+    for (const auto& plan : build_plans(options)) {
+        InsertionTestIndex index{options.total};
+        insert_points(index, points, options, plan);
+        for (const auto& count : index.visits) {
+            graph_metrics::require(
+                count.load() == 1, "Self-test: insert each source row once"
+            );
+        }
+        index.fail = true;
+        bool rethrown = false;
+        try {
+            insert_points(index, points, options, plan);
+        } catch (const std::runtime_error& error) {
+            rethrown = std::string_view{error.what()} == "insertion self-test failure";
+        }
+        graph_metrics::require(
+            rethrown, "Self-test: rethrow insertion failures after joining workers"
+        );
+    }
+}
+
 // Hand-calculated fixtures exercise direction, unreachable vertices, denominators,
 // independent count/fraction maxima, multiple sources, and stale reverse records.
 void self_test() {
+    insertion_self_test();
     const auto require = [](bool condition, std::string_view name) {
         if (!condition) {
             throw std::runtime_error(fmt::format("Self-test failed: {}", name));

@@ -16,7 +16,9 @@
 
 import argparse
 import copy
+from decimal import Decimal
 import html
+import http.client
 import json
 import math
 import os
@@ -26,7 +28,7 @@ import shlex
 import shutil
 import subprocess
 import sys
-import urllib.request
+import urllib.parse
 import uuid
 
 # Synthetic CI settings. Dataset paths are relative to the PR checkout so base
@@ -65,6 +67,7 @@ CONFIGURATION = {
 TARGET = "graph_metrics"
 TOOL_DIRECTORY = Path(__file__).resolve().parent
 COMMENT_MARKER = "<!-- svs-graph-metrics -->"
+METRIC_CHANGE_THRESHOLD_PERCENT = Decimal("2")
 
 
 def command(args, **kwargs):
@@ -307,23 +310,36 @@ def calculate(args):
 
 class GitHub:
     def __init__(self):
-        self.root = os.environ.get("GITHUB_API_URL", "https://api.github.com")
+        self.endpoint = urllib.parse.urlsplit(os.environ.get("GITHUB_API_URL", "https://api.github.com"))
+        if (self.endpoint.scheme != "https" or not self.endpoint.hostname or
+                self.endpoint.username is not None or self.endpoint.password is not None or
+                self.endpoint.query or self.endpoint.fragment):
+            raise ValueError("GITHUB_API_URL must be an HTTPS base URL without credentials, query, or fragment")
         self.repository = os.environ["GITHUB_REPOSITORY"]
 
     def request(self, method, path, body=None):
-        request = urllib.request.Request(
-            self.root + path,
-            data=json.dumps(body).encode() if body is not None else None,
-            method=method,
-            headers={
-                "Authorization": "Bearer " + os.environ["GITHUB_TOKEN"],
-                "Accept": "application/vnd.github+json",
-                "Content-Type": "application/json",
-                "X-GitHub-Api-Version": "2022-11-28",
-            },
+        # Keep the API token on the configured HTTPS endpoint; redirects are errors.
+        connection = http.client.HTTPSConnection(
+            self.endpoint.hostname, self.endpoint.port, timeout=60,
         )
-        with urllib.request.urlopen(request, timeout=60) as response:
-            return json.load(response)
+        try:
+            connection.request(
+                method, self.endpoint.path.rstrip("/") + path,
+                body=json.dumps(body).encode() if body is not None else None,
+                headers={
+                    "Authorization": "Bearer " + os.environ["GITHUB_TOKEN"],
+                    "Accept": "application/vnd.github+json",
+                    "Content-Type": "application/json",
+                    "X-GitHub-Api-Version": "2022-11-28",
+                    "User-Agent": "svs-graph-metrics",
+                },
+            )
+            with connection.getresponse() as response:
+                if not 200 <= response.status < 300:
+                    raise RuntimeError(f"GitHub API {method} {path}: HTTP {response.status} {response.reason}")
+                return json.load(response)
+        finally:
+            connection.close()
 
     def pages(self, path, key=None):
         result = []
@@ -376,17 +392,38 @@ def number(value, digits=None):
     return f"{value:.{digits}f}"
 
 
-def cells(build):
+def metric_change(previous, current):
+    if previous == 0:
+        return " 🔴" if current > 0 else ""
+    # Avoid binary floating-point rounding at the percentage threshold.
+    before, after = Decimal(str(previous)), Decimal(str(current))
+    percent = (after - before) / before * 100
+    if abs(percent) < METRIC_CHANGE_THRESHOLD_PERCENT:
+        return ""
+    marker = "🔴" if percent > 0 else "🟢"
+    return f" {marker} {percent:+.1f}%"
+
+
+def cells(build, previous=None):
     vertex = build["max_incoming_asymmetry_count_vertex"]
     incoming = number(build["max_incoming_asymmetry_count"])
     if vertex is not None:
         incoming += " @ vector " + number(vertex["vector_index"])
+    unreachable = number(build["unreachable_vertices"])
+    average_hops = number(build["average_shortest_path_hops"], 3)
+    if previous is not None:
+        unreachable += metric_change(
+            previous["unreachable_vertices"], build["unreachable_vertices"],
+        )
+        average_hops += metric_change(
+            previous["average_shortest_path_hops"], build["average_shortest_path_hops"],
+        )
     return [
-        number(build["unreachable_vertices"]),
+        unreachable,
         number(build["edge_asymmetry_fraction"], 6),
         "[" + ", ".join(number(value) for value in build["entry_points_internal"]) + "]",
         incoming,
-        number(build["average_shortest_path_hops"], 3),
+        average_hops,
         number(build["maximum_shortest_path_hops"]),
         number(build["index_build_time_seconds"], 3),
     ]
@@ -413,7 +450,11 @@ def comparison(base, head):
         for index in dataset["indexes"]
         for build in index["builds"]
     }
-    lines = ["Values show **base → PR**. Incoming-asymmetry vertices use source vector indices."]
+    lines = [
+        "Values show **base → PR**. Incoming-asymmetry vertices use source vector indices.",
+        f"Unreachable vertices and average shortest path: 🔴 ≥{METRIC_CHANGE_THRESHOLD_PERCENT}% worse, "
+        f"🟢 ≥{METRIC_CHANGE_THRESHOLD_PERCENT}% better; increases from zero are 🔴 without a percentage.",
+    ]
     for dataset in head["datasets"]:
         for index in dataset["indexes"]:
             lines.extend([
@@ -424,7 +465,7 @@ def comparison(base, head):
             for build in index["builds"]:
                 key = (dataset["dataset_name"], index["index_type"], build["build_method"])
                 previous = cells(before[key])
-                current = cells(build)
+                current = cells(build, before[key])
                 values = [text(build["build_method"])] + [
                     f"{old} → {new}" for old, new in zip(previous, current)
                 ]
@@ -432,28 +473,9 @@ def comparison(base, head):
     return "\n".join(lines)
 
 
-def comment(args):
-    event = json.loads(Path(os.environ["GITHUB_EVENT_PATH"]).read_text())
-    if "pull_request" not in event:
-        print("No PR comment: this event is not a pull request.", flush=True)
-        return
-    api = GitHub()
-    prefix = f"/repos/{api.repository}"
-    event_pr = event["pull_request"]
-    if event_pr["head"]["repo"]["full_name"] != api.repository:
-        print("No PR comment: fork PRs publish artifacts only.", flush=True)
-        return
-    run = api.request("GET", f"{prefix}/actions/runs/{int(os.environ['GITHUB_RUN_ID'])}")
-    # The current workflow has not finished, but both producer jobs have.
-    run["conclusion"] = os.environ["GRAPH_METRICS_CONCLUSION"]
+def comment_pr(api, prefix, event_pr, detection, result):
     # Resolve the PR through GitHub's event, never an artifact's
     # claimed PR number. Only current PR heads may update the comment.
-    artifacts = api.pages(f"{prefix}/actions/runs/{run['id']}/artifacts", "artifacts")
-    detection_path = args.artifacts / "graph-metrics-results-detection/detection.json"
-    result_dir = args.artifacts / "graph-metrics-results-run"
-    detection = artifact_record(detection_path)
-    result_path = result_dir / "run.json"
-    result = artifact_record(result_path)
     pr = api.request("GET", f"{prefix}/pulls/{int(event_pr['number'])}")
     if pr["state"] != "open" or pr["head"]["sha"] != event_pr["head"]["sha"]:
         print(f"No comment on PR #{pr['number']}: closed or its head has changed.", flush=True)
@@ -462,6 +484,25 @@ def comment(args):
     if any(record and record.get("head_sha") != current_sha for record in (detection, result)):
         print(f"No comment on PR #{pr['number']}: artifact revision does not match.", flush=True)
         return
+    return pr
+
+
+def comment_summary(run, detection, result, result_dir):
+    if detection and detection["status"] == "skipped" and run["conclusion"] == "success":
+        return ["", "Skipped: no changed files affect the calculator or workflow dependencies."]
+    if result and result["status"] == "completed" and run["conclusion"] == "success":
+        try:
+            summary = comparison(
+                artifact_json(result_dir / "base.json"),
+                artifact_json(result_dir / "head.json"),
+            )
+            return ["", f"Compiler: {text(result['compiler'])}.", "", summary]
+        except (KeyError, TypeError, ValueError, OSError):
+            return ["", "The metrics report could not be validated. See the run and artifacts."]
+    return ["", f"Graph metrics are unavailable (run: {text(run['conclusion'])}). See the run logs."]
+
+
+def comment_body(pr, run, detection, result, result_dir, artifacts):
     base_sha = (detection or result or {}).get("base_sha", "")
     if not re.fullmatch(r"[0-9a-f]{40}", base_sha):
         base_sha = pr["base"]["sha"]
@@ -470,27 +511,18 @@ def comment(args):
         COMMENT_MARKER,
         f"<!-- run={int(run['id'])} attempt={int(run.get('run_attempt', 1))} -->",
         "### Synthetic graph metrics", "",
-        f"Base `{base_sha[:12]}` → PR `{current_sha[:12]}`.",
+        f"Base `{base_sha[:12]}` → PR `{pr['head']['sha'][:12]}`.",
     ]
-    if detection and detection["status"] == "skipped" and run["conclusion"] == "success":
-        lines.extend(["", "Skipped: no changed files affect the calculator or workflow dependencies."])
-    elif result and result["status"] == "completed" and run["conclusion"] == "success":
-        try:
-            summary = comparison(
-                artifact_json(result_dir / "base.json"),
-                artifact_json(result_dir / "head.json"),
-            )
-            lines.extend(["", f"Compiler: {text(result['compiler'])}.", "", summary])
-        except (KeyError, TypeError, ValueError, OSError):
-            lines.extend(["", "The metrics report could not be validated. See the run and artifacts."])
-    else:
-        lines.extend(["", f"Graph metrics are unavailable (run: {text(run['conclusion'])}). See the run logs."])
+    lines.extend(comment_summary(run, detection, result, result_dir))
     links = ["", f"[Workflow run and logs]({run_url})"]
     for artifact in artifacts:
         if artifact["name"] == "graph-metrics-results-run" and not artifact.get("expired"):
             artifact_url = f"{run_url}/artifacts/{int(artifact['id'])}"
             links.append(f"[Full base/PR JSON reports, configurations, and logs]({artifact_url})")
-    body = "\n".join(lines)[:60000] + "\n" + "\n".join(links)
+    return "\n".join(lines)[:60000] + "\n" + "\n".join(links)
+
+
+def update_comment(api, prefix, pr, run, body):
     existing = next((
         item for item in api.pages(f"{prefix}/issues/{pr['number']}/comments")
         if item["user"]["login"] == "github-actions[bot]" and COMMENT_MARKER in item["body"]
@@ -509,6 +541,32 @@ def comment(args):
     else:
         api.request("POST", f"{prefix}/issues/{pr['number']}/comments", {"body": body})
         print(f"Created graph-metrics comment on PR #{pr['number']}.", flush=True)
+
+
+def comment(args):
+    event = json.loads(Path(os.environ["GITHUB_EVENT_PATH"]).read_text())
+    if "pull_request" not in event:
+        print("No PR comment: this event is not a pull request.", flush=True)
+        return
+    api = GitHub()
+    prefix = f"/repos/{api.repository}"
+    event_pr = event["pull_request"]
+    if event_pr["head"]["repo"]["full_name"] != api.repository:
+        print("No PR comment: fork PRs publish artifacts only.", flush=True)
+        return
+    run = api.request("GET", f"{prefix}/actions/runs/{int(os.environ['GITHUB_RUN_ID'])}")
+    # The current workflow has not finished, but both producer jobs have.
+    run["conclusion"] = os.environ["GRAPH_METRICS_CONCLUSION"]
+    artifacts = api.pages(f"{prefix}/actions/runs/{run['id']}/artifacts", "artifacts")
+    detection_path = args.artifacts / "graph-metrics-results-detection/detection.json"
+    result_dir = args.artifacts / "graph-metrics-results-run"
+    detection = artifact_record(detection_path)
+    result = artifact_record(result_dir / "run.json")
+    pr = comment_pr(api, prefix, event_pr, detection, result)
+    if pr is None:
+        return
+    body = comment_body(pr, run, detection, result, result_dir, artifacts)
+    update_comment(api, prefix, pr, run, body)
 
 
 def main():
