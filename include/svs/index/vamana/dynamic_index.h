@@ -521,18 +521,10 @@ class MutableVamanaIndex {
         requires(std::tuple_size_v<Dims> == 2)
     void translate_to_external(DenseArray<size_t, Dims, Base>& ids) {
         // N.B.: lib::narrow_cast should be valid because the origin of the IDs is internal.
-        threads::parallel_for(
-            threadpool_,
-            threads::StaticPartition{getsize<0>(ids)},
-            [&](const auto is, uint64_t /*tid*/) {
-                for (auto i : is) {
-                    for (size_t j = 0, jmax = getsize<1>(ids); j < jmax; ++j) {
-                        auto internal = lib::narrow_cast<Idx>(ids.at(i, j));
-                        ids.at(i, j) = translate_internal_id(internal);
-                    }
-                }
-            }
-        );
+        std::for_each(ids.begin(), ids.end(), [&](auto& id) {
+            const auto internal = lib::narrow_cast<Idx>(id);
+            id = translate_internal_id(internal);
+        });
     }
 
     ///
