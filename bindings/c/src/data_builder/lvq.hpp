@@ -15,11 +15,11 @@
  */
 #pragma once
 
-#ifdef SVS_RUNTIME_ENABLE_LVQ_LEANVEC
-
 #include "svs/c/svs_c.h"
 
 #include "allocator.hpp"
+
+#ifdef SVS_RUNTIME_ENABLE_LVQ_LEANVEC
 #include "storage.hpp"
 #include "types_support.hpp"
 
@@ -40,7 +40,6 @@
 #include <svs/extensions/vamana/lvq.h>
 #endif // SVS_LVQ_HEADER
 
-#include "allocator.hpp"
 #include <svs/concurrent/extensions/lvq.h>
 
 #include <cstddef>
@@ -182,7 +181,6 @@ template <c_runtime::BlockKind Kind, typename F> void for_lvq_specializations(F&
 } // namespace svs
 
 #else // SVS_RUNTIME_ENABLE_LVQ_LEANVEC not enabled
-#include "allocator.hpp"
 namespace svs {
 // Define empty stubs for LVQ-related functions when LVQ/LeanVec support is disabled
 template <c_runtime::BlockKind Kind, typename F> void for_lvq_specializations(F&&) {}

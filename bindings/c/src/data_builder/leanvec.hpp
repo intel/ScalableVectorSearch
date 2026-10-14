@@ -15,11 +15,11 @@
  */
 #pragma once
 
-#ifdef SVS_RUNTIME_ENABLE_LVQ_LEANVEC
-
 #include "svs/c/svs_c.h"
 
 #include "allocator.hpp"
+
+#ifdef SVS_RUNTIME_ENABLE_LVQ_LEANVEC
 #include "data_builder/lvq.hpp"
 #include "leanvec_training_data.hpp"
 #include "storage.hpp"
@@ -192,7 +192,6 @@ template <c_runtime::BlockKind Kind, typename F> void for_leanvec_specialization
 } // namespace svs
 
 #else // SVS_RUNTIME_ENABLE_LVQ_LEANVEC not enabled
-#include "allocator.hpp"
 namespace svs {
 // Define empty stubs for LeanVec-related functions when LVQ/LeanVec support is disabled
 template <c_runtime::BlockKind Kind, typename F> void for_leanvec_specializations(F&&) {}
