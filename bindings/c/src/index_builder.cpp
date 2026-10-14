@@ -58,7 +58,8 @@ std::shared_ptr<Index> IndexBuilder::build(const svs::data::ConstSimpleDataView<
                 storage.get(),
                 to_distance_type(distance_metric),
                 pool_builder.build(),
-                allocator_builder
+                allocator_builder,
+                get_logger()
             )
         );
 
@@ -79,7 +80,8 @@ std::shared_ptr<Index> IndexBuilder::load(const std::filesystem::path& directory
                 storage.get(),
                 to_distance_type(distance_metric),
                 pool_builder.build(),
-                allocator_builder
+                allocator_builder,
+                get_logger()
             )
         );
 
@@ -167,7 +169,8 @@ std::shared_ptr<Index> IndexBuilder::copy(const std::shared_ptr<Index>& src_inde
             storage.get(),
             to_distance_type(distance_metric),
             pool_builder.build(),
-            allocator_builder
+            allocator_builder,
+            get_logger()
         )
     );
 
@@ -215,7 +218,8 @@ std::shared_ptr<DynamicIndex> IndexBuilder::copy_dynamic(
             to_distance_type(distance_metric),
             pool_builder.build(),
             allocator_builder,
-            block_params
+            block_params,
+            get_logger()
         ),
         sync_kind
     );
@@ -243,7 +247,8 @@ std::shared_ptr<DynamicIndex> IndexBuilder::build_dynamic(
                 to_distance_type(distance_metric),
                 pool_builder.build(),
                 allocator_builder,
-                block_params
+                block_params,
+                get_logger()
             ),
             sync_kind
         );
@@ -271,7 +276,8 @@ std::shared_ptr<DynamicIndex> IndexBuilder::load_dynamic(
                 to_distance_type(distance_metric),
                 pool_builder.build(),
                 allocator_builder,
-                block_params
+                block_params,
+                get_logger()
             ),
             sync_kind
         );
