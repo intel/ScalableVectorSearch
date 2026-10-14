@@ -26,6 +26,7 @@
 
 #include <atomic>
 #include <filesystem>
+#include <limits>
 #include <memory>
 #include <ostream>
 #include <span>
@@ -78,8 +79,8 @@ struct DynamicIndexVamana : public DynamicIndex {
     svs::DynamicVamana index;
     // Bounds of the IDs ever added, used to sample IDs for filtered search. Atomic since
     // ConcurrentIndexVamana adds points under a shared lock.
-    std::atomic<size_t> min_id = 0;
-    std::atomic<size_t> max_id = 0;
+    std::atomic<size_t> min_id = std::numeric_limits<size_t>::max();
+    std::atomic<size_t> max_id = std::numeric_limits<size_t>::min();
     DynamicIndexVamana(
         const IndexBuilder& builder,
         svs::DynamicVamana&& index,
