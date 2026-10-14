@@ -82,6 +82,8 @@ struct RegularVamanaFlavor {
         const graph_allocator_type& graph_allocator,
         svs::logging::logger_ptr logger
     ) {
+        // Copy the graph structure from the source index to the new graph instance
+        assert(src_graph.max_degree() == config.build_parameters.graph_max_degree);
         auto graph = graph_type(
             src_graph.n_nodes(), config.build_parameters.graph_max_degree, graph_allocator
         );
@@ -157,7 +159,7 @@ svs::DynamicVamana copy_dynamic_vamana_index(
         }
     }
 
-    const auto src_data = src_builder.get_dataset(src_index_impl->view_data());
+    decltype(auto) src_data = src_builder.get_dataset(src_index_impl->view_data());
 
     using allocator_type = typename DstDataBuilder::allocator_type;
     using value_type = typename allocator_type::value_type;
