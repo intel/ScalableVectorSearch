@@ -100,10 +100,7 @@ DynamicIndexVamana::DynamicIndexVamana(
 )
     : DynamicIndex(std::make_unique<IndexBuilder>(builder), sync_kind)
     , index(std::move(index)) {
-    auto all_ids = this->index.all_ids();
-    auto [min_it, max_it] = std::minmax_element(all_ids.begin(), all_ids.end());
-    min_id = (min_it == all_ids.end()) ? 0 : *min_it;
-    max_id = (max_it == all_ids.end()) ? 0 : *max_it;
+    track_id_range(lib::as_span(this->index.all_ids()));
 
     // Apply default search parameters to the index
     auto algorithm_parameters = std::static_pointer_cast<AlgorithmVamana::SearchParams>(

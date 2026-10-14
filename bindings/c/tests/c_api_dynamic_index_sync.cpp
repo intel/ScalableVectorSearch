@@ -653,6 +653,7 @@ CATCH_TEST_CASE("C API Dynamic Index Fine Grain Storage", "[c_api][index][dynami
     }
     CATCH_REQUIRE(check_storage_support(storage, fx.error));
     if (!storage_usable(storage)) {
+        svs_storage_free(storage);
         return;
     }
 

@@ -332,10 +332,13 @@ svs::index::vamana::MemoryBreakdown dispatch_concurrent_vamana_memory_estimate(
         build_params, num_vectors, dimension, storage, distance_type, block_params
     );
     // One in-neighbor list per node; each edge is recorded once in reverse.
+    // Add 25% slack for heap capacity rounding and allocator overhead. This is
+    // still an estimate, not a hard upper bound (allocator behavior may vary).
     using index_type = uint32_t;
-    breakdown.reverse_edges_bytes =
+    const auto reverse_edges_bytes =
         num_vectors * (sizeof(std::vector<index_type>) + sizeof(cc::SpinLock) +
                        build_params.graph_max_degree * sizeof(index_type));
+    breakdown.reverse_edges_bytes = reverse_edges_bytes + reverse_edges_bytes / 4;
     return breakdown;
 }
 
