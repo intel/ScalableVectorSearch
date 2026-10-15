@@ -31,6 +31,8 @@
 #include <svs/lib/threads/threadpool.h>
 #include <svs/lib/type_traits.h>
 #include <svs/quantization/scalar/scalar.h>
+// Must follow scalar.h, which does not include its own dependencies.
+#include <svs/concurrent/extensions/scalar.h>
 
 #include <filesystem>
 #include <stdexcept>
@@ -98,11 +100,12 @@ struct lib::DispatchConverter<const c_runtime::Storage*, SQDataBuilder<T, Alloc>
     static To convert(From SVS_UNUSED(from)) { return To{}; }
 };
 
-template <bool UseBlocked, typename F> void for_sq_specializations(F&& f) {
+template <auto KindArg, typename F> void for_sq_specializations(F&& f) {
+    constexpr auto Kind = c_runtime::block_kind_v<KindArg>;
     using int8_alloc =
-        svs::c_runtime::MaybeBlockedAlloc<int8_t, UseBlocked, AllocatorHandle<int8_t>>;
+        svs::c_runtime::MaybeBlockedAlloc<int8_t, Kind, AllocatorHandle<int8_t>>;
     using uint8_alloc =
-        svs::c_runtime::MaybeBlockedAlloc<uint8_t, UseBlocked, AllocatorHandle<uint8_t>>;
+        svs::c_runtime::MaybeBlockedAlloc<uint8_t, Kind, AllocatorHandle<uint8_t>>;
 #define X(T, A, D) f.template operator()<SQDataBuilder<T, A>, D>();
 #define XX(T, A) X(T, A, DistanceL2) X(T, A, DistanceIP) X(T, A, DistanceCosineSimilarity)
     XX(uint8_t, uint8_alloc)

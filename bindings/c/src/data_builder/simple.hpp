@@ -92,11 +92,12 @@ struct lib::DispatchConverter<const c_runtime::Storage*, SimpleDataBuilder<T, Al
     static To convert(From SVS_UNUSED(from)) { return To{}; }
 };
 
-template <bool UseBlocked, typename F> void for_simple_specializations(F&& f) {
+template <auto KindArg, typename F> void for_simple_specializations(F&& f) {
+    constexpr auto Kind = c_runtime::block_kind_v<KindArg>;
     using float_alloc =
-        svs::c_runtime::MaybeBlockedAlloc<float, UseBlocked, AllocatorHandle<float>>;
+        svs::c_runtime::MaybeBlockedAlloc<float, Kind, AllocatorHandle<float>>;
     using float16_alloc = svs::c_runtime::
-        MaybeBlockedAlloc<svs::Float16, UseBlocked, AllocatorHandle<svs::Float16>>;
+        MaybeBlockedAlloc<svs::Float16, Kind, AllocatorHandle<svs::Float16>>;
 #define X(T, A, D) f.template operator()<SimpleDataBuilder<T, A>, D>();
 #define XX(T, A) X(T, A, DistanceL2) X(T, A, DistanceIP) X(T, A, DistanceCosineSimilarity)
     XX(float, float_alloc)

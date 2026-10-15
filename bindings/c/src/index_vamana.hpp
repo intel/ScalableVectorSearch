@@ -24,6 +24,7 @@
 #include <svs/orchestrators/dynamic_vamana.h>
 #include <svs/orchestrators/vamana.h>
 
+#include <atomic>
 #include <filesystem>
 #include <memory>
 #include <ostream>
@@ -75,8 +76,10 @@ struct IndexVamana : public Index {
 
 struct DynamicIndexVamana : public DynamicIndex {
     svs::DynamicVamana index;
-    size_t min_id = 0; // Track the minimum ID added to the index
-    size_t max_id = 0; // Track the maximum ID added to the index
+    // Bounds of the IDs ever added, used to sample IDs for filtered search. Atomic since
+    // ConcurrentIndexVamana adds points under a shared lock.
+    std::atomic<size_t> min_id = 0;
+    std::atomic<size_t> max_id = 0;
     DynamicIndexVamana(
         const IndexBuilder& builder,
         svs::DynamicVamana&& index,
@@ -143,6 +146,44 @@ struct DynamicIndexVamana : public DynamicIndex {
     size_t size() const override {
         auto lock = read_lock();
         return index.size();
+    }
+
+  protected:
+    void track_id_range(std::span<const size_t> ids);
+    size_t delete_points_unlocked(std::span<const size_t> ids);
+    void compact_unlocked(size_t batchsize);
+};
+
+/// Dynamic index backed by svs::ConcurrentDynamicVamana.
+///
+/// The index synchronizes add/delete/consolidate/compact itself, so they take the shared
+/// lock alongside searches. Operations that are not thread-safe in the index (save,
+/// set_num_threads) and whole-index reads (memory breakdown, use as a conversion source)
+/// take the exclusive lock.
+struct ConcurrentIndexVamana : public DynamicIndexVamana {
+    ConcurrentIndexVamana(
+        const IndexBuilder& builder, svs::DynamicVamana&& index, svs_sync_kind_t sync_kind
+    );
+
+    size_t add_points(
+        svs::data::ConstSimpleDataView<float> new_points, std::span<const size_t> ids
+    ) override;
+
+    size_t delete_points(std::span<const size_t> ids) override;
+
+    void consolidate() override {
+        auto lock = read_lock();
+        index.consolidate();
+    }
+
+    void compact(size_t batchsize) override {
+        auto lock = read_lock();
+        compact_unlocked(batchsize);
+    }
+
+    svs::index::vamana::MemoryBreakdown get_memory_breakdown() const override {
+        auto lock = write_lock();
+        return index.get_memory_breakdown();
     }
 };
 } // namespace svs::c_runtime
