@@ -114,7 +114,7 @@ class ThreadPoolBuilder {
         }
 
         // Validate that SVS_OMP macro is properly defined.
-        SVS_VALIDATE_BOOL_ENV(SVS_OMP)
+        SVS_VALIDATE_BOOL_ENV(SVS_OMP);
 
         if (!SVS_OMP && kind == SVS_THREADPOOL_KIND_OMP) {
             throw svs::c_runtime::not_implemented("OpenMP support is not enabled.");
@@ -169,7 +169,7 @@ class ThreadPoolBuilder {
                 // OMPThreadPool is only available if OpenMP support is enabled.
                 return ThreadPoolHandle(OMPThreadPool(num_threads));
 #else
-                throw svs::c_runtime::not_implemented("OpenMP support is not enabled.");
+                assert(false && "OpenMP support is not enabled.");
 #endif
             case SVS_THREADPOOL_KIND_SINGLE_THREAD:
                 return ThreadPoolHandle(SequentialThreadPool());

@@ -1067,8 +1067,7 @@ SVS_API bool svs_index_builder_set_storage(
 /// @brief Set the thread pool configuration for the index builder
 /// @param builder The index builder handle
 /// @param kind The kind of thread pool to use
-/// @param num_threads The number of threads to use; must be greater than zero (ignored
-/// for SVS_THREADPOOL_KIND_SINGLE_THREAD)
+/// @param num_threads The number of threads to use (if applicable)
 /// @param out_err An optional error handle to capture errors
 /// @return true on success, false on failure
 /// @error On failure, if out_err is provided, it will contain:
