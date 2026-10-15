@@ -170,7 +170,7 @@ std::vector<size_t> filtered_topk_search(
 
     assert(results.n_queries() == queries.size());
 
-    // The dynamic index uses a single-pass search with a result heap of size
+    // The dynamic index uses a single-pass search with a filtered result set of size
     // max(k, search window) when its data type supports it.
     if constexpr (std::is_same_v<IndexType, svs::DynamicVamana>) {
         std::vector<size_t> found(queries.size(), 0);

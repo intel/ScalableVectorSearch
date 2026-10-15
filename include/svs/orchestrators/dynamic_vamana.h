@@ -66,7 +66,7 @@ class DynamicVamanaInterface : public VamanaInterface {
     virtual bool two_heap_filtered_search(
         svs::QueryResultView<size_t> results,
         AnonymousArray<2> queries,
-        size_t ef,
+        size_t search_window_size,
         const std::function<bool(size_t)>& filter,
         std::vector<size_t>& found
     ) = 0;
@@ -127,7 +127,7 @@ class DynamicVamanaImpl : public VamanaImpl<QueryTypes, Impl, DynamicVamanaInter
     bool two_heap_filtered_search(
         svs::QueryResultView<size_t> results,
         AnonymousArray<2> queries,
-        size_t ef,
+        size_t search_window_size,
         const std::function<bool(size_t)>& filter,
         std::vector<size_t>& found
     ) override {
@@ -138,7 +138,7 @@ class DynamicVamanaImpl : public VamanaImpl<QueryTypes, Impl, DynamicVamanaInter
                 [&]<typename T>(lib::Type<T> SVS_UNUSED(type)) {
                     const auto view = data::ConstSimpleDataView<T>(queries);
                     index::vamana::two_heap_filtered_search(
-                        impl(), results, view, ef, filter, found
+                        impl(), results, view, search_window_size, filter, found
                     );
                 },
                 [&](svs::DataType data_type) {
@@ -556,12 +556,12 @@ class DynamicVamana : public manager::IndexManager<DynamicVamanaInterface> {
     bool two_heap_filtered_search(
         QueryResultView<size_t> results,
         data::ConstSimpleDataView<QueryType> queries,
-        size_t ef,
+        size_t search_window_size,
         const std::function<bool(size_t)>& filter,
         std::vector<size_t>& found
     ) {
         return impl_->two_heap_filtered_search(
-            results, AnonymousArray<2>(queries), ef, filter, found
+            results, AnonymousArray<2>(queries), search_window_size, filter, found
         );
     }
 

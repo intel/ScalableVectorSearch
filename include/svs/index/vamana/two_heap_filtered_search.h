@@ -14,15 +14,18 @@
  * limitations under the License.
  */
 
-// Single-pass filtered top-k search for the dynamic Vamana index, following hnswlib's
-// filtered `searchBaseLayerST`.
+// Single-pass filtered top-k search for the dynamic Vamana index, using the same stopping
+// rule as hnswlib's filtered search.
 //
 // - `candidates`: min-heap of nodes still to expand.
-// - `results`: max-heap of nodes that pass the filter and are not deleted, capped at
-//   `ef`. Nodes that fail are expanded but never enter `results`.
+// - `results` (the filtered search buffer): max-heap of nodes that pass the filter and
+//   are not deleted, capped at the search window size. Nodes that fail the filter are
+//   expanded but never enter `results`.
 // - The search stops when the best candidate is worse than the worst result and
 //   `results` is full.
-// - The visited set is exact: one tag per slot, reset per query by a generation counter.
+// - The visited set is an exact tag array (one tag per slot, reset per query by a
+//   generation counter). SVS's `VisitedFilter` is lossy and could let duplicates into
+//   the candidate heap, so it is not used here.
 #pragma once
 
 #include "svs/concepts/data.h"
@@ -50,8 +53,8 @@ template <typename Idx> struct TwoHeapScratch {
     // `tags[slot] == generation` means the slot was visited by the current query.
     std::vector<uint32_t> tags;
     uint32_t generation = 0;
-    std::vector<std::pair<float, Idx>> candidates;
-    std::vector<std::pair<float, Idx>> results;
+    std::vector<Neighbor<Idx>> candidates;
+    std::vector<Neighbor<Idx>> results;
 };
 
 template <typename Idx> TwoHeapScratch<Idx>& two_heap_scratch() {
@@ -77,14 +80,14 @@ size_t two_heap_search_one(
     DistFn& distance,
     std::span<const typename Graph::index_type> entry_points,
     const Query& query,
-    size_t ef,
+    size_t search_window_size,
     const Pred& pred,
     GreedySearchPrefetchParameters prefetch_parameters,
     QueryResultView<size_t>& output,
     size_t query_index
 ) {
     using Idx = typename Graph::index_type;
-    using Entry = std::pair<float, Idx>;
+    using Entry = Neighbor<Idx>;
 
     auto& scratch = two_heap_scratch<Idx>();
     auto& candidates = scratch.candidates;
@@ -108,10 +111,10 @@ size_t two_heap_search_one(
     // std heaps keep the "largest" element on top: best candidate, worst result.
     const auto cmp = distance::comparator(distance);
     const auto candidate_less = [&](const Entry& a, const Entry& b) {
-        return cmp(b.first, a.first);
+        return cmp(b.distance(), a.distance());
     };
     const auto result_less = [&](const Entry& a, const Entry& b) {
-        return cmp(a.first, b.first);
+        return cmp(a.distance(), b.distance());
     };
 
     // Check deletion first: deleted slots may have no external id.
@@ -121,11 +124,11 @@ size_t two_heap_search_one(
     const auto compute = [&](Idx i) {
         return static_cast<float>(distance::compute(distance, query, accessor(data, i)));
     };
-    // Keep `results` at most `ef` long by dropping the worst.
+    // Keep `results` at most `search_window_size` long by dropping the worst.
     const auto add_result = [&](float dist, Idx i) {
-        results.emplace_back(dist, i);
+        results.emplace_back(i, dist);
         std::push_heap(results.begin(), results.end(), result_less);
-        if (results.size() > ef) {
+        if (results.size() > search_window_size) {
             std::pop_heap(results.begin(), results.end(), result_less);
             results.pop_back();
         }
@@ -135,7 +138,7 @@ size_t two_heap_search_one(
     for (Idx ep : entry_points) {
         tags[ep] = generation;
         float dist = compute(ep);
-        candidates.emplace_back(dist, ep);
+        candidates.emplace_back(ep, dist);
         std::push_heap(candidates.begin(), candidates.end(), candidate_less);
         if (passes(ep)) {
             add_result(dist, ep);
@@ -143,9 +146,11 @@ size_t two_heap_search_one(
     }
 
     while (!candidates.empty()) {
-        const auto [candidate_dist, candidate_id] = candidates.front();
+        const auto candidate_dist = candidates.front().distance();
+        const auto candidate_id = candidates.front().id();
         // Best candidate is worse than the worst of a full result set.
-        if (results.size() == ef && cmp(results.front().first, candidate_dist)) {
+        if (results.size() == search_window_size &&
+            cmp(results.front().distance(), candidate_dist)) {
             break;
         }
         std::pop_heap(candidates.begin(), candidates.end(), candidate_less);
@@ -178,8 +183,9 @@ size_t two_heap_search_one(
             float dist = compute(id);
             // Only nodes that could improve `results` are queued, and only those
             // evaluate the filter.
-            if (results.size() < ef || cmp(dist, results.front().first)) {
-                candidates.emplace_back(dist, id);
+            if (results.size() < search_window_size ||
+                cmp(dist, results.front().distance())) {
+                candidates.emplace_back(id, dist);
                 std::push_heap(candidates.begin(), candidates.end(), candidate_less);
                 if (passes(id)) {
                     add_result(dist, id);
@@ -194,7 +200,7 @@ size_t two_heap_search_one(
     for (size_t j = 0; j < found; ++j) {
         output.set(
             Neighbor<size_t>{
-                index.translate_internal_id(results[j].second), results[j].first},
+                index.translate_internal_id(results[j].id()), results[j].distance()},
             query_index,
             j
         );
@@ -220,7 +226,8 @@ inline constexpr bool
 /// @param output Row `i` receives the neighbors (external ids) of query `i`. Rows with
 ///     fewer than `n_neighbors` results are not padded.
 /// @param queries One datum per query.
-/// @param ef Result-set capacity (the search window). Raised to `n_neighbors` if smaller.
+/// @param search_window_size Capacity of the filtered result set. Raised to `n_neighbors`
+/// if smaller.
 /// @param pred Callable `bool(size_t external_id)`. Must be thread safe.
 /// @param found Resized to `queries.size()`; receives the number of results per query.
 /// @param prefetch_parameters Prefetch lookahead and step for neighbor vectors.
@@ -232,7 +239,7 @@ void two_heap_filtered_search(
     Index& index,
     QueryResultView<size_t> output,
     const Queries& queries,
-    size_t ef,
+    size_t search_window_size,
     const Pred& pred,
     std::vector<size_t>& found,
     GreedySearchPrefetchParameters prefetch_parameters = {}
@@ -242,7 +249,7 @@ void two_heap_filtered_search(
         two_heap_supported<typename Index::data_type>,
         "Data type needs a custom search path (e.g. reranking)."
     );
-    ef = std::max(ef, output.n_neighbors());
+    search_window_size = std::max(search_window_size, output.n_neighbors());
     found.assign(queries.size(), 0);
     auto& pool = index.get_threadpool_handle();
 
@@ -265,7 +272,7 @@ void two_heap_filtered_search(
                         dist_fn,
                         entry_points,
                         queries.get_datum(i),
-                        ef,
+                        search_window_size,
                         pred,
                         prefetch_parameters,
                         output,
