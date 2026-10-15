@@ -249,11 +249,16 @@ class MutableVamanaIndex {
     // compact() holds it exclusive.
     //
     // Lock acquisition order across the codebase:
+    //   compact_gatekeeper_ -> compact_mutex_ (never reversed)
     //   compact_mutex_ -> slot_alloc_mutex_   (never reversed)
     //   compact_mutex_ -> translator_mutex_   (never reversed)
     // slot_alloc_mutex_ and translator_mutex_ are never held simultaneously
     // (add_points takes them sequentially), so they have no relative order.
     std::unique_ptr<std::shared_mutex> compact_mutex_{
+        std::make_unique<std::shared_mutex>()};
+    // Once compaction owns this gate, new shared users cannot delay its
+    // storage lock. Readers hold the gate only while acquiring compact_mutex_.
+    std::unique_ptr<std::shared_mutex> compact_gatekeeper_{
         std::make_unique<std::shared_mutex>()};
     // Iterators check this under compact_mutex_ before reusing cached internal IDs.
     size_t compaction_epoch_ = 0;
@@ -820,7 +825,7 @@ class MutableVamanaIndex {
     /// @param new_id The external ID to assign. Must not be mapped at all.
     ///
     ReplaceExternalIdResult replace_external_id(size_t old_id, size_t new_id) {
-        std::shared_lock compact_lock{*compact_mutex_};
+        auto compact_lock = lock_for_search();
         std::lock_guard lock{*translator_mutex_};
 
         // The translator's own check only asks whether a mapping exists. A soft-deleted or
@@ -839,7 +844,7 @@ class MutableVamanaIndex {
     ///
     auto get_datum(size_t e) const {
         // Lock order: compact_mutex_ then translator_mutex_ (global order).
-        std::shared_lock compact_lock{*compact_mutex_};
+        auto compact_lock = lock_for_search();
         std::shared_lock lock{*translator_mutex_};
         if (!translator_.has_external(e)) {
             throw ANNEXCEPTION("External ID {} not found in index!", e);
@@ -855,7 +860,7 @@ class MutableVamanaIndex {
     template <typename F>
         requires std::invocable<F&, typename Data::const_value_type> bool
     on_datum(size_t e, F&& f) const {
-        std::shared_lock compact_lock{*compact_mutex_};
+        auto compact_lock = lock_for_search();
         std::shared_lock lock{*translator_mutex_};
         if (!unsafe_has_id(e)) {
             return false;
@@ -876,14 +881,14 @@ class MutableVamanaIndex {
     // This is an internal method, mostly used to help implement the batch iterator.
     ValidBuilder internal_search_builder() const { return ValidBuilder{status_}; }
 
-    /// @brief RAII reader lock guarding data_/graph_ against compact()'s shrink
-    /// (which frees segments). Used by BatchIterator::next() to protect the
-    /// greedy traversal — mirrors the shared lock taken by search(). Growth by
-    /// add_points needs no lock (grow-stable SegmentedVector storage).
+    /// @brief RAII shared lock guarding data_/graph_ against compact()'s shrink
+    /// (which frees segments). Used by searches, iterators and mutations that
+    /// may overlap each other but must exclude compaction.
     ///
     /// Hold this through internal-to-external ID translation. Acquire the translation
     /// lock inside this guard, preserving the compact -> translator lock order.
     [[nodiscard]] std::shared_lock<std::shared_mutex> lock_for_search() const {
+        std::shared_lock gatekeeper_lock{*compact_gatekeeper_};
         return std::shared_lock<std::shared_mutex>(*compact_mutex_);
     }
 
@@ -935,7 +940,7 @@ class MutableVamanaIndex {
     ) const {
         // Hold compact_mutex_ shared so compact()'s shrink can't free segments
         // mid-traversal. add_points growth is lock-free (grow-stable storage).
-        std::shared_lock compact_lock{*compact_mutex_};
+        auto compact_lock = lock_for_search();
         extensions::single_search(
             data_,
             scratch.buffer,
@@ -954,7 +959,7 @@ class MutableVamanaIndex {
         const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>())
     ) {
         // Internal IDs must retain their meaning until translation has completed.
-        std::shared_lock compact_lock{*compact_mutex_};
+        auto compact_lock = lock_for_search();
         {
             threads::parallel_for(
                 threadpool_,
@@ -1105,7 +1110,7 @@ class MutableVamanaIndex {
         // Reserve slot ownership against compact(). Held for the entire call,
         // including the lock-free Phase 2-4 below; compact() takes this
         // exclusive and so will block until every in-flight add finishes.
-        std::shared_lock compact_lock{*compact_mutex_};
+        auto compact_lock = lock_for_search();
 
         // Phase 1: reserve slots (Empty->Pending). Pending means
         // "reserved by an in-flight add"
@@ -1309,7 +1314,7 @@ class MutableVamanaIndex {
     ///   graph.
     ///
     template <typename T> size_t delete_entries(const T& ids) {
-        std::shared_lock compact_lock{*compact_mutex_};
+        auto compact_lock = lock_for_search();
         std::shared_lock lock{*translator_mutex_};
         size_t deleted = 0;
         for (auto i : ids) {
@@ -1394,6 +1399,7 @@ class MutableVamanaIndex {
     ///     improve performance but requires more working memory.
     ///
     void compact(Idx batch_size = 1'000) {
+        std::lock_guard gatekeeper_lock{*compact_gatekeeper_};
         std::lock_guard compact_lock{*compact_mutex_};
 
         // All users of the old anchor have drained. A live medoid can now be
@@ -1606,7 +1612,7 @@ class MutableVamanaIndex {
 
     ///// Mutation
     void consolidate() {
-        std::shared_lock compact_lock{*compact_mutex_};
+        auto compact_lock = lock_for_search();
         consolidate_locked();
     }
 
@@ -1695,7 +1701,7 @@ class MutableVamanaIndex {
     /// @returns The number of listed IDs that were consolidated.
     ///
     template <typename T> size_t consolidate(const T& ids) {
-        std::shared_lock compact_lock{*compact_mutex_};
+        auto compact_lock = lock_for_search();
 
         // Collect the internal slots of the listed, already-soft-deleted IDs.
         tsl::robin_set<Idx> targets{};
@@ -1877,7 +1883,7 @@ class MutableVamanaIndex {
         // Lock order: compact_mutex_ then translator_mutex_ (global order).
         // compact_mutex_ shared guards data_/graph_ against compact()'s shrink;
         // translator_mutex_ shared guards the ID translation reads below.
-        std::shared_lock compact_lock{*compact_mutex_};
+        auto compact_lock = lock_for_search();
         std::shared_lock lock{*translator_mutex_};
 
         // Bounds checking.
@@ -2040,7 +2046,7 @@ class MutableVamanaIndex {
         // Lock order: compact_mutex_ then translator_mutex_ (global order).
         // compact_mutex_ shared guards data_ against compact()'s shrink;
         // translator_mutex_ shared guards the ID translation read.
-        std::shared_lock compact_lock{*compact_mutex_};
+        auto compact_lock = lock_for_search();
         std::shared_lock lock{*translator_mutex_};
 
         // Check if the external ID exists
