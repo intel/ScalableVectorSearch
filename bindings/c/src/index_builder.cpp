@@ -247,7 +247,7 @@ std::shared_ptr<DynamicIndex> IndexBuilder::copy_dynamic(
                             storage.get(),
                             dst_concurrent,
                             to_distance_type(distance_metric),
-                            pool_builder.build(),
+                            pool_builder.build(sync_kind),
                             allocator_builder,
                             block_params,
                             get_logger()
@@ -258,7 +258,7 @@ std::shared_ptr<DynamicIndex> IndexBuilder::copy_dynamic(
                             src_builder.storage.get(),
                             storage.get(),
                             to_distance_type(distance_metric),
-                            pool_builder.build(),
+                            pool_builder.build(sync_kind),
                             allocator_builder,
                             block_params,
                             get_logger()
@@ -282,7 +282,7 @@ std::shared_ptr<DynamicIndex> IndexBuilder::build_dynamic(
                                ids,
                                storage.get(),
                                to_distance_type(distance_metric),
-                               pool_builder.build(),
+                               pool_builder.build(sync_kind),
                                allocator_builder,
                                block_params,
                                get_logger()
@@ -293,7 +293,7 @@ std::shared_ptr<DynamicIndex> IndexBuilder::build_dynamic(
                                ids,
                                storage.get(),
                                to_distance_type(distance_metric),
-                               pool_builder.build(),
+                               pool_builder.build(sync_kind),
                                allocator_builder,
                                block_params,
                                get_logger()
@@ -317,7 +317,7 @@ std::shared_ptr<DynamicIndex> IndexBuilder::load_dynamic(
                                directory,
                                storage.get(),
                                to_distance_type(distance_metric),
-                               pool_builder.build(),
+                               pool_builder.build(sync_kind),
                                allocator_builder,
                                block_params,
                                get_logger()
@@ -327,7 +327,7 @@ std::shared_ptr<DynamicIndex> IndexBuilder::load_dynamic(
                                directory,
                                storage.get(),
                                to_distance_type(distance_metric),
-                               pool_builder.build(),
+                               pool_builder.build(sync_kind),
                                allocator_builder,
                                block_params,
                                get_logger()
@@ -353,7 +353,7 @@ std::shared_ptr<DynamicIndex> IndexBuilder::load_stream_dynamic(
                 std::move(stream),
                 storage.get(),
                 to_distance_type(distance_metric),
-                pool_builder.build(),
+                pool_builder.build(sync_kind),
                 allocator_builder,
                 block_params
             ),
