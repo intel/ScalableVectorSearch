@@ -23,6 +23,7 @@
 #include <svs/core/query_result.h>
 #include <svs/lib/misc.h>
 #include <svs/lib/threads.h>
+#include <svs/orchestrators/dynamic_vamana.h>
 
 #include <algorithm>
 #include <cassert>
@@ -31,6 +32,7 @@
 #include <functional>
 #include <limits>
 #include <stdexcept>
+#include <type_traits>
 #include <vector>
 
 namespace svs::c_runtime {
@@ -167,6 +169,25 @@ std::vector<size_t> filtered_topk_search(
     const size_t MIN_SAMPLE_SIZE = 200;
 
     assert(results.n_queries() == queries.size());
+
+    // The dynamic index uses a single-pass search with a result heap of size
+    // max(k, search window) when its data type supports it.
+    if constexpr (std::is_same_v<IndexType, svs::DynamicVamana>) {
+        std::vector<size_t> found(queries.size(), 0);
+        const bool done = index.two_heap_filtered_search(
+            results.view(),
+            queries,
+            std::max(results.n_neighbors(), initial_batch_hint),
+            [id_filter](size_t id) { return id_filter->is_member(id); },
+            found
+        );
+        if (done) {
+            for (size_t i = 0; i < queries.size(); ++i) {
+                pad_result(results, i, found[i]);
+            }
+            return found;
+        }
+    }
 
     // Filtered search: we need to estimate the batch size based on the filter rate and
     // the number of hits
