@@ -134,8 +134,18 @@ template <typename Index, typename QueryType> class MultiBatchIterator {
     size_t size() const { return results_.size(); }
 
     bool done() const {
-        return (batch_iterator_.done() && extra_results_.empty()) ||
-               (returned_.size() == index_.labelcount());
+        if (batch_iterator_.done() && extra_results_.empty()) {
+            return true;
+        }
+        if (returned_.size() < index_.labelcount()) {
+            return false;
+        }
+        // Deletions can make the counts equal while live labels remain unreturned.
+        bool all_returned = true;
+        index_.on_ids([&](label_type label) {
+            all_returned = all_returned && returned_.contains(label);
+        });
+        return all_returned;
     }
 
     std::span<const value_type> contents() const { return lib::as_const_span(results_); }
@@ -315,6 +325,7 @@ class MultiMutableVamanaIndex {
             std::move(data),
             std::move(graph),
             distance_,
+            std::vector<SlotMetadata>(adds.size(), SlotMetadata::Valid),
             remapped_translator,
             std::move(threadpool),
             std::move(logger)
@@ -358,6 +369,7 @@ class MultiMutableVamanaIndex {
             std::move(data),
             std::move(graph),
             distance_,
+            std::vector<SlotMetadata>(adds.size(), SlotMetadata::Valid),
             remapped_translator,
             std::move(threadpool),
             std::move(logger)
@@ -398,6 +410,24 @@ class MultiMutableVamanaIndex {
         }
 
         return best;
+    }
+
+    ///
+    /// @brief Call `f` with the raw data of every vector of `label` while it is locked.
+    ///
+    /// @returns The number of vectors `f` was called for.
+    ///
+    template <typename F> size_t on_data(label_type label, F&& f) const {
+        std::shared_lock l2e_lock{*l2e_mutex_};
+        auto it = label_to_external_.find(label);
+        if (it == label_to_external_.end()) {
+            return 0;
+        }
+        size_t visited = 0;
+        for (auto external_id : it->second) {
+            visited += index_->on_datum(external_id, f);
+        }
+        return visited;
     }
 
     template <data::ImmutableMemoryDataset Points, typename Labels>
@@ -529,7 +559,9 @@ class MultiMutableVamanaIndex {
 
                     for (; j < num_neighbors; ++j) {
                         // insert default neighbor if not enough
-                        results.set(Neighbor<label_type>{}, i, j);
+                        results.set(
+                            type_traits::sentinel_v<Neighbor<label_type>, compare>, i, j
+                        );
                     }
                 }
             }
@@ -629,9 +661,7 @@ class MultiMutableVamanaIndex {
     // translate internal id -> external id -> label
     label_type translate_internal_id(Idx i) const {
         auto external_id = index_->translate_internal_id(i);
-        // Mirrors the parent's get_external_or: fall back to the external id when the
-        // label mapping is already gone.
-        return find_label(external_id).value_or(external_id);
+        return find_label(external_id).value_or(no_external_id);
     }
 
     /// @brief The label owning `external_id`, or ``std::nullopt`` if it has none.

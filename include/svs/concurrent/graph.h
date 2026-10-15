@@ -48,6 +48,20 @@ template <typename A> struct unwrap_blocked_allocator<A, true> {
     using type = typename A::allocator_type;
 };
 
+// True if `A` can allocate every element type `ReverseEdges` needs. Type-erased
+// allocators such as `AllocatorHandle` only rebind to arithmetic types.
+template <typename Idx, typename A>
+inline constexpr bool reverse_edges_rebindable_v = [] {
+    using traits = std::allocator_traits<A>;
+    using idx_alloc = typename traits::template rebind_alloc<Idx>;
+    using list_alloc = typename traits::template rebind_alloc<std::vector<Idx, idx_alloc>>;
+    using lock_alloc = typename traits::template rebind_alloc<SpinLock>;
+    return std::is_constructible_v<idx_alloc, const A&> &&
+           std::is_constructible_v<list_alloc, const A&> &&
+           std::is_constructible_v<lock_alloc, const A&> &&
+           std::equality_comparable<idx_alloc>;
+}();
+
 //
 // We rely on an implicit layout for the graphs where length is stored inline with the
 // adjacency list like:
@@ -85,9 +99,13 @@ template <std::unsigned_integral Idx, data::MemoryDataset Data> class SimpleGrap
 
     /// Base allocator underlying the adjacency storage; the reverse-edge index (when
     /// enabled) is allocated through it so its bytes are accounted the same way as the
-    /// graph's own storage.
-    using reverse_edge_allocator_type =
+    /// graph's own storage. Falls back to `std::allocator` if it cannot be rebound.
+    using graph_base_allocator_type =
         typename unwrap_blocked_allocator<typename Data::allocator_type>::type;
+    using reverse_edge_allocator_type = std::conditional_t<
+        reverse_edges_rebindable_v<Idx, graph_base_allocator_type>,
+        graph_base_allocator_type,
+        std::allocator<Idx>>;
     using reverse_edges_type = ReverseEdges<Idx, reverse_edge_allocator_type>;
 
     ///
@@ -625,7 +643,11 @@ template <std::unsigned_integral Idx, data::MemoryDataset Data> class SimpleGrap
     // Recover the graph's base allocator instance for the reverse-edge index, unwrapping
     // the Blocked<> layer (Blocked derives from its base allocator) when present.
     reverse_edge_allocator_type reverse_edge_allocator_() const {
-        if constexpr (data::is_blocked_v<typename Data::allocator_type>) {
+        if constexpr (!std::is_same_v<
+                          reverse_edge_allocator_type,
+                          graph_base_allocator_type>) {
+            return reverse_edge_allocator_type{};
+        } else if constexpr (data::is_blocked_v<typename Data::allocator_type>) {
             return reverse_edge_allocator_type(
                 static_cast<const typename Data::allocator_type::allocator_type&>(
                     data_.get_allocator()
@@ -722,18 +744,20 @@ bool operator==(const SimpleGraph<Idx, A1>& x, const SimpleGraph<Idx, A2>& y) {
     return graphs_equal(x, y);
 }
 
-template <std::unsigned_integral Idx>
-class SimpleBlockedGraph : public SimpleGraphBase<
-                               Idx,
-                               SegmentedBlockedData<Idx, Dynamic, HugepageAllocator<Idx>>> {
+template <std::unsigned_integral Idx, typename Alloc = HugepageAllocator<Idx>>
+class SimpleBlockedGraph
+    : public SimpleGraphBase<Idx, SegmentedBlockedData<Idx, Dynamic, Alloc>> {
   public:
-    using parent_type =
-        SimpleGraphBase<Idx, SegmentedBlockedData<Idx, Dynamic, HugepageAllocator<Idx>>>;
+    using parent_type = SimpleGraphBase<Idx, SegmentedBlockedData<Idx, Dynamic, Alloc>>;
     using data_type = typename parent_type::data_type;
+    using allocator_type = typename data_type::allocator_type;
 
     // Constructors
     SimpleBlockedGraph(size_t num_nodes, size_t max_degree)
         : parent_type{num_nodes, max_degree} {}
+
+    SimpleBlockedGraph(size_t num_nodes, size_t max_degree, const allocator_type& allocator)
+        : parent_type{num_nodes, max_degree, allocator} {}
 
     explicit SimpleBlockedGraph(data_type data)
         : parent_type{std::move(data)} {}
@@ -742,29 +766,35 @@ class SimpleBlockedGraph : public SimpleGraphBase<
         : parent_type(std::move(parent)) {}
 
     ///// Loading
-    static constexpr SimpleBlockedGraph load(const lib::LoadTable& table) {
+    static constexpr SimpleBlockedGraph
+    load(const lib::LoadTable& table, const allocator_type& allocator = {}) {
         auto lazy =
             lib::Lazy([](data_type data) { return SimpleBlockedGraph(std::move(data)); });
-        return parent_type::load(table, lazy);
+        return parent_type::load(table, lazy, allocator);
+    }
+
+    static constexpr SimpleBlockedGraph load(
+        const lib::ContextFreeLoadTable& table,
+        std::istream& is,
+        const allocator_type& allocator = {}
+    ) {
+        auto lazy =
+            lib::Lazy([](data_type data) { return SimpleBlockedGraph(std::move(data)); });
+        return parent_type::load(table, lazy, is, allocator);
     }
 
     static constexpr SimpleBlockedGraph
-    load(const lib::ContextFreeLoadTable& table, std::istream& is) {
-        auto lazy =
-            lib::Lazy([](data_type data) { return SimpleBlockedGraph(std::move(data)); });
-        return parent_type::load(table, lazy, is);
-    }
-
-    static constexpr SimpleBlockedGraph load(const std::filesystem::path& path) {
+    load(const std::filesystem::path& path, const allocator_type& allocator = {}) {
         if (data::detail::is_likely_reload(path)) {
-            return lib::load_from_disk<SimpleBlockedGraph>(path);
+            return lib::load_from_disk<SimpleBlockedGraph>(path, allocator);
         } else {
-            return SimpleBlockedGraph(data_type::load(path));
+            return SimpleBlockedGraph(data_type::load(path, allocator));
         }
     }
 
-    static constexpr SimpleBlockedGraph load(std::istream& is) {
-        return lib::load_from_stream<SimpleBlockedGraph>(is);
+    static constexpr SimpleBlockedGraph
+    load(std::istream& is, const allocator_type& allocator = {}) {
+        return lib::load_from_stream<SimpleBlockedGraph>(is, allocator);
     }
 };
 
