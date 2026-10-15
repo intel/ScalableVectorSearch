@@ -505,8 +505,7 @@ class VamanaIndexImpl {
             return new svs::Vamana(svs::Vamana::assemble<float>(
                 stream,
                 svs::StreamLoader<svs::Vamana::default_graph_type<storage_type>>{},
-                svs::StreamLoader<storage_type, std::decay_t<Args>...>{
-                    std::forward<Args>(args)...},
+                svs::make_stream_loader<storage_type>(std::forward<Args>(args)...),
                 to_svs_distance(metric),
                 std::move(threadpool)
             ));

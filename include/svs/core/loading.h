@@ -23,6 +23,7 @@
 #include <filesystem>
 #include <istream>
 #include <tuple>
+#include <type_traits>
 #include <utility>
 
 namespace svs {
@@ -59,6 +60,18 @@ template <typename T, typename... Args> struct StreamLoader {
 
     std::tuple<Args...> args_;
 };
+
+///
+/// @brief Build a ``StreamLoader`` for ``T``, deducing the loader argument types.
+///
+/// @tparam T The type loaded from the component.
+///
+/// @param args Arguments forwarded to the load function, stored by value.
+///
+template <typename T, typename... Args>
+StreamLoader<T, std::decay_t<Args>...> make_stream_loader(Args&&... args) {
+    return StreamLoader<T, std::decay_t<Args>...>{std::forward<Args>(args)...};
+}
 
 template <typename T> inline constexpr bool is_stream_loader_v = false;
 

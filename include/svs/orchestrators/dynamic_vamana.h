@@ -399,10 +399,8 @@ class DynamicVamana : public manager::IndexManager<DynamicVamanaInterface> {
     ///
     /// @tparam QueryTypes   The set of query element types supported by the resulting
     /// index.
-    /// @tparam Graph        The graph type to load.
-    /// @tparam GraphArgs    Types of extra arguments forwarded to the graph loader.
-    /// @tparam Data         The dataset type to load.
-    /// @tparam DataArgs     Types of extra arguments forwarded to the data loader.
+    /// @tparam GraphLoader  A ``StreamLoader`` for the graph.
+    /// @tparam DataLoader   A ``StreamLoader`` for the dataset.
     /// @tparam Distance     Distance functor or ``svs::DistanceType`` enum.
     /// @tparam ThreadPoolProto  Thread pool type or size_t.
     ///
@@ -418,21 +416,22 @@ class DynamicVamana : public manager::IndexManager<DynamicVamanaInterface> {
     ///
     template <
         manager::QueryTypeDefinition QueryTypes,
-        typename Graph,
-        typename... GraphArgs,
-        typename Data,
-        typename... DataArgs,
+        typename GraphLoader,
+        typename DataLoader,
         typename Distance,
         typename ThreadPoolProto>
+        requires(is_stream_loader_v<GraphLoader> && is_stream_loader_v<DataLoader>)
     static DynamicVamana assemble(
         std::istream& stream,
-        const StreamLoader<Graph, GraphArgs...>& graph_loader,
-        const StreamLoader<Data, DataArgs...>& data_loader,
+        const GraphLoader& graph_loader,
+        const DataLoader& data_loader,
         const Distance& distance,
         ThreadPoolProto threadpool_proto,
         bool debug_load_from_static = false,
         svs::logging::logger_ptr logger = svs::logging::get()
     ) {
+        using Graph = typename GraphLoader::return_type;
+        using Data = typename DataLoader::return_type;
         auto deserializer = svs::lib::detail::Deserializer::build(stream);
         if (deserializer.is_native()) {
             auto threadpool = threads::as_threadpool(std::move(threadpool_proto));
@@ -502,7 +501,7 @@ class DynamicVamana : public manager::IndexManager<DynamicVamanaInterface> {
         }
     }
 
-    // Assembly from stream (released wrapper)
+    // Assembly from stream wrapper
     ///
     /// @brief Assemble a DynamicVamana index from a serialized stream.
     ///

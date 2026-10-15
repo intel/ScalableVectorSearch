@@ -520,20 +520,22 @@ class Vamana : public manager::IndexManager<VamanaInterface> {
     ///
     template <
         manager::QueryTypeDefinition QueryTypes,
-        typename Graph,
-        typename... GraphArgs,
-        typename Data,
-        typename... DataArgs,
+        typename GraphLoader,
+        typename DataLoader,
         typename Distance,
         typename ThreadPoolProto>
     static Vamana assemble(
         std::istream& stream,
-        const StreamLoader<Graph, GraphArgs...>& graph_loader,
-        const StreamLoader<Data, DataArgs...>& data_loader,
+        const GraphLoader& graph_loader,
+        const DataLoader& data_loader,
         const Distance& distance,
         ThreadPoolProto threadpool_proto,
         svs::logging::logger_ptr logger = svs::logging::get()
-    ) {
+    )
+        requires(is_stream_loader_v<GraphLoader> && is_stream_loader_v<DataLoader>)
+    {
+        using Graph = typename GraphLoader::return_type;
+        using Data = typename DataLoader::return_type;
         auto deserializer = svs::lib::detail::Deserializer::build(stream);
         if (deserializer.is_native()) {
             auto load_graph = [&]() -> Graph { return graph_loader.load(stream); };
@@ -619,7 +621,7 @@ class Vamana : public manager::IndexManager<VamanaInterface> {
         return assemble<QueryTypes>(
             stream,
             StreamLoader<default_graph_type<Data>>{},
-            StreamLoader<Data, std::decay_t<DataLoaderArgs>...>{SVS_FWD(data_args)...},
+            make_stream_loader<Data>(SVS_FWD(data_args)...),
             distance,
             std::move(threadpool_proto)
         );

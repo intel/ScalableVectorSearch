@@ -98,10 +98,9 @@ svs::Vamana load_stream_vamana_index(
     // assemble copies data out; a view allocator here would leave the index dangling.
     return svs::Vamana::assemble<float>(
         *stream,
-        svs::StreamLoader<
-            svs::graphs::SimpleGraph<uint32_t, decltype(graph_allocator)>,
-            decltype(graph_allocator)>{graph_allocator},
-        svs::StreamLoader<data_type, decltype(data_allocator)>{data_allocator},
+        svs::make_stream_loader<
+            svs::graphs::SimpleGraph<uint32_t, decltype(graph_allocator)>>(graph_allocator),
+        svs::make_stream_loader<data_type>(data_allocator),
         distance,
         std::move(pool)
     );

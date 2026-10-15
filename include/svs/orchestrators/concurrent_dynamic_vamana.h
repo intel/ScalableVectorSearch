@@ -170,20 +170,22 @@ class ConcurrentDynamicVamana : public DynamicVamana {
     ///
     template <
         manager::QueryTypeDefinition QueryTypes,
-        typename Graph,
-        typename... GraphArgs,
-        typename Data,
-        typename... DataArgs,
+        typename GraphLoader,
+        typename DataLoader,
         typename Distance,
         typename ThreadPoolProto>
     static ConcurrentDynamicVamana assemble(
         std::istream& stream,
-        const StreamLoader<Graph, GraphArgs...>& graph_loader,
-        const StreamLoader<Data, DataArgs...>& data_loader,
+        const GraphLoader& graph_loader,
+        const DataLoader& data_loader,
         Distance distance,
         ThreadPoolProto threadpool_proto,
         bool debug_load_from_static = false
-    ) {
+    )
+        requires(is_stream_loader_v<GraphLoader> && is_stream_loader_v<DataLoader>)
+    {
+        using Graph = typename GraphLoader::return_type;
+        using Data = typename DataLoader::return_type;
         static_assert(
             index::vamana::concurrent::is_segmented_blocked_v<
                 typename Data::allocator_type>,
