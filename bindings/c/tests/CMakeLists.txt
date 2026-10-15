@@ -75,8 +75,7 @@ if(SVS_RUNTIME_ENABLE_LVQ_LEANVEC)
     target_compile_definitions(${TARGET_NAME} PRIVATE SVS_TEST_EXPECT_LVQ_LEANVEC)
 endif()
 
-find_package(OpenMP QUIET)
-if(OpenMP_CXX_FOUND)
+if(SVS_ENABLE_OMP)
     target_compile_definitions(${TARGET_NAME} PRIVATE SVS_TEST_EXPECT_OPENMP)
 endif()
 
