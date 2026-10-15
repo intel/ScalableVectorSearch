@@ -160,6 +160,15 @@ float compute(DistanceIP /*unused*/, std::span<Ea, Da> a, std::span<Eb, Db> b) {
     }
 }
 
+// The IP kernels convert `Float16` operands to `float` on every SIMD step. An operand
+// converted once ahead of time selects the mixed `float` kernel, which loads it directly.
+// Removing this sends the iterative prune back to reconverting its query for every
+// candidate.
+template <size_t Extent>
+struct distance_argument<DistanceIP, std::span<const Float16, Extent>> {
+    using type = std::span<const float, Extent>;
+};
+
 /////
 ///// Generic Implementation
 /////
@@ -358,6 +367,13 @@ template <size_t N> struct IPImpl<N, Float16, Float16, AVX_AVAILABILITY::AVX2> {
 template <size_t N> struct IPImpl<N, float, Float16, AVX_AVAILABILITY::AVX2> {
     SVS_NOINLINE static float
     compute(const float* a, const Float16* b, lib::MaybeStatic<N> length) {
+        return svs::simd::generic_simd_op(IPFloatOp<8>{}, a, b, length);
+    }
+};
+
+template <size_t N> struct IPImpl<N, Float16, float, AVX_AVAILABILITY::AVX2> {
+    SVS_NOINLINE static float
+    compute(const Float16* a, const float* b, lib::MaybeStatic<N> length) {
         return svs::simd::generic_simd_op(IPFloatOp<8>{}, a, b, length);
     }
 };
