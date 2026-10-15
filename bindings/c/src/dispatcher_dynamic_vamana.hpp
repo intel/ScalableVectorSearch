@@ -15,6 +15,7 @@
  */
 #pragma once
 
+#include "allocator.hpp"
 #include "storage.hpp"
 
 #include <svs/core/data/simple.h>
