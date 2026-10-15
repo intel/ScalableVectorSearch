@@ -152,11 +152,16 @@ class ThreadPoolBuilder {
         num_threads = new_num_threads;
     }
 
-    svs::threads::ThreadPoolHandle build() const {
+    svs::threads::ThreadPoolHandle
+    build(svs_sync_kind_t sync_kind = SVS_SYNC_KIND_NONE) const {
         using namespace svs::threads;
         switch (kind) {
             case SVS_THREADPOOL_KIND_NATIVE:
-                return ThreadPoolHandle(NativeThreadPool(num_threads));
+                if (sync_kind == SVS_SYNC_KIND_FINE_GRAIN) {
+                    return ThreadPoolHandle(QueueThreadPoolWrapper(num_threads));
+                } else {
+                    return ThreadPoolHandle(NativeThreadPool(num_threads));
+                }
             case SVS_THREADPOOL_KIND_OMP:
                 return ThreadPoolHandle(OMPThreadPool(num_threads));
             case SVS_THREADPOOL_KIND_SINGLE_THREAD:
