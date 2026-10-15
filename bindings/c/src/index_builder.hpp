@@ -26,6 +26,7 @@
 
 #include <svs/concepts/data.h>
 #include <svs/core/data/simple.h>
+#include <svs/core/logging.h>
 #include <svs/index/vamana/index.h>
 
 #include <filesystem>
@@ -46,6 +47,9 @@ struct IndexBuilder {
     std::unique_ptr<Storage> storage;
     ThreadPoolBuilder pool_builder;
     AllocatorBuilder allocator_builder;
+    // Logger for indexes built or loaded by this builder. Empty means: use the SVS global
+    // default logger current at build/load time.
+    svs::logging::logger_ptr logger;
 
     IndexBuilder(
         svs_distance_metric_t distance_metric,
@@ -65,7 +69,8 @@ struct IndexBuilder {
         , algorithm(other.algorithm->clone())
         , storage(other.storage->clone())
         , pool_builder(other.pool_builder)
-        , allocator_builder(other.allocator_builder) {}
+        , allocator_builder(other.allocator_builder)
+        , logger(other.logger) {}
 
     IndexBuilder& operator=(const IndexBuilder& other) {
         if (this != &other) {
@@ -75,6 +80,7 @@ struct IndexBuilder {
             storage = other.storage->clone();
             pool_builder = other.pool_builder;
             allocator_builder = other.allocator_builder;
+            logger = other.logger;
         }
         return *this;
     }
@@ -93,6 +99,13 @@ struct IndexBuilder {
 
     void set_allocator_builder(AllocatorBuilder allocator_builder) {
         std::swap(this->allocator_builder, allocator_builder);
+    }
+
+    void set_logger(svs::logging::logger_ptr logger) { this->logger = std::move(logger); }
+
+    // The logger to pass to SVS: the builder's logger if set, else the current global.
+    svs::logging::logger_ptr get_logger() const {
+        return logger ? logger : svs::logging::get();
     }
 
     std::shared_ptr<Index> build(const svs::data::ConstSimpleDataView<float>& data);
