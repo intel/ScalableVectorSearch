@@ -73,6 +73,11 @@ option(SVS_INITIALIZE_LOGGER
     ON # enabled by default
 )
 
+option(SVS_ENABLE_OMP
+    "Enable OpenMP threadpool support for parallelism."
+    ON # enabled by default
+)
+
 #####
 ##### Experimental
 #####
