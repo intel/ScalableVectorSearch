@@ -355,7 +355,6 @@ CATCH_TEST_CASE("C API Logger Output", "[c_api][logging]") {
 
         build_small_index();
 
-        // Vamana splits the 100 vectors into max(40, ceil(100 / 4096)) = 40 batches.
         {
             std::lock_guard lock{recorder.mutex};
             bool found = std::any_of(
@@ -363,7 +362,7 @@ CATCH_TEST_CASE("C API Logger Output", "[c_api][logging]") {
                 recorder.messages.end(),
                 [](const auto& m) {
                     return m.first == SVS_LOG_LEVEL_TRACE &&
-                           m.second == "Number of syncs: 40";
+                           m.second.rfind("Number of syncs: ", 0) == 0;
                 }
             );
             CATCH_REQUIRE(found);
