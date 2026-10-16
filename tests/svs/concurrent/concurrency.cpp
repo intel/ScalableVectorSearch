@@ -60,17 +60,22 @@ namespace ccg = svs::index::vamana::concurrent::graphs;
 
 namespace {
 
-// ThreadSanitizer costs roughly an order of magnitude in both time and memory, and it is
-// looking for *races*, which show up just as readily in a small index. Shrink the problem
-// rather than skipping the run.
-#if defined(__SANITIZE_THREAD__) || defined(SVS_THREAD_SANITIZER)
-constexpr size_t kInitialPoints = 4000;
-constexpr size_t kIncrementalPoints = 1000;
-constexpr size_t kNumQueries = 50;
-#else
+// Races and broken invariants show up just as readily in a small index, so the small size
+// is the default. At full size these four tests take ~10 minutes of serial ctest time on a
+// 4-vCPU CI runner, more than half of the whole suite, and run in every matrix job.
+// `SVS_TEST_CONCURRENT_FULL_SIZE` restores the larger problem for stress runs.
+//
+// ThreadSanitizer costs roughly an order of magnitude in both time and memory, so it always
+// uses the small size, even when full size is requested.
+#if defined(SVS_TEST_CONCURRENT_FULL_SIZE) && \
+    !(defined(__SANITIZE_THREAD__) || defined(SVS_THREAD_SANITIZER))
 constexpr size_t kInitialPoints = 20000;
 constexpr size_t kIncrementalPoints = 5000;
 constexpr size_t kNumQueries = 200;
+#else
+constexpr size_t kInitialPoints = 4000;
+constexpr size_t kIncrementalPoints = 1000;
+constexpr size_t kNumQueries = 50;
 #endif
 
 constexpr size_t kDim = 32;
