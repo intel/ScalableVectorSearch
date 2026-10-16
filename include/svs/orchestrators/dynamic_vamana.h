@@ -534,7 +534,7 @@ class DynamicVamana : public manager::IndexManager<DynamicVamanaInterface> {
         return assemble<QueryTypes>(
             stream,
             StreamLoader<GraphType>{},
-            StreamLoader<Data, std::decay_t<DataLoaderArgs>...>{SVS_FWD(data_args)...},
+            make_stream_loader<Data>(SVS_FWD(data_args)...),
             distance,
             std::move(threadpool_proto)
         );
