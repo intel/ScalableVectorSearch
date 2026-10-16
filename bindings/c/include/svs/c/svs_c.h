@@ -424,9 +424,9 @@ struct svs_stream_interface {
 /// Row @p q (results for query @p q) occupies half-open range
 /// [@p offsets[q], @p offsets[q+1]) in @p indices and @p distances. This supports
 /// variadic per-query result counts (filtered search, range search) while keeping
-/// the data flat and cache-friendly. For fixed top-k searches @p offsets[q] equals
-/// @p q * k, so the classical @p indices[q*k+j] / @p distances[q*k+j] access pattern
-/// remains valid.
+/// the data flat and cache-friendly. When every query returns @p k results,
+/// @p offsets[q] equals @p q * k, so the classical @p indices[q*k+j] /
+/// @p distances[q*k+j] access pattern remains valid.
 ///
 /// Ownership: when @p owns_buffers is true the library allocated @p offsets,
 /// @p indices, @p distances and svs_search_results_free() will release them.
@@ -1460,7 +1460,9 @@ SVS_API bool svs_index_get_size(
 /// @details Performs a TopK search on the index with the provided queries and an optional
 /// ID filter. The ID filter allows for filtering the search results based on specific IDs,
 /// enabling more targeted searches. If the ID filter is NULL, the search will return the
-/// top K results. If ID filter is provided, only the results that pass the filter will be
+/// top K results, except that SVS_SYNC_KIND_FINE_GRAIN may return fewer when concurrent
+/// consolidation removes selected IDs. Use the CSR offsets to determine each query's
+/// result count. If ID filter is provided, only the results that pass the filter will be
 /// returned. Results are written into @p out_results in CSR layout (see
 /// svs_search_results); library-owned buffers are reused across calls when their
 /// capacity suffices. If ID filter is provided with `filter_rate > 0.0` then the
