@@ -121,18 +121,9 @@ void register_vamana_index_specializations(Dispatcher& dispatcher) {
         dispatcher.register_target(&load_stream_vamana_index<DataLoader, Distance>);
     };
 
-    for_simple_specializations<false>(build_closure);
-    for_simple_specializations<false>(load_closure);
-    for_simple_specializations<false>(load_stream_closure);
-    for_leanvec_specializations<false>(build_closure);
-    for_leanvec_specializations<false>(load_closure);
-    for_leanvec_specializations<false>(load_stream_closure);
-    for_lvq_specializations<false>(build_closure);
-    for_lvq_specializations<false>(load_closure);
-    for_lvq_specializations<false>(load_stream_closure);
-    for_sq_specializations<false>(build_closure);
-    for_sq_specializations<false>(load_closure);
-    for_sq_specializations<false>(load_stream_closure);
+    for_all_specializations<BlockKind::None>(build_closure);
+    for_all_specializations<BlockKind::None>(load_closure);
+    for_all_specializations<BlockKind::None>(load_stream_closure);
 }
 
 // Stream load alternative, matched via generic variant DispatchConverter like the
@@ -236,6 +227,8 @@ svs::Vamana copy_vamana_index(
 
 template <typename Dispatcher>
 void register_copy_vamana_index_specializations(Dispatcher& dispatcher) {
+    constexpr auto kind = BlockKind::None;
+
     // TODO: Enable Compressed -> Compressed specializations by making decompressors,
     // decompression accessors and decompression dataset are thread-safe
 
@@ -253,12 +246,9 @@ void register_copy_vamana_index_specializations(Dispatcher& dispatcher) {
                                        Distance>);
         };
 
-        for_simple_specializations<false>(inner_closure);
-        for_sq_specializations<false>(inner_closure);
-        for_lvq_specializations<false>(inner_closure);
-        for_leanvec_specializations<false>(inner_closure);
+        for_all_specializations<kind>(inner_closure);
     };
-    for_simple_specializations<false>(compression_closure);
+    for_simple_specializations<kind>(compression_closure);
 
     // Decompression specializations for copy_vamana_index
     // To handle cases Compressed -> Simple
@@ -274,11 +264,11 @@ void register_copy_vamana_index_specializations(Dispatcher& dispatcher) {
                                        Distance>);
         };
 
-        for_simple_specializations<false>(inner_closure);
+        for_simple_specializations<kind>(inner_closure);
     };
-    for_sq_specializations<false>(decompression_closure);
-    for_lvq_specializations<false>(decompression_closure);
-    for_leanvec_specializations<false>(decompression_closure);
+    for_sq_specializations<kind>(decompression_closure);
+    for_lvq_specializations<kind>(decompression_closure);
+    for_leanvec_specializations<kind>(decompression_closure);
 }
 
 const CopyIndexDispatcher& copy_vamana_index_dispatcher() {
