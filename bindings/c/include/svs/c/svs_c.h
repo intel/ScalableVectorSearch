@@ -424,9 +424,9 @@ struct svs_stream_interface {
 /// Row @p q (results for query @p q) occupies half-open range
 /// [@p offsets[q], @p offsets[q+1]) in @p indices and @p distances. This supports
 /// variadic per-query result counts (filtered search, range search) while keeping
-/// the data flat and cache-friendly. When every query returns @p k results,
-/// @p offsets[q] equals @p q * k, so the classical @p indices[q*k+j] /
-/// @p distances[q*k+j] access pattern remains valid.
+/// the data flat and cache-friendly. For fixed top-k searches @p offsets[q] equals
+/// @p q * k, so the classical @p indices[q*k+j] / @p distances[q*k+j] access pattern
+/// remains valid.
 ///
 /// Ownership: when @p owns_buffers is true the library allocated @p offsets,
 /// @p indices, @p distances and svs_search_results_free() will release them.
