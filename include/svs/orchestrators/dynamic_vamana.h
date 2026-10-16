@@ -17,12 +17,15 @@
 #pragma once
 
 #include "svs/index/vamana/dynamic_index.h"
+#include "svs/index/vamana/two_heap_filtered_search.h"
 
 #include "svs/orchestrators/manager.h"
 #include "svs/orchestrators/vamana.h"
 
 // stdlib
+#include <functional>
 #include <type_traits>
+#include <vector>
 
 namespace svs {
 
@@ -56,6 +59,17 @@ class DynamicVamanaInterface : public VamanaInterface {
 
     // Check if the index has been consolidated - no `Deleted` entries remain.
     virtual bool is_consolidated() const = 0;
+
+    // Single-pass filtered top-k; `filter` takes an external id. Returns false, leaving
+    // `results` untouched, if the data type does not support it.
+    // Keep last: new virtuals must be appended.
+    virtual bool two_heap_filtered_search(
+        svs::QueryResultView<size_t> results,
+        AnonymousArray<2> queries,
+        size_t search_window_size,
+        const std::function<bool(size_t)>& filter,
+        std::vector<size_t>& found
+    ) = 0;
 };
 
 template <lib::TypeList QueryTypes, typename Impl>
@@ -109,6 +123,33 @@ class DynamicVamanaImpl : public VamanaImpl<QueryTypes, Impl, DynamicVamanaInter
 
     // Check if the index has been consolidated - no `Deleted` entries remain.
     bool is_consolidated() const override { return impl().is_consolidated(); }
+
+    bool two_heap_filtered_search(
+        svs::QueryResultView<size_t> results,
+        AnonymousArray<2> queries,
+        size_t search_window_size,
+        const std::function<bool(size_t)>& filter,
+        std::vector<size_t>& found
+    ) override {
+        if constexpr (index::vamana::two_heap_supported<typename Impl::data_type>) {
+            lib::match(
+                QueryTypes{},
+                queries.type(),
+                [&]<typename T>(lib::Type<T> SVS_UNUSED(type)) {
+                    const auto view = data::ConstSimpleDataView<T>(queries);
+                    index::vamana::two_heap_filtered_search(
+                        impl(), results, view, search_window_size, filter, found
+                    );
+                },
+                [&](svs::DataType data_type) {
+                    throw ANNEXCEPTION("Unsupported query datatype! Got: {}.", data_type);
+                }
+            );
+            return true;
+        } else {
+            return false;
+        }
+    }
 };
 
 // Forward Declaractions.
@@ -503,6 +544,24 @@ class DynamicVamana : public manager::IndexManager<DynamicVamanaInterface> {
     ) const {
         return impl_->batch_iterator(
             svs::AnonymousArray<1>(query.data(), query.size()), extra_search_buffer_capacity
+        );
+    }
+
+    /// @brief Single-pass filtered top-k search, see ``two_heap_filtered_search.h``.
+    ///
+    /// @param filter Takes an external id.
+    /// @param found Receives the number of results per query. Rows are not padded.
+    /// @return False if the data type is unsupported, in which case nothing is written.
+    template <typename QueryType>
+    bool two_heap_filtered_search(
+        QueryResultView<size_t> results,
+        data::ConstSimpleDataView<QueryType> queries,
+        size_t search_window_size,
+        const std::function<bool(size_t)>& filter,
+        std::vector<size_t>& found
+    ) {
+        return impl_->two_heap_filtered_search(
+            results, AnonymousArray<2>(queries), search_window_size, filter, found
         );
     }
 
