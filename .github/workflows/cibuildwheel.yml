@@ -19,6 +19,35 @@ on:
     branches:
     - main
   pull_request:
+    # Skip PR runs whose changes cannot affect what this workflow builds or tests. Pushes
+    # to main still run everything. An unlisted path runs the workflow, so a new
+    # directory is covered until it is deliberately added here.
+    paths-ignore:
+    - '**/*.md'
+    - LICENSE
+    - THIRD-PARTY-PROGRAMS
+    - .github/CODEOWNERS
+    - .github/dependabot.yml
+    - .github/workflows/pre-commit.yml
+    - .github/workflows/skywalking-eyes.yml
+    - bindings/c/**
+    - bindings/cpp/**
+    - examples/c/**
+    - examples/cpp/**
+    - tests/**
+    - benchmark/**
+    - utils/**
+    - .github/scripts/setup_apt_repo_linux.sh
+    - .github/scripts/build-c-api-bindings.sh
+    - .github/scripts/test-c-api-*.sh
+    - .github/scripts/build-cpp-runtime-bindings.sh
+    - .github/scripts/test-cpp-runtime-*.sh
+    - .github/scripts/test-faiss.sh
+    - .github/workflows/build-linux.yml
+    - .github/workflows/build-linux-arm.yml
+    - .github/workflows/build-macos.yaml
+    - .github/workflows/build-c-api-bindings.yml
+    - .github/workflows/build-cpp-runtime-bindings.yml
   workflow_dispatch:
 
 permissions:

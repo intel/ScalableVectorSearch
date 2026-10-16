@@ -19,6 +19,29 @@ on:
     branches:
     - main
   pull_request:
+    # Skip PR runs whose changes cannot affect what this workflow builds or tests. Pushes
+    # to main still run everything. An unlisted path runs the workflow, so a new
+    # directory is covered until it is deliberately added here.
+    paths-ignore:
+    - '**/*.md'
+    - LICENSE
+    - THIRD-PARTY-PROGRAMS
+    - .github/CODEOWNERS
+    - .github/dependabot.yml
+    - .github/workflows/pre-commit.yml
+    - .github/workflows/skywalking-eyes.yml
+    - bindings/**
+    - examples/c/**
+    - examples/python/**
+    - docker/**
+    - .github/scripts/build-c-api-bindings.sh
+    - .github/scripts/test-c-api-*.sh
+    - .github/scripts/build-cpp-runtime-bindings.sh
+    - .github/scripts/test-cpp-runtime-*.sh
+    - .github/scripts/test-faiss.sh
+    - .github/workflows/build-c-api-bindings.yml
+    - .github/workflows/build-cpp-runtime-bindings.yml
+    - .github/workflows/cibuildwheel.yml
   workflow_dispatch:
 
 permissions:
@@ -59,8 +82,7 @@ jobs:
               -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} \
               -DSVS_BUILD_BINARIES=YES \
               -DSVS_BUILD_TESTS=YES \
-              -DSVS_BUILD_EXAMPLES=YES \
-              -DSVS_EXPERIMENTAL_LEANVEC=YES
+              -DSVS_BUILD_EXAMPLES=YES
 
     - name: Build Tests and Utilities
       working-directory: ${{ runner.temp }}/build
