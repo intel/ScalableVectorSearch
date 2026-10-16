@@ -98,14 +98,17 @@ svs::Vamana load_stream_vamana_index(
 ) {
     using value_type = typename DataLoader::allocator_type::value_type;
     using data_type = typename DataLoader::data_type;
+    auto graph_allocator = allocator_builder.build_for_graph<uint32_t>();
+    auto data_allocator = allocator_builder.build<value_type>();
     // svs_c.h lets the caller drop the stream once loading returns. That holds only while
     // assemble copies data out; a view allocator here would leave the index dangling.
-    return svs::Vamana::assemble<float, data_type>(
+    return svs::Vamana::assemble<float>(
         *stream,
+        svs::make_stream_loader<
+            svs::graphs::SimpleGraph<uint32_t, decltype(graph_allocator)>>(graph_allocator),
+        svs::make_stream_loader<data_type>(data_allocator),
         distance,
-        std::move(pool),
-        allocator_builder.build<value_type>(),
-        allocator_builder.build_for_graph<uint32_t>()
+        std::move(pool)
     );
 }
 
