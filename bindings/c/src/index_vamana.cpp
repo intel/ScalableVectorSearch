@@ -22,6 +22,7 @@
 #include "index_builder.hpp"
 
 #include <svs/concepts/data.h>
+#include <svs/concurrent/dynamic_index.h>
 #include <svs/core/query_result.h>
 #include <svs/lib/misc.h>
 #include <svs/orchestrators/dynamic_vamana.h>
@@ -132,7 +133,27 @@ std::pair<svs::QueryResult<size_t>, std::vector<size_t>> DynamicIndexVamana::sea
 
     if (id_filter == nullptr) {
         index.search(results.view(), queries, params);
-        return {results, std::vector<size_t>(queries.size(), num_neighbors)};
+        auto found_neighbors_per_query = std::vector<size_t>(queries.size(), num_neighbors);
+        if (sync_kind == SVS_SYNC_KIND_FINE_GRAIN) {
+            // Consolidation can erase buffered IDs before translation. The CSR exporter
+            // consumes each row's counted prefix, so move IDs and distances together.
+            for (size_t i = 0; i < results.n_queries(); ++i) {
+                size_t found = 0;
+                for (size_t j = 0; j < results.n_neighbors(); ++j) {
+                    const auto id = results.index(i, j);
+                    if (id == svs::index::vamana::concurrent::no_external_id) {
+                        continue;
+                    }
+                    if (found != j) {
+                        results.index(i, found) = id;
+                        results.distance(i, found) = results.distance(i, j);
+                    }
+                    ++found;
+                }
+                found_neighbors_per_query[i] = found;
+            }
+        }
+        return {std::move(results), std::move(found_neighbors_per_query)};
     }
 
     std::mt19937 rng(42);

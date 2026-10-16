@@ -1460,7 +1460,9 @@ SVS_API bool svs_index_get_size(
 /// @details Performs a TopK search on the index with the provided queries and an optional
 /// ID filter. The ID filter allows for filtering the search results based on specific IDs,
 /// enabling more targeted searches. If the ID filter is NULL, the search will return the
-/// top K results. If ID filter is provided, only the results that pass the filter will be
+/// top K results, except that SVS_SYNC_KIND_FINE_GRAIN may return fewer when concurrent
+/// consolidation removes selected IDs. Use the CSR offsets to determine each query's
+/// result count. If ID filter is provided, only the results that pass the filter will be
 /// returned. Results are written into @p out_results in CSR layout (see
 /// svs_search_results); library-owned buffers are reused across calls when their
 /// capacity suffices. If ID filter is provided with `filter_rate > 0.0` then the
