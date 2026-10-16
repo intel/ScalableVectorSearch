@@ -629,15 +629,13 @@ extern "C" bool svs_index_builder_set_threadpool(
     size_t num_threads,
     svs_error_h out_err
 ) {
-    if (builder == nullptr) {
-        SET_ERROR(out_err, SVS_ERROR_INVALID_ARGUMENT, "Invalid argument");
-        return false;
-    }
     using namespace svs::c_runtime;
     return wrap_exceptions(
         [&]() {
             EXPECT_ARG_NOT_NULL(builder);
-            EXPECT_ARG_GT_THAN(num_threads, 0);
+            if (kind != SVS_THREADPOOL_KIND_SINGLE_THREAD) {
+                EXPECT_ARG_GT_THAN(num_threads, 0);
+            }
             builder->impl->set_threadpool_builder({kind, num_threads});
             return true;
         },
