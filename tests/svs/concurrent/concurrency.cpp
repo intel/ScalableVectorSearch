@@ -308,8 +308,8 @@ CATCH_TEST_CASE(
                         // Every ID a search hands back either still maps to a live external
                         // ID -- in which case the mapping must round-trip exactly -- or it
                         // names a slot retired by a concurrent deleter, which is expected
-                        // and unobservable from here (``translate_internal_id`` degrades to
-                        // returning the internal ID when the entry has been erased).
+                        // and unobservable from here (``translate_internal_id`` returns
+                        // ``no_external_id`` when the entry has been erased).
                         auto external = index->translate_internal_id(internal);
                         if (index->has_id(external) &&
                             index->translate_external_id(external) != internal) {
