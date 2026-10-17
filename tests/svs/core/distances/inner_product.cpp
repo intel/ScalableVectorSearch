@@ -17,8 +17,10 @@
 // stdlib
 #include <algorithm>
 #include <cassert>
+#include <cmath>
 #include <cstdint>
 #include <iostream>
+#include <limits>
 #include <tuple>
 #include <vector>
 
@@ -56,6 +58,16 @@ double innerproduct_reference(const std::vector<Ea>& a, const std::vector<Eb>& b
     return result;
 }
 
+template <typename Ea, typename Eb>
+double innerproduct_abs_reference(const std::vector<Ea>& a, const std::vector<Eb>& b) {
+    assert(a.size() == b.size());
+    double result = 0;
+    for (size_t i = 0; i < a.size(); ++i) {
+        result += std::abs(svs_test::promote(a[i]) * svs_test::promote(b[i]));
+    }
+    return result;
+}
+
 // Testing utilities for common patterns
 namespace {
 template <typename Ea, typename Eb, size_t N, typename T>
@@ -71,9 +83,18 @@ void test_types(T lo, T hi, size_t num_tests) {
     for (size_t i = 0; i < num_tests; ++i) {
         svs_test::populate(a, generator_a, N);
         svs_test::populate(b, generator_b, N);
+        // A fixed margin is not enough when the products cancel and the result lands near
+        // zero: the sequential fp32 sum in the generic (non-AVX) kernel then carries an
+        // absolute error that scales with the size of the terms, not of the result. On ARM
+        // and macOS that failed ~5% of runs. Widen the margin to the standard forward error
+        // bound of recursive summation, N * eps * sum(|a_i * b_i|).
+        auto margin = std::max(
+            INNERPRODUCT_MARGIN,
+            N * std::numeric_limits<float>::epsilon() * innerproduct_abs_reference(a, b)
+        );
         auto expected = Catch::Approx(innerproduct_reference(a, b))
                             .epsilon(INNERPRODUCT_EPSILON)
-                            .margin(INNERPRODUCT_MARGIN);
+                            .margin(margin);
 
         // Statically Sized Computation
         CATCH_REQUIRE((svs::distance::IP::compute<N>(a.data(), b.data()) == expected));
