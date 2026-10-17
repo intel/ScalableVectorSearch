@@ -221,6 +221,19 @@ template <typename Idx, typename Cmp = std::less<>> class MutableBuffer {
         best_unvisited_ = 0;
     }
 
+    /// Reset the visited set so it holds exactly the ids currently in the buffer.
+    /// Used when a search resumes with a larger window: candidates that were seen but
+    /// dropped from the buffer can then be inserted again.
+    void reset_visited_to_contents() {
+        if (!visited_set_enabled()) {
+            return;
+        }
+        visited_->reset();
+        for (const auto& neighbor : candidates_) {
+            visited_->emplace(neighbor.id());
+        }
+    }
+
     size_t capacity() const { return candidates_.capacity(); }
 
     /// @brief Return the number of valid elements currently contained in the buffer.

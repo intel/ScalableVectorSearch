@@ -53,7 +53,10 @@ template <std::integral I> struct RestartInitializer {
             return;
         }
 
-        // Otherwise, sort the buffer to prepare for the next search.
+        // Otherwise, resume from the existing contents. Drop visited-set entries for ids
+        // no longer in the buffer so they can be re-inserted after the window grows.
+        buffer.reset_visited_to_contents();
+        // Sort the buffer to prepare for the next search.
         buffer.sort();
     }
 
