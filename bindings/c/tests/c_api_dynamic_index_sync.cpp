@@ -94,7 +94,7 @@ struct SyncFixture {
         builder = svs_index_builder_create(
             SVS_DISTANCE_METRIC_EUCLIDEAN, DIMENSION, algorithm, error
         );
-        svs_index_builder_set_threadpool(builder, SVS_THREADPOOL_KIND_NATIVE, 2, error);
+        svs_index_builder_set_threadpool(builder, SVS_THREADPOOL_KIND_NATIVE, 4, error);
     }
 
     ~SyncFixture() {
@@ -167,7 +167,9 @@ void run_concurrent_workload(SyncFixture& fx, svs_index_h index) {
 
             if (iter % 5 == 4) {
                 log.check(svs_index_dynamic_consolidate(index, err), err, "consolidate");
-                log.check(svs_index_dynamic_compact(index, 0, err), err, "compact");
+                log.check(
+                    svs_index_dynamic_compact(index, NUM_VECTORS, err), err, "compact"
+                );
             }
         }
         svs_error_free(err);
@@ -516,7 +518,7 @@ CATCH_TEST_CASE("C API Dynamic Index Sync Sequential", "[c_api][index][dynamic][
     ));
 
     CATCH_REQUIRE(svs_index_dynamic_consolidate(index, fx.error));
-    CATCH_REQUIRE(svs_index_dynamic_compact(index, 0, fx.error));
+    CATCH_REQUIRE(svs_index_dynamic_compact(index, NUM_VECTORS, fx.error));
 
     CATCH_REQUIRE(svs_index_set_num_threads(index, 1, fx.error));
     size_t num_threads = 0;
@@ -616,7 +618,7 @@ CATCH_TEST_CASE(
     ));
     CATCH_REQUIRE(count == new_ids.size());
     CATCH_REQUIRE(svs_index_dynamic_consolidate(converted, fx.error));
-    CATCH_REQUIRE(svs_index_dynamic_compact(converted, 0, fx.error));
+    CATCH_REQUIRE(svs_index_dynamic_compact(converted, NUM_VECTORS, fx.error));
     CATCH_REQUIRE(svs_index_get_size(converted, &size, fx.error));
     CATCH_REQUIRE(size == NUM_VECTORS - NUM_DELETED + new_ids.size());
 
@@ -663,7 +665,7 @@ CATCH_TEST_CASE("C API Dynamic Index Fine Grain Storage", "[c_api][index][dynami
     CATCH_REQUIRE(builder != nullptr);
     CATCH_REQUIRE(svs_index_builder_set_storage(builder, storage, fx.error));
     CATCH_REQUIRE(
-        svs_index_builder_set_threadpool(builder, SVS_THREADPOOL_KIND_NATIVE, 2, fx.error)
+        svs_index_builder_set_threadpool(builder, SVS_THREADPOOL_KIND_NATIVE, 4, fx.error)
     );
 
     svs_dynamic_index_params_t params = SVS_INIT_DYNAMIC_INDEX_PARAMS();

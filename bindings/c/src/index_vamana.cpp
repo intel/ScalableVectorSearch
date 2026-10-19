@@ -22,6 +22,7 @@
 #include "index_builder.hpp"
 
 #include <svs/concepts/data.h>
+#include <svs/concurrent/dynamic_index.h>
 #include <svs/core/query_result.h>
 #include <svs/lib/misc.h>
 #include <svs/orchestrators/dynamic_vamana.h>
@@ -131,6 +132,37 @@ std::pair<svs::QueryResult<size_t>, std::vector<size_t>> DynamicIndexVamana::sea
     }
 
     if (id_filter == nullptr) {
+        // FIXME: cuncurrent MutableVamanaIndex::search may return neighbors which ids are
+        // invalid. So we apply an InvalidIDFilter to ensure only valid IDs are considered.
+        if (this->sync_kind == SVS_SYNC_KIND_FINE_GRAIN) {
+            // Helper to filter-out invalid IDs from the search results
+            struct InvalidIDFilter_ : public IDFilterInterface {
+                bool is_member(size_t id) const override {
+                    return id != svs::index::vamana::concurrent::no_external_id;
+                }
+                float filter_rate() const override { return 0.0f; }
+            } invalid_id_filter;
+
+            auto found_neighbors_per_query = filtered_topk_search(
+                index,
+                results,
+                queries,
+                std::max(num_neighbors, params.buffer_config_.get_search_window_size()),
+                &invalid_id_filter,
+                []() -> size_t { return 0; }
+            );
+
+            assert([&]() {
+                size_t expected = std::min(num_neighbors, size());
+                return std::all_of(
+                    found_neighbors_per_query.begin(),
+                    found_neighbors_per_query.end(),
+                    [expected](size_t n) { return n == expected; }
+                );
+            }());
+
+            return {results, std::move(found_neighbors_per_query)};
+        }
         index.search(results.view(), queries, params);
         return {results, std::vector<size_t>(queries.size(), num_neighbors)};
     }
