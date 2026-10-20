@@ -38,6 +38,7 @@
 #include "svs/concurrent/multi.h"
 #include "svs/concurrent/prune.h"
 #include "svs/concurrent/reverse_edges.h"
+#include "svs/concurrent/spinlock.h"
 #include "svs/concurrent/vamana_build.h"
 
 namespace svs {

@@ -19,6 +19,7 @@
 #include "svs/concurrent/blocked_data.h"
 #include "svs/concurrent/graph_concepts.h"
 #include "svs/concurrent/reverse_edges.h"
+#include "svs/concurrent/spinlock.h"
 #include "svs/core/data/simple.h"
 #include "svs/lib/algorithms.h"
 #include "svs/lib/boundscheck.h"
@@ -26,7 +27,6 @@
 #include "svs/lib/concurrency/seqlock.h"
 #include "svs/lib/saveload.h"
 #include "svs/lib/segmented_vector.h"
-#include "svs/lib/spinlock.h"
 #include "svs/lib/threads.h"
 
 #include <algorithm>
