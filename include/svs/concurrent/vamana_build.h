@@ -21,7 +21,6 @@
 #include "svs/concepts/distance.h"
 #include "svs/concurrent/greedy_search.h"
 #include "svs/concurrent/prune.h"
-#include "svs/concurrent/spinlock.h"
 #include "svs/core/logging.h"
 #include "svs/index/vamana/build_params.h"
 #include "svs/index/vamana/extensions.h"

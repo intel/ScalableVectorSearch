@@ -16,8 +16,8 @@
 
 #pragma once
 
-#include "svs/concurrent/spinlock.h"
 #include "svs/lib/segmented_vector.h"
+#include "svs/lib/spinlock.h"
 
 // external
 #include "tsl/robin_set.h"
