@@ -607,6 +607,8 @@ struct svs_memory_breakdown {
 ///   operations that need an exclusive lock.
 /// * With FINE_GRAIN, counts returned by add_points/delete_points and the index size
 ///   reflect a point in time and may be affected by concurrent updates.
+/// * With FINE_GRAIN, search, add_points and delete_points accept at most one query,
+///   vector or ID per call; larger batches fail with SVS_ERROR_NOT_IMPLEMENTED.
 /// * The sync kind is a runtime property: it is not persisted by svs_index_save(), so
 ///   pass it again to svs_index_load_dynamic_ex().
 enum svs_sync_kind {
@@ -1486,6 +1488,8 @@ SVS_API bool svs_index_get_size(
 /// @param id_filter The ID filter interface (can be NULL for no filtering)
 /// @param out_err An optional error handle to capture errors
 /// @return true on success, false on failure
+/// @error SVS_ERROR_NOT_IMPLEMENTED if @p index is a dynamic index with
+/// SVS_SYNC_KIND_FINE_GRAIN and @p num_queries is greater than 1
 SVS_API bool svs_index_search_topk(
     svs_index_h index,
     const float* queries,
@@ -1563,6 +1567,8 @@ SVS_API bool svs_index_save_stream(
 /// vectors
 /// @param out_err An optional error handle to capture errors
 /// @return true on success, false on failure
+/// @error SVS_ERROR_NOT_IMPLEMENTED if @p index uses SVS_SYNC_KIND_FINE_GRAIN and
+/// @p num_vectors is greater than 1
 SVS_API bool svs_index_dynamic_add_points(
     svs_index_h index,
     const float* new_points,
@@ -1580,6 +1586,8 @@ SVS_API bool svs_index_dynamic_add_points(
 /// vectors
 /// @param out_err An optional error handle to capture errors
 /// @return true on success, false on failure
+/// @error SVS_ERROR_NOT_IMPLEMENTED if @p index uses SVS_SYNC_KIND_FINE_GRAIN and
+/// @p num_ids is greater than 1
 SVS_API bool svs_index_dynamic_delete_points(
     svs_index_h index,
     const size_t* ids,
