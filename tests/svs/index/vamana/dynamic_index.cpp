@@ -508,6 +508,7 @@ CATCH_TEST_CASE(
     auto sp = svs::index::vamana::VamanaSearchParameters{};
     sp.buffer_config_ = svs::index::vamana::SearchBufferConfig{50};
 
+    // Runs the filtered search; `found` = number of non-padding ids per query.
     auto search_filtered = [&](auto& results,
                                const svs::index::vamana::extensions::IDPredicate& pred,
                                std::vector<size_t>& found) {
@@ -516,9 +517,14 @@ CATCH_TEST_CASE(
             queries.cview(),
             sp,
             svs::lib::Returns(svs::lib::Const<false>()),
-            &pred,
-            &found
+            &pred
         );
+        found.assign(num_queries, 0);
+        for (size_t q = 0; q < num_queries; ++q) {
+            for (size_t j = 0; j < k; ++j) {
+                found[q] += results.index(q, j) != static_cast<size_t>(-1);
+            }
+        }
     };
 
     // Brute force over live ids passing `pred`.
@@ -607,35 +613,41 @@ CATCH_TEST_CASE(
         }
     }
 
-    CATCH_SECTION("unfiltered search is unchanged by the optional arguments") {
+    CATCH_SECTION("unfiltered search is unchanged by the optional argument") {
         index.delete_entries(std::vector<size_t>{ids[0], ids[1], ids[2]});
         auto plain = svs::QueryResult<size_t>(num_queries, k);
-        auto with_defaults = svs::QueryResult<size_t>(num_queries, k);
-        auto null_args = svs::QueryResult<size_t>(num_queries, k);
+        auto with_null = svs::QueryResult<size_t>(num_queries, k);
         index.search(plain.view(), queries.cview(), sp);
         index.search(
-            with_defaults.view(),
+            with_null.view(),
             queries.cview(),
             sp,
             svs::lib::Returns(svs::lib::Const<false>()),
-            nullptr,
             nullptr
         );
-        std::vector<size_t> found;
-        index.search(
-            null_args.view(),
-            queries.cview(),
-            sp,
-            svs::lib::Returns(svs::lib::Const<false>()),
-            nullptr,
-            &found
-        );
-        CATCH_REQUIRE(found.size() == num_queries);
         for (size_t q = 0; q < num_queries; ++q) {
             for (size_t j = 0; j < k; ++j) {
-                CATCH_REQUIRE(plain.index(q, j) == with_defaults.index(q, j));
-                CATCH_REQUIRE(plain.index(q, j) == null_args.index(q, j));
-                CATCH_REQUIRE(plain.distance(q, j) == with_defaults.distance(q, j));
+                CATCH_REQUIRE(plain.index(q, j) == with_null.index(q, j));
+                CATCH_REQUIRE(plain.distance(q, j) == with_null.distance(q, j));
+            }
+        }
+    }
+
+    CATCH_SECTION("unfiltered search pads rows with fewer than k results") {
+        std::vector<size_t> to_delete(ids.begin() + 4, ids.end());
+        index.delete_entries(to_delete);
+        auto results = svs::QueryResult<size_t>(num_queries, k);
+        index.search(results.view(), queries.cview(), sp);
+        for (size_t q = 0; q < num_queries; ++q) {
+            for (size_t j = 0; j < k; ++j) {
+                if (j < 4) {
+                    CATCH_REQUIRE(results.index(q, j) < ids[4]);
+                } else {
+                    CATCH_REQUIRE(results.index(q, j) == static_cast<size_t>(-1));
+                    CATCH_REQUIRE(
+                        results.distance(q, j) == std::numeric_limits<float>::infinity()
+                    );
+                }
             }
         }
     }
@@ -655,12 +667,10 @@ CATCH_TEST_CASE(
             num_threads
         );
         auto results = svs::QueryResult<size_t>(num_queries, k);
-        std::vector<size_t> found;
         CATCH_REQUIRE(dyn.filtered_search(
-            results.view(), queries.cview(), sp, std::function<bool(size_t)>(mod10), found
+            results.view(), queries.cview(), sp, std::function<bool(size_t)>(mod10)
         ));
         for (size_t q = 0; q < num_queries; ++q) {
-            CATCH_REQUIRE(found[q] == k);
             for (size_t j = 0; j < k; ++j) {
                 CATCH_REQUIRE(mod10(results.index(q, j)));
             }

@@ -29,6 +29,7 @@
 
 // stdlib
 #include <functional>
+#include <limits>
 
 namespace svs::index::vamana::extensions {
 
@@ -495,7 +496,11 @@ SVS_FORCE_INLINE void svs_invoke(
     search(query, accessor, distance, search_buffer);
 
     if constexpr (Index::needs_id_translation) {
-        check_and_supplement_search_buffer(index, search_buffer, query);
+        const IDPredicate* pred = nullptr;
+        if constexpr (requires { search.pred; }) {
+            pred = &search.pred; // Filtered search: `search` carries its filter.
+        }
+        check_and_supplement_search_buffer(index, search_buffer, query, pred);
     }
 }
 
@@ -600,7 +605,12 @@ void svs_invoke(
 
         // Copy back results.
         for (size_t j = 0; j < num_neighbors; ++j) {
-            result.set(search_buffer[j], i, j);
+            if (j < search_buffer.size()) {
+                result.set(search_buffer[j], i, j);
+            } else { // Fewer than k results: pad.
+                result.index(i, j) = static_cast<I>(-1);
+                result.distance(i, j) = std::numeric_limits<float>::infinity();
+            }
         }
     }
 }

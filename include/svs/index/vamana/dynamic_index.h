@@ -111,28 +111,38 @@ class ValidBuilder {
 };
 
 // Like `ValidBuilder`, but an entry is also invalid if `pred(external_id)` is false.
-class FilteredValidBuilder {
+class FilteredValidBuilder : public ValidBuilder {
   public:
     FilteredValidBuilder(
         const std::vector<SlotMetadata>& status,
         const IDTranslator& translator,
         const extensions::IDPredicate& pred
     )
-        : status_{status}
+        : ValidBuilder{status}
         , translator_{translator}
         , pred_{pred} {}
 
     template <typename I>
     PredicatedSearchNeighbor<I> operator()(I i, float distance) const {
-        bool valid = getindex(status_, i) != SlotMetadata::Deleted &&
-                     pred_(translator_.get_external(i));
-        return PredicatedSearchNeighbor<I>(i, distance, valid);
+        auto base = ValidBuilder::operator()(i, distance);
+        if (base.valid() && !pred_(translator_.get_external(i))) {
+            return PredicatedSearchNeighbor<I>(i, distance, false);
+        }
+        return base;
     }
 
   private:
-    const std::vector<SlotMetadata>& status_;
     const IDTranslator& translator_;
     const extensions::IDPredicate& pred_;
+};
+
+// A search closure that also carries the filter, so the buffer top-up can apply it too.
+template <typename Search> struct FilteredSearch {
+    Search search;
+    const extensions::IDPredicate& pred;
+    template <typename... Args> void operator()(Args&&... args) const {
+        search(std::forward<Args>(args)...);
+    }
 };
 
 // Data types for which the filtered `search` overload is valid (identity accessor).
@@ -566,6 +576,9 @@ class MutableVamanaIndex {
             [&](const auto is, uint64_t /*tid*/) {
                 for (auto i : is) {
                     for (size_t j = 0, jmax = getsize<1>(ids); j < jmax; ++j) {
+                        if (ids.at(i, j) == std::numeric_limits<size_t>::max()) {
+                            continue; // Padding from a search with fewer than k results.
+                        }
                         auto internal = lib::narrow_cast<Idx>(ids.at(i, j));
                         ids.at(i, j) = translate_internal_id(internal);
                     }
@@ -669,16 +682,11 @@ class MutableVamanaIndex {
         const Queries& queries,
         const search_parameters_type& sp,
         const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>()),
-        const extensions::IDPredicate* pred = nullptr,
-        std::vector<size_t>* found = nullptr
+        const extensions::IDPredicate* pred = nullptr
     ) {
-        // Optional filter: only live entries with `(*pred)(external_id)` are returned;
-        // others are navigated through but do not count toward the search window. Rows
-        // with fewer than `n_neighbors` results are padded with id `size_t(-1)` and
-        // distance `+inf`; `found` (if given) receives the count per query.
-        if (found != nullptr) {
-            found->assign(queries.size(), 0);
-        }
+        // Optional filter (`pred` takes an external id): only live entries it accepts are
+        // returned. Rows with fewer than `n_neighbors` results are padded with id
+        // `size_t(-1)` and distance `+inf`. Only meant for `SimpleData`.
         threads::parallel_for(
             threadpool_,
             threads::StaticPartition{queries.size()},
@@ -697,56 +705,34 @@ class MutableVamanaIndex {
 
                 auto scratch = extensions::per_thread_batch_search_setup(data_, distance_);
 
-                if (pred != nullptr) {
-                    if constexpr (filtered_search_supported<Data>) {
-                        auto builder = FilteredValidBuilder{status_, translator_, *pred};
-                        auto search =
-                            greedy_search_closure(builder, prefetch_parameters, cancel);
-                        auto accessor = data::GetDatumAccessor();
-                        for (auto i : is) {
-                            auto query = queries.get_datum(i);
-                            search(query, accessor, scratch, buffer);
-                            extensions::check_and_supplement_search_buffer(
-                                *this, buffer, query, pred
-                            );
-                            size_t n = std::min(num_neighbors, buffer.size());
-                            for (size_t j = 0; j < num_neighbors; ++j) {
-                                bool ok = j < n;
-                                results.index(i, j) =
-                                    ok ? translate_internal_id(buffer[j].id()) : size_t(-1);
-                                results.distance(i, j) =
-                                    ok ? buffer[j].distance()
-                                       : std::numeric_limits<float>::infinity();
-                            }
-                            if (found != nullptr) {
-                                (*found)[i] = n;
-                            }
-                        }
-                        return;
-                    } else {
-                        throw ANNEXCEPTION(
-                            "Filtered search is not supported for this data type."
-                        );
-                    }
+                auto run = [&](const auto& search) {
+                    extensions::per_thread_batch_search(
+                        data_,
+                        buffer,
+                        scratch,
+                        queries,
+                        results,
+                        threads::UnitRange{is},
+                        search,
+                        *this,
+                        cancel
+                    );
+                };
+                if (pred == nullptr) {
+                    run(greedy_search_closure(prefetch_parameters, cancel));
+                } else {
+                    auto search = greedy_search_closure(
+                        FilteredValidBuilder{status_, translator_, *pred},
+                        prefetch_parameters,
+                        cancel
+                    );
+                    run(FilteredSearch<decltype(search)>{search, *pred});
                 }
-
-                extensions::per_thread_batch_search(
-                    data_,
-                    buffer,
-                    scratch,
-                    queries,
-                    results,
-                    threads::UnitRange{is},
-                    greedy_search_closure(prefetch_parameters, cancel),
-                    *this,
-                    cancel
-                );
             }
         );
 
         // Check if request to cancel the search
-        // (Filtered results already hold external ids.)
-        if (cancel() || pred != nullptr) {
+        if (cancel()) {
             return;
         }
 

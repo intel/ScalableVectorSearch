@@ -63,8 +63,7 @@ class DynamicVamanaInterface : public VamanaInterface {
         svs::QueryResultView<size_t> results,
         AnonymousArray<2> queries,
         const index::vamana::VamanaSearchParameters& search_parameters,
-        const std::function<bool(size_t)>& filter,
-        std::vector<size_t>& found
+        const std::function<bool(size_t)>& filter
     ) = 0;
 };
 
@@ -124,8 +123,7 @@ class DynamicVamanaImpl : public VamanaImpl<QueryTypes, Impl, DynamicVamanaInter
         svs::QueryResultView<size_t> results,
         AnonymousArray<2> queries,
         const index::vamana::VamanaSearchParameters& search_parameters,
-        const std::function<bool(size_t)>& filter,
-        std::vector<size_t>& found
+        const std::function<bool(size_t)>& filter
     ) override {
         if constexpr (requires { requires Impl::has_filtered_search; }) {
             lib::match(
@@ -138,8 +136,7 @@ class DynamicVamanaImpl : public VamanaImpl<QueryTypes, Impl, DynamicVamanaInter
                         view,
                         search_parameters,
                         lib::Returns(lib::Const<false>()),
-                        &filter,
-                        &found
+                        &filter
                     );
                 },
                 [&](svs::DataType data_type) {
@@ -658,11 +655,10 @@ class DynamicVamana : public manager::IndexManager<DynamicVamanaInterface> {
         QueryResultView<size_t> results,
         data::ConstSimpleDataView<QueryType> queries,
         const VamanaSearchParameters& search_parameters,
-        const std::function<bool(size_t)>& filter,
-        std::vector<size_t>& found
+        const std::function<bool(size_t)>& filter
     ) {
         return impl_->filtered_search(
-            results, AnonymousArray<2>(queries), search_parameters, filter, found
+            results, AnonymousArray<2>(queries), search_parameters, filter
         );
     }
 };
