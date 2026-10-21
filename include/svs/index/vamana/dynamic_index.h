@@ -18,7 +18,6 @@
 
 // stdlib
 #include <algorithm>
-#include <limits>
 #include <memory>
 #include <stdexcept>
 
@@ -95,69 +94,39 @@ inline constexpr std::string_view name(SlotMetadata metadata) {
 
 class ValidBuilder {
   public:
-    ValidBuilder(const std::vector<SlotMetadata>& status)
-        : status_{status} {}
+    // Optional `pred` (with `translator`): an entry is also invalid if `pred(external_id)`
+    // is false. Invalid entries are navigated through but never returned.
+    ValidBuilder(
+        const std::vector<SlotMetadata>& status,
+        const IDTranslator* translator = nullptr,
+        const std::function<bool(size_t)>* pred = nullptr
+    )
+        : status_{status}
+        , translator_{translator}
+        , pred_{pred} {}
 
     template <typename I>
     constexpr PredicatedSearchNeighbor<I> operator()(I i, float distance) const {
         bool invalid = getindex(status_, i) == SlotMetadata::Deleted;
         // This neighbor should be skipped if the metadata corresponding to the given index
         // marks this slot as deleted.
+        if (!invalid && pred_ != nullptr) {
+            invalid = !(*pred_)(translator_->get_external(i));
+        }
         return PredicatedSearchNeighbor<I>(i, distance, !invalid);
     }
 
   private:
     const std::vector<SlotMetadata>& status_;
+    const IDTranslator* translator_;
+    const std::function<bool(size_t)>* pred_;
 };
-
-// Like `ValidBuilder`, but an entry is also invalid if `pred(external_id)` is false.
-class FilteredValidBuilder : public ValidBuilder {
-  public:
-    FilteredValidBuilder(
-        const std::vector<SlotMetadata>& status,
-        const IDTranslator& translator,
-        const extensions::IDPredicate& pred
-    )
-        : ValidBuilder{status}
-        , translator_{translator}
-        , pred_{pred} {}
-
-    template <typename I>
-    PredicatedSearchNeighbor<I> operator()(I i, float distance) const {
-        auto base = ValidBuilder::operator()(i, distance);
-        if (base.valid() && !pred_(translator_.get_external(i))) {
-            return PredicatedSearchNeighbor<I>(i, distance, false);
-        }
-        return base;
-    }
-
-  private:
-    const IDTranslator& translator_;
-    const extensions::IDPredicate& pred_;
-};
-
-// A search closure that also carries the filter, so the buffer top-up can apply it too.
-template <typename Search> struct FilteredSearch {
-    Search search;
-    const extensions::IDPredicate& pred;
-    template <typename... Args> void operator()(Args&&... args) const {
-        search(std::forward<Args>(args)...);
-    }
-};
-
-// Data types for which the filtered `search` overload is valid (identity accessor).
-template <typename Data> inline constexpr bool filtered_search_supported = false;
-template <typename T, size_t Extent, typename Alloc>
-inline constexpr bool filtered_search_supported<data::SimpleData<T, Extent, Alloc>> = true;
 
 template <graphs::MemoryGraph Graph, typename Data, typename Dist>
 class MutableVamanaIndex {
     friend class MultiMutableVamanaIndex<Graph, Data, Dist>;
 
   public:
-    // Present only on indexes that support the filtered `search` overload.
-    static constexpr bool has_filtered_search = filtered_search_supported<Data>;
-
     // Traits
     static constexpr bool supports_insertions = true;
     static constexpr bool supports_deletions = true;
@@ -576,8 +545,8 @@ class MutableVamanaIndex {
             [&](const auto is, uint64_t /*tid*/) {
                 for (auto i : is) {
                     for (size_t j = 0, jmax = getsize<1>(ids); j < jmax; ++j) {
-                        if (ids.at(i, j) == std::numeric_limits<size_t>::max()) {
-                            continue; // Padding from a search with fewer than k results.
+                        if (ids.at(i, j) == static_cast<size_t>(-1)) {
+                            continue; // Padding from a filtered search.
                         }
                         auto internal = lib::narrow_cast<Idx>(ids.at(i, j));
                         ids.at(i, j) = translate_internal_id(internal);
@@ -620,15 +589,17 @@ class MutableVamanaIndex {
 
     // Return a `greedy_search` compatible builder for this index.
     // This is an internal method, mostly used to help implement the batch iterator.
-    ValidBuilder internal_search_builder() const { return ValidBuilder{status_}; }
-
-    template <typename Builder>
-    auto greedy_search_closure(
-        const Builder& builder,
-        GreedySearchPrefetchParameters prefetch_parameters,
-        const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>())
+    ValidBuilder internal_search_builder(const std::function<bool(size_t)>* pred = nullptr
     ) const {
-        return [&, builder, prefetch_parameters](
+        return ValidBuilder{status_, &translator_, pred};
+    }
+
+    auto greedy_search_closure(
+        GreedySearchPrefetchParameters prefetch_parameters,
+        const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>()),
+        const std::function<bool(size_t)>* pred = nullptr
+    ) const {
+        return [&, prefetch_parameters, pred](
                    const auto& query, auto& accessor, auto& distance, auto& buffer
                ) {
             // Perform the greedy search using the provided resources.
@@ -640,7 +611,7 @@ class MutableVamanaIndex {
                 distance,
                 buffer,
                 vamana::EntryPointInitializer<Idx>{lib::as_const_span(entry_point_)},
-                builder,
+                internal_search_builder(pred),
                 prefetch_parameters,
                 cancel
             );
@@ -648,15 +619,6 @@ class MutableVamanaIndex {
             // might remain.
             buffer.cleanup();
         };
-    }
-
-    auto greedy_search_closure(
-        GreedySearchPrefetchParameters prefetch_parameters,
-        const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>())
-    ) const {
-        return greedy_search_closure(
-            internal_search_builder(), prefetch_parameters, cancel
-        );
     }
 
     // Single Search
@@ -682,11 +644,11 @@ class MutableVamanaIndex {
         const Queries& queries,
         const search_parameters_type& sp,
         const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>()),
-        const extensions::IDPredicate* pred = nullptr
+        const std::function<bool(size_t)>* pred = nullptr
     ) {
-        // Optional filter (`pred` takes an external id): only live entries it accepts are
-        // returned. Rows with fewer than `n_neighbors` results are padded with id
-        // `size_t(-1)` and distance `+inf`. Only meant for `SimpleData`.
+        // Optional `pred`: only entries whose external id passes are returned. It is called
+        // from all search threads. Rows with fewer passing entries than requested are
+        // padded with id `size_t(-1)` and the worst score.
         threads::parallel_for(
             threadpool_,
             threads::StaticPartition{queries.size()},
@@ -718,15 +680,11 @@ class MutableVamanaIndex {
                         cancel
                     );
                 };
+                auto search = greedy_search_closure(prefetch_parameters, cancel, pred);
                 if (pred == nullptr) {
-                    run(greedy_search_closure(prefetch_parameters, cancel));
+                    run(search);
                 } else {
-                    auto search = greedy_search_closure(
-                        FilteredValidBuilder{status_, translator_, *pred},
-                        prefetch_parameters,
-                        cancel
-                    );
-                    run(FilteredSearch<decltype(search)>{search, *pred});
+                    run(extensions::FilteredSearch<decltype(search)>{search, pred});
                 }
             }
         );

@@ -510,7 +510,7 @@ CATCH_TEST_CASE(
 
     // Runs the filtered search; `found` = number of non-padding ids per query.
     auto search_filtered = [&](auto& results,
-                               const svs::index::vamana::extensions::IDPredicate& pred,
+                               const std::function<bool(size_t)>& pred,
                                std::vector<size_t>& found) {
         index.search(
             results.view(),

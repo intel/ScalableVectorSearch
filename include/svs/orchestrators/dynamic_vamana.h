@@ -22,7 +22,6 @@
 #include "svs/orchestrators/vamana.h"
 
 // stdlib
-#include <functional>
 #include <type_traits>
 
 namespace svs {
@@ -66,6 +65,11 @@ class DynamicVamanaInterface : public VamanaInterface {
         const std::function<bool(size_t)>& filter
     ) = 0;
 };
+
+// Filtered search is only enabled for uncompressed data.
+template <typename T> inline constexpr bool is_simple_data = false;
+template <typename T, size_t Extent, typename Alloc>
+inline constexpr bool is_simple_data<data::SimpleData<T, Extent, Alloc>> = true;
 
 template <lib::TypeList QueryTypes, typename Impl>
 class DynamicVamanaImpl : public VamanaImpl<QueryTypes, Impl, DynamicVamanaInterface> {
@@ -125,15 +129,14 @@ class DynamicVamanaImpl : public VamanaImpl<QueryTypes, Impl, DynamicVamanaInter
         const index::vamana::VamanaSearchParameters& search_parameters,
         const std::function<bool(size_t)>& filter
     ) override {
-        if constexpr (requires { requires Impl::has_filtered_search; }) {
+        if constexpr (is_simple_data<typename Impl::data_type>) {
             lib::match(
                 QueryTypes{},
                 queries.type(),
                 [&]<typename T>(lib::Type<T> SVS_UNUSED(type)) {
-                    const auto view = data::ConstSimpleDataView<T>(queries);
                     impl().search(
                         results,
-                        view,
+                        data::ConstSimpleDataView<T>(queries),
                         search_parameters,
                         lib::Returns(lib::Const<false>()),
                         &filter
@@ -649,7 +652,8 @@ class DynamicVamana : public manager::IndexManager<DynamicVamanaInterface> {
     /// @brief Check if the index has been consolidated - no `Deleted` entries remain.
     bool is_consolidated() const { return impl_->is_consolidated(); }
 
-    /// @brief Filtered search (see ``MutableVamanaIndex::search``); false if unsupported.
+    /// @brief Filtered search: only ids for which ``filter(id)`` is true are returned.
+    /// Returns false if the data type does not support it.
     template <typename QueryType>
     bool filtered_search(
         QueryResultView<size_t> results,

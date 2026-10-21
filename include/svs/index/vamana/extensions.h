@@ -27,7 +27,6 @@
 #include "svs/lib/preprocessor.h"
 #include "svs/lib/threads.h"
 
-// stdlib
 #include <functional>
 #include <limits>
 
@@ -429,22 +428,17 @@ struct VamanaSingleSearchType {
     }
 };
 
-/// Predicate on external ids used by filtered search.
-using IDPredicate = std::function<bool(size_t)>;
-
 /// In rare cases, the search buffer may not be filled with enough results.
 /// This can occur in dynamic indexes when many vectors have been deleted
 /// and the graph becomes sparsely connected. It's a corner case and should
 /// not happen frequently, but when it does, we may need to supplement the buffer
 /// with additional results.
-/// If `pred` is given, entries whose external id it rejects are skipped (checked before
-/// the distance is computed).
 template <typename Index, typename SearchBuffer, typename Query>
 void check_and_supplement_search_buffer(
     const Index& index,
     SearchBuffer& search_buffer,
     const Query& query,
-    const IDPredicate* pred = nullptr
+    const std::function<bool(size_t)>* pred = nullptr
 ) {
     if (search_buffer.valid() < search_buffer.target_window() &&
         search_buffer.valid() < index.size()) {
@@ -463,6 +457,15 @@ void check_and_supplement_search_buffer(
         }
     }
 }
+
+/// A search closure that also carries the filter of a filtered search.
+template <typename Search> struct FilteredSearch {
+    Search search;
+    const std::function<bool(size_t)>* pred;
+    template <typename... Args> void operator()(Args&&... args) const {
+        search(std::forward<Args>(args)...);
+    }
+};
 
 /// Customization point object for processing single queries.
 inline constexpr VamanaSingleSearchType single_search{};
@@ -496,9 +499,9 @@ SVS_FORCE_INLINE void svs_invoke(
     search(query, accessor, distance, search_buffer);
 
     if constexpr (Index::needs_id_translation) {
-        const IDPredicate* pred = nullptr;
+        const std::function<bool(size_t)>* pred = nullptr;
         if constexpr (requires { search.pred; }) {
-            pred = &search.pred; // Filtered search: `search` carries its filter.
+            pred = search.pred; // Filtered search: keep filtered-out ids out of the top-up.
         }
         check_and_supplement_search_buffer(index, search_buffer, query, pred);
     }
@@ -605,12 +608,17 @@ void svs_invoke(
 
         // Copy back results.
         for (size_t j = 0; j < num_neighbors; ++j) {
-            if (j < search_buffer.size()) {
-                result.set(search_buffer[j], i, j);
-            } else { // Fewer than k results: pad.
-                result.index(i, j) = static_cast<I>(-1);
-                result.distance(i, j) = std::numeric_limits<float>::infinity();
+            if constexpr (requires { search.pred; }) {
+                if (j >= search_buffer.size()) { // Filtered: fewer than k passed.
+                    result.index(i, j) = static_cast<I>(-1);
+                    result.distance(i, j) =
+                        distance::comparator(distance)(0.0f, 1.0f)
+                            ? std::numeric_limits<float>::infinity()
+                            : -std::numeric_limits<float>::infinity();
+                    continue;
+                }
             }
+            result.set(search_buffer[j], i, j);
         }
     }
 }
