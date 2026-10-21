@@ -22,8 +22,8 @@ C applications and any language with C FFI support.
 The API is built around a small set of opaque handles and a builder pattern:
 configure an *algorithm*, optional *storage* and *thread pool*, hand them to an
 *index builder*, then use the resulting *index* to run TopK searches (with
-optional ID filtering), save/load the index, and — for dynamic indices — add or
-delete points at runtime.
+optional ID filtering), save/load the index to disk or a caller-supplied stream,
+and — for dynamic indices — add or delete points at runtime.
 
 For the design rationale, naming conventions, and full API reference see
 [docs/C_API_Design.md](docs/C_API_Design.md).
@@ -181,16 +181,16 @@ cleanup:
 
 ## Samples
 
-Runnable sample applications live in [samples/](samples/):
+Runnable sample applications live in [`examples/c/`](../../examples/c/):
 
-- [`simple.c`](samples/simple.c) – minimal static index build + search with a
+- [`simple.c`](../../examples/c/simple.c) – minimal static index build + search with a
   custom thread pool
-- [`dynamic.c`](samples/dynamic.c) – dynamic index with add / delete /
+- [`dynamic.c`](../../examples/c/dynamic.c) – dynamic index with add / delete /
   consolidate
-- [`save_load.c`](samples/save_load.c) – persisting and reloading indices from
+- [`save_load.c`](../../examples/c/save_load.c) – persisting and reloading indices from
   disk
-
-Additional integration examples: [`examples/c/`](../../examples/c/).
+- [`save_load_stream.c`](../../examples/c/save_load_stream.c) – stream-based index save
+  and load
 
 ## Further Reading
 

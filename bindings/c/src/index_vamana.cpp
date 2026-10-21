@@ -29,6 +29,7 @@
 
 #include <algorithm>
 #include <cassert>
+#include <filesystem>
 #include <memory>
 #include <random>
 #include <utility>
@@ -95,9 +96,9 @@ void IndexVamana::set_num_threads(size_t num_threads) {
 /////////////////////////////////////
 // DynamicIndexVamana Implementation
 DynamicIndexVamana::DynamicIndexVamana(
-    const IndexBuilder& builder, svs::DynamicVamana&& index
+    const IndexBuilder& builder, svs::DynamicVamana&& index, svs_sync_kind_t sync_kind
 )
-    : DynamicIndex(std::make_unique<IndexBuilder>(builder))
+    : DynamicIndex(std::make_unique<IndexBuilder>(builder), sync_kind)
     , index(std::move(index)) {
     auto all_ids = this->index.all_ids();
     auto [min_it, max_it] = std::minmax_element(all_ids.begin(), all_ids.end());
@@ -122,6 +123,7 @@ std::pair<svs::QueryResult<size_t>, std::vector<size_t>> DynamicIndexVamana::sea
     const std::shared_ptr<Algorithm::SearchParams>& search_params,
     const IDFilterInterface* id_filter
 ) {
+    auto lock = read_lock();
     auto vamana_search_params =
         std::static_pointer_cast<AlgorithmVamana::SearchParams>(search_params);
     auto results = svs::QueryResult<size_t>(queries.size(), num_neighbors);
@@ -172,6 +174,7 @@ std::pair<svs::QueryResult<size_t>, std::vector<size_t>> DynamicIndexVamana::sea
 size_t DynamicIndexVamana::add_points(
     svs::data::ConstSimpleDataView<float> new_points, std::span<const size_t> ids
 ) {
+    auto lock = write_lock();
     // Track the maximum ID added to the index for ids generator
     auto [min_it, max_it] = std::minmax_element(ids.begin(), ids.end());
     if (min_it != ids.end()) {
@@ -188,6 +191,7 @@ size_t DynamicIndexVamana::add_points(
 }
 
 size_t DynamicIndexVamana::delete_points(std::span<const size_t> ids) {
+    auto lock = write_lock();
     std::vector<size_t> ids_to_delete;
     ids_to_delete.reserve(ids.size());
 
@@ -203,7 +207,32 @@ size_t DynamicIndexVamana::delete_points(std::span<const size_t> ids) {
     return ids_to_delete.size();
 }
 
+void DynamicIndexVamana::save(const std::filesystem::path& directory) {
+    // Saving consolidates and compacts the index, so it requires exclusive access.
+    auto lock = write_lock();
+    index.save(directory / "config", directory / "graph", directory / "data");
+}
+
+void DynamicIndexVamana::consolidate() {
+    auto lock = write_lock();
+    index.consolidate();
+}
+
+void DynamicIndexVamana::compact(size_t batchsize) {
+    auto lock = write_lock();
+    // Ensure the index is consolidated before compacting.
+    if (!index.is_consolidated()) {
+        index.consolidate();
+    }
+    if (batchsize == 0) {
+        index.compact(); // Use default batch size
+    } else {
+        index.compact(batchsize);
+    }
+}
+
 void DynamicIndexVamana::set_num_threads(size_t num_threads) {
+    auto lock = write_lock();
     this->builder->pool_builder.resize(num_threads);
     index.set_threadpool(this->builder->pool_builder.build());
 }

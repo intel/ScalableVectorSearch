@@ -305,6 +305,18 @@ class Vamana : public manager::IndexManager<VamanaInterface> {
     using base_type = manager::IndexManager<VamanaInterface>;
     using VamanaSearchParameters = index::vamana::VamanaSearchParameters;
 
+    /// @brief Graph type ``assemble`` uses by default when loading ``Data`` from a stream.
+    ///
+    /// View-backed data needs a graph viewing the same buffer, so its allocator is rebound
+    /// to ``uint32_t``; otherwise the graph uses a ``HugepageAllocator``.
+    template <typename Data>
+    using default_graph_type = graphs::SimpleGraph<
+        uint32_t,
+        std::conditional_t<
+            is_view_type_v<typename Data::allocator_type>,
+            lib::rebind_allocator_t<uint32_t, typename Data::allocator_type>,
+            HugepageAllocator<uint32_t>>>;
+
     /// @private
     struct BuildTag {};
     /// @private
@@ -421,6 +433,8 @@ class Vamana : public manager::IndexManager<VamanaInterface> {
     ///     instance or an integer specifying the number of threads to use. In the latter
     ///     case, a new default thread pool will be constructed using ``threadpool_proto``
     ///     as the number of threads to create.
+    /// @param logger The logger to use for this index. Defaults to the global SVS logger
+    ///     (``svs::logging::get()``).
     ///
     /// The data loader should be any object loadable via ``svs::detail::dispatch_load``
     /// returning a Vamana compatible dataset. Concrete examples include:
@@ -440,14 +454,19 @@ class Vamana : public manager::IndexManager<VamanaInterface> {
         typename Distance,
         typename ThreadPoolProto>
     static Vamana assemble(
-        ConfigLoaderProto config_proto,
+        ConfigLoaderProto&& config_proto,
         const GraphLoaderType& graph_loader,
         DataLoader&& data_loader,
         const Distance& distance,
-        ThreadPoolProto threadpool_proto
-    ) {
-        // If given an `enum` for the distance type, than we need to dispatch over that
-        // enum.
+        ThreadPoolProto threadpool_proto,
+        svs::logging::logger_ptr logger = svs::logging::get()
+    )
+        // Excludes `std::istream` so a `std::stringstream` config prefers the
+        // `std::istream&` overload below instead of binding here via `ConfigLoaderProto&&`.
+        requires(!std::is_base_of_v<std::istream, std::remove_cvref_t<ConfigLoaderProto>> && !is_stream_loader_v<std::decay_t<GraphLoaderType>> && !is_stream_loader_v<std::decay_t<DataLoader>>)
+    {
+        // If given an `enum` for the distance type, than we need to dispatch over
+        // that enum.
         //
         // Otherwise, we can directly forward the provided distance function.
         auto threadpool = threads::as_threadpool(std::move(threadpool_proto));
@@ -460,7 +479,8 @@ class Vamana : public manager::IndexManager<VamanaInterface> {
                     graph_loader,
                     std::forward<DataLoader>(data_loader),
                     distance_function,
-                    std::move(threadpool)
+                    std::move(threadpool),
+                    std::move(logger)
                 );
             });
         } else {
@@ -470,67 +490,71 @@ class Vamana : public manager::IndexManager<VamanaInterface> {
                 graph_loader,
                 std::forward<DataLoader>(data_loader),
                 distance,
-                std::move(threadpool)
+                std::move(threadpool),
+                std::move(logger)
             );
         }
     }
 
-    // Assembly from stream
+    ///
+    /// @brief Assemble a Vamana index from a stream.
+    ///
+    /// @param stream The stream to load from. See ``svs::Vamana::save``. Accepts either
+    ///     the native stream format or a directory archive.
+    /// @param graph_loader The ``StreamLoader`` for the graph.
+    /// @param data_loader The ``StreamLoader`` for the dataset. If view-backed
+    ///     (``Data``'s allocator is a view allocator), loading requires the native
+    ///     format, and the returned index views the stream's buffer directly, so the
+    ///     stream must outlive the index.
+    /// @param distance The distance functor or ``svs::DistanceType`` enum to use for
+    ///     similarity search computations.
+    /// @param threadpool_proto Precursor for the thread pool to use. Can either be an
+    ///     acceptable thread pool instance or an integer specifying the number of
+    ///     threads to use.
+    /// @param logger The logger to use for this index. Defaults to the global SVS logger
+    ///     (``svs::logging::get()``).
+    ///
+    /// @copydoc threadpool_requirements
+    ///
+    /// @sa save, build
+    ///
     template <
         manager::QueryTypeDefinition QueryTypes,
-        typename Data,
+        typename GraphLoader,
+        typename DataLoader,
         typename Distance,
-        typename ThreadPoolProto,
-        typename... DataLoaderArgs>
+        typename ThreadPoolProto>
     static Vamana assemble(
         std::istream& stream,
+        const GraphLoader& graph_loader,
+        const DataLoader& data_loader,
         const Distance& distance,
         ThreadPoolProto threadpool_proto,
-        DataLoaderArgs&&... data_args
-    ) {
+        svs::logging::logger_ptr logger = svs::logging::get()
+    )
+        requires(is_stream_loader_v<GraphLoader> && is_stream_loader_v<DataLoader>)
+    {
+        using Graph = typename GraphLoader::return_type;
+        using Data = typename DataLoader::return_type;
         auto deserializer = svs::lib::detail::Deserializer::build(stream);
         if (deserializer.is_native()) {
-            auto threadpool = threads::as_threadpool(std::move(threadpool_proto));
+            auto load_graph = [&]() -> Graph { return graph_loader.load(stream); };
+            auto load_data = [&]() -> Data { return data_loader.load(stream); };
 
-            using GraphType = std::conditional_t<
-                is_view_type_v<typename Data::allocator_type>,
-                graphs::SimpleGraph<
-                    uint32_t,
-                    lib::rebind_allocator_t<uint32_t, typename Data::allocator_type>>,
-                GraphLoader<>::return_type>;
-
-            if constexpr (std::is_same_v<Distance, DistanceType>) {
-                auto dispatcher = DistanceDispatcher(distance);
-                return dispatcher([&](auto distance_function) {
-                    return make_vamana<manager::as_typelist<QueryTypes>>(
-                        AssembleTag(),
-                        stream,
-                        // lazy-loader
-                        [&]() -> GraphType { return GraphType::load(stream); },
-                        // lazy-loader
-                        [&]() -> Data {
-                            return lib::load_from_stream<Data>(
-                                stream, SVS_FWD(data_args)...
-                            );
-                        },
-                        distance_function,
-                        std::move(threadpool)
-                    );
-                });
-            } else {
-                return make_vamana<manager::as_typelist<QueryTypes>>(
-                    AssembleTag(),
-                    stream,
-                    // lazy-loader
-                    [&]() -> GraphType { return GraphType::load(stream); },
-                    // lazy-loader
-                    [&]() -> Data {
-                        return lib::load_from_stream<Data>(stream, SVS_FWD(data_args)...);
-                    },
-                    distance,
-                    std::move(threadpool)
-                );
-            }
+            return assemble_native<QueryTypes>(
+                stream,
+                load_graph,
+                load_data,
+                distance,
+                std::move(threadpool_proto),
+                std::move(logger)
+            );
+        } else if constexpr (is_view_type_v<typename Data::allocator_type>) {
+            throw ANNEXCEPTION(
+                "Cannot load a view-backed Vamana index from a directory archive. "
+                "Directory archives are unpacked to a temporary directory and cannot "
+                "back a view; use the native stream format instead."
+            );
         } else {
             namespace fs = std::filesystem;
             lib::UniqueTempDirectory tempdir{"svs_vamana_load"};
@@ -555,12 +579,52 @@ class Vamana : public manager::IndexManager<VamanaInterface> {
 
             return assemble<QueryTypes>(
                 config_path,
-                svs::GraphLoader{graph_path},
-                lib::load_from_disk<Data>(data_path, SVS_FWD(data_args)...),
+                SVS_LAZY(graph_loader.load(graph_path)),
+                data_loader.load(data_path),
                 distance,
-                threads::as_threadpool(std::move(threadpool_proto))
+                threads::as_threadpool(std::move(threadpool_proto)),
+                std::move(logger)
             );
         }
+    }
+
+    ///
+    /// @brief Assemble a Vamana index from a stream, using default loaders.
+    ///
+    /// @param stream The stream to load from. See ``svs::Vamana::save``. If view-backed
+    ///     (``Data``'s allocator is a view allocator), the returned index views the
+    ///     stream's buffer directly, so the stream must outlive the index.
+    /// @param distance The distance functor or ``svs::DistanceType`` enum to use for
+    ///     similarity search computations.
+    /// @param threadpool_proto Precursor for the thread pool to use. Can either be an
+    ///     acceptable thread pool instance or an integer specifying the number of
+    ///     threads to use.
+    /// @param data_args Forwarded to the dataset loader. An allocator passed here must be
+    ///     bound to ``stream`` when ``Data``'s allocator is a view allocator.
+    ///
+    /// @copydoc threadpool_requirements
+    ///
+    /// @sa save, build
+    ///
+    template <
+        manager::QueryTypeDefinition QueryTypes,
+        typename Data,
+        typename Distance,
+        typename ThreadPoolProto,
+        typename... DataLoaderArgs>
+    static Vamana assemble(
+        std::istream& stream,
+        const Distance& distance,
+        ThreadPoolProto threadpool_proto,
+        DataLoaderArgs&&... data_args
+    ) {
+        return assemble<QueryTypes>(
+            stream,
+            StreamLoader<default_graph_type<Data>>{},
+            make_stream_loader<Data>(SVS_FWD(data_args)...),
+            distance,
+            std::move(threadpool_proto)
+        );
     }
 
     ///
@@ -579,6 +643,8 @@ class Vamana : public manager::IndexManager<VamanaInterface> {
     ///     case, a new default thread pool will be constructed using ``threadpool_proto``
     ///     as the number of threads to create.
     /// @param graph_allocator The allocator to use for the backing graph.
+    /// @param logger The logger to use for this index. Defaults to the global SVS logger
+    ///     (``svs::logging::get()``).
     ///
     /// The data loader should be any object loadable via ``svs::detail::dispatch_load``
     /// returning a Vamana compatible dataset. Concrete examples include:
@@ -601,7 +667,8 @@ class Vamana : public manager::IndexManager<VamanaInterface> {
         DataLoader&& data_loader,
         Distance distance,
         ThreadPoolProto threadpool_proto = 1,
-        const Allocator& graph_allocator = {}
+        const Allocator& graph_allocator = {},
+        svs::logging::logger_ptr logger = svs::logging::get()
     ) {
         auto threadpool = threads::as_threadpool(std::move(threadpool_proto));
         if constexpr (std::is_same_v<std::decay_t<Distance>, DistanceType>) {
@@ -613,7 +680,8 @@ class Vamana : public manager::IndexManager<VamanaInterface> {
                     std::forward<DataLoader>(data_loader),
                     std::move(distance_function),
                     std::move(threadpool),
-                    graph_allocator
+                    graph_allocator,
+                    std::move(logger)
                 );
             });
         } else {
@@ -623,7 +691,8 @@ class Vamana : public manager::IndexManager<VamanaInterface> {
                 std::forward<DataLoader>(data_loader),
                 distance,
                 std::move(threadpool),
-                graph_allocator
+                graph_allocator,
+                std::move(logger)
             );
         }
     }
@@ -705,6 +774,48 @@ class Vamana : public manager::IndexManager<VamanaInterface> {
 
     svs::index::vamana::VamanaIndexParameters parameters() const {
         return impl_->parameters();
+    }
+
+  private:
+    template <
+        manager::QueryTypeDefinition QueryTypes,
+        typename GraphLoaderFn,
+        typename DataLoaderFn,
+        typename Distance,
+        typename ThreadPoolProto>
+    static Vamana assemble_native(
+        std::istream& stream,
+        const GraphLoaderFn& load_graph,
+        const DataLoaderFn& load_data,
+        const Distance& distance,
+        ThreadPoolProto threadpool_proto,
+        svs::logging::logger_ptr logger
+    ) {
+        auto threadpool = threads::as_threadpool(std::move(threadpool_proto));
+        if constexpr (std::is_same_v<Distance, DistanceType>) {
+            auto dispatcher = DistanceDispatcher(distance);
+            return dispatcher([&](auto distance_function) {
+                return make_vamana<manager::as_typelist<QueryTypes>>(
+                    AssembleTag(),
+                    stream,
+                    load_graph,
+                    load_data,
+                    distance_function,
+                    std::move(threadpool),
+                    std::move(logger)
+                );
+            });
+        } else {
+            return make_vamana<manager::as_typelist<QueryTypes>>(
+                AssembleTag(),
+                stream,
+                load_graph,
+                load_data,
+                distance,
+                std::move(threadpool),
+                std::move(logger)
+            );
+        }
     }
 };
 

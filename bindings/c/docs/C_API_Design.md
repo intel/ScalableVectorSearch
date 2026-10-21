@@ -44,6 +44,7 @@
   - [6. Allocator Configuration](#6-allocator-configuration)
   - [7. Search Parameters](#7-search-parameters)
   - [8. ID Filter (optional)](#8-id-filter-optional)
+  - [9. Stream Interface](#9-stream-interface)
 - [API Overview](#api-overview)
   - [Headers](#headers)
   - [Types](#types)
@@ -198,6 +199,10 @@ one of the two optional slots is used per name:
   (e.g. `svs_algorithm_create_vamana` creates a Vamana algorithm;
   `svs_index_build_dynamic` builds a dynamic index).
 
+When both specializations apply (e.g. a save or load variant), `_stream` and
+`_stream_dynamic` are stacked at the end: `svs_index_save_stream`,
+`svs_index_load_stream_dynamic`.
+
 **Examples:**
 
 | Function | Breakdown | Description |
@@ -209,6 +214,8 @@ one of the two optional slots is used per name:
 | `svs_index_build_dynamic()` | `svs` + `index` + `build` + `dynamic` | Build a dynamic index |
 | `svs_index_dynamic_add_points()` | `svs` + `index` + `dynamic` + `add_points` | Add points to a dynamic index |
 | `svs_index_builder_set_threadpool()` | `svs` + `index_builder` + `set_threadpool` | Configure builder thread pool |
+| `svs_index_save_stream()` | `svs` + `index` + `save` + `stream` | Save index to a caller-supplied stream |
+| `svs_index_load_stream_dynamic()` | `svs` + `index` + `load` + `stream_dynamic` | Load a dynamic index from a stream |
 
 ### Examples by Category
 
@@ -225,6 +232,7 @@ typedef enum svs_error_code svs_error_code_t;
 // Interface pointer types
 typedef struct svs_threadpool_interface* svs_threadpool_i;
 typedef struct svs_id_filter_interface*  svs_id_filter_i;
+typedef struct svs_stream_interface* svs_stream_i;
 ```
 
 ## Core Components
@@ -246,6 +254,47 @@ The main search structure providing vector similarity search operations.
 - Built from a non-empty dataset using Index Builder, or loaded from disk
 - A static index is immutable after creation; a dynamic index additionally supports
   add/delete/consolidate/compact operations
+
+**Dynamic Index Parameters:**
+
+The `_ex` variants of the dynamic functions (`svs_index_build_dynamic_ex`,
+`svs_index_load_dynamic_ex`, `svs_index_convert_dynamic_ex`,
+`svs_index_builder_estimate_memory_dynamic_ex`,
+`svs_index_builder_estimate_search_memory_dynamic_ex`) take a versioned
+`const svs_dynamic_index_params_t*` instead of a bare `blocksize_bytes` argument.
+Initialize it with `SVS_INIT_DYNAMIC_INDEX_PARAMS()`, or pass `NULL` to use the defaults
+(`blocksize_bytes = 0`, `blocksize_elements = 0`, `sync_kind = SVS_SYNC_KIND_NONE`).
+Invalid parameters are rejected with `SVS_ERROR_INVALID_ARGUMENT`; unlike the legacy
+`blocksize_bytes` arguments, block sizes are not rounded down to a power of two.
+
+| Field | Description |
+|-------|-------------|
+| `blocksize_bytes` | Bytes per block; `0` selects the default, otherwise must be a power of two |
+| `blocksize_elements` | Vectors (graph nodes) per block; `0` leaves it unset, otherwise must be a power of two and takes precedence over `blocksize_bytes` |
+| `sync_kind` | `uint32_t` holding a `svs_sync_kind_t` value: internal synchronization of the dynamic index handle (see below) |
+
+| `svs_sync_kind_t` | Behavior |
+|-----------------|----------|
+| `SVS_SYNC_KIND_NONE` | No internal synchronization (default); the caller must serialize access |
+| `SVS_SYNC_KIND_GLOBAL` | Index-wide reader/writer lock: read-only operations (search, `has_id`, `get_distance`, reconstruct, `get_size`, `get_num_threads`, memory queries, use as a conversion source) run concurrently; mutating operations (add/delete points, consolidate, compact, save, `set_num_threads`) are exclusive |
+| `SVS_SYNC_KIND_FINE_GRAIN` | Currently behaves as `SVS_SYNC_KIND_GLOBAL`; reserved for finer-grained locking in future releases |
+
+Synchronization limits:
+- `svs_index_free()` must not run concurrently with any other call on the same handle.
+- Each thread must use its own `svs_search_results_t` and `svs_error_h`.
+- The lock gives no writer priority; sustained read load may starve writers.
+- The sync kind is not persisted by `svs_index_save()`; pass it again on load. Query it
+  with `svs_index_dynamic_get_sync_kind()`.
+
+```c
+svs_dynamic_index_params_t params = SVS_INIT_DYNAMIC_INDEX_PARAMS();
+params.blocksize_elements = 1024;
+params.sync_kind = SVS_SYNC_KIND_GLOBAL;
+
+svs_index_h index = svs_index_build_dynamic_ex(
+    builder, data, /*ids=*/NULL, num_vectors, &params, err
+);
+```
 
 **Future Extensions:**
 - Range search (all neighbors within distance threshold)
@@ -275,8 +324,11 @@ plan capacity up front:
   `svs_memory_breakdown_t` for a given vector count. The dynamic variant also accounts
   for the block size; `svs_index_builder_get_default_blocksize_bytes` returns the
   default block size (`blocksize_bytes = 0` selects it).
+  `svs_index_builder_estimate_memory_dynamic_ex` takes the block size from
+  `svs_dynamic_index_params_t` instead, including `blocksize_elements`.
 - `svs_index_builder_estimate_search_memory` /
-  `svs_index_builder_estimate_search_memory_dynamic` — estimate the scratch memory a
+  `svs_index_builder_estimate_search_memory_dynamic` /
+  `svs_index_builder_estimate_search_memory_dynamic_ex` — estimate the scratch memory a
   search would use for a given query count, neighbor count, search parameters, and
   optional ID filter (a non-zero `filter_rate` is factored into the estimate).
 
@@ -350,7 +402,7 @@ Controls parallelization strategy for index operations.
 | Type | Configuration | Use Case |
 |------|---------------|----------|
 | **Native** | Thread count | Default SVS thread pool (recommended) |
-| **OpenMP** | Uses OMP_NUM_THREADS | Integration with OpenMP applications |
+| **OpenMP** | Thread count | Integration with OpenMP applications; requires a build with OpenMP support, otherwise `SVS_ERROR_NOT_IMPLEMENTED` |
 | **Single Thread** | No parallelization | Debugging or minimal overhead |
 | **Custom** | User-defined interface | Custom scheduling/work-stealing |
 
@@ -500,6 +552,64 @@ Providing a non-zero `filter_rate` lets the search account for the expected
 selectivity; if the observed hit rate ends up lower than the reported estimate the
 function returns an empty result set for that query.
 
+### 9. Stream Interface
+
+Enables caller-supplied byte streams for index save and load operations, eliminating
+the need for intermediate disk storage. Like the thread pool and allocator, the stream
+interface is a versioned ops table plus an opaque `self` pointer.
+
+```c
+struct svs_stream_interface_ops {
+    uint32_t version;          // Set by SVS_INIT_STREAM_OPS
+    size_t struct_size;        // Set by SVS_INIT_STREAM_OPS
+    size_t (*read)(void* self, void* buf, size_t n, svs_error_h out_err);
+    bool (*write)(void* self, const void* buf, size_t n, svs_error_h out_err);
+};
+
+struct svs_stream_interface {
+    struct svs_stream_interface_ops* ops;
+    void* self;                // User-defined state
+};
+typedef struct svs_stream_interface* svs_stream_i;
+
+// Initialisation macros
+static svs_stream_ops_t my_stream_ops =
+    SVS_INIT_STREAM_OPS(my_read_func, my_write_func);
+static svs_stream_t my_stream = SVS_MAKE_INTERFACE(user_state, my_stream_ops);
+```
+
+**Callback contracts:**
+
+- **`read`** — Read at most `n` bytes into `buf`. Return the number of bytes read; return
+  0 to signal end of stream. Short reads are not errors; the library will call again as
+  needed. To report a read error, set `out_err` via `svs_error_set()` and return 0 — this
+  aborts the load with that error code, unlike returning 0 with no error set, which is a
+  clean end of stream. This differs from `write`, which signals failure through its return
+  value. Required for load operations; may be NULL for write-only streams.
+- **`write`** — Write exactly `n` bytes from `buf`. Return `true` on success. A partial
+  write must be reported as failure. Required for save operations; may be NULL for
+  read-only streams.
+
+**Threading:** Both callbacks are invoked serially from the thread that called the streaming
+save or load function. No synchronization between concurrent stream operations is required.
+
+**Lifetime:** The operations table is copied by value; `self` is retained as a bare pointer
+and only needs to remain valid until the streaming function returns. Data is copied out of
+the stream during load, so the stream buffer need not persist after the call completes.
+
+**Encodings:** SVS supports two mutually exclusive stream encodings identified by an 8-byte magic
+at offset zero: the native stream encoding (`"SVS_STRM"`) and a tar-like directory archive. The load
+functions accept both transparently; detection is handled by SVS internals. `svs_index_save_stream`
+produces only the native encoding by design, so the save and load halves are deliberately asymmetric.
+An index written to disk via `svs_index_save` cannot be streamed, because the C layer does not
+expose the machinery to pack a directory archive into stream form. Streaming is therefore
+self-sufficient only for indexes that were themselves stream-saved.
+
+**Read-ahead behavior:** The native stream encoding carries no total length. During load, the
+library may read up to 64 KiB past the logical end of the index data, so callers embedding an
+index inside a larger stream must frame the payload themselves (e.g. with a length prefix) and
+bound the stream reads to that frame.
+
 ## API Overview
 
 A concise map of the public surface. See [svs/c/svs_c.h](../include/svs/c/svs_c.h)
@@ -517,12 +627,12 @@ for full signatures, parameters, and Doxygen documentation.
   `svs_algorithm_h`, `svs_storage_h`, `svs_search_params_h`
 - **Enums** (`_t`): `svs_error_code_t`, `svs_distance_metric_t`,
   `svs_algorithm_type_t`, `svs_data_type_t`, `svs_storage_kind_t`,
-  `svs_threadpool_kind_t`, `svs_allocator_kind_t`
-- **Custom interfaces**: `svs_threadpool_i`, `svs_allocator_i`, and `svs_id_filter_i`
-  (versioned ops-table + `self` pointer; build with `SVS_INIT_*_OPS()` /
+  `svs_threadpool_kind_t`, `svs_allocator_kind_t`, `svs_sync_kind_t`
+- **Custom interfaces**: `svs_threadpool_i`, `svs_allocator_i`, `svs_id_filter_i`, and
+  `svs_stream_i` (versioned ops-table + `self` pointer; build with `SVS_INIT_*_OPS()` /
   `SVS_MAKE_INTERFACE()`)
 - **Value structs**: `svs_search_results_t` (CSR result buffer),
-  `svs_memory_breakdown_t`
+  `svs_memory_breakdown_t`, `svs_dynamic_index_params_t`
 
 ### Function groups
 
@@ -534,15 +644,17 @@ for full signatures, parameters, and Doxygen documentation.
 | **Storage** | `svs_storage_create_{simple,sq,lvq,leanvec}`, `svs_storage_get_kind`, `svs_storage_free` |
 | **Search params** | `svs_search_params_create_vamana`, `svs_search_params_free` |
 | **Builder** | `svs_index_builder_create`, `svs_index_builder_set_{storage,threadpool,threadpool_custom,allocator,allocator_custom}`, `svs_index_builder_free` |
-| **Memory estimation** | `svs_index_builder_estimate_memory`, `svs_index_builder_estimate_memory_dynamic`, `svs_index_builder_estimate_search_memory`, `svs_index_builder_estimate_search_memory_dynamic`, `svs_index_builder_get_default_blocksize_bytes` |
-| **Index lifecycle** | `svs_index_build`, `svs_index_build_dynamic`, `svs_index_load`, `svs_index_load_dynamic`, `svs_index_save`, `svs_index_free` |
-| **Dynamic ops** | `svs_index_dynamic_{add_points,delete_points,has_id,consolidate,compact}` |
+| **Memory estimation** | `svs_index_builder_estimate_memory`, `svs_index_builder_estimate_memory_dynamic[_ex]`, `svs_index_builder_estimate_search_memory`, `svs_index_builder_estimate_search_memory_dynamic[_ex]`, `svs_index_builder_get_default_blocksize_bytes` |
+| **Index lifecycle** | `svs_index_build`, `svs_index_build_dynamic[_ex]`, `svs_index_convert`, `svs_index_convert_dynamic[_ex]`, `svs_index_load`, `svs_index_load_dynamic[_ex]`, `svs_index_load_stream`, `svs_index_load_stream_dynamic`, `svs_index_save`, `svs_index_save_stream`, `svs_index_free` |
+| **Dynamic ops** | `svs_index_dynamic_{add_points,delete_points,has_id,consolidate,compact,get_sync_kind}` |
 | **Introspection** | `svs_index_get_num_threads` / `set_num_threads`, `svs_index_get_distance`, `svs_index_reconstruct`, `svs_index_get_memory_usage`, `svs_index_get_memory_breakdown` |
 | **Search** | `svs_index_search_topk` (+ deprecated `svs_index_search`), `svs_search_results_free` |
 
 ### Conventions
 
 - Every fallible call takes a trailing optional `svs_error_h out_err` (may be `NULL`).
+- Handles are not internally synchronized, except dynamic indices created with a
+  `sync_kind` other than `SVS_SYNC_KIND_NONE`.
 - Constructors return an opaque handle or `NULL` on failure; other calls return
   `bool`. Out-values are written through `out_*` pointer parameters.
 - LVQ/LeanVec require the compression backend and specific x86 ISA support; when
@@ -558,8 +670,8 @@ for full signatures, parameters, and Doxygen documentation.
 
 - See the top-level [../README.md](../README.md) for a quick start, build/consume
   instructions, and a complete end-to-end usage example.
-- See [../samples/](../samples/) for runnable sample applications:
-  - `simple.c` – minimal static index build + search with a custom thread pool
-  - `dynamic.c` – dynamic index with add / delete / consolidate
-  - `save_load.c` – persisting and reloading indices from disk
-- See [examples/c/](../../../examples/c/) for additional usage examples
+- See [examples/c/](../../../examples/c/) for runnable sample applications:
+  - [`simple.c`](../../../examples/c/simple.c) – minimal static index build + search with a custom thread pool
+  - [`dynamic.c`](../../../examples/c/dynamic.c) – dynamic index with add / delete / consolidate
+  - [`save_load.c`](../../../examples/c/save_load.c) – persisting and reloading indices from disk
+  - [`save_load_stream.c`](../../../examples/c/save_load_stream.c) – stream-based index save and load

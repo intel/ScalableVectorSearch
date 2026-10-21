@@ -692,31 +692,34 @@ CATCH_TEST_CASE("C API Threadpool Management", "[c_api][index][threadpool]") {
         // Set OMP threadpool
         bool success =
             svs_index_builder_set_threadpool(builder, SVS_THREADPOOL_KIND_OMP, 3, error);
-        CATCH_REQUIRE(success);
-        CATCH_REQUIRE(svs_error_ok(error));
+        CATCH_REQUIRE(check_openmp_support(success, error));
 
-        svs_index_h index = svs_index_build(builder, data.data(), NUM_VECTORS, error);
-        CATCH_REQUIRE(index != nullptr);
-        CATCH_REQUIRE(svs_error_ok(error));
+        // if OMP is not supported the test will skip the following block.
+        if (success) {
+            svs_index_h index = svs_index_build(builder, data.data(), NUM_VECTORS, error);
+            CATCH_REQUIRE(index != nullptr);
+            CATCH_REQUIRE(svs_error_ok(error));
 
-        // Get current number of threads
-        size_t num_threads = 0;
-        success = svs_index_get_num_threads(index, &num_threads, error);
-        CATCH_REQUIRE(success);
-        CATCH_REQUIRE(svs_error_ok(error));
-        CATCH_REQUIRE(num_threads == 3);
+            // Get current number of threads
+            size_t num_threads = 0;
+            success = svs_index_get_num_threads(index, &num_threads, error);
+            CATCH_REQUIRE(success);
+            CATCH_REQUIRE(svs_error_ok(error));
+            CATCH_REQUIRE(num_threads == 3);
 
-        // Set to different number of threads
-        success = svs_index_set_num_threads(index, 5, error);
-        CATCH_REQUIRE(success);
-        CATCH_REQUIRE(svs_error_ok(error));
+            // Set to different number of threads
+            success = svs_index_set_num_threads(index, 5, error);
+            CATCH_REQUIRE(success);
+            CATCH_REQUIRE(svs_error_ok(error));
 
-        // Verify the change
-        success = svs_index_get_num_threads(index, &num_threads, error);
-        CATCH_REQUIRE(success);
-        CATCH_REQUIRE(num_threads == 5);
+            // Verify the change
+            success = svs_index_get_num_threads(index, &num_threads, error);
+            CATCH_REQUIRE(success);
+            CATCH_REQUIRE(num_threads == 5);
 
-        svs_index_free(index);
+            svs_index_free(index);
+        }
+
         svs_index_builder_free(builder);
         svs_algorithm_free(algorithm);
         svs_error_free(error);

@@ -17,7 +17,68 @@
 #pragma once
 
 #include "svs/lib/misc.h"
+#include "svs/lib/saveload/load.h"
 #include "svs/lib/threads.h"
+
+#include <filesystem>
+#include <istream>
+#include <tuple>
+#include <type_traits>
+#include <utility>
+
+namespace svs {
+
+///
+/// @brief Selects the element type and loader arguments for one component of an index.
+///
+/// The orchestrator supplies the stream for native streams, or the unpacked component
+/// directory for directory archives.
+///
+/// @tparam T The type loaded from the component.
+/// @tparam Args The types of the arguments forwarded to the load function (e.g.
+/// allocators).
+///
+template <typename T, typename... Args> struct StreamLoader {
+    using return_type = T;
+
+    explicit StreamLoader(Args... args)
+        : args_{std::move(args)...} {}
+
+    T load(std::istream& stream) const {
+        return std::apply(
+            [&](const Args&... args) { return lib::load_from_stream<T>(stream, args...); },
+            args_
+        );
+    }
+
+    T load(const std::filesystem::path& path) const {
+        return std::apply(
+            [&](const Args&... args) { return lib::load_from_disk<T>(path, args...); },
+            args_
+        );
+    }
+
+    std::tuple<Args...> args_;
+};
+
+///
+/// @brief Build a ``StreamLoader`` for ``T``, deducing the loader argument types.
+///
+/// @tparam T The type loaded from the component.
+///
+/// @param args Arguments forwarded to the load function, stored by value.
+///
+template <typename T, typename... Args>
+StreamLoader<T, std::decay_t<Args>...> make_stream_loader(Args&&... args) {
+    return StreamLoader<T, std::decay_t<Args>...>{std::forward<Args>(args)...};
+}
+
+template <typename T> inline constexpr bool is_stream_loader_v = false;
+
+template <typename T, typename... Args>
+inline constexpr bool is_stream_loader_v<StreamLoader<T, Args...>> = true;
+
+} // namespace svs
 
 namespace svs::detail {
 
