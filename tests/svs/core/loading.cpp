@@ -19,10 +19,14 @@
 
 // Additional headers.
 #include "svs/lib/misc.h"
+#include "svs/lib/saveload.h"
 #include "svs/lib/threads.h"
 
 // Catch2
 #include "catch2/catch_test_macros.hpp"
+
+// stl
+#include <sstream>
 
 namespace {
 
@@ -57,6 +61,26 @@ struct MoveOnly {
 
   public:
     size_t value_;
+};
+
+// Context-free loadable type whose load takes an extra argument.
+struct StreamLoaderToy {
+    int32_t val_;
+    size_t moveonly_value_ = 0;
+
+    static constexpr std::string_view serialization_schema = "svstest_stream_loader_toy";
+    static constexpr svs::lib::Version save_version{0, 0, 0};
+
+    svs::lib::SaveTable metadata() const {
+        return svs::lib::SaveTable(
+            serialization_schema, save_version, {SVS_LIST_SAVE_(val)}
+        );
+    }
+
+    static StreamLoaderToy
+    load(const svs::lib::ContextFreeLoadTable& table, const MoveOnly& arg) {
+        return StreamLoaderToy{SVS_LOAD_MEMBER_AT_(table, val), arg.value_};
+    }
 };
 
 } // namespace
@@ -146,5 +170,29 @@ CATCH_TEST_CASE("Dispatch Load", "[core][dispatch_load]") {
             auto result = svs::detail::dispatch_load(std::move(moveonly));
             CATCH_REQUIRE(result.value_ == 10);
         }
+    }
+}
+
+CATCH_TEST_CASE("Stream Loader", "[core][stream_loader]") {
+    // `StreamLoader` must work when an `Args` element is move-only.
+    static_assert(!std::is_copy_constructible_v<
+                  svs::StreamLoader<StreamLoaderToy, MoveOnly>>);
+
+    auto x = StreamLoaderToy{42, 0};
+    auto stream = std::stringstream();
+    svs::lib::save_to_stream(x, stream);
+
+    CATCH_SECTION("make_stream_loader") {
+        auto loader = svs::make_stream_loader<StreamLoaderToy>(MoveOnly(10));
+        auto result = loader.load(stream);
+        CATCH_REQUIRE(result.val_ == 42);
+        CATCH_REQUIRE(result.moveonly_value_ == 10);
+    }
+
+    CATCH_SECTION("Direct construction") {
+        auto loader = svs::StreamLoader<StreamLoaderToy, MoveOnly>{MoveOnly(10)};
+        auto result = loader.load(stream);
+        CATCH_REQUIRE(result.val_ == 42);
+        CATCH_REQUIRE(result.moveonly_value_ == 10);
     }
 }

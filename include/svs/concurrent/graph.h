@@ -687,6 +687,7 @@ class SimpleGraph : public SimpleGraphBase<Idx, data::SimpleData<Idx, Dynamic, A
   public:
     using parent_type = SimpleGraphBase<Idx, data::SimpleData<Idx, Dynamic, Alloc>>;
     using data_type = typename parent_type::data_type;
+    using allocator_type = Alloc;
     using parent_type::get_data;
 
     ///
