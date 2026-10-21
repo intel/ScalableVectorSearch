@@ -246,7 +246,7 @@ void DynamicIndexVamana::compact_unlocked(size_t batchsize) {
 void DynamicIndexVamana::set_num_threads(size_t num_threads) {
     auto lock = write_lock();
     this->builder->pool_builder.resize(num_threads);
-    index.set_threadpool(this->builder->pool_builder.build());
+    index.set_threadpool(this->builder->pool_builder.build(sync_kind));
 }
 
 /////////////////////////////////////////
@@ -256,9 +256,30 @@ ConcurrentIndexVamana::ConcurrentIndexVamana(
 )
     : DynamicIndexVamana(builder, std::move(index), sync_kind) {}
 
+std::pair<svs::QueryResult<size_t>, std::vector<size_t>> ConcurrentIndexVamana::search(
+    svs::data::ConstSimpleDataView<float> queries,
+    size_t num_neighbors,
+    const std::shared_ptr<Algorithm::SearchParams>& search_params,
+    const IDFilterInterface* id_filter
+) {
+    assert(sync_kind == SVS_SYNC_KIND_FINE_GRAIN);
+    if (queries.size() > 1) {
+        throw not_implemented(
+            "FINE GRAIN dynamic index only supports searching one query at a time."
+        );
+    }
+    return DynamicIndexVamana::search(queries, num_neighbors, search_params, id_filter);
+}
+
 size_t ConcurrentIndexVamana::add_points(
     svs::data::ConstSimpleDataView<float> new_points, std::span<const size_t> ids
 ) {
+    assert(sync_kind == SVS_SYNC_KIND_FINE_GRAIN);
+    if (new_points.size() > 1) {
+        throw not_implemented(
+            "FINE GRAIN dynamic index only supports adding one point at a time."
+        );
+    }
     auto lock = read_lock();
     track_id_range(ids);
     // The size may change concurrently, so it cannot measure this call; a failed add
@@ -268,6 +289,12 @@ size_t ConcurrentIndexVamana::add_points(
 }
 
 size_t ConcurrentIndexVamana::delete_points(std::span<const size_t> ids) {
+    assert(sync_kind == SVS_SYNC_KIND_FINE_GRAIN);
+    if (ids.size() > 1) {
+        throw not_implemented(
+            "FINE GRAIN dynamic index only supports deleting one point at a time."
+        );
+    }
     auto lock = read_lock();
     return delete_points_unlocked(ids);
 }

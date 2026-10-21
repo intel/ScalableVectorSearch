@@ -166,6 +166,13 @@ struct ConcurrentIndexVamana : public DynamicIndexVamana {
         const IndexBuilder& builder, svs::DynamicVamana&& index, svs_sync_kind_t sync_kind
     );
 
+    std::pair<svs::QueryResult<size_t>, std::vector<size_t>> search(
+        svs::data::ConstSimpleDataView<float> queries,
+        size_t num_neighbors,
+        const std::shared_ptr<Algorithm::SearchParams>& search_params,
+        const IDFilterInterface* id_filter
+    ) override;
+
     size_t add_points(
         svs::data::ConstSimpleDataView<float> new_points, std::span<const size_t> ids
     ) override;
@@ -178,7 +185,9 @@ struct ConcurrentIndexVamana : public DynamicIndexVamana {
     }
 
     void compact(size_t batchsize) override {
-        auto lock = read_lock();
+        // exclusive lock prevents potential deadlock in case of custom threadpool takes
+        // internal mutex in parallel_for method
+        auto lock = write_lock();
         compact_unlocked(batchsize);
     }
 

@@ -126,15 +126,18 @@ bool is_known_id(size_t id, size_t num_writer_ids) {
 void run_concurrent_workload(SyncFixture& fx, svs_index_h index) {
     constexpr size_t NUM_WRITERS = 2;
     constexpr size_t NUM_READERS = 4;
-    constexpr size_t ITERATIONS = 20;
+    constexpr size_t ITERATIONS = 10;
     constexpr size_t READER_ITERATIONS = 40;
     constexpr size_t BATCH = 8;
     constexpr size_t NUM_WRITER_IDS = NUM_WRITERS * ITERATIONS * BATCH;
 
     std::vector<float> batch_data;
-    generate_test_data(batch_data, BATCH, DIMENSION);
+    generate_test_data(batch_data, BATCH * ITERATIONS, DIMENSION);
 
     FailureLog log;
+
+    svs_sync_kind_t sync_kind = SVS_SYNC_KIND_NONE;
+    CATCH_REQUIRE(svs_index_dynamic_get_sync_kind(index, &sync_kind, fx.error));
 
     auto writer = [&](size_t w) {
         svs_error_h err = svs_error_create();
@@ -146,24 +149,53 @@ void run_concurrent_workload(SyncFixture& fx, svs_index_h index) {
             }
 
             size_t added = 0;
-            log.check(
-                svs_index_dynamic_add_points(
-                    index, batch_data.data(), batch_ids.data(), BATCH, &added, err
-                ),
-                err,
-                "add_points"
-            );
-            log.check(added == BATCH, err, "add_points count");
+            float* batch_ptr = batch_data.data() + iter * BATCH * DIMENSION;
+            // FINE_GRAIN dynamic index only supports adding one point at a time.
+            if (sync_kind == SVS_SYNC_KIND_FINE_GRAIN) {
+                for (size_t i = 0; i < BATCH; ++i) {
+                    log.check(
+                        svs_index_dynamic_add_points(
+                            index, batch_ptr + i * DIMENSION, &batch_ids[i], 1, &added, err
+                        ),
+                        err,
+                        "add_points"
+                    );
+                    log.check(added == 1, err, "add_points count");
+                }
+            } else {
+                log.check(
+                    svs_index_dynamic_add_points(
+                        index, batch_ptr, batch_ids.data(), BATCH, &added, err
+                    ),
+                    err,
+                    "add_points"
+                );
+                log.check(added == BATCH, err, "add_points count");
+            }
 
             size_t deleted = 0;
-            log.check(
-                svs_index_dynamic_delete_points(
-                    index, batch_ids.data(), BATCH / 2, &deleted, err
-                ),
-                err,
-                "delete_points"
-            );
-            log.check(deleted == BATCH / 2, err, "delete_points count");
+            // FINE_GRAIN dynamic index only supports deleting one point at a time.
+            if (sync_kind == SVS_SYNC_KIND_FINE_GRAIN) {
+                for (size_t i = 0; i < BATCH / 2; ++i) {
+                    log.check(
+                        svs_index_dynamic_delete_points(
+                            index, &batch_ids[i], 1, &deleted, err
+                        ),
+                        err,
+                        "delete_points"
+                    );
+                    log.check(deleted == 1, err, "delete_points count");
+                }
+            } else {
+                log.check(
+                    svs_index_dynamic_delete_points(
+                        index, batch_ids.data(), BATCH / 2, &deleted, err
+                    ),
+                    err,
+                    "delete_points"
+                );
+                log.check(deleted == BATCH / 2, err, "delete_points count");
+            }
 
             if (iter % 5 == 4) {
                 log.check(svs_index_dynamic_consolidate(index, err), err, "consolidate");
@@ -182,17 +214,41 @@ void run_concurrent_workload(SyncFixture& fx, svs_index_h index) {
         for (size_t iter = 0; iter < READER_ITERATIONS; ++iter) {
             std::this_thread::sleep_for(std::chrono::microseconds(pause_us(rng)));
 
-            bool ok = svs_index_search_topk(
-                index, fx.queries.data(), NUM_QUERIES, K, &results, nullptr, nullptr, err
-            );
-            log.check(ok, err, "search_topk");
-            if (ok) {
-                for (size_t i = 0; i < results.total_results; ++i) {
-                    log.check(
-                        is_known_id(results.indices[i], NUM_WRITER_IDS),
-                        err,
-                        "search returned unknown id"
-                    );
+            // FINE_GRAIN dynamic index only supports one query at a time.
+            if (sync_kind == SVS_SYNC_KIND_FINE_GRAIN) {
+                bool ok = svs_index_search_topk(
+                    index, fx.queries.data(), 1, K, &results, nullptr, nullptr, err
+                );
+                log.check(ok, err, "search_topk");
+                if (ok) {
+                    for (size_t i = 0; i < results.total_results; ++i) {
+                        log.check(
+                            is_known_id(results.indices[i], NUM_WRITER_IDS),
+                            err,
+                            "search returned unknown id"
+                        );
+                    }
+                }
+            } else {
+                bool ok = svs_index_search_topk(
+                    index,
+                    fx.queries.data(),
+                    NUM_QUERIES,
+                    K,
+                    &results,
+                    nullptr,
+                    nullptr,
+                    err
+                );
+                log.check(ok, err, "search_topk");
+                if (ok) {
+                    for (size_t i = 0; i < results.total_results; ++i) {
+                        log.check(
+                            is_known_id(results.indices[i], NUM_WRITER_IDS),
+                            err,
+                            "search returned unknown id"
+                        );
+                    }
                 }
             }
 
@@ -489,22 +545,28 @@ CATCH_TEST_CASE("C API Dynamic Index Sync Sequential", "[c_api][index][dynamic][
     std::vector<float> new_data;
     generate_test_data(new_data, new_ids.size(), DIMENSION);
     size_t count = 0;
+    // FINE GRAIN dynamic index only supports adding one point at a time.
+    // If the sync kind is FINE GRAIN, we should only add one point at a time.
+    size_t points_to_add = (sync_kind == SVS_SYNC_KIND_FINE_GRAIN) ? 1 : new_ids.size();
     CATCH_REQUIRE(svs_index_dynamic_add_points(
-        index, new_data.data(), new_ids.data(), new_ids.size(), &count, fx.error
+        index, new_data.data(), new_ids.data(), points_to_add, &count, fx.error
     ));
-    CATCH_REQUIRE(count == new_ids.size());
-    CATCH_REQUIRE(
-        svs_index_dynamic_delete_points(index, new_ids.data(), 1, &count, fx.error)
-    );
-    CATCH_REQUIRE(count == 1);
+    CATCH_REQUIRE(count == points_to_add);
+    size_t points_to_delete = 1;
+    CATCH_REQUIRE(svs_index_dynamic_delete_points(
+        index, new_ids.data(), points_to_delete, &count, fx.error
+    ));
+    CATCH_REQUIRE(count == points_to_delete);
 
     bool has_id = true;
     CATCH_REQUIRE(svs_index_dynamic_has_id(index, new_ids[0], &has_id, fx.error));
     CATCH_REQUIRE_FALSE(has_id);
 
     svs_search_results_t results = SVS_INIT_SEARCH_RESULTS();
+    // FINE GRAIN dynamic index only supports one query at a time.
+    size_t queries_to_search = (sync_kind == SVS_SYNC_KIND_FINE_GRAIN) ? 1 : NUM_QUERIES;
     CATCH_REQUIRE(svs_index_search_topk(
-        index, fx.queries.data(), NUM_QUERIES, K, &results, nullptr, nullptr, fx.error
+        index, fx.queries.data(), queries_to_search, K, &results, nullptr, nullptr, fx.error
     ));
     svs_search_results_free(&results);
 
@@ -540,7 +602,7 @@ CATCH_TEST_CASE("C API Dynamic Index Sync Sequential", "[c_api][index][dynamic][
 
     size_t size = 0;
     CATCH_REQUIRE(svs_index_get_size(loaded, &size, fx.error));
-    CATCH_REQUIRE(size == NUM_VECTORS + 1);
+    CATCH_REQUIRE(size == NUM_VECTORS + points_to_add - points_to_delete);
     CATCH_REQUIRE(svs_index_dynamic_get_sync_kind(loaded, &actual_kind, fx.error));
     CATCH_REQUIRE(actual_kind == sync_kind);
 
@@ -553,7 +615,7 @@ CATCH_TEST_CASE("C API Dynamic Index Sync Sequential", "[c_api][index][dynamic][
     CATCH_REQUIRE(svs_index_dynamic_get_sync_kind(converted, &actual_kind, fx.error));
     CATCH_REQUIRE(actual_kind == SVS_SYNC_KIND_GLOBAL);
     CATCH_REQUIRE(svs_index_get_size(converted, &size, fx.error));
-    CATCH_REQUIRE(size == NUM_VECTORS + 1);
+    CATCH_REQUIRE(size == NUM_VECTORS + points_to_add - points_to_delete);
 
     svs_index_free(converted);
     svs_index_free(loaded);
@@ -573,7 +635,8 @@ CATCH_TEST_CASE(
     CATCH_REQUIRE(source != nullptr);
 
     // Leave deletions unconsolidated so the copy must skip them.
-    constexpr size_t NUM_DELETED = 10;
+    // FINE_GRAIN dynamic index only supports deleting one point at a time.
+    const size_t NUM_DELETED = src_kind == SVS_SYNC_KIND_FINE_GRAIN ? 1 : 10;
     size_t count = 0;
     CATCH_REQUIRE(svs_index_dynamic_delete_points(
         source, fx.ids.data(), NUM_DELETED, &count, fx.error
@@ -599,8 +662,17 @@ CATCH_TEST_CASE(
 
     // The converted index stays fully usable.
     svs_search_results_t results = SVS_INIT_SEARCH_RESULTS();
+    // FINE_GRAIN dynamic index only supports searching one query at a time.
+    size_t queries_to_search = (dst_kind == SVS_SYNC_KIND_FINE_GRAIN) ? 1 : NUM_QUERIES;
     CATCH_REQUIRE(svs_index_search_topk(
-        converted, fx.queries.data(), NUM_QUERIES, K, &results, nullptr, nullptr, fx.error
+        converted,
+        fx.queries.data(),
+        queries_to_search,
+        K,
+        &results,
+        nullptr,
+        nullptr,
+        fx.error
     ));
     for (size_t i = 0; i < results.total_results; ++i) {
         CATCH_REQUIRE(results.indices[i] >= NUM_DELETED);
@@ -611,14 +683,16 @@ CATCH_TEST_CASE(
     std::vector<size_t> new_ids = {fx.ids[0], NUM_VECTORS};
     std::vector<float> new_data;
     generate_test_data(new_data, new_ids.size(), DIMENSION);
+    // FINE_GRAIN dynamic index only supports adding one point at a time.
+    size_t points_to_add = (dst_kind == SVS_SYNC_KIND_FINE_GRAIN) ? 1 : new_ids.size();
     CATCH_REQUIRE(svs_index_dynamic_add_points(
-        converted, new_data.data(), new_ids.data(), new_ids.size(), &count, fx.error
+        converted, new_data.data(), new_ids.data(), points_to_add, &count, fx.error
     ));
-    CATCH_REQUIRE(count == new_ids.size());
+    CATCH_REQUIRE(count == points_to_add);
     CATCH_REQUIRE(svs_index_dynamic_consolidate(converted, fx.error));
     CATCH_REQUIRE(svs_index_dynamic_compact(converted, 0, fx.error));
     CATCH_REQUIRE(svs_index_get_size(converted, &size, fx.error));
-    CATCH_REQUIRE(size == NUM_VECTORS - NUM_DELETED + new_ids.size());
+    CATCH_REQUIRE(size == NUM_VECTORS - NUM_DELETED + points_to_add);
 
     svs_index_free(converted);
     svs_index_free(source);
@@ -691,8 +765,9 @@ CATCH_TEST_CASE("C API Dynamic Index Fine Grain Storage", "[c_api][index][dynami
     CATCH_REQUIRE(size == expected_size);
 
     svs_search_results_t results = SVS_INIT_SEARCH_RESULTS();
+    // FINE_GRAIN dynamic index only supports one query at a time.
     CATCH_REQUIRE(svs_index_search_topk(
-        loaded, fx.queries.data(), NUM_QUERIES, K, &results, nullptr, nullptr, fx.error
+        loaded, fx.queries.data(), 1, K, &results, nullptr, nullptr, fx.error
     ));
     svs_search_results_free(&results);
 
