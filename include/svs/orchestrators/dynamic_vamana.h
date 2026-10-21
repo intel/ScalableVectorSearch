@@ -58,9 +58,7 @@ class DynamicVamanaInterface : public VamanaInterface {
     // Check if the index has been consolidated - no `Deleted` entries remain.
     virtual bool is_consolidated() const = 0;
 
-    // Filtered top-k on the search buffer; `filter` takes an external id. Returns false,
-    // leaving `results` untouched, if the data type does not support it.
-    // Keep last: new virtuals must be appended.
+    // Filtered search; false if the data type does not support it. Keep last (ABI).
     virtual bool filtered_search(
         svs::QueryResultView<size_t> results,
         AnonymousArray<2> queries,
@@ -135,7 +133,14 @@ class DynamicVamanaImpl : public VamanaImpl<QueryTypes, Impl, DynamicVamanaInter
                 queries.type(),
                 [&]<typename T>(lib::Type<T> SVS_UNUSED(type)) {
                     const auto view = data::ConstSimpleDataView<T>(queries);
-                    impl().search(results, view, search_parameters, filter, found);
+                    impl().search(
+                        results,
+                        view,
+                        search_parameters,
+                        lib::Returns(lib::Const<false>()),
+                        &filter,
+                        &found
+                    );
                 },
                 [&](svs::DataType data_type) {
                     throw ANNEXCEPTION("Unsupported query datatype! Got: {}.", data_type);
@@ -647,14 +652,7 @@ class DynamicVamana : public manager::IndexManager<DynamicVamanaInterface> {
     /// @brief Check if the index has been consolidated - no `Deleted` entries remain.
     bool is_consolidated() const { return impl_->is_consolidated(); }
 
-    ///
-    /// @brief Filtered top-k search on the search buffer, see
-    /// ``MutableVamanaIndex::search`` (filtered overload).
-    ///
-    /// @param filter Takes an external id.
-    /// @param found Receives the number of results per query. Rows are padded with id
-    ///     ``size_t(-1)`` and distance ``+inf``.
-    /// @return False if the data type is unsupported, in which case nothing is written.
+    /// @brief Filtered search (see ``MutableVamanaIndex::search``); false if unsupported.
     template <typename QueryType>
     bool filtered_search(
         QueryResultView<size_t> results,

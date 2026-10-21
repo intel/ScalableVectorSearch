@@ -508,6 +508,19 @@ CATCH_TEST_CASE(
     auto sp = svs::index::vamana::VamanaSearchParameters{};
     sp.buffer_config_ = svs::index::vamana::SearchBufferConfig{50};
 
+    auto search_filtered = [&](auto& results,
+                               const svs::index::vamana::extensions::IDPredicate& pred,
+                               std::vector<size_t>& found) {
+        index.search(
+            results.view(),
+            queries.cview(),
+            sp,
+            svs::lib::Returns(svs::lib::Const<false>()),
+            &pred,
+            &found
+        );
+    };
+
     // Brute force over live ids passing `pred`.
     std::unordered_set<size_t> deleted;
     auto brute_force = [&](size_t q, auto&& pred) {
@@ -535,7 +548,7 @@ CATCH_TEST_CASE(
     auto check = [&](auto&& pred, bool expect_full) {
         auto results = svs::QueryResult<size_t>(num_queries, k);
         std::vector<size_t> found;
-        index.search(results.view(), queries.cview(), sp, pred, found);
+        search_filtered(results, pred, found);
         CATCH_REQUIRE(found.size() == num_queries);
         size_t hits = 0, total = 0;
         for (size_t q = 0; q < num_queries; ++q) {
@@ -583,18 +596,51 @@ CATCH_TEST_CASE(
         check(few, false);
         auto results = svs::QueryResult<size_t>(num_queries, k);
         std::vector<size_t> found;
-        index.search(results.view(), queries.cview(), sp, few, found);
+        search_filtered(results, few, found);
         for (size_t q = 0; q < num_queries; ++q) {
             CATCH_REQUIRE(found[q] == 3);
         }
         auto none = [](size_t) { return false; };
-        index.search(results.view(), queries.cview(), sp, none, found);
+        search_filtered(results, none, found);
         for (size_t q = 0; q < num_queries; ++q) {
             CATCH_REQUIRE(found[q] == 0);
         }
     }
 
-    CATCH_SECTION("orchestrator overload") {
+    CATCH_SECTION("unfiltered search is unchanged by the optional arguments") {
+        index.delete_entries(std::vector<size_t>{ids[0], ids[1], ids[2]});
+        auto plain = svs::QueryResult<size_t>(num_queries, k);
+        auto with_defaults = svs::QueryResult<size_t>(num_queries, k);
+        auto null_args = svs::QueryResult<size_t>(num_queries, k);
+        index.search(plain.view(), queries.cview(), sp);
+        index.search(
+            with_defaults.view(),
+            queries.cview(),
+            sp,
+            svs::lib::Returns(svs::lib::Const<false>()),
+            nullptr,
+            nullptr
+        );
+        std::vector<size_t> found;
+        index.search(
+            null_args.view(),
+            queries.cview(),
+            sp,
+            svs::lib::Returns(svs::lib::Const<false>()),
+            nullptr,
+            &found
+        );
+        CATCH_REQUIRE(found.size() == num_queries);
+        for (size_t q = 0; q < num_queries; ++q) {
+            for (size_t j = 0; j < k; ++j) {
+                CATCH_REQUIRE(plain.index(q, j) == with_defaults.index(q, j));
+                CATCH_REQUIRE(plain.index(q, j) == null_args.index(q, j));
+                CATCH_REQUIRE(plain.distance(q, j) == with_defaults.distance(q, j));
+            }
+        }
+    }
+
+    CATCH_SECTION("orchestrator entry point") {
         auto dyn = svs::DynamicVamana::build<float>(
             parameters,
             [&] {

@@ -111,21 +111,16 @@ class ValidBuilder {
 };
 
 // Like `ValidBuilder`, but an entry is also invalid if `pred(external_id)` is false.
-template <typename Pred> class FilteredValidBuilder {
+class FilteredValidBuilder {
   public:
     FilteredValidBuilder(
         const std::vector<SlotMetadata>& status,
         const IDTranslator& translator,
-        const Pred& pred
+        const extensions::IDPredicate& pred
     )
         : status_{status}
         , translator_{translator}
         , pred_{pred} {}
-
-    template <typename I> bool is_valid(I internal_id, size_t external_id) const {
-        return getindex(status_, internal_id) != SlotMetadata::Deleted &&
-               pred_(external_id);
-    }
 
     template <typename I>
     PredicatedSearchNeighbor<I> operator()(I i, float distance) const {
@@ -137,7 +132,7 @@ template <typename Pred> class FilteredValidBuilder {
   private:
     const std::vector<SlotMetadata>& status_;
     const IDTranslator& translator_;
-    const Pred& pred_;
+    const extensions::IDPredicate& pred_;
 };
 
 // Data types for which the filtered `search` overload is valid (identity accessor).
@@ -673,8 +668,17 @@ class MutableVamanaIndex {
         QueryResultView<I> results,
         const Queries& queries,
         const search_parameters_type& sp,
-        const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>())
+        const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>()),
+        const extensions::IDPredicate* pred = nullptr,
+        std::vector<size_t>* found = nullptr
     ) {
+        // Optional filter: only live entries with `(*pred)(external_id)` are returned;
+        // others are navigated through but do not count toward the search window. Rows
+        // with fewer than `n_neighbors` results are padded with id `size_t(-1)` and
+        // distance `+inf`; `found` (if given) receives the count per query.
+        if (found != nullptr) {
+            found->assign(queries.size(), 0);
+        }
         threads::parallel_for(
             threadpool_,
             threads::StaticPartition{queries.size()},
@@ -693,6 +697,39 @@ class MutableVamanaIndex {
 
                 auto scratch = extensions::per_thread_batch_search_setup(data_, distance_);
 
+                if (pred != nullptr) {
+                    if constexpr (filtered_search_supported<Data>) {
+                        auto builder = FilteredValidBuilder{status_, translator_, *pred};
+                        auto search =
+                            greedy_search_closure(builder, prefetch_parameters, cancel);
+                        auto accessor = data::GetDatumAccessor();
+                        for (auto i : is) {
+                            auto query = queries.get_datum(i);
+                            search(query, accessor, scratch, buffer);
+                            extensions::check_and_supplement_search_buffer(
+                                *this, buffer, query, pred
+                            );
+                            size_t n = std::min(num_neighbors, buffer.size());
+                            for (size_t j = 0; j < num_neighbors; ++j) {
+                                bool ok = j < n;
+                                results.index(i, j) =
+                                    ok ? translate_internal_id(buffer[j].id()) : size_t(-1);
+                                results.distance(i, j) =
+                                    ok ? buffer[j].distance()
+                                       : std::numeric_limits<float>::infinity();
+                            }
+                            if (found != nullptr) {
+                                (*found)[i] = n;
+                            }
+                        }
+                        return;
+                    } else {
+                        throw ANNEXCEPTION(
+                            "Filtered search is not supported for this data type."
+                        );
+                    }
+                }
+
                 extensions::per_thread_batch_search(
                     data_,
                     buffer,
@@ -708,81 +745,14 @@ class MutableVamanaIndex {
         );
 
         // Check if request to cancel the search
-        if (cancel()) {
+        // (Filtered results already hold external ids.)
+        if (cancel() || pred != nullptr) {
             return;
         }
 
         // After the search procedure, the indices in `results` are internal.
         // Perform one more pass to convert these to external ids.
         translate_to_external(results.indices());
-    }
-
-    ///
-    /// @brief Filtered top-k search: only live entries whose external id satisfies `pred`
-    /// are returned. Invalid entries are navigated through but do not count toward the
-    /// search window.
-    ///
-    /// @param pred Callable `bool(size_t external_id)`. Must be thread safe.
-    /// @param found Resized to `queries.size()`; receives the number of results per query.
-    ///
-    /// Rows with fewer than `n_neighbors` results are padded with id `size_t(-1)` and
-    /// distance `+inf`. Requires `filtered_search_supported<Data>`.
-    ///
-    template <typename I, data::ImmutableMemoryDataset Queries, typename Pred>
-        requires(std::is_invocable_r_v<bool, const Pred&, size_t>)
-    void search(
-        QueryResultView<I> results,
-        const Queries& queries,
-        const search_parameters_type& sp,
-        const Pred& pred,
-        std::vector<size_t>& found
-    ) {
-        static_assert(
-            filtered_search_supported<Data>,
-            "Data type needs a custom search path (e.g. reranking)."
-        );
-        found.assign(queries.size(), 0);
-        threads::parallel_for(
-            threadpool_,
-            threads::StaticPartition{queries.size()},
-            [&](const auto is, uint64_t SVS_UNUSED(tid)) {
-                size_t num_neighbors = results.n_neighbors();
-                auto buffer = search_buffer_type{
-                    sp.buffer_config_.get_total_capacity() < num_neighbors
-                        ? SearchBufferConfig{num_neighbors}
-                        : sp.buffer_config_,
-                    distance::comparator(distance_),
-                    sp.search_buffer_visited_set_};
-                auto prefetch_parameters = GreedySearchPrefetchParameters{
-                    sp.prefetch_lookahead_, sp.prefetch_step_};
-                auto distance = extensions::per_thread_batch_search_setup(data_, distance_);
-                auto accessor = data::GetDatumAccessor();
-                auto builder = FilteredValidBuilder<Pred>{status_, translator_, pred};
-                // The closure holds `cancel` by reference, so it must outlive the closure.
-                const lib::DefaultPredicate cancel = lib::Returns(lib::Const<false>());
-                auto search = greedy_search_closure(builder, prefetch_parameters, cancel);
-
-                for (auto i : is) {
-                    auto query = queries.get_datum(i);
-                    search(query, accessor, distance, buffer);
-                    extensions::check_and_supplement_search_buffer(
-                        *this, buffer, query, builder
-                    );
-                    // Everything in the buffer is valid here (cleanup() ran, and
-                    // supplemented entries are checked before insertion).
-                    size_t n = std::min(num_neighbors, buffer.size());
-                    for (size_t j = 0; j < n; ++j) {
-                        results.index(i, j) = translate_internal_id(buffer[j].id());
-                        results.distance(i, j) = buffer[j].distance();
-                    }
-                    for (size_t j = n; j < num_neighbors; ++j) {
-                        results.index(i, j) = static_cast<I>(-1);
-                        results.distance(i, j) = std::numeric_limits<float>::infinity();
-                    }
-                    found[i] = n;
-                }
-            }
-        );
     }
 
     ///

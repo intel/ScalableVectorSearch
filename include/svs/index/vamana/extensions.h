@@ -27,6 +27,9 @@
 #include "svs/lib/preprocessor.h"
 #include "svs/lib/threads.h"
 
+// stdlib
+#include <functional>
+
 namespace svs::index::vamana::extensions {
 
 /////
@@ -425,48 +428,33 @@ struct VamanaSingleSearchType {
     }
 };
 
+/// Predicate on external ids used by filtered search.
+using IDPredicate = std::function<bool(size_t)>;
+
 /// In rare cases, the search buffer may not be filled with enough results.
 /// This can occur in dynamic indexes when many vectors have been deleted
 /// and the graph becomes sparsely connected. It's a corner case and should
 /// not happen frequently, but when it does, we may need to supplement the buffer
 /// with additional results.
+/// If `pred` is given, entries whose external id it rejects are skipped (checked before
+/// the distance is computed).
 template <typename Index, typename SearchBuffer, typename Query>
-void check_and_supplement_search_buffer(
-    const Index& index, SearchBuffer& search_buffer, const Query& query
-) {
-    if (search_buffer.valid() < search_buffer.target_window() &&
-        search_buffer.valid() < index.size()) {
-        search_buffer.sort();
-        for (auto external_id : index.external_ids()) {
-            auto internal_id = index.translate_external_id(external_id);
-            auto dist = index.get_distance(external_id, query);
-            auto builder = index.internal_search_builder();
-            search_buffer.insert(builder(internal_id, dist));
-            if (search_buffer.valid() >= search_buffer.target_window()) {
-                break;
-            }
-        }
-    }
-}
-
-/// Filtered variant: only ids accepted by `builder` are inserted, and the predicate is
-/// evaluated before the distance is computed. Does not change the unfiltered path above.
-template <typename Index, typename SearchBuffer, typename Query, typename Builder>
 void check_and_supplement_search_buffer(
     const Index& index,
     SearchBuffer& search_buffer,
     const Query& query,
-    const Builder& builder
+    const IDPredicate* pred = nullptr
 ) {
     if (search_buffer.valid() < search_buffer.target_window() &&
         search_buffer.valid() < index.size()) {
         search_buffer.sort();
         for (auto external_id : index.external_ids()) {
-            auto internal_id = index.translate_external_id(external_id);
-            if (!builder.is_valid(internal_id, external_id)) {
+            if (pred != nullptr && !(*pred)(external_id)) {
                 continue;
             }
+            auto internal_id = index.translate_external_id(external_id);
             auto dist = index.get_distance(external_id, query);
+            auto builder = index.internal_search_builder();
             search_buffer.insert(builder(internal_id, dist));
             if (search_buffer.valid() >= search_buffer.target_window()) {
                 break;
