@@ -48,7 +48,7 @@ jobs:
           needs_prefix: true
 
     steps:
-    - uses: actions/checkout@v6
+    - uses: actions/checkout@v7
 
     - name: Install Compiler
       run: |
