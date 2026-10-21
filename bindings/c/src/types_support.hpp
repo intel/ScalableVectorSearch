@@ -17,11 +17,32 @@
 
 #include "svs/c/svs_c.h"
 
+#include <svs/core/data/simple.h>
 #include <svs/core/distance.h>
 #include <svs/lib/datatype.h>
+#include <svs/lib/misc.h>
+#include <svs/lib/preprocessor.h>
+
+#include <cassert>
+#include <span>
+#include <stdexcept>
+#include <type_traits>
 
 namespace svs {
 namespace c_runtime {
+
+// Zero values select the defaults; non-zero values are rounded down to a power of two.
+inline svs::data::BlockingParameters
+make_blocking_parameters(size_t blocksize_bytes, size_t blocksize_elements = 0) {
+    svs::data::BlockingParameters block_params;
+    if (blocksize_bytes != 0) {
+        block_params.blocksize_bytes = svs::lib::prevpow2(blocksize_bytes);
+    }
+    if (blocksize_elements != 0) {
+        block_params.blocksize_elements = svs::lib::prevpow2(blocksize_elements);
+    }
+    return block_params;
+}
 
 inline svs::DistanceType to_distance_type(svs_distance_metric_t distance_metric) {
     switch (distance_metric) {
@@ -123,6 +144,39 @@ size_t adjust_blocked_size(
     size_t elements_per_block = blocksize.value();
     size_t num_blocks = lib::div_round_up(num_vectors, elements_per_block);
     return num_blocks * blocksize.value() * element_size;
+}
+
+namespace detail {
+template <typename T, typename Dataset, typename Accessor> class DecompressedDataset {
+  public:
+    DecompressedDataset(const Dataset& dataset, Accessor accessor)
+        : dataset_(dataset)
+        , accessor_(accessor) {}
+
+    // implement ImmutableMemoryDataset interface for the decompressed dataset
+    using element_type = T;
+    using value_type = std::span<T>;
+    using const_value_type = std::span<const T>;
+
+    size_t size() const { return dataset_.size(); }
+    size_t dimensions() const { return dataset_.dimensions(); }
+    const_value_type get_datum(size_t i) const { return accessor_(dataset_, i); }
+    void prefetch(size_t i) const { dataset_.prefetch(i); }
+
+  private:
+    const Dataset& dataset_;
+    // Marked as mutable to allow modification even in const methods.
+    // E.g., scalar decompression may cache intermediate results.
+    mutable Accessor accessor_;
+};
+} // namespace detail
+
+template <typename Dataset, typename Accessor>
+auto decompressed_dataset(const Dataset& dataset, Accessor accessor) {
+    using accessor_ret_t = std::invoke_result_t<Accessor, const Dataset&, size_t>;
+    using accessor_element_type = typename accessor_ret_t::element_type;
+    using element_type = std::remove_const_t<accessor_element_type>;
+    return detail::DecompressedDataset<element_type, Dataset, Accessor>(dataset, accessor);
 }
 
 } // namespace c_runtime

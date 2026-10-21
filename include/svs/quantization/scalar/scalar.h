@@ -342,6 +342,7 @@ class Decompressor {
         , bias_(bias) {}
 
     template <typename T> std::span<const float> operator()(const T& y) {
+        buffer_.resize(y.size());
         std::transform(y.begin(), y.end(), buffer_.begin(), [&](auto v) {
             return detail::decompress<float>(v, scale_, bias_);
         });
@@ -459,6 +460,12 @@ class SQDataset {
         constexpr float MIN = std::numeric_limits<element_type>::min();
         constexpr float MAX = std::numeric_limits<element_type>::max();
         float scale = (global.max - global.min) / (MAX - MIN);
+        if (scale == 0.0f) {
+            // Avoid division by zero during encoding and zero L2 scores.
+            // Unit spacing gives constant training data a fixed representable
+            // range [global.min, global.min + (MAX - MIN)]; later values still clip.
+            scale = 1.0f;
+        }
         float bias = global.min - MIN * scale;
 
         // Compress data

@@ -73,6 +73,29 @@ struct VamanaBuildParameters {
     /// The latter case may yield a slightly better graph as the cost of more search time.
     bool use_full_search_history = svs::VAMANA_USE_FULL_SEARCH_HISTORY_DEFAULT;
 
+    /// @brief Apply non-default values from other build parameters to this instance.
+    void apply(const VamanaBuildParameters& other) {
+        static constexpr VamanaBuildParameters deflt{};
+        if (other.alpha != deflt.alpha) {
+            alpha = other.alpha;
+        }
+        if (other.graph_max_degree != deflt.graph_max_degree) {
+            graph_max_degree = other.graph_max_degree;
+        }
+        if (other.window_size != deflt.window_size) {
+            window_size = other.window_size;
+        }
+        if (other.max_candidate_pool_size != deflt.max_candidate_pool_size) {
+            max_candidate_pool_size = other.max_candidate_pool_size;
+        }
+        if (other.prune_to != deflt.prune_to) {
+            prune_to = other.prune_to;
+        }
+        // Unconditionally apply the use_full_search_history parameter because it does not
+        // have a default placeholder value.
+        use_full_search_history = other.use_full_search_history;
+    }
+
     ///// Comparison
     friend bool
     operator==(const VamanaBuildParameters&, const VamanaBuildParameters&) = default;

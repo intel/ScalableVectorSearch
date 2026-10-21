@@ -19,6 +19,9 @@ on:
     branches:
     - main
   pull_request:
+    paths-ignore:
+    - 'bindings/**'
+    - '**.md'
   workflow_dispatch:
 
 permissions:
@@ -35,7 +38,7 @@ jobs:
     runs-on: macos-latest
     strategy:
       matrix:
-        build_type: [RelWithDebugInfo]
+        build_type: [RelWithDebInfo]
         cxx: [clang++-20]
         include:
         - cxx: clang++-20

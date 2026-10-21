@@ -1,17 +1,17 @@
 # C/C++ library code
-/include/               @ibhati @ahuber21
-/cmake/                 @mihaic @ibhati @ahuber21
-/tests/                 @mihaic @ibhati @ahuber21 @yuejiaointel
-/benchmark/             @mihaic @ibhati @ahuber21
-/tools/                 @mihaic @ibhati @ahuber21
-/utils/                 @mihaic @ibhati @ahuber21
+/include/               @ahuber21 @rfsaliev
+/cmake/                 @mihaic @ahuber21 @rfsaliev
+/tests/                 @mihaic @ahuber21 @yuejiaointel @rfsaliev
+/benchmark/             @mihaic @ahuber21 @rfsaliev
+/tools/                 @mihaic @ahuber21 @rfsaliev
+/utils/                 @mihaic @ahuber21 @rfsaliev
 
 # Python and other language bindings
-/bindings/              @ethanglaser @ibhati @ahuber21
+/bindings/              @ethanglaser @rfsaliev @ahuber21
 
 # Examples and datasets
-/examples/              @ibhati @ahuber21
-/data/                  @ibhati @ahuber21
+/examples/              @ahuber21 @rfsaliev
+/data/                  @ahuber21 @rfsaliev
 
 # Docker and build environment
 /docker/                @mihaic @ahuber21

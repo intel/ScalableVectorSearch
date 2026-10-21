@@ -17,7 +17,9 @@
 #pragma once
 
 // stdlib
+#include <algorithm>
 #include <memory>
+#include <stdexcept>
 
 // Include the flat index to spin-up exhaustive searches on demand.
 #include "svs/index/flat/flat.h"
@@ -198,6 +200,12 @@ class MutableVamanaIndex {
         , construction_window_size_{2 * graph_.max_degree()}
         // Ctor accept logger in parameter
         , logger_{std::move(logger)} {
+        if (graph_.n_nodes() != data_.size()) {
+            throw ANNEXCEPTION("Graph node count does not match data size");
+        }
+        if (graph_.n_nodes() != external_ids.size()) {
+            throw ANNEXCEPTION("Graph node count does not match external IDs size");
+        }
         translator_.insert(external_ids, threads::UnitRange<Idx>(0, external_ids.size()));
     }
 
@@ -278,6 +286,10 @@ class MutableVamanaIndex {
         , search_parameters_(vamana::construct_default_search_parameters(data_))
         , build_parameters_(parameters)
         , logger_{std::move(logger)} {
+        if (data_.size() != external_ids.size()) {
+            throw ANNEXCEPTION("Data size does not match external IDs size");
+        }
+
         // Verify and set defaults directly on the input parameters
         verify_and_set_default_index_parameters(build_parameters_, distance_);
 
@@ -314,21 +326,21 @@ class MutableVamanaIndex {
         );
     }
 
-    /// @brief Post re-load constructor.
+    /// @brief Post re-load / copy constructor.
     ///
     /// Preconditions
     ///
-    /// * data.size() == graph.n_nodes(): The graph and the data have the same number of
-    ///   entries.
-    /// * The data and graph were saved with no "holes". In otherwords, the index was
-    ///   consolidated and compacted prior to saving.
-    /// * The span of internal ID's in translator covers exactly ``[0, data.size())``.
+    /// * data.size() == graph.n_nodes() == status.size(): The graph, the data, and the
+    /// status have the same number of entries.
+    /// * The span of internal ID's in translator covers exactly `Valid` entries in the
+    /// status vector.
     template <threads::ThreadPool Pool>
     MutableVamanaIndex(
         const VamanaIndexParameters& config,
         data_type data,
         graph_type graph,
         const Dist& distance_function,
+        std::vector<SlotMetadata> status,
         IDTranslator translator,
         Pool threadpool,
         svs::logging::logger_ptr logger = svs::logging::get()
@@ -336,8 +348,8 @@ class MutableVamanaIndex {
         : graph_{std::move(graph)}
         , data_{std::move(data)}
         , entry_point_{lib::narrow<Idx>(config.entry_point)}
-        , status_{data_.size(), SlotMetadata::Valid}
-        , first_empty_{data_.size()}
+        , status_{std::move(status)}
+        , first_empty_{status_.size()}
         , translator_{std::move(translator)}
         , distance_{distance_function}
         , threadpool_{std::move(threadpool)}
@@ -347,7 +359,18 @@ class MutableVamanaIndex {
         , prune_to_{config.build_parameters.prune_to}
         , alpha_{config.build_parameters.alpha}
         , use_full_search_history_{config.build_parameters.use_full_search_history}
-        , logger_{std::move(logger)} {}
+        , logger_{std::move(logger)} {
+        if (graph_.n_nodes() != data_.size()) {
+            throw ANNEXCEPTION("Graph node count does not match data size");
+        }
+        if (status_.size() != data_.size()) {
+            throw ANNEXCEPTION("Status size does not match data size");
+        }
+        // TODO: There is the logical error in the add_points() method that needs to be
+        // addressed to make the following code correct:
+        // first_empty_ = std::find(status_.begin(), status_.end(), SlotMetadata::Empty)
+        //                - status_.begin();
+    }
 
     ///// Scratchspace
     scratchspace_type scratchspace(const search_parameters_type& sp) const {
@@ -866,20 +889,10 @@ class MutableVamanaIndex {
         return entry_point_[0];
     }
 
-    ///
-    /// @brief Return all the non-missing internal IDs.
-    ///
-    /// This includes both valid and soft-deleted entries.
-    ///
-    std::vector<Idx> nonmissing_indices() const {
-        auto indices = std::vector<Idx>();
-        indices.reserve(size());
-        for (size_t i = 0, imax = status_.size(); i < imax; ++i) {
-            if (!is_deleted(i)) {
-                indices.push_back(i);
-            }
-        }
-        return indices;
+    /// @brief Check if the index has been consolidated - no `Deleted` entries remain.
+    bool is_consolidated() const {
+        return std::find(status_.begin(), status_.end(), SlotMetadata::Deleted) ==
+               status_.end();
     }
 
     ///
@@ -894,7 +907,18 @@ class MutableVamanaIndex {
         //
         // In the returned data structure, an entry `j` at index `i` means that the
         // data at index `j` is to be moved to index `i`.
-        auto new_to_old_id_map = nonmissing_indices();
+        // Collect all the non-missing internal IDs.
+        std::vector<Idx> new_to_old_id_map{};
+        new_to_old_id_map.reserve(size());
+        for (size_t i = 0, imax = status_.size(); i < imax; ++i) {
+            if (status_[i] == SlotMetadata::Deleted) {
+                // specificly throw logic_error to indicate wrong API usage
+                throw std::logic_error("Index have to be consolidated before compaction.");
+            }
+            if (status_[i] == SlotMetadata::Valid) {
+                new_to_old_id_map.push_back(i);
+            }
+        }
 
         // Construct an associative data structure to facilitate graph adjacency list
         // remapping.
@@ -1278,6 +1302,8 @@ class MutableVamanaIndex {
 
     const Data& view_data() const { return data_; }
     const Graph& view_graph() const { return graph_; }
+    const std::vector<SlotMetadata>& view_status() const { return status_; }
+    const IDTranslator& view_translator() const { return translator_; }
 
     ///
     /// @brief Verify the invariants of this data structure.
@@ -1452,20 +1478,39 @@ struct VamanaStateLoader {
         if (debug_load_from_static) {
             return VamanaStateLoader{
                 lib::load<VamanaIndexParameters>(table),
-                IDTranslator::Identity(assume_datasize)};
+                IDTranslator::Identity(assume_datasize),
+                std::vector<SlotMetadata>(assume_datasize, SlotMetadata::Valid)};
         }
 
         return VamanaStateLoader{
             SVS_LOAD_MEMBER_AT_(table, parameters),
             svs::lib::load_at<IDTranslator>(table, "translation"),
+            std::vector<SlotMetadata>(assume_datasize, SlotMetadata::Valid),
         };
     }
 
     ///// Members
     VamanaIndexParameters parameters_;
     IDTranslator translator_;
+    std::vector<SlotMetadata> status_;
 };
 
+template <typename ConfigProto>
+VamanaStateLoader auto_load_state(
+    ConfigProto&& config_proto,
+    [[maybe_unused]] bool debug_load_from_static,
+    [[maybe_unused]] size_t assume_datasize
+) {
+    if constexpr (std::is_convertible_v<ConfigProto, std::filesystem::path>) {
+        return lib::load_from_disk<VamanaStateLoader>(
+            std::filesystem::path(std::forward<ConfigProto>(config_proto)),
+            debug_load_from_static,
+            assume_datasize
+        );
+    } else {
+        return svs::detail::dispatch_load(std::forward<ConfigProto>(config_proto));
+    }
+}
 } // namespace detail
 
 // Build
@@ -1509,12 +1554,13 @@ auto auto_dynamic_build(
 
 // Assembly
 template <
+    typename ConfigProto,
     typename GraphLoader,
     typename DataLoader,
     typename Distance,
     typename ThreadPoolProto>
 auto auto_dynamic_assemble(
-    const std::filesystem::path& config_path,
+    ConfigProto&& config_proto,
     GraphLoader&& graph_loader,
     DataLoader&& data_loader,
     Distance distance,
@@ -1565,22 +1611,33 @@ auto auto_dynamic_assemble(
     //     }
     // }};
     // auto [parameters, translator] = lib::load_from_disk(reloader, config_path);
-    auto [parameters, translator] = lib::load_from_disk<detail::VamanaStateLoader>(
-        config_path, debug_load_from_static, datasize
+    auto [parameters, translator, status] = detail::auto_load_state(
+        std::forward<ConfigProto>(config_proto), debug_load_from_static, datasize
     );
 
-    // Make sure that the translator covers all the IDs in the graph and data.
-    auto translator_size = translator.size();
-    if (translator_size != datasize) {
+    if (status.size() != datasize) {
         throw ANNEXCEPTION(
-            "Translator has {} IDs but should have {}", translator_size, datasize
+            "Status has {} entries but should have {}", status.size(), datasize
         );
     }
 
+    // The translator must cover exactly the valid slots; copied state may contain
+    // deleted or empty slots.
+    size_t num_valid = 0;
     for (size_t i = 0; i < datasize; ++i) {
-        if (!translator.has_internal(i)) {
-            throw ANNEXCEPTION("Translator is missing internal id {}", i);
+        if (status[i] == SlotMetadata::Valid) {
+            ++num_valid;
+            if (!translator.has_internal(i)) {
+                throw ANNEXCEPTION("Translator is missing internal id {}", i);
+            }
         }
+    }
+
+    auto translator_size = translator.size();
+    if (translator_size != num_valid) {
+        throw ANNEXCEPTION(
+            "Translator has {} IDs but should have {}", translator_size, num_valid
+        );
     }
 
     // At this point, we should be completely validated.
@@ -1590,6 +1647,7 @@ auto auto_dynamic_assemble(
         std::move(data),
         std::move(graph),
         std::move(distance),
+        std::move(status),
         std::move(translator),
         std::move(threadpool),
         std::move(logger)};
@@ -1640,12 +1698,14 @@ auto auto_dynamic_assemble(
         );
     }
 
+    auto status = std::vector<SlotMetadata>(datasize, SlotMetadata::Valid);
     auto threadpool = threads::as_threadpool(std::move(threadpool_proto));
     return MutableVamanaIndex{
         parameters,
         std::move(data),
         std::move(graph),
         std::move(distance),
+        std::move(status),
         std::move(translator),
         std::move(threadpool),
         std::move(logger)};

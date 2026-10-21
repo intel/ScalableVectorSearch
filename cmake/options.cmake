@@ -73,6 +73,11 @@ option(SVS_INITIALIZE_LOGGER
     ON # enabled by default
 )
 
+option(SVS_ENABLE_OMP
+    "Enable OpenMP threadpool support for parallelism."
+    ON # enabled by default
+)
+
 #####
 ##### Experimental
 #####
@@ -184,7 +189,7 @@ target_compile_options(
 )
 
 
-if(CMAKE_BUILD_TYPE STREQUAL Release OR CMAKE_BUILD_TYPE STREQUAL RelWithDebugInfo)
+if(CMAKE_BUILD_TYPE STREQUAL Release OR CMAKE_BUILD_TYPE STREQUAL RelWithDebInfo)
     target_compile_options(svs_compile_options INTERFACE -O3)
 endif()
 

@@ -6,6 +6,10 @@ Build modules, dependency wiring, and feature toggles.
 - Keep option names/defaults stable unless task requires change.
 - Prefer additive options over rewrites.
 - Validate option/target changes against CI workflows (`.github/workflows/`).
+- Use existing option/target patterns; avoid introducing parallel build paths. Before adding a compile flag or option, check whether an existing one already covers the condition; where the same block genuinely exists in more than one file, either change every copy or factor it into one included file.
+- Keep configuration values referenced from existing CMake modules.
+- Return a computed value another module consumes from a `function()` via `PARENT_SCOPE`, or publish it as a cache entry; a bare `set()` at file scope is not an interface, and a later module setting the same name collides with it silently.
+- Do not hardcode versions/toolchain assumptions in instructions or comments.
 
 ## Intel-specific modules
 - **`cmake/mkl.cmake`:** MKL linkage (static vs dynamic threading). Do not hardcode MKL versions. When changing linkage mode, validate threading behavior in tests.

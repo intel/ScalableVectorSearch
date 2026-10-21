@@ -19,6 +19,9 @@ on:
     branches:
     - main
   pull_request:
+    paths-ignore:
+    - 'bindings/**'
+    - '**.md'
   workflow_dispatch:
 
 permissions:
@@ -35,7 +38,7 @@ jobs:
     runs-on: ubuntu-22.04-arm
     strategy:
       matrix:
-        build_type: [RelWithDebugInfo]
+        build_type: [RelWithDebInfo]
         cxx: [g++-11, g++-12, clang++-15]
         include:
         - cxx: g++-11

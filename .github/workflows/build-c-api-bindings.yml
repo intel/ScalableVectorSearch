@@ -19,6 +19,10 @@ on:
     branches:
       - main
   pull_request:
+    paths-ignore:
+      - 'bindings/cpp/**'
+      - 'bindings/python/**'
+      - '**.md'
   workflow_dispatch:
 
 permissions:

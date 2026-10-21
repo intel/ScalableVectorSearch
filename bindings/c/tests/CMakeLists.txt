@@ -14,6 +14,9 @@
 
 set(TARGET_NAME svs_c_api_test)
 
+# Dynamic index sync tests use threads and require linking with the Threads library
+find_package(Threads REQUIRED)
+
 # Check if Catch2 is available
 find_package(Catch2 3 QUIET)
 
@@ -49,22 +52,31 @@ set(C_API_TEST_SOURCES
     c_api_search_params.cpp
     c_api_index_builder.cpp
     c_api_index.cpp
+    c_api_index_convert.cpp
     c_api_dynamic_index.cpp
+    c_api_logging.cpp
+    c_api_dynamic_index_sync.cpp
+    c_api_stream.cpp
 )
 
 # Create test executable
 add_executable(${TARGET_NAME} ${C_API_TEST_SOURCES})
 
-# Link with C API library and Catch2
+# Link with C API library, Catch2, and Threads library
 target_link_libraries(${TARGET_NAME} PRIVATE
     svs_c_api
     Catch2::Catch2WithMain
+    Threads::Threads
 )
 
 # Tell the tests which storage backends this build is expected to provide, so
 # LVQ/LeanVec assertions are real instead of accepting NOT_IMPLEMENTED.
 if(SVS_RUNTIME_ENABLE_LVQ_LEANVEC)
     target_compile_definitions(${TARGET_NAME} PRIVATE SVS_TEST_EXPECT_LVQ_LEANVEC)
+endif()
+
+if(SVS_ENABLE_OMP)
+    target_compile_definitions(${TARGET_NAME} PRIVATE SVS_TEST_EXPECT_OPENMP)
 endif()
 
 # Set C++ standard
