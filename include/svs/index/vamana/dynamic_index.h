@@ -18,6 +18,7 @@
 
 // stdlib
 #include <algorithm>
+#include <limits>
 #include <memory>
 #include <stdexcept>
 
@@ -109,11 +110,49 @@ class ValidBuilder {
     const std::vector<SlotMetadata>& status_;
 };
 
+// Like `ValidBuilder`, but an entry is also invalid if `pred(external_id)` is false.
+template <typename Pred> class FilteredValidBuilder {
+  public:
+    FilteredValidBuilder(
+        const std::vector<SlotMetadata>& status,
+        const IDTranslator& translator,
+        const Pred& pred
+    )
+        : status_{status}
+        , translator_{translator}
+        , pred_{pred} {}
+
+    template <typename I> bool is_valid(I internal_id, size_t external_id) const {
+        return getindex(status_, internal_id) != SlotMetadata::Deleted &&
+               pred_(external_id);
+    }
+
+    template <typename I>
+    PredicatedSearchNeighbor<I> operator()(I i, float distance) const {
+        bool valid = getindex(status_, i) != SlotMetadata::Deleted &&
+                     pred_(translator_.get_external(i));
+        return PredicatedSearchNeighbor<I>(i, distance, valid);
+    }
+
+  private:
+    const std::vector<SlotMetadata>& status_;
+    const IDTranslator& translator_;
+    const Pred& pred_;
+};
+
+// Data types for which the filtered `search` overload is valid (identity accessor).
+template <typename Data> inline constexpr bool filtered_search_supported = false;
+template <typename T, size_t Extent, typename Alloc>
+inline constexpr bool filtered_search_supported<data::SimpleData<T, Extent, Alloc>> = true;
+
 template <graphs::MemoryGraph Graph, typename Data, typename Dist>
 class MutableVamanaIndex {
     friend class MultiMutableVamanaIndex<Graph, Data, Dist>;
 
   public:
+    // Present only on indexes that support the filtered `search` overload.
+    static constexpr bool has_filtered_search = filtered_search_supported<Data>;
+
     // Traits
     static constexpr bool supports_insertions = true;
     static constexpr bool supports_deletions = true;
@@ -575,11 +614,13 @@ class MutableVamanaIndex {
     // This is an internal method, mostly used to help implement the batch iterator.
     ValidBuilder internal_search_builder() const { return ValidBuilder{status_}; }
 
+    template <typename Builder>
     auto greedy_search_closure(
+        const Builder& builder,
         GreedySearchPrefetchParameters prefetch_parameters,
         const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>())
     ) const {
-        return [&, prefetch_parameters](
+        return [&, builder, prefetch_parameters](
                    const auto& query, auto& accessor, auto& distance, auto& buffer
                ) {
             // Perform the greedy search using the provided resources.
@@ -591,7 +632,7 @@ class MutableVamanaIndex {
                 distance,
                 buffer,
                 vamana::EntryPointInitializer<Idx>{lib::as_const_span(entry_point_)},
-                internal_search_builder(),
+                builder,
                 prefetch_parameters,
                 cancel
             );
@@ -599,6 +640,15 @@ class MutableVamanaIndex {
             // might remain.
             buffer.cleanup();
         };
+    }
+
+    auto greedy_search_closure(
+        GreedySearchPrefetchParameters prefetch_parameters,
+        const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>())
+    ) const {
+        return greedy_search_closure(
+            internal_search_builder(), prefetch_parameters, cancel
+        );
     }
 
     // Single Search
@@ -665,6 +715,74 @@ class MutableVamanaIndex {
         // After the search procedure, the indices in `results` are internal.
         // Perform one more pass to convert these to external ids.
         translate_to_external(results.indices());
+    }
+
+    ///
+    /// @brief Filtered top-k search: only live entries whose external id satisfies `pred`
+    /// are returned. Invalid entries are navigated through but do not count toward the
+    /// search window.
+    ///
+    /// @param pred Callable `bool(size_t external_id)`. Must be thread safe.
+    /// @param found Resized to `queries.size()`; receives the number of results per query.
+    ///
+    /// Rows with fewer than `n_neighbors` results are padded with id `size_t(-1)` and
+    /// distance `+inf`. Requires `filtered_search_supported<Data>`.
+    ///
+    template <typename I, data::ImmutableMemoryDataset Queries, typename Pred>
+        requires(std::is_invocable_r_v<bool, const Pred&, size_t>)
+    void search(
+        QueryResultView<I> results,
+        const Queries& queries,
+        const search_parameters_type& sp,
+        const Pred& pred,
+        std::vector<size_t>& found
+    ) {
+        static_assert(
+            filtered_search_supported<Data>,
+            "Data type needs a custom search path (e.g. reranking)."
+        );
+        found.assign(queries.size(), 0);
+        threads::parallel_for(
+            threadpool_,
+            threads::StaticPartition{queries.size()},
+            [&](const auto is, uint64_t SVS_UNUSED(tid)) {
+                size_t num_neighbors = results.n_neighbors();
+                auto buffer = search_buffer_type{
+                    sp.buffer_config_.get_total_capacity() < num_neighbors
+                        ? SearchBufferConfig{num_neighbors}
+                        : sp.buffer_config_,
+                    distance::comparator(distance_),
+                    sp.search_buffer_visited_set_};
+                auto prefetch_parameters = GreedySearchPrefetchParameters{
+                    sp.prefetch_lookahead_, sp.prefetch_step_};
+                auto distance = extensions::per_thread_batch_search_setup(data_, distance_);
+                auto accessor = data::GetDatumAccessor();
+                auto builder = FilteredValidBuilder<Pred>{status_, translator_, pred};
+                // The closure holds `cancel` by reference, so it must outlive the closure.
+                const lib::DefaultPredicate cancel = lib::Returns(lib::Const<false>());
+                auto search = greedy_search_closure(builder, prefetch_parameters, cancel);
+
+                for (auto i : is) {
+                    auto query = queries.get_datum(i);
+                    search(query, accessor, distance, buffer);
+                    extensions::check_and_supplement_search_buffer(
+                        *this, buffer, query, builder
+                    );
+                    // Everything in the buffer is valid here (cleanup() ran, and
+                    // supplemented entries are checked before insertion).
+                    size_t n = std::min(num_neighbors, buffer.size());
+                    for (size_t j = 0; j < n; ++j) {
+                        results.index(i, j) = translate_internal_id(buffer[j].id());
+                        results.distance(i, j) = buffer[j].distance();
+                    }
+                    for (size_t j = n; j < num_neighbors; ++j) {
+                        results.index(i, j) = static_cast<I>(-1);
+                        results.distance(i, j) = std::numeric_limits<float>::infinity();
+                    }
+                    found[i] = n;
+                }
+            }
+        );
     }
 
     ///

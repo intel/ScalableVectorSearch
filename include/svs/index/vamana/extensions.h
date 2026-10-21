@@ -449,6 +449,32 @@ void check_and_supplement_search_buffer(
     }
 }
 
+/// Filtered variant: only ids accepted by `builder` are inserted, and the predicate is
+/// evaluated before the distance is computed. Does not change the unfiltered path above.
+template <typename Index, typename SearchBuffer, typename Query, typename Builder>
+void check_and_supplement_search_buffer(
+    const Index& index,
+    SearchBuffer& search_buffer,
+    const Query& query,
+    const Builder& builder
+) {
+    if (search_buffer.valid() < search_buffer.target_window() &&
+        search_buffer.valid() < index.size()) {
+        search_buffer.sort();
+        for (auto external_id : index.external_ids()) {
+            auto internal_id = index.translate_external_id(external_id);
+            if (!builder.is_valid(internal_id, external_id)) {
+                continue;
+            }
+            auto dist = index.get_distance(external_id, query);
+            search_buffer.insert(builder(internal_id, dist));
+            if (search_buffer.valid() >= search_buffer.target_window()) {
+                break;
+            }
+        }
+    }
+}
+
 /// Customization point object for processing single queries.
 inline constexpr VamanaSingleSearchType single_search{};
 

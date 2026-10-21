@@ -22,6 +22,7 @@
 #include "svs/orchestrators/vamana.h"
 
 // stdlib
+#include <functional>
 #include <type_traits>
 
 namespace svs {
@@ -56,6 +57,17 @@ class DynamicVamanaInterface : public VamanaInterface {
 
     // Check if the index has been consolidated - no `Deleted` entries remain.
     virtual bool is_consolidated() const = 0;
+
+    // Filtered top-k on the search buffer; `filter` takes an external id. Returns false,
+    // leaving `results` untouched, if the data type does not support it.
+    // Keep last: new virtuals must be appended.
+    virtual bool filtered_search(
+        svs::QueryResultView<size_t> results,
+        AnonymousArray<2> queries,
+        const index::vamana::VamanaSearchParameters& search_parameters,
+        const std::function<bool(size_t)>& filter,
+        std::vector<size_t>& found
+    ) = 0;
 };
 
 template <lib::TypeList QueryTypes, typename Impl>
@@ -109,6 +121,31 @@ class DynamicVamanaImpl : public VamanaImpl<QueryTypes, Impl, DynamicVamanaInter
 
     // Check if the index has been consolidated - no `Deleted` entries remain.
     bool is_consolidated() const override { return impl().is_consolidated(); }
+
+    bool filtered_search(
+        svs::QueryResultView<size_t> results,
+        AnonymousArray<2> queries,
+        const index::vamana::VamanaSearchParameters& search_parameters,
+        const std::function<bool(size_t)>& filter,
+        std::vector<size_t>& found
+    ) override {
+        if constexpr (requires { requires Impl::has_filtered_search; }) {
+            lib::match(
+                QueryTypes{},
+                queries.type(),
+                [&]<typename T>(lib::Type<T> SVS_UNUSED(type)) {
+                    const auto view = data::ConstSimpleDataView<T>(queries);
+                    impl().search(results, view, search_parameters, filter, found);
+                },
+                [&](svs::DataType data_type) {
+                    throw ANNEXCEPTION("Unsupported query datatype! Got: {}.", data_type);
+                }
+            );
+            return true;
+        } else {
+            return false;
+        }
+    }
 };
 
 // Forward Declaractions.
@@ -609,6 +646,27 @@ class DynamicVamana : public manager::IndexManager<DynamicVamanaInterface> {
 
     /// @brief Check if the index has been consolidated - no `Deleted` entries remain.
     bool is_consolidated() const { return impl_->is_consolidated(); }
+
+    ///
+    /// @brief Filtered top-k search on the search buffer, see
+    /// ``MutableVamanaIndex::search`` (filtered overload).
+    ///
+    /// @param filter Takes an external id.
+    /// @param found Receives the number of results per query. Rows are padded with id
+    ///     ``size_t(-1)`` and distance ``+inf``.
+    /// @return False if the data type is unsupported, in which case nothing is written.
+    template <typename QueryType>
+    bool filtered_search(
+        QueryResultView<size_t> results,
+        data::ConstSimpleDataView<QueryType> queries,
+        const VamanaSearchParameters& search_parameters,
+        const std::function<bool(size_t)>& filter,
+        std::vector<size_t>& found
+    ) {
+        return impl_->filtered_search(
+            results, AnonymousArray<2>(queries), search_parameters, filter, found
+        );
+    }
 };
 
 ///
