@@ -775,23 +775,24 @@ struct MultiVamanaStateLoader {
     IDTranslator translator_;
     std::vector<label_type> labels_;
 };
-} // namespace detail
 
 template <
+    typename StateLoader,
     typename GraphLoader,
     typename DataLoader,
     typename Distance,
-    typename ThreadPoolProto>
-auto auto_multi_dynamic_assemble(
+    typename ThreadPoolProto,
+    typename LoadMode,
+    typename Factory>
+auto assemble_multi_from_disk(
     const std::filesystem::path& config_path,
     GraphLoader&& graph_loader,
     DataLoader&& data_loader,
-    Distance distance,
-    ThreadPoolProto threadpool_proto,
-    /// This flag provides compatibility paths for directly loading dynamic vamana or static
-    /// vamana datasets.
-    MultiMutableVamanaLoad load_from = MultiMutableVamanaLoad::FROM_MULTI,
-    svs::logging::logger_ptr logger = svs::logging::get()
+    Distance& distance,
+    ThreadPoolProto& threadpool_proto,
+    LoadMode load_from,
+    svs::logging::logger_ptr& logger,
+    const Factory& make_index
 ) {
     // Load the dataset
     auto threadpool = threads::as_threadpool(std::move(threadpool_proto));
@@ -809,28 +810,27 @@ auto auto_multi_dynamic_assemble(
         );
     }
     auto [parameters, translator, labels] =
-        lib::load_from_disk<detail::MultiVamanaStateLoader>(
-            config_path, load_from, datasize
-        );
+        lib::load_from_disk<StateLoader>(config_path, load_from, datasize);
 
     switch (load_from) {
-        case MultiMutableVamanaLoad::FROM_MULTI: {
+        case LoadMode::FROM_MULTI: {
             if (labels.size() != datasize) {
                 throw ANNEXCEPTION(
                     "Labels has {} IDs but should have {}", labels.size(), datasize
                 );
             }
-            return MultiMutableVamanaIndex{
+            return make_index(
                 parameters,
                 std::move(data),
                 std::move(graph),
                 std::move(distance),
                 labels,
                 std::move(threadpool),
-                std::move(logger)};
+                std::move(logger)
+            );
         }
-        case MultiMutableVamanaLoad::FROM_DYNAMIC:
-        case MultiMutableVamanaLoad::FROM_STATIC: {
+        case LoadMode::FROM_DYNAMIC:
+        case LoadMode::FROM_STATIC: {
             // Make sure that the translator covers all the IDs in the graph and data.
             auto translator_size = translator.size();
             if (translator_size != datasize) {
@@ -845,14 +845,15 @@ auto auto_multi_dynamic_assemble(
                 }
             }
 
-            return MultiMutableVamanaIndex{
+            return make_index(
                 parameters,
                 std::move(data),
                 std::move(graph),
                 std::move(distance),
                 std::move(translator),
                 std::move(threadpool),
-                std::move(logger)};
+                std::move(logger)
+            );
         }
         default:
             throw ANNEXCEPTION("Invalid multi vamana load type");
@@ -863,14 +864,16 @@ template <
     typename LazyGraphLoader,
     typename LazyDataLoader,
     typename Distance,
-    typename ThreadPoolProto>
-auto auto_multi_dynamic_assemble(
+    typename ThreadPoolProto,
+    typename Factory>
+auto assemble_multi_from_stream(
     std::istream& is,
-    LazyGraphLoader graph_loader,
-    LazyDataLoader data_loader,
-    Distance distance,
-    ThreadPoolProto threadpool_proto,
-    svs::logging::logger_ptr logger = svs::logging::get()
+    LazyGraphLoader& graph_loader,
+    LazyDataLoader& data_loader,
+    Distance& distance,
+    ThreadPoolProto& threadpool_proto,
+    svs::logging::logger_ptr& logger,
+    const Factory& make_index
 ) {
     using label_type = size_t;
 
@@ -903,14 +906,73 @@ auto auto_multi_dynamic_assemble(
     }
 
     auto threadpool = threads::as_threadpool(std::move(threadpool_proto));
-    return MultiMutableVamanaIndex{
+    return make_index(
         parameters,
         std::move(data),
         std::move(graph),
         std::move(distance),
         labels,
         std::move(threadpool),
-        std::move(logger)};
+        std::move(logger)
+    );
+}
+
+} // namespace detail
+
+template <
+    typename GraphLoader,
+    typename DataLoader,
+    typename Distance,
+    typename ThreadPoolProto>
+auto auto_multi_dynamic_assemble(
+    const std::filesystem::path& config_path,
+    GraphLoader&& graph_loader,
+    DataLoader&& data_loader,
+    Distance distance,
+    ThreadPoolProto threadpool_proto,
+    /// This flag provides compatibility paths for directly loading dynamic vamana or static
+    /// vamana datasets.
+    MultiMutableVamanaLoad load_from = MultiMutableVamanaLoad::FROM_MULTI,
+    svs::logging::logger_ptr logger = svs::logging::get()
+) {
+    return detail::assemble_multi_from_disk<detail::MultiVamanaStateLoader>(
+        config_path,
+        SVS_FWD(graph_loader),
+        SVS_FWD(data_loader),
+        distance,
+        threadpool_proto,
+        load_from,
+        logger,
+        []<typename... Args>(Args&&... args) {
+            return MultiMutableVamanaIndex{SVS_FWD(args)...};
+        }
+    );
+}
+
+template <
+    typename LazyGraphLoader,
+    typename LazyDataLoader,
+    typename Distance,
+    typename ThreadPoolProto>
+auto auto_multi_dynamic_assemble(
+    std::istream& is,
+    LazyGraphLoader graph_loader,
+    LazyDataLoader data_loader,
+    Distance distance,
+    ThreadPoolProto threadpool_proto,
+    svs::logging::logger_ptr logger = svs::logging::get()
+) {
+    return detail::assemble_multi_from_stream(
+        is,
+        graph_loader,
+        data_loader,
+        distance,
+        threadpool_proto,
+        logger,
+        []<typename... Args>(Args&&... args) {
+            return MultiMutableVamanaIndex{SVS_FWD(args)...};
+        }
+    );
 }
 
 } // namespace svs::index::vamana
