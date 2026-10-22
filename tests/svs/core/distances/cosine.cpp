@@ -38,6 +38,7 @@
 // Testing Utilities
 #include "tests/utils/benchmarks.h"
 #include "tests/utils/generators.h"
+#include "tests/utils/preconversion.h"
 #include "tests/utils/utils.h"
 
 // The values for the floating point tolerance are chose somewhat heuristically based
@@ -133,6 +134,14 @@ CATCH_TEST_CASE("Testing CosineSimilarity", "[distance][cosinesimilarity_distanc
         auto x = svs::distance::DistanceCosineSimilarity{};
         CATCH_REQUIRE(svs::lib::test_self_save_load(x, svs_test::temp_directory()));
     }
+}
+
+CATCH_TEST_CASE(
+    "CosineSimilarity with pre-converted operands",
+    "[distance][cosinesimilarity_distance][conversion]"
+) {
+    svs_test::require_preconverted_operands_match<svs::distance::DistanceCosineSimilarity>(
+    );
 }
 
 // This function is capable of running both the static and dynamically sized versions

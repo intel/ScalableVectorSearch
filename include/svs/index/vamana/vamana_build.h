@@ -47,6 +47,7 @@
 #include <memory>
 #include <optional>
 #include <tuple>
+#include <utility>
 #include <vector>
 
 namespace svs::index::vamana {
@@ -177,6 +178,16 @@ class VamanaBuilder {
 
     using update_type =
         threads::SequentialTLS<std::vector<std::pair<Idx, std::vector<Idx>>>>;
+
+    // Storage for the query of each prune, typed after the accessor and distance the build
+    // adaptor hands to `heuristic_prune_neighbors`.
+    using build_adaptor_type = decltype(extensions::build_adaptor(
+        std::declval<const Data&>(), std::declval<const Dist&>()
+    ));
+    using prune_query_storage_type = prune_query_storage_t<
+        Data,
+        decltype(std::declval<build_adaptor_type&>().general_accessor()),
+        decltype(std::declval<build_adaptor_type&>().general_distance())>;
 
     /// Constructor
     VamanaBuilder(
@@ -371,6 +382,10 @@ class VamanaBuilder {
                 auto&& general_distance = build_adaptor.general_distance();
                 auto general_accessor = build_adaptor.general_accessor();
 
+                // `StaticPartition` runs this body once per thread, so this storage is
+                // allocated once per thread and reused for every node it prunes.
+                auto prune_query_storage = prune_query_storage_type(data_.dimensions());
+
                 for (auto node_id : local_indices) {
                     pool.clear();
                     search_buffer.clear();
@@ -472,7 +487,8 @@ class VamanaBuilder {
                         general_distance,
                         node_id,
                         lib::as_const_span(pool),
-                        pruned_results
+                        pruned_results,
+                        prune_query_storage
                     );
                 }
             }
@@ -525,10 +541,15 @@ class VamanaBuilder {
         //
         // Take care to avoid duplicate entries.
         auto prune_timer = timer.push_back("pruning backedges");
+        // `DynamicPartition` runs the body below once per bucket, so storage declared in it
+        // would be reallocated for every bucket. Allocate it once per thread instead.
+        auto prune_query_storage = threads::SequentialTLS<prune_query_storage_type>(
+            prune_query_storage_type(data_.dimensions()), threadpool_.size()
+        );
         threads::parallel_for(
             threadpool_,
             threads::DynamicPartition{backedge_buffer_.buckets(), 1},
-            [&](auto& buckets, uint64_t SVS_UNUSED(tid)) {
+            [&](auto& buckets, uint64_t tid) {
                 // Thread local auxiliary data structures.
                 std::vector<Neighbor<Idx>> candidates{};
                 std::vector<Idx> pruned_results{};
@@ -582,7 +603,8 @@ class VamanaBuilder {
                             general_distance,
                             src,
                             lib::as_const_span(candidates),
-                            pruned_results
+                            pruned_results,
+                            prune_query_storage.at(tid)
                         );
                         graph_.replace_node(src, pruned_results);
                     }

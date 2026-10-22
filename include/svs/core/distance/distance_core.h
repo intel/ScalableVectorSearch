@@ -42,6 +42,31 @@ template <size_t N> constexpr bool is_dim_supported() {
 
 using default_accum_type = float;
 
+///
+/// @brief Type that an argument of type ``Argument`` should be converted to before it is
+///     compared against many other vectors by the distance functor ``Distance``.
+///
+/// @tparam Distance The distance functor the converted argument is passed to.
+/// @tparam Argument The argument type as stored, for example the
+///     ``std::span<const Float16, Extent>`` a dataset accessor returns.
+///
+/// The mapping applies equally to the left- and right-hand arguments of
+/// ``distance::compute``. The primary template maps ``Argument`` to itself, meaning
+/// converting ahead of time brings no benefit: ``Argument`` is already in the kernel's
+/// working type, the kernel for it would be slower or numerically different with a
+/// converted operand, or ``Argument`` is not a plain arithmetic span (for example a
+/// compressed vector).
+///
+/// A specialization belongs next to the ``distance::compute`` overload of the functor
+/// whose kernels it describes.
+///
+template <typename Distance, typename Argument> struct distance_argument {
+    using type = Argument;
+};
+
+template <typename Distance, typename Argument>
+using distance_argument_t = typename distance_argument<Distance, Argument>::type;
+
 template <Arithmetic Accum, typename T, size_t Extent>
 Accum norm_square(lib::Type<Accum> /*unused*/, std::span<T, Extent> data) {
     Accum accum{0};
