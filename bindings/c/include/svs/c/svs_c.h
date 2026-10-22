@@ -1060,7 +1060,7 @@ SVS_API void svs_index_builder_free(svs_index_builder_h builder);
 /// @param out_err An optional error handle to capture errors
 /// @return true on success, false on failure
 /// @remarks Indexes keep the logger they were created with; the handle may be freed after
-/// this call. Stream loads ignore it and use the global default logger.
+/// this call.
 SVS_API bool svs_index_builder_set_logger(
     svs_index_builder_h builder, svs_logger_h logger, svs_error_h out_err /*=NULL*/
 );
