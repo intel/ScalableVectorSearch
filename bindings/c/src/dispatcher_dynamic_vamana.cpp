@@ -112,7 +112,7 @@ svs::DynamicVamana load_stream_dynamic_vamana_index(
     svs::threads::ThreadPoolHandle pool,
     const AllocatorBuilder& allocator_builder,
     const svs::data::BlockingParameters& block_params,
-    svs::logging::logger_ptr SVS_UNUSED(logger)
+    svs::logging::logger_ptr logger
 ) {
     using allocator_type = typename DataLoader::allocator_type;
     using value_type = typename allocator_type::value_type;
@@ -131,7 +131,9 @@ svs::DynamicVamana load_stream_dynamic_vamana_index(
             svs::graphs::SimpleGraph<uint32_t, decltype(graph_allocator)>>(graph_allocator),
         svs::make_stream_loader<data_type>(allocator),
         distance,
-        std::move(pool)
+        std::move(pool),
+        /*debug_load_from_static=*/false,
+        std::move(logger)
     );
 }
 
@@ -385,7 +387,8 @@ svs::DynamicVamana dispatch_dynamic_vamana_index_load_stream(
     svs::DistanceType distance_type,
     svs::threads::ThreadPoolHandle pool,
     const AllocatorBuilder& allocator_builder,
-    const svs::data::BlockingParameters& block_params
+    const svs::data::BlockingParameters& block_params,
+    svs::logging::logger_ptr logger
 ) {
     return build_dynamic_vamana_index_dispatcher().invoke(
         build_params,
@@ -395,7 +398,7 @@ svs::DynamicVamana dispatch_dynamic_vamana_index_load_stream(
         std::move(pool),
         allocator_builder,
         block_params,
-        nullptr
+        std::move(logger)
     );
 }
 

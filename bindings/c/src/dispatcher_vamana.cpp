@@ -94,7 +94,7 @@ svs::Vamana load_stream_vamana_index(
     Distance distance,
     svs::threads::ThreadPoolHandle pool,
     const AllocatorBuilder& allocator_builder,
-    svs::logging::logger_ptr SVS_UNUSED(logger)
+    svs::logging::logger_ptr logger
 ) {
     using value_type = typename DataLoader::allocator_type::value_type;
     using data_type = typename DataLoader::data_type;
@@ -108,7 +108,8 @@ svs::Vamana load_stream_vamana_index(
             svs::graphs::SimpleGraph<uint32_t, decltype(graph_allocator)>>(graph_allocator),
         svs::make_stream_loader<data_type>(data_allocator),
         distance,
-        std::move(pool)
+        std::move(pool),
+        std::move(logger)
     );
 }
 
@@ -341,7 +342,8 @@ svs::Vamana dispatch_vamana_index_load_stream(
     const Storage* storage,
     svs::DistanceType distance_type,
     svs::threads::ThreadPoolHandle pool,
-    const AllocatorBuilder& allocator_builder
+    const AllocatorBuilder& allocator_builder,
+    svs::logging::logger_ptr logger
 ) {
     return build_vamana_index_dispatcher().invoke(
         build_params,
@@ -350,7 +352,7 @@ svs::Vamana dispatch_vamana_index_load_stream(
         distance_type,
         std::move(pool),
         allocator_builder,
-        nullptr
+        std::move(logger)
     );
 }
 

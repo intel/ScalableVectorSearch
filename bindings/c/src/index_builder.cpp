@@ -102,7 +102,8 @@ std::shared_ptr<Index> IndexBuilder::load_stream(std::unique_ptr<std::istream>&&
                 storage.get(),
                 to_distance_type(distance_metric),
                 pool_builder.build(),
-                allocator_builder
+                allocator_builder,
+                get_logger()
             )
         );
 
@@ -305,7 +306,8 @@ std::shared_ptr<DynamicIndex> IndexBuilder::load_stream_dynamic(
                 to_distance_type(distance_metric),
                 pool_builder.build(),
                 allocator_builder,
-                block_params
+                block_params,
+                get_logger()
             ),
             sync_kind
         );
