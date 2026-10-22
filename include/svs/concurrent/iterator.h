@@ -99,7 +99,7 @@ class BatchIterator
   private:
     auto begin_search() {
         // Keep internal IDs stable through traversal, reranking, and translation.
-        [[maybe_unused]] auto search_guard = parent_->lock_for_search();
+        [[maybe_unused]] auto search_guard = parent_->lock_storage_shared();
         const auto epoch = parent_->compaction_epoch_;
         if (compaction_epoch_ != epoch) {
             // Reranking touches cached IDs before the restart initializer runs.
