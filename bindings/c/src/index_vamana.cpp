@@ -22,6 +22,7 @@
 #include "index_builder.hpp"
 
 #include <svs/concepts/data.h>
+#include <svs/concurrent/dynamic_index.h>
 #include <svs/core/query_result.h>
 #include <svs/lib/misc.h>
 #include <svs/orchestrators/dynamic_vamana.h>
@@ -29,6 +30,7 @@
 
 #include <algorithm>
 #include <cassert>
+#include <filesystem>
 #include <memory>
 #include <random>
 #include <utility>
@@ -95,14 +97,11 @@ void IndexVamana::set_num_threads(size_t num_threads) {
 /////////////////////////////////////
 // DynamicIndexVamana Implementation
 DynamicIndexVamana::DynamicIndexVamana(
-    const IndexBuilder& builder, svs::DynamicVamana&& index
+    const IndexBuilder& builder, svs::DynamicVamana&& index, svs_sync_kind_t sync_kind
 )
-    : DynamicIndex(std::make_unique<IndexBuilder>(builder))
+    : DynamicIndex(std::make_unique<IndexBuilder>(builder), sync_kind)
     , index(std::move(index)) {
-    auto all_ids = this->index.all_ids();
-    auto [min_it, max_it] = std::minmax_element(all_ids.begin(), all_ids.end());
-    min_id = (min_it == all_ids.end()) ? 0 : *min_it;
-    max_id = (max_it == all_ids.end()) ? 0 : *max_it;
+    track_id_range(lib::as_span(this->index.all_ids()));
 
     // Apply default search parameters to the index
     auto algorithm_parameters = std::static_pointer_cast<AlgorithmVamana::SearchParams>(
@@ -122,6 +121,7 @@ std::pair<svs::QueryResult<size_t>, std::vector<size_t>> DynamicIndexVamana::sea
     const std::shared_ptr<Algorithm::SearchParams>& search_params,
     const IDFilterInterface* id_filter
 ) {
+    auto lock = read_lock();
     auto vamana_search_params =
         std::static_pointer_cast<AlgorithmVamana::SearchParams>(search_params);
     auto results = svs::QueryResult<size_t>(queries.size(), num_neighbors);
@@ -133,11 +133,33 @@ std::pair<svs::QueryResult<size_t>, std::vector<size_t>> DynamicIndexVamana::sea
 
     if (id_filter == nullptr) {
         index.search(results.view(), queries, params);
-        return {results, std::vector<size_t>(queries.size(), num_neighbors)};
+        auto found_neighbors_per_query = std::vector<size_t>(queries.size(), num_neighbors);
+        if (sync_kind == SVS_SYNC_KIND_FINE_GRAIN) {
+            // Consolidation can erase buffered IDs before translation. The CSR exporter
+            // consumes each row's counted prefix, so move IDs and distances together.
+            for (size_t i = 0; i < results.n_queries(); ++i) {
+                size_t found = 0;
+                for (size_t j = 0; j < results.n_neighbors(); ++j) {
+                    const auto id = results.index(i, j);
+                    if (id == svs::index::vamana::concurrent::no_external_id) {
+                        continue;
+                    }
+                    if (found != j) {
+                        results.index(i, found) = id;
+                        results.distance(i, found) = results.distance(i, j);
+                    }
+                    ++found;
+                }
+                found_neighbors_per_query[i] = found;
+            }
+        }
+        return {std::move(results), std::move(found_neighbors_per_query)};
     }
 
     std::mt19937 rng(42);
-    std::uniform_int_distribution<size_t> dist(min_id, max_id);
+    const size_t lo = min_id.load(std::memory_order_relaxed);
+    const size_t hi = std::max(lo, max_id.load(std::memory_order_relaxed));
+    std::uniform_int_distribution<size_t> dist(lo, hi);
     // DynamicVamana index IDs provided by user and may have any values and gaps, so we
     // need to sample until we find a valid ID.
     // The most reliable way would be get all IDs and sample from them, but that may be
@@ -148,7 +170,7 @@ std::pair<svs::QueryResult<size_t>, std::vector<size_t>> DynamicIndexVamana::sea
     // attempts. This ensures that we have a reasonable chance of finding a valid ID
     // without excessive sampling.
     // Note: (index.size() + 1) - to avoid division by zero in case the index is empty.
-    const size_t max_attempts = std::max((max_id - min_id) / (index.size() + 1), size_t{4});
+    const size_t max_attempts = std::max((hi - lo) / (index.size() + 1), size_t{4});
 
     auto sample_generator = [&]() -> size_t {
         for (size_t attempt = 0; attempt < max_attempts; ++attempt) {
@@ -172,14 +194,8 @@ std::pair<svs::QueryResult<size_t>, std::vector<size_t>> DynamicIndexVamana::sea
 size_t DynamicIndexVamana::add_points(
     svs::data::ConstSimpleDataView<float> new_points, std::span<const size_t> ids
 ) {
-    // Track the maximum ID added to the index for ids generator
-    auto [min_it, max_it] = std::minmax_element(ids.begin(), ids.end());
-    if (min_it != ids.end()) {
-        min_id = std::min(min_id, *min_it);
-    }
-    if (max_it != ids.end()) {
-        max_id = std::max(max_id, *max_it);
-    }
+    auto lock = write_lock();
+    track_id_range(ids);
     auto old_size = index.size();
     index.add_points(new_points, ids);
     // TODO: This is a bit of a hack - we should ideally return the number of points
@@ -188,6 +204,23 @@ size_t DynamicIndexVamana::add_points(
 }
 
 size_t DynamicIndexVamana::delete_points(std::span<const size_t> ids) {
+    auto lock = write_lock();
+    return delete_points_unlocked(ids);
+}
+
+void DynamicIndexVamana::track_id_range(std::span<const size_t> ids) {
+    auto [min_it, max_it] = std::minmax_element(ids.begin(), ids.end());
+    if (min_it != ids.end()) {
+        size_t current = min_id.load();
+        while (*min_it < current && !min_id.compare_exchange_weak(current, *min_it)) {}
+    }
+    if (max_it != ids.end()) {
+        size_t current = max_id.load();
+        while (*max_it > current && !max_id.compare_exchange_weak(current, *max_it)) {}
+    }
+}
+
+size_t DynamicIndexVamana::delete_points_unlocked(std::span<const size_t> ids) {
     std::vector<size_t> ids_to_delete;
     ids_to_delete.reserve(ids.size());
 
@@ -203,9 +236,88 @@ size_t DynamicIndexVamana::delete_points(std::span<const size_t> ids) {
     return ids_to_delete.size();
 }
 
+void DynamicIndexVamana::save(const std::filesystem::path& directory) {
+    // Saving consolidates and compacts the index, so it requires exclusive access.
+    auto lock = write_lock();
+    index.save(directory / "config", directory / "graph", directory / "data");
+}
+
+void DynamicIndexVamana::consolidate() {
+    auto lock = write_lock();
+    index.consolidate();
+}
+
+void DynamicIndexVamana::compact(size_t batchsize) {
+    auto lock = write_lock();
+    // Ensure the index is consolidated before compacting.
+    if (!index.is_consolidated()) {
+        index.consolidate();
+    }
+    compact_unlocked(batchsize);
+}
+
+void DynamicIndexVamana::compact_unlocked(size_t batchsize) {
+    if (batchsize == 0) {
+        index.compact(); // Use default batch size
+    } else {
+        index.compact(batchsize);
+    }
+}
+
 void DynamicIndexVamana::set_num_threads(size_t num_threads) {
+    auto lock = write_lock();
     this->builder->pool_builder.resize(num_threads);
-    index.set_threadpool(this->builder->pool_builder.build());
+    index.set_threadpool(this->builder->pool_builder.build(sync_kind));
+}
+
+/////////////////////////////////////////
+// ConcurrentIndexVamana Implementation
+ConcurrentIndexVamana::ConcurrentIndexVamana(
+    const IndexBuilder& builder, svs::DynamicVamana&& index, svs_sync_kind_t sync_kind
+)
+    : DynamicIndexVamana(builder, std::move(index), sync_kind) {}
+
+std::pair<svs::QueryResult<size_t>, std::vector<size_t>> ConcurrentIndexVamana::search(
+    svs::data::ConstSimpleDataView<float> queries,
+    size_t num_neighbors,
+    const std::shared_ptr<Algorithm::SearchParams>& search_params,
+    const IDFilterInterface* id_filter
+) {
+    assert(sync_kind == SVS_SYNC_KIND_FINE_GRAIN);
+    if (queries.size() > 1) {
+        throw not_implemented(
+            "FINE GRAIN dynamic index only supports searching one query at a time."
+        );
+    }
+    return DynamicIndexVamana::search(queries, num_neighbors, search_params, id_filter);
+}
+
+size_t ConcurrentIndexVamana::add_points(
+    svs::data::ConstSimpleDataView<float> new_points, std::span<const size_t> ids
+) {
+    assert(sync_kind == SVS_SYNC_KIND_FINE_GRAIN);
+    if (new_points.size() > 1) {
+        throw not_implemented(
+            "FINE GRAIN dynamic index only supports adding one point at a time."
+        );
+    }
+    auto lock = read_lock();
+    track_id_range(ids);
+    // The size may change concurrently, so it cannot measure this call; a failed add
+    // throws instead.
+    index.add_points(new_points, ids);
+    return ids.size();
+}
+
+size_t ConcurrentIndexVamana::delete_points(std::span<const size_t> ids) {
+    assert(sync_kind == SVS_SYNC_KIND_FINE_GRAIN);
+    if (ids.size() > 1) {
+        throw not_implemented(
+            "FINE GRAIN dynamic index only supports deleting one point at a time."
+        );
+    }
+    auto lock = read_lock();
+    return delete_points_unlocked(ids);
 }
 
 } // namespace svs::c_runtime

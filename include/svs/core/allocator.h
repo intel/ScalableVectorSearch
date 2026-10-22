@@ -42,6 +42,7 @@
 #include <array>
 #include <fcntl.h>
 #include <filesystem>
+#include <mutex>
 
 // <linux/mman.h> provides some linux-specific flags like
 // MAP_POPULATE, MAP_NORESERVE, MAP_HUGETLB.
@@ -233,7 +234,8 @@ template <typename T> class HugepageAllocator {
     HugepageAllocator(const HugepageAllocator<U>& other)
         : force_{other.force_} {}
 
-    template <typename U> bool operator==(const HugepageAllocator<U>& SVS_UNUSED(other)) {
+    template <typename U>
+    bool operator==(const HugepageAllocator<U>& SVS_UNUSED(other)) const {
         return true;
     }
 

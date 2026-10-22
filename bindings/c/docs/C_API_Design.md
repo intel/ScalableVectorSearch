@@ -255,6 +255,55 @@ The main search structure providing vector similarity search operations.
 - A static index is immutable after creation; a dynamic index additionally supports
   add/delete/consolidate/compact operations
 
+**Dynamic Index Parameters:**
+
+The `_ex` variants of the dynamic functions (`svs_index_build_dynamic_ex`,
+`svs_index_load_dynamic_ex`, `svs_index_convert_dynamic_ex`,
+`svs_index_builder_estimate_memory_dynamic_ex`,
+`svs_index_builder_estimate_search_memory_dynamic_ex`) take a versioned
+`const svs_dynamic_index_params_t*` instead of a bare `blocksize_bytes` argument.
+Initialize it with `SVS_INIT_DYNAMIC_INDEX_PARAMS()`, or pass `NULL` to use the defaults
+(`blocksize_bytes = 0`, `blocksize_elements = 0`, `sync_kind = SVS_SYNC_KIND_NONE`).
+Invalid parameters are rejected with `SVS_ERROR_INVALID_ARGUMENT`; unlike the legacy
+`blocksize_bytes` arguments, block sizes are not rounded down to a power of two.
+
+| Field | Description |
+|-------|-------------|
+| `blocksize_bytes` | Bytes per block; `0` selects the default, otherwise must be a power of two |
+| `blocksize_elements` | Vectors (graph nodes) per block; `0` leaves it unset, otherwise must be a power of two and takes precedence over `blocksize_bytes` |
+| `sync_kind` | `uint32_t` holding a `svs_sync_kind_t` value: internal synchronization of the dynamic index handle (see below) |
+
+| `svs_sync_kind_t` | Behavior |
+|-----------------|----------|
+| `SVS_SYNC_KIND_NONE` | No internal synchronization (default); the caller must serialize access |
+| `SVS_SYNC_KIND_GLOBAL` | Index-wide reader/writer lock: read-only operations (search, `has_id`, `get_distance`, reconstruct, `get_size`, `get_num_threads`, memory queries, use as a conversion source) run concurrently; mutating operations (add/delete points, consolidate, compact, save, `set_num_threads`) are exclusive |
+| `SVS_SYNC_KIND_FINE_GRAIN` | Backed by the concurrent Vamana index, which synchronizes updates itself: read-only operations and add/delete points, consolidate, compact all take a shared lock and run in parallel (compact still waits inside the index). Save, `set_num_threads`, memory queries and use as a conversion source are exclusive |
+
+Synchronization limits:
+- `svs_index_free()` must not run concurrently with any other call on the same handle.
+- Each thread must use its own `svs_search_results_t` and `svs_error_h`.
+- The lock gives no writer priority; sustained read load may starve operations that
+  need an exclusive lock.
+- With `SVS_SYNC_KIND_FINE_GRAIN`, add/delete counts and the index size are a snapshot
+  and may be affected by concurrent updates.
+- The concurrent index keeps a reverse-edge list per node; its memory is reported (and
+  estimated, when `sync_kind` is passed to
+  `svs_index_builder_estimate_memory_dynamic_ex`) as part of `graph_bytes`.
+- Conversion (`svs_index_convert_dynamic_ex`) works between any sync kinds; deleted but
+  not yet consolidated vectors are not copied.
+- The sync kind is not persisted by `svs_index_save()`; pass it again on load. Query it
+  with `svs_index_dynamic_get_sync_kind()`.
+
+```c
+svs_dynamic_index_params_t params = SVS_INIT_DYNAMIC_INDEX_PARAMS();
+params.blocksize_elements = 1024;
+params.sync_kind = SVS_SYNC_KIND_GLOBAL;
+
+svs_index_h index = svs_index_build_dynamic_ex(
+    builder, data, /*ids=*/NULL, num_vectors, &params, err
+);
+```
+
 **Future Extensions:**
 - Range search (all neighbors within distance threshold)
 - Additional algorithms (Flat, IVF)
@@ -283,8 +332,12 @@ plan capacity up front:
   `svs_memory_breakdown_t` for a given vector count. The dynamic variant also accounts
   for the block size; `svs_index_builder_get_default_blocksize_bytes` returns the
   default block size (`blocksize_bytes = 0` selects it).
+  `svs_index_builder_estimate_memory_dynamic_ex` takes the block size from
+  `svs_dynamic_index_params_t` instead, including `blocksize_elements`, and accounts
+  for the reverse edges of the `SVS_SYNC_KIND_FINE_GRAIN` index.
 - `svs_index_builder_estimate_search_memory` /
-  `svs_index_builder_estimate_search_memory_dynamic` — estimate the scratch memory a
+  `svs_index_builder_estimate_search_memory_dynamic` /
+  `svs_index_builder_estimate_search_memory_dynamic_ex` — estimate the scratch memory a
   search would use for a given query count, neighbor count, search parameters, and
   optional ID filter (a non-zero `filter_rate` is factored into the estimate).
 
@@ -358,7 +411,7 @@ Controls parallelization strategy for index operations.
 | Type | Configuration | Use Case |
 |------|---------------|----------|
 | **Native** | Thread count | Default SVS thread pool (recommended) |
-| **OpenMP** | Uses OMP_NUM_THREADS | Integration with OpenMP applications |
+| **OpenMP** | Thread count | Integration with OpenMP applications; requires a build with OpenMP support, otherwise `SVS_ERROR_NOT_IMPLEMENTED` |
 | **Single Thread** | No parallelization | Debugging or minimal overhead |
 | **Custom** | User-defined interface | Custom scheduling/work-stealing |
 
@@ -583,12 +636,12 @@ for full signatures, parameters, and Doxygen documentation.
   `svs_algorithm_h`, `svs_storage_h`, `svs_search_params_h`
 - **Enums** (`_t`): `svs_error_code_t`, `svs_distance_metric_t`,
   `svs_algorithm_type_t`, `svs_data_type_t`, `svs_storage_kind_t`,
-  `svs_threadpool_kind_t`, `svs_allocator_kind_t`
+  `svs_threadpool_kind_t`, `svs_allocator_kind_t`, `svs_sync_kind_t`
 - **Custom interfaces**: `svs_threadpool_i`, `svs_allocator_i`, `svs_id_filter_i`, and
   `svs_stream_i` (versioned ops-table + `self` pointer; build with `SVS_INIT_*_OPS()` /
   `SVS_MAKE_INTERFACE()`)
 - **Value structs**: `svs_search_results_t` (CSR result buffer),
-  `svs_memory_breakdown_t`
+  `svs_memory_breakdown_t`, `svs_dynamic_index_params_t`
 
 ### Function groups
 
@@ -600,15 +653,17 @@ for full signatures, parameters, and Doxygen documentation.
 | **Storage** | `svs_storage_create_{simple,sq,lvq,leanvec}`, `svs_storage_get_kind`, `svs_storage_free` |
 | **Search params** | `svs_search_params_create_vamana`, `svs_search_params_free` |
 | **Builder** | `svs_index_builder_create`, `svs_index_builder_set_{storage,threadpool,threadpool_custom,allocator,allocator_custom}`, `svs_index_builder_free` |
-| **Memory estimation** | `svs_index_builder_estimate_memory`, `svs_index_builder_estimate_memory_dynamic`, `svs_index_builder_estimate_search_memory`, `svs_index_builder_estimate_search_memory_dynamic`, `svs_index_builder_get_default_blocksize_bytes` |
-| **Index lifecycle** | `svs_index_build`, `svs_index_build_dynamic`, `svs_index_load`, `svs_index_load_dynamic`, `svs_index_load_stream`, `svs_index_load_stream_dynamic`, `svs_index_save`, `svs_index_save_stream`, `svs_index_free` |
-| **Dynamic ops** | `svs_index_dynamic_{add_points,delete_points,has_id,consolidate,compact}` |
+| **Memory estimation** | `svs_index_builder_estimate_memory`, `svs_index_builder_estimate_memory_dynamic[_ex]`, `svs_index_builder_estimate_search_memory`, `svs_index_builder_estimate_search_memory_dynamic[_ex]`, `svs_index_builder_get_default_blocksize_bytes` |
+| **Index lifecycle** | `svs_index_build`, `svs_index_build_dynamic[_ex]`, `svs_index_convert`, `svs_index_convert_dynamic[_ex]`, `svs_index_load`, `svs_index_load_dynamic[_ex]`, `svs_index_load_stream`, `svs_index_load_stream_dynamic`, `svs_index_save`, `svs_index_save_stream`, `svs_index_free` |
+| **Dynamic ops** | `svs_index_dynamic_{add_points,delete_points,has_id,consolidate,compact,get_sync_kind}` |
 | **Introspection** | `svs_index_get_num_threads` / `set_num_threads`, `svs_index_get_distance`, `svs_index_reconstruct`, `svs_index_get_memory_usage`, `svs_index_get_memory_breakdown` |
 | **Search** | `svs_index_search_topk` (+ deprecated `svs_index_search`), `svs_search_results_free` |
 
 ### Conventions
 
 - Every fallible call takes a trailing optional `svs_error_h out_err` (may be `NULL`).
+- Handles are not internally synchronized, except dynamic indices created with a
+  `sync_kind` other than `SVS_SYNC_KIND_NONE`.
 - Constructors return an opaque handle or `NULL` on failure; other calls return
   `bool`. Out-values are written through `out_*` pointer parameters.
 - LVQ/LeanVec require the compression backend and specific x86 ISA support; when

@@ -23,6 +23,7 @@
 
 #include <svs/concepts/data.h>
 #include <svs/core/distance.h>
+#include <svs/core/logging.h>
 #include <svs/core/query_result.h>
 #include <svs/index/vamana/build_params.h>
 #include <svs/lib/float16.h>
@@ -46,7 +47,8 @@ svs::Vamana build_vamana_index(
     DataBuilder builder,
     Distance distance,
     svs::threads::ThreadPoolHandle pool,
-    const AllocatorBuilder& allocator_builder
+    const AllocatorBuilder& allocator_builder,
+    svs::logging::logger_ptr logger
 ) {
     using value_type = typename DataBuilder::allocator_type::value_type;
     auto data =
@@ -56,7 +58,8 @@ svs::Vamana build_vamana_index(
         std::move(data),
         distance,
         std::move(pool),
-        allocator_builder.build_for_graph<uint32_t>()
+        allocator_builder.build_for_graph<uint32_t>(),
+        std::move(logger)
     );
 }
 
@@ -67,7 +70,8 @@ svs::Vamana load_vamana_index(
     DataLoader loader,
     Distance distance,
     svs::threads::ThreadPoolHandle pool,
-    const AllocatorBuilder& allocator_builder
+    const AllocatorBuilder& allocator_builder,
+    svs::logging::logger_ptr logger
 ) {
     using value_type = typename DataLoader::allocator_type::value_type;
     auto data = loader.load(directory / "data", allocator_builder.build<value_type>());
@@ -77,7 +81,8 @@ svs::Vamana load_vamana_index(
             directory / "graph", allocator_builder.build_for_graph<uint32_t>()},
         std::move(data),
         distance,
-        std::move(pool)
+        std::move(pool),
+        std::move(logger)
     );
 }
 
@@ -88,18 +93,23 @@ svs::Vamana load_stream_vamana_index(
     DataLoader SVS_UNUSED(loader),
     Distance distance,
     svs::threads::ThreadPoolHandle pool,
-    const AllocatorBuilder& allocator_builder
+    const AllocatorBuilder& allocator_builder,
+    svs::logging::logger_ptr logger
 ) {
     using value_type = typename DataLoader::allocator_type::value_type;
     using data_type = typename DataLoader::data_type;
+    auto graph_allocator = allocator_builder.build_for_graph<uint32_t>();
+    auto data_allocator = allocator_builder.build<value_type>();
     // svs_c.h lets the caller drop the stream once loading returns. That holds only while
     // assemble copies data out; a view allocator here would leave the index dangling.
-    return svs::Vamana::assemble<float, data_type>(
+    return svs::Vamana::assemble<float>(
         *stream,
+        svs::make_stream_loader<
+            svs::graphs::SimpleGraph<uint32_t, decltype(graph_allocator)>>(graph_allocator),
+        svs::make_stream_loader<data_type>(data_allocator),
         distance,
         std::move(pool),
-        allocator_builder.build<value_type>(),
-        allocator_builder.build_for_graph<uint32_t>()
+        std::move(logger)
     );
 }
 
@@ -115,18 +125,9 @@ void register_vamana_index_specializations(Dispatcher& dispatcher) {
         dispatcher.register_target(&load_stream_vamana_index<DataLoader, Distance>);
     };
 
-    for_simple_specializations<false>(build_closure);
-    for_simple_specializations<false>(load_closure);
-    for_simple_specializations<false>(load_stream_closure);
-    for_leanvec_specializations<false>(build_closure);
-    for_leanvec_specializations<false>(load_closure);
-    for_leanvec_specializations<false>(load_stream_closure);
-    for_lvq_specializations<false>(build_closure);
-    for_lvq_specializations<false>(load_closure);
-    for_lvq_specializations<false>(load_stream_closure);
-    for_sq_specializations<false>(build_closure);
-    for_sq_specializations<false>(load_closure);
-    for_sq_specializations<false>(load_stream_closure);
+    for_all_specializations<BlockKind::None>(build_closure);
+    for_all_specializations<BlockKind::None>(load_closure);
+    for_all_specializations<BlockKind::None>(load_stream_closure);
 }
 
 // Stream load alternative, matched via generic variant DispatchConverter like the
@@ -143,7 +144,8 @@ using BuildIndexDispatcher = svs::lib::Dispatcher<
     const Storage*,
     svs::DistanceType,
     svs::threads::ThreadPoolHandle,
-    const AllocatorBuilder&>;
+    const AllocatorBuilder&,
+    svs::logging::logger_ptr>;
 
 const BuildIndexDispatcher& build_vamana_index_dispatcher() {
     static BuildIndexDispatcher dispatcher = [] {
@@ -162,7 +164,8 @@ using CopyIndexDispatcher = svs::lib::Dispatcher<
     const Storage*, // dst
     svs::DistanceType,
     svs::threads::ThreadPoolHandle,
-    const AllocatorBuilder&>;
+    const AllocatorBuilder&,
+    svs::logging::logger_ptr>;
 
 template <typename SrcDataBuilder, typename DstDataBuilder, typename Distance>
 svs::Vamana copy_vamana_index(
@@ -172,7 +175,8 @@ svs::Vamana copy_vamana_index(
     DstDataBuilder dst_builder,
     Distance distance,
     svs::threads::ThreadPoolHandle pool,
-    const AllocatorBuilder& allocator_builder
+    const AllocatorBuilder& allocator_builder,
+    svs::logging::logger_ptr logger
 ) {
     auto config = src_index.parameters();
 
@@ -216,12 +220,19 @@ svs::Vamana copy_vamana_index(
     auto data = dst_builder.build(src_data, pool, allocator_builder.build<value_type>());
 
     return svs::Vamana::assemble<float>(
-        config, std::move(graph), std::move(data), distance, std::move(pool)
+        config,
+        std::move(graph),
+        std::move(data),
+        distance,
+        std::move(pool),
+        std::move(logger)
     );
 }
 
 template <typename Dispatcher>
 void register_copy_vamana_index_specializations(Dispatcher& dispatcher) {
+    constexpr auto kind = BlockKind::None;
+
     // TODO: Enable Compressed -> Compressed specializations by making decompressors,
     // decompression accessors and decompression dataset are thread-safe
 
@@ -239,12 +250,9 @@ void register_copy_vamana_index_specializations(Dispatcher& dispatcher) {
                                        Distance>);
         };
 
-        for_simple_specializations<false>(inner_closure);
-        for_sq_specializations<false>(inner_closure);
-        for_lvq_specializations<false>(inner_closure);
-        for_leanvec_specializations<false>(inner_closure);
+        for_all_specializations<kind>(inner_closure);
     };
-    for_simple_specializations<false>(compression_closure);
+    for_simple_specializations<kind>(compression_closure);
 
     // Decompression specializations for copy_vamana_index
     // To handle cases Compressed -> Simple
@@ -260,11 +268,11 @@ void register_copy_vamana_index_specializations(Dispatcher& dispatcher) {
                                        Distance>);
         };
 
-        for_simple_specializations<false>(inner_closure);
+        for_simple_specializations<kind>(inner_closure);
     };
-    for_sq_specializations<false>(decompression_closure);
-    for_lvq_specializations<false>(decompression_closure);
-    for_leanvec_specializations<false>(decompression_closure);
+    for_sq_specializations<kind>(decompression_closure);
+    for_lvq_specializations<kind>(decompression_closure);
+    for_leanvec_specializations<kind>(decompression_closure);
 }
 
 const CopyIndexDispatcher& copy_vamana_index_dispatcher() {
@@ -284,7 +292,8 @@ svs::Vamana dispatch_vamana_index_build(
     const Storage* storage,
     svs::DistanceType distance_type,
     svs::threads::ThreadPoolHandle pool,
-    const AllocatorBuilder& allocator_builder
+    const AllocatorBuilder& allocator_builder,
+    svs::logging::logger_ptr logger
 ) {
     return build_vamana_index_dispatcher().invoke(
         build_params,
@@ -292,7 +301,8 @@ svs::Vamana dispatch_vamana_index_build(
         storage,
         distance_type,
         std::move(pool),
-        allocator_builder
+        allocator_builder,
+        std::move(logger)
     );
 }
 
@@ -302,7 +312,8 @@ svs::Vamana dispatch_vamana_index_load(
     const Storage* storage,
     svs::DistanceType distance_type,
     svs::threads::ThreadPoolHandle pool,
-    const AllocatorBuilder& allocator_builder
+    const AllocatorBuilder& allocator_builder,
+    svs::logging::logger_ptr logger
 ) {
     return build_vamana_index_dispatcher().invoke(
         build_params,
@@ -310,7 +321,8 @@ svs::Vamana dispatch_vamana_index_load(
         storage,
         distance_type,
         std::move(pool),
-        allocator_builder
+        allocator_builder,
+        std::move(logger)
     );
 }
 
@@ -320,7 +332,8 @@ svs::Vamana dispatch_vamana_index_load_stream(
     const Storage* storage,
     svs::DistanceType distance_type,
     svs::threads::ThreadPoolHandle pool,
-    const AllocatorBuilder& allocator_builder
+    const AllocatorBuilder& allocator_builder,
+    svs::logging::logger_ptr logger
 ) {
     return build_vamana_index_dispatcher().invoke(
         build_params,
@@ -328,7 +341,8 @@ svs::Vamana dispatch_vamana_index_load_stream(
         storage,
         distance_type,
         std::move(pool),
-        allocator_builder
+        allocator_builder,
+        std::move(logger)
     );
 }
 
@@ -339,7 +353,8 @@ svs::Vamana dispatch_vamana_index_copy(
     const Storage* dst_storage,
     svs::DistanceType distance_type,
     svs::threads::ThreadPoolHandle pool,
-    const AllocatorBuilder& allocator_builder
+    const AllocatorBuilder& allocator_builder,
+    svs::logging::logger_ptr logger
 ) {
     return copy_vamana_index_dispatcher().invoke(
         build_params,
@@ -348,7 +363,8 @@ svs::Vamana dispatch_vamana_index_copy(
         dst_storage,
         distance_type,
         std::move(pool),
-        allocator_builder
+        allocator_builder,
+        std::move(logger)
     );
 }
 

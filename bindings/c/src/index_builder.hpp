@@ -26,6 +26,7 @@
 
 #include <svs/concepts/data.h>
 #include <svs/core/data/simple.h>
+#include <svs/core/logging.h>
 #include <svs/index/vamana/index.h>
 
 #include <filesystem>
@@ -46,6 +47,9 @@ struct IndexBuilder {
     std::unique_ptr<Storage> storage;
     ThreadPoolBuilder pool_builder;
     AllocatorBuilder allocator_builder;
+    // Logger for indexes built or loaded by this builder. Empty means: use the SVS global
+    // default logger current at build/load time.
+    svs::logging::logger_ptr logger;
 
     IndexBuilder(
         svs_distance_metric_t distance_metric,
@@ -65,7 +69,8 @@ struct IndexBuilder {
         , algorithm(other.algorithm->clone())
         , storage(other.storage->clone())
         , pool_builder(other.pool_builder)
-        , allocator_builder(other.allocator_builder) {}
+        , allocator_builder(other.allocator_builder)
+        , logger(other.logger) {}
 
     IndexBuilder& operator=(const IndexBuilder& other) {
         if (this != &other) {
@@ -75,6 +80,7 @@ struct IndexBuilder {
             storage = other.storage->clone();
             pool_builder = other.pool_builder;
             allocator_builder = other.allocator_builder;
+            logger = other.logger;
         }
         return *this;
     }
@@ -95,6 +101,13 @@ struct IndexBuilder {
         std::swap(this->allocator_builder, allocator_builder);
     }
 
+    void set_logger(svs::logging::logger_ptr logger) { this->logger = std::move(logger); }
+
+    // The logger to pass to SVS: the builder's logger if set, else the current global.
+    svs::logging::logger_ptr get_logger() const {
+        return logger ? logger : svs::logging::get();
+    }
+
     std::shared_ptr<Index> build(const svs::data::ConstSimpleDataView<float>& data);
 
     std::shared_ptr<Index> load(const std::filesystem::path& directory);
@@ -106,17 +119,27 @@ struct IndexBuilder {
     std::shared_ptr<DynamicIndex> build_dynamic(
         const svs::data::ConstSimpleDataView<float>& data,
         std::span<const size_t> ids,
-        size_t blocksize_bytes
+        const svs::data::BlockingParameters& block_params,
+        svs_sync_kind_t sync_kind = SVS_SYNC_KIND_NONE
     );
 
-    std::shared_ptr<DynamicIndex>
-    load_dynamic(const std::filesystem::path& directory, size_t blocksize_bytes);
+    std::shared_ptr<DynamicIndex> load_dynamic(
+        const std::filesystem::path& directory,
+        const svs::data::BlockingParameters& block_params,
+        svs_sync_kind_t sync_kind = SVS_SYNC_KIND_NONE
+    );
 
-    std::shared_ptr<DynamicIndex>
-    load_stream_dynamic(std::unique_ptr<std::istream>&& stream, size_t blocksize_bytes);
+    std::shared_ptr<DynamicIndex> load_stream_dynamic(
+        std::unique_ptr<std::istream>&& stream,
+        const svs::data::BlockingParameters& block_params,
+        svs_sync_kind_t sync_kind = SVS_SYNC_KIND_NONE
+    );
 
-    std::shared_ptr<DynamicIndex>
-    copy_dynamic(const std::shared_ptr<Index>& src_index, size_t blocksize_bytes);
+    std::shared_ptr<DynamicIndex> copy_dynamic(
+        const std::shared_ptr<Index>& src_index,
+        const svs::data::BlockingParameters& block_params,
+        svs_sync_kind_t sync_kind = SVS_SYNC_KIND_NONE
+    );
 
     // Estimate the memory a built static Vamana index would consume
     // for `num_vectors` vectors. Mirrors the accounting done by
@@ -126,8 +149,11 @@ struct IndexBuilder {
     // Estimate the memory a built dynamic Vamana index would consume
     // for `num_vectors` vectors. Mirrors the accounting done by
     // svs::index::vamana::MutableVamanaIndex::get_memory_breakdown().
-    svs::index::vamana::MemoryBreakdown
-    estimate_memory_breakdown_dynamic(size_t num_vectors, size_t blocksize_bytes) const;
+    svs::index::vamana::MemoryBreakdown estimate_memory_breakdown_dynamic(
+        size_t num_vectors,
+        const svs::data::BlockingParameters& block_params,
+        svs_sync_kind_t sync_kind = SVS_SYNC_KIND_NONE
+    ) const;
 
     size_t estimate_search_memory(
         size_t num_queries,
@@ -141,7 +167,7 @@ struct IndexBuilder {
         size_t num_neighbors,
         const std::shared_ptr<Algorithm::SearchParams>& search_params,
         const IDFilterInterface* id_filter,
-        size_t blocksize_bytes
+        const svs::data::BlockingParameters& block_params
     ) const;
 };
 } // namespace svs::c_runtime

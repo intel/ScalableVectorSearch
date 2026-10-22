@@ -22,8 +22,19 @@
 #include "storage.hpp"
 
 namespace svs::c_runtime {
+
+template <BlockKind Kind, typename F> void for_all_specializations(F&& f) {
+    for_simple_specializations<Kind>(std::forward<F>(f));
+    for_leanvec_specializations<Kind>(std::forward<F>(f));
+    for_lvq_specializations<Kind>(std::forward<F>(f));
+    for_sq_specializations<Kind>(std::forward<F>(f));
+}
+
 size_t estimate_data_size(const Storage* storage, size_t num_vectors, size_t dimension);
 size_t estimate_data_size_blocked(
-    const Storage* storage, size_t num_vectors, size_t dimension, size_t blocksize_bytes
+    const Storage* storage,
+    size_t num_vectors,
+    size_t dimension,
+    const svs::data::BlockingParameters& block_params
 );
 } // namespace svs::c_runtime

@@ -176,6 +176,7 @@ SET(INTEGRATION_TESTS
     # Higher level constructs
     ${TEST_DIR}/svs/orchestrators/vamana.cpp
     ${TEST_DIR}/svs/orchestrators/dynamic_vamana.cpp
+    ${TEST_DIR}/svs/orchestrators/concurrent_dynamic_vamana.cpp
     # Integration Tests
     ${TEST_DIR}/integration/exhaustive.cpp
     ${TEST_DIR}/integration/vamana/index_search.cpp

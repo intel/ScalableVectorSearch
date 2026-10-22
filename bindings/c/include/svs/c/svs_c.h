@@ -58,6 +58,26 @@ enum svs_error_code {
     SVS_ERROR_UNKNOWN = 1000
 };
 
+/// @brief Severity of a log message.
+enum svs_log_level {
+    SVS_LOG_LEVEL_TRACE = 0,
+    SVS_LOG_LEVEL_DEBUG = 1,
+    SVS_LOG_LEVEL_INFO = 2,
+    SVS_LOG_LEVEL_WARN = 3,
+    SVS_LOG_LEVEL_ERROR = 4,
+    SVS_LOG_LEVEL_CRITICAL = 5,
+    SVS_LOG_LEVEL_OFF = 6
+};
+
+/// @brief Output of a logger created with svs_logger_create().
+enum svs_logging_kind {
+    SVS_LOGGING_KIND_NONE = 0,
+    SVS_LOGGING_KIND_STDOUT = 1,
+    SVS_LOGGING_KIND_STDERR = 2,
+    SVS_LOGGING_KIND_FILE_APPEND = 3,
+    SVS_LOGGING_KIND_FILE_TRUNCATE = 4
+};
+
 typedef struct svs_error_desc* svs_error_h;
 
 /// @brief Distance metric used to compare vectors.
@@ -117,11 +137,52 @@ enum svs_storage_kind {
 };
 
 /// @brief Thread pool implementation used for parallel operations.
+/// @remarks SVS_THREADPOOL_KIND_OMP is available only if the library was built with
+/// OpenMP support; otherwise selecting it fails with SVS_ERROR_NOT_IMPLEMENTED.
 enum svs_threadpool_kind {
     SVS_THREADPOOL_KIND_NATIVE = 0,
     SVS_THREADPOOL_KIND_OMP = 1,
     SVS_THREADPOOL_KIND_SINGLE_THREAD = 2,
     SVS_THREADPOOL_KIND_CUSTOM = 3
+};
+
+/// @brief Operations table for a custom logging interface
+/// @remarks The user must ensure that the log function is thread-safe (it may be called
+/// from SVS worker threads and must not throw or longjmp) and that the operations table
+/// and @p self remain valid while any logger, index or default logger using them exists.
+/// @var svs_logging_interface_ops::version
+///   Version of the logging interface.
+/// @var svs_logging_interface_ops::struct_size
+///   Size of the structure, used for versioning and compatibility checks.
+/// @var svs_logging_interface_ops::log
+///   Function pointer to log a message.
+///   @param self Pointer to the logging interface instance.
+///   @param level Logging level of the message.
+///   @param message Null-terminated bare message text, valid only for the duration of the
+///   call.
+struct svs_logging_interface_ops {
+    uint32_t version;
+    size_t struct_size;
+    void (*log)(void* self, enum svs_log_level level, const char* message);
+};
+
+/// @brief Macro to create a user-defined logging interface operations structure
+/// @param log_func Function pointer to log a message
+#define SVS_INIT_LOGGING_OPS(log_func)                                            \
+    {                                                                             \
+        .version = SVS_C_API_VERSION,                                             \
+        .struct_size = sizeof(struct svs_logging_interface_ops), .log = &log_func \
+    }
+
+/// @brief Structure representing a custom logging interface
+/// @var svs_logging_interface::ops
+///   Function pointers for the logging operations.
+/// @var svs_logging_interface::self
+///   Pointer to the user-defined logger instance. This pointer is passed to the
+///   function pointers in @p ops when they are called.
+struct svs_logging_interface {
+    const struct svs_logging_interface_ops* ops;
+    void* self;
 };
 
 /// @brief Operations table for a custom thread pool interface
@@ -510,11 +571,11 @@ static inline void svs_search_results_row(
 /// the caller opts in by supplying a large-enough @p struct_size (e.g. via the
 /// SVS_INIT_MEMORY_BREAKDOWN() macro from the newer header).
 struct svs_memory_breakdown {
-    uint32_t version;      /// Version of the memory breakdown structure
-    size_t struct_size;    /// Size of the structure, used for versioning
-    size_t graph_bytes;    /// Allocated bytes for the graph structure
-    size_t data_bytes;     /// Allocated bytes for the data vectors
-    size_t metadata_bytes; /// Allocated bytes for metadata (entry points, status, etc.)
+    uint32_t version;      ///< Version of the memory breakdown structure
+    size_t struct_size;    ///< Size of the structure, used for versioning
+    size_t graph_bytes;    ///< Allocated bytes for the graph structure
+    size_t data_bytes;     ///< Allocated bytes for the data vectors
+    size_t metadata_bytes; ///< Allocated bytes for metadata (entry points, status, etc.)
 };
 
 /// @brief Macro to initialize a svs_memory_breakdown structure with default values
@@ -524,28 +585,98 @@ struct svs_memory_breakdown {
         .graph_bytes = 0, .data_bytes = 0, .metadata_bytes = 0                            \
     }
 
+/// @brief Dynamic index synchronization kind.
+///
+/// With synchronization enabled, the dynamic index handle guards itself with an internal
+/// reader/writer lock. Read-only operations (search, has_id, get_distance, reconstruct,
+/// get_size, get_num_threads) always take a shared lock and may run concurrently.
+///
+/// With SVS_SYNC_KIND_GLOBAL, mutating operations (add_points, delete_points,
+/// consolidate, compact, save, set_num_threads) take an exclusive lock.
+///
+/// With SVS_SYNC_KIND_FINE_GRAIN, the handle is backed by a concurrent index that
+/// synchronizes updates itself: add_points, delete_points, consolidate and compact take a
+/// shared lock and run alongside searches and each other (compact still waits for
+/// in-flight operations inside the index). Only save, set_num_threads, memory queries
+/// and use as a conversion source take an exclusive lock.
+///
+/// @remarks Synchronization covers operations on the index only:
+/// * svs_index_free() must not run concurrently with any other call on the same handle.
+/// * Each thread must use its own svs_search_results_t and svs_error_h.
+/// * The lock gives no writer priority: under sustained read load, readers may starve
+///   operations that need an exclusive lock.
+/// * With FINE_GRAIN, counts returned by add_points/delete_points and the index size
+///   reflect a point in time and may be affected by concurrent updates.
+/// * With FINE_GRAIN, search, add_points and delete_points accept at most one query,
+///   vector or ID per call; larger batches fail with SVS_ERROR_NOT_IMPLEMENTED.
+/// * The sync kind is a runtime property: it is not persisted by svs_index_save(), so
+///   pass it again to svs_index_load_dynamic_ex().
+enum svs_sync_kind {
+    SVS_SYNC_KIND_NONE = 0,      ///< No internal synchronization; caller must synchronize
+    SVS_SYNC_KIND_GLOBAL = 1,    ///< Index-wide reader/writer lock
+    SVS_SYNC_KIND_FINE_GRAIN = 2 ///< Concurrent index; updates run in parallel
+};
+
+/// @brief Structure to hold dynamic index parameters.
+///
+/// Forward-compatibility contract: fields not covered by the caller-supplied
+/// @p struct_size are treated as their defaults. Initialize with
+/// SVS_INIT_DYNAMIC_INDEX_PARAMS(). Passing NULL to an `_ex` function is equivalent to
+/// passing a structure with all defaults.
+///
+/// The `_ex` functions reject (with SVS_ERROR_INVALID_ARGUMENT) a @p version newer than
+/// the library, a @p struct_size larger than the library's structure, block sizes that
+/// are not 0 or a power of two, and unknown @p sync_kind values. Unlike the legacy
+/// `blocksize_bytes` arguments, block sizes are not rounded down to a power of two.
+struct svs_dynamic_index_params {
+    uint32_t version;          ///< Version of the dynamic index parameters structure
+    size_t struct_size;        ///< Size of the structure, used for versioning
+    size_t blocksize_bytes;    ///< Bytes per block: 0 (default) or a power of two
+    size_t blocksize_elements; ///< Vectors (graph nodes) per block: 0 (unset) or a power
+                               ///< of two; takes precedence over blocksize_bytes
+    uint32_t sync_kind;        ///< Synchronization kind, one of svs_sync_kind values
+};
+
+/// @brief Macro to initialize a svs_dynamic_index_params structure with default values
+#define SVS_INIT_DYNAMIC_INDEX_PARAMS()                                               \
+    {                                                                                 \
+        .version = SVS_C_API_VERSION,                                                 \
+        .struct_size = sizeof(struct svs_dynamic_index_params), .blocksize_bytes = 0, \
+        .blocksize_elements = 0, .sync_kind = SVS_SYNC_KIND_NONE                      \
+    }
+
 // Handle typedefs; "_h" suffix indicates a handle to an opaque struct
 ///
 /// @remarks Thread-safety: unless a specific function documents otherwise, handles
 /// (svs_error_h, svs_index_h, svs_index_builder_h, svs_algorithm_h, svs_storage_h,
 /// svs_search_params_h) are not internally synchronized. Do not operate on the same
 /// handle from multiple threads concurrently without external synchronization.
+/// Exception: dynamic indices built or loaded with a svs_sync_kind other than
+/// SVS_SYNC_KIND_NONE are internally synchronized, with the limits listed in
+/// svs_sync_kind.
 typedef struct svs_index* svs_index_h;
 typedef struct svs_index_builder* svs_index_builder_h;
 typedef struct svs_algorithm* svs_algorithm_h;
 typedef struct svs_storage* svs_storage_h;
 typedef struct svs_search_params* svs_search_params_h;
 typedef struct svs_leanvec_training_data* svs_leanvec_training_data_h;
+typedef struct svs_logger* svs_logger_h;
 
 // Fully defined types; "_t" suffix indicates a fully defined struct
 typedef enum svs_error_code svs_error_code_t;
+typedef enum svs_logging_kind svs_logging_kind_t;
+typedef enum svs_log_level svs_log_level_t;
 typedef enum svs_distance_metric svs_distance_metric_t;
 typedef enum svs_algorithm_type svs_algorithm_type_t;
 typedef enum svs_data_type svs_data_type_t;
 typedef enum svs_storage_kind svs_storage_kind_t;
 typedef enum svs_threadpool_kind svs_threadpool_kind_t;
 typedef enum svs_allocator_kind svs_allocator_kind_t;
+typedef enum svs_sync_kind svs_sync_kind_t;
 
+typedef struct svs_logging_interface_ops svs_logging_ops_t;
+typedef struct svs_logging_interface svs_logging_t;
+typedef struct svs_logging_interface* svs_logging_i;
 typedef struct svs_threadpool_interface_ops svs_threadpool_ops_t;
 typedef struct svs_threadpool_interface svs_threadpool_t;
 typedef struct svs_threadpool_interface* svs_threadpool_i;
@@ -563,6 +694,7 @@ typedef struct svs_stream_interface* svs_stream_i;
 
 typedef struct svs_search_results svs_search_results_t;
 typedef struct svs_memory_breakdown svs_memory_breakdown_t;
+typedef struct svs_dynamic_index_params svs_dynamic_index_params_t;
 
 /// @brief Get SVS version information
 /// @return An integer representing the version of the SVS library, encoded as (major << 16)
@@ -608,6 +740,86 @@ SVS_API const char* svs_error_get_message(svs_error_h err);
 /// @brief Free the error handle
 /// @param err The error handle to free
 SVS_API void svs_error_free(svs_error_h err);
+
+/// @brief Create a logger writing to a built-in output
+/// @param kind The output kind of the logger
+/// @param path The file to write to for the SVS_LOGGING_KIND_FILE_* kinds; ignored
+/// otherwise
+/// @param out_err An optional error handle to capture errors
+/// @return A handle to the created logger or NULL if creation failed
+/// @remarks The output of a logger is fixed at creation; a new logger has level
+/// SVS_LOG_LEVEL_WARN and pattern "%v".
+SVS_API svs_logger_h svs_logger_create(
+    svs_logging_kind_t kind, const char* path, svs_error_h out_err /*=NULL*/
+);
+
+/// @brief Create a logger forwarding every message to a user callback
+/// @param user_logger The custom logging interface, initialized with SVS_INIT_LOGGING_OPS
+/// @param out_err An optional error handle to capture errors
+/// @return A handle to the created logger or NULL if creation failed
+/// @remarks The callback may be called from SVS worker threads and must be thread-safe and
+/// must not throw or longjmp. It receives the bare message; the logger pattern does not
+/// apply to it.
+SVS_API svs_logger_h
+svs_logger_create_custom(svs_logging_i user_logger, svs_error_h out_err /*=NULL*/);
+
+/// @brief Free a logger handle
+/// @param logger The logger handle to free
+/// @remarks Indexes and the SVS default logger using this logger keep it alive after the
+/// handle is freed.
+SVS_API void svs_logger_free(svs_logger_h logger);
+
+/// @brief Set the logging level for a logger
+/// @param logger The logger handle
+/// @param level The logging level to set
+/// @param out_err An optional error handle to capture errors
+/// @return true on success, false on failure
+/// @remarks Unknown level values fail with SVS_ERROR_INVALID_ARGUMENT.
+SVS_API bool svs_logger_set_level(
+    svs_logger_h logger, svs_log_level_t level, svs_error_h out_err /*=NULL*/
+);
+
+/// @brief Get the logging level for a logger
+/// @param logger The logger handle
+/// @param out_level Pointer to store the retrieved logging level
+/// @param out_err An optional error handle to capture errors
+/// @return true on success, false on failure
+SVS_API bool svs_logger_get_level(
+    svs_logger_h logger, svs_log_level_t* out_level, svs_error_h out_err /*=NULL*/
+);
+
+/// @brief Set format pattern for a logger
+/// @param logger The logger handle
+/// @param pattern The format pattern to set, in spdlog syntax (e.g. "[index A] %v")
+/// Pattern syntax: https://github.com/gabime/spdlog/wiki/Custom-formatting
+/// @param out_err An optional error handle to capture errors
+/// @return true on success, false on failure
+/// @remarks The pattern applies to the stdout, stderr and file outputs; custom callbacks
+/// receive the bare message.
+SVS_API bool svs_logger_set_pattern(
+    svs_logger_h logger, const char* pattern, svs_error_h out_err /*=NULL*/
+);
+
+/// @brief Get the format pattern for a logger
+/// @param logger The logger handle
+/// @param out_pattern Pointer to store the retrieved format pattern (default "%v")
+/// @param out_err An optional error handle to capture errors
+/// @return true on success, false on failure
+/// @remarks The returned pointer is valid until the next svs_logger_set_pattern() call on
+/// the handle or until svs_logger_free().
+SVS_API bool svs_logger_get_pattern(
+    svs_logger_h logger, const char** out_pattern, svs_error_h out_err /*=NULL*/
+);
+
+/// @brief Set default logger for SVS library
+/// @param logger The logger handle to set as default; NULL restores the SVS built-in
+/// default
+/// @param out_err An optional error handle to capture errors
+/// @return true on success, false on failure
+/// @remarks Indexes keep the default logger current when they are built or loaded.
+SVS_API bool svs_set_default_logger(
+    svs_logger_h logger, svs_error_h out_err /*=NULL*/
+);
 
 /// @brief Create a Vamana algorithm configuration
 /// @param graph_degree The graph degree parameter
@@ -841,6 +1053,18 @@ SVS_API svs_index_builder_h svs_index_builder_create(
 /// @param builder The index builder handle to free
 SVS_API void svs_index_builder_free(svs_index_builder_h builder);
 
+/// @brief Set the logger for the index builder
+/// @param builder The index builder handle
+/// @param logger The logger handle for indexes built, loaded or converted with this
+/// builder; NULL uses the global default logger
+/// @param out_err An optional error handle to capture errors
+/// @return true on success, false on failure
+/// @remarks Indexes keep the logger they were created with; the handle may be freed after
+/// this call.
+SVS_API bool svs_index_builder_set_logger(
+    svs_index_builder_h builder, svs_logger_h logger, svs_error_h out_err /*=NULL*/
+);
+
 /// @brief Set the storage configuration for the index builder
 /// @param builder The index builder handle
 /// @param storage The storage configuration handle
@@ -856,6 +1080,11 @@ SVS_API bool svs_index_builder_set_storage(
 /// @param num_threads The number of threads to use (if applicable)
 /// @param out_err An optional error handle to capture errors
 /// @return true on success, false on failure
+/// @error On failure, if out_err is provided, it will contain:
+/// - SVS_ERROR_INVALID_ARGUMENT if builder is NULL, num_threads is zero, or @p kind is
+///   SVS_THREADPOOL_KIND_CUSTOM (use svs_index_builder_set_threadpool_custom() instead)
+/// - SVS_ERROR_NOT_IMPLEMENTED if @p kind is SVS_THREADPOOL_KIND_OMP and the library was
+///   built without OpenMP support
 SVS_API bool svs_index_builder_set_threadpool(
     svs_index_builder_h builder,
     svs_threadpool_kind_t kind,
@@ -941,6 +1170,26 @@ SVS_API bool svs_index_builder_estimate_memory_dynamic(
     svs_error_h out_err /*=NULL*/
 );
 
+/// @brief Estimate the memory usage of a dynamic index based on the builder configuration,
+/// number of vectors and parameters
+/// @param builder The index builder handle
+/// @param num_vectors The number of vectors to be indexed
+/// @param params Pointer to the dynamic index parameters structure, or NULL for defaults;
+/// the block size fields and @p sync_kind are used (SVS_SYNC_KIND_FINE_GRAIN adds the
+/// concurrent index's reverse edges to graph_bytes)
+/// @param out_breakdown Pointer to a structure to hold the memory breakdown
+/// @param out_err An optional error handle to capture errors
+/// @return true on success, false on failure
+/// @remarks The estimated memory size is approximate.
+/// @error SVS_ERROR_INVALID_ARGUMENT if @p params is invalid (see svs_dynamic_index_params)
+SVS_API bool svs_index_builder_estimate_memory_dynamic_ex(
+    svs_index_builder_h builder,
+    size_t num_vectors,
+    const svs_dynamic_index_params_t* params /*=NULL*/,
+    svs_memory_breakdown_t* out_breakdown,
+    svs_error_h out_err /*=NULL*/
+);
+
 /// @brief Estimate the memory usage of a search operation based on the builder
 /// configuration, search parameters, number of queries, and nearest neighbors to retrieve
 /// @param builder The index builder handle
@@ -1000,6 +1249,34 @@ SVS_API bool svs_index_builder_estimate_search_memory_dynamic(
     svs_error_h out_err /*=NULL*/
 );
 
+/// @brief Estimate the memory usage of a dynamic index search operation based on the
+/// builder configuration, search parameters, number of queries, nearest neighbors to
+/// retrieve, and dynamic parameters
+/// @param builder The index builder handle
+/// @param num_queries The number of queries to be performed
+/// @param num_neighbors The number of nearest neighbors to retrieve per query
+/// @param search_params The search parameters handle; if NULL, the builder's default search
+/// parameters are used
+/// @param id_filter An optional ID filter interface; if NULL, no filtering is applied
+/// @param params Pointer to the dynamic index parameters structure, or NULL for defaults;
+/// validated but currently not used in the estimate - reserved for future use
+/// @param out_size Pointer to a variable to receive the estimated memory size
+/// @param out_err An optional error handle to capture errors
+/// @return true on success, false on failure
+/// @remarks See svs_index_builder_estimate_search_memory_dynamic(). The result is
+/// currently identical to that function's result.
+/// @error SVS_ERROR_INVALID_ARGUMENT if @p params is invalid (see svs_dynamic_index_params)
+SVS_API bool svs_index_builder_estimate_search_memory_dynamic_ex(
+    svs_index_builder_h builder,
+    size_t num_queries,
+    size_t num_neighbors,
+    svs_search_params_h search_params,
+    svs_id_filter_i id_filter /*=NULL*/,
+    const svs_dynamic_index_params_t* params /*=NULL*/,
+    size_t* out_size,
+    svs_error_h out_err /*=NULL*/
+);
+
 /// @brief Build an index from the provided data
 /// @param builder The index builder handle
 /// @param data Pointer to the vector data (float array)
@@ -1037,6 +1314,27 @@ SVS_API svs_index_h svs_index_build_dynamic(
     svs_error_h out_err /*=NULL*/
 );
 
+/// @brief Build a dynamic index from the provided data and parameters
+/// @param builder The index builder handle
+/// @param data Pointer to the vector data (float array)
+/// @param ids Pointer to the vector IDs (size_t array). Can be NULL if IDs should be
+/// auto-generated from 0 to num_vectors-1.
+/// @param num_vectors The number of vectors in the data
+/// @param params Pointer to the dynamic index parameters structure, or NULL for defaults
+/// @param out_err An optional error handle to capture errors
+/// @return A handle to the built dynamic index
+/// @remarks Both @p data and @p ids are copied into the index's internal storage; the
+/// caller may free or modify them once this call returns. @p params is not retained.
+/// @error SVS_ERROR_INVALID_ARGUMENT if @p params is invalid (see svs_dynamic_index_params)
+SVS_API svs_index_h svs_index_build_dynamic_ex(
+    svs_index_builder_h builder,
+    const float* data,
+    const size_t* ids /*=NULL*/,
+    size_t num_vectors,
+    const svs_dynamic_index_params_t* params /*=NULL*/,
+    svs_error_h out_err /*=NULL*/
+);
+
 /// @brief Load an index from disk
 /// @param builder The index builder handle (used for configuration)
 /// @param directory The directory path to load the index from
@@ -1056,6 +1354,22 @@ SVS_API svs_index_h svs_index_load_dynamic(
     svs_index_builder_h builder,
     const char* directory,
     size_t blocksize_bytes /*=0*/,
+    svs_error_h out_err /*=NULL*/
+);
+
+/// @brief Load a dynamic index from disk with explicit parameters
+/// @param builder The index builder handle (used for configuration)
+/// @param directory The directory path to load the index from
+/// @param params Pointer to the dynamic index parameters structure, or NULL for defaults
+/// @param out_err An optional error handle to capture errors
+/// @return A handle to the loaded dynamic index
+/// @remarks The block parameters only affect the in-memory layout, not the on-disk
+/// format. The sync kind is not persisted with the index and must be passed on every load.
+/// @error SVS_ERROR_INVALID_ARGUMENT if @p params is invalid (see svs_dynamic_index_params)
+SVS_API svs_index_h svs_index_load_dynamic_ex(
+    svs_index_builder_h builder,
+    const char* directory,
+    const svs_dynamic_index_params_t* params /*=NULL*/,
     svs_error_h out_err /*=NULL*/
 );
 
@@ -1120,6 +1434,23 @@ SVS_API svs_index_h svs_index_convert_dynamic(
     svs_error_h out_err /*=NULL*/
 );
 
+/// @brief Convert dynamic index using new builder configuration and explicit parameters
+/// @param builder The index builder handle (used for configuration)
+/// @param src_index The source dynamic index handle to convert from
+/// @param params Pointer to the dynamic index parameters structure for the converted
+/// index, or NULL for defaults
+/// @param out_err An optional error handle to capture errors
+/// @return A handle to the newly converted dynamic index
+/// @remarks The sync kind of the converted index is taken from @p params, not from
+/// @p src_index.
+/// @error SVS_ERROR_INVALID_ARGUMENT if @p params is invalid (see svs_dynamic_index_params)
+SVS_API svs_index_h svs_index_convert_dynamic_ex(
+    svs_index_builder_h builder,
+    svs_index_h src_index,
+    const svs_dynamic_index_params_t* params /*=NULL*/,
+    svs_error_h out_err /*=NULL*/
+);
+
 /// @brief Free the index handle
 /// @param index The index handle to free
 SVS_API void svs_index_free(svs_index_h index);
@@ -1138,7 +1469,9 @@ SVS_API bool svs_index_get_size(
 /// @details Performs a TopK search on the index with the provided queries and an optional
 /// ID filter. The ID filter allows for filtering the search results based on specific IDs,
 /// enabling more targeted searches. If the ID filter is NULL, the search will return the
-/// top K results. If ID filter is provided, only the results that pass the filter will be
+/// top K results, except that SVS_SYNC_KIND_FINE_GRAIN may return fewer when concurrent
+/// consolidation removes selected IDs. Use the CSR offsets to determine each query's
+/// result count. If ID filter is provided, only the results that pass the filter will be
 /// returned. Results are written into @p out_results in CSR layout (see
 /// svs_search_results); library-owned buffers are reused across calls when their
 /// capacity suffices. If ID filter is provided with `filter_rate > 0.0` then the
@@ -1157,6 +1490,8 @@ SVS_API bool svs_index_get_size(
 /// @param id_filter The ID filter interface (can be NULL for no filtering)
 /// @param out_err An optional error handle to capture errors
 /// @return true on success, false on failure
+/// @error SVS_ERROR_NOT_IMPLEMENTED if @p index is a dynamic index with
+/// SVS_SYNC_KIND_FINE_GRAIN and @p num_queries is greater than 1
 SVS_API bool svs_index_search_topk(
     svs_index_h index,
     const float* queries,
@@ -1234,6 +1569,8 @@ SVS_API bool svs_index_save_stream(
 /// vectors
 /// @param out_err An optional error handle to capture errors
 /// @return true on success, false on failure
+/// @error SVS_ERROR_NOT_IMPLEMENTED if @p index uses SVS_SYNC_KIND_FINE_GRAIN and
+/// @p num_vectors is greater than 1
 SVS_API bool svs_index_dynamic_add_points(
     svs_index_h index,
     const float* new_points,
@@ -1251,6 +1588,8 @@ SVS_API bool svs_index_dynamic_add_points(
 /// vectors
 /// @param out_err An optional error handle to capture errors
 /// @return true on success, false on failure
+/// @error SVS_ERROR_NOT_IMPLEMENTED if @p index uses SVS_SYNC_KIND_FINE_GRAIN and
+/// @p num_ids is greater than 1
 SVS_API bool svs_index_dynamic_delete_points(
     svs_index_h index,
     const size_t* ids,
@@ -1267,6 +1606,15 @@ SVS_API bool svs_index_dynamic_delete_points(
 /// @return true on success, false on failure
 SVS_API bool svs_index_dynamic_has_id(
     svs_index_h index, size_t id, bool* out_has_id, svs_error_h out_err /*=NULL*/
+);
+
+/// @brief Get the synchronization kind of a dynamic index
+/// @param index The dynamic index handle
+/// @param out_sync_kind Pointer to store the synchronization kind
+/// @param out_err An optional error handle to capture errors
+/// @return true on success, false on failure
+SVS_API bool svs_index_dynamic_get_sync_kind(
+    svs_index_h index, svs_sync_kind_t* out_sync_kind, svs_error_h out_err /*=NULL*/
 );
 
 /// @brief Get the distance from a specific ID to a query vector in an index
@@ -1336,9 +1684,10 @@ SVS_API bool svs_index_get_num_threads(
 /// @param out_err An optional error handle to capture errors
 /// @return true on success, false on failure
 /// @remarks This function is only supported for indices built with threadpool kinds
-/// SVS_THREADPOOL_KIND_NATIVE or SVS_THREADPOOL_KIND_OMP. Attempting to call this
-/// function on indices built with SVS_THREADPOOL_KIND_CUSTOM or
-/// SVS_THREADPOOL_KIND_SINGLE_THREAD will fail and return false.
+/// SVS_THREADPOOL_KIND_NATIVE or SVS_THREADPOOL_KIND_OMP (when built with OpenMP
+/// support). Attempting to call this function on indices built with
+/// SVS_THREADPOOL_KIND_CUSTOM or SVS_THREADPOOL_KIND_SINGLE_THREAD will fail and return
+/// false.
 /// @error On failure, if out_err is provided, it will contain:
 /// - SVS_ERROR_INVALID_OPERATION if the index's threadpool kind is unresizable
 /// - SVS_ERROR_INVALID_ARGUMENT if num_threads is invalid or zero
