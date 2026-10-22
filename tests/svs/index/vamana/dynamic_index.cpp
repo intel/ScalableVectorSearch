@@ -633,21 +633,30 @@ CATCH_TEST_CASE(
         }
     }
 
-    CATCH_SECTION("unfiltered search pads rows with fewer than k results") {
-        std::vector<size_t> to_delete(ids.begin() + 4, ids.end());
-        index.delete_entries(to_delete);
+    CATCH_SECTION("inner product pads with the worst score (-inf)") {
+        auto data_ip = svs::data::BlockedData<float>(n, dim);
+        for (size_t i = 0; i < n; ++i) {
+            data_ip.set_datum(i, raw[i]);
+        }
+        svs::index::vamana::VamanaBuildParameters parameters_ip{0.95, 32, 64, 64, 32, true};
+        auto index_ip = svs::index::vamana::MutableVamanaIndex(
+            parameters_ip, std::move(data_ip), ids, svs::distance::DistanceIP(), num_threads
+        );
+        std::function<bool(size_t)> few = [](size_t e) { return e == 100 || e == 200; };
         auto results = svs::QueryResult<size_t>(num_queries, k);
-        index.search(results.view(), queries.cview(), sp);
+        index_ip.search(
+            results.view(),
+            queries.cview(),
+            sp,
+            svs::lib::Returns(svs::lib::Const<false>()),
+            &few
+        );
         for (size_t q = 0; q < num_queries; ++q) {
-            for (size_t j = 0; j < k; ++j) {
-                if (j < 4) {
-                    CATCH_REQUIRE(results.index(q, j) < ids[4]);
-                } else {
-                    CATCH_REQUIRE(results.index(q, j) == static_cast<size_t>(-1));
-                    CATCH_REQUIRE(
-                        results.distance(q, j) == std::numeric_limits<float>::infinity()
-                    );
-                }
+            for (size_t j = 2; j < k; ++j) {
+                CATCH_REQUIRE(results.index(q, j) == static_cast<size_t>(-1));
+                CATCH_REQUIRE(
+                    results.distance(q, j) == -std::numeric_limits<float>::infinity()
+                );
             }
         }
     }

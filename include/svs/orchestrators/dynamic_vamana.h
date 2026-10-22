@@ -129,7 +129,18 @@ class DynamicVamanaImpl : public VamanaImpl<QueryTypes, Impl, DynamicVamanaInter
         const index::vamana::VamanaSearchParameters& search_parameters,
         const std::function<bool(size_t)>& filter
     ) override {
-        if constexpr (is_simple_data<typename Impl::data_type>) {
+        // Indexes whose `search` has no filter argument (e.g. the concurrent index) report
+        // "unsupported" like other data types.
+        constexpr bool supported =
+            is_simple_data<typename Impl::data_type> &&
+            requires(
+                Impl & idx,
+                svs::QueryResultView<size_t> r,
+                data::ConstSimpleDataView<float> q,
+                const index::vamana::VamanaSearchParameters& sp,
+                const std::function<bool(size_t)>* pred
+            ) { idx.search(r, q, sp, lib::Returns(lib::Const<false>()), pred); };
+        if constexpr (supported) {
             lib::match(
                 QueryTypes{},
                 queries.type(),
