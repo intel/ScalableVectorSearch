@@ -272,7 +272,7 @@ template <typename Index, typename QueryType> class BatchIterator {
         }
 
         // Keep internal IDs stable through traversal, reranking, and translation.
-        [[maybe_unused]] auto search_guard = parent_->lock_for_search();
+        [[maybe_unused]] auto search_guard = parent_->lock_storage_shared();
         if (compaction_epoch_ != parent_->compaction_epoch_) {
             // Reranking touches cached IDs before the restart initializer runs.
             // Preserve the grown window so the restart can reach unreturned neighbors.
