@@ -13,7 +13,7 @@
 # limitations under the License.
 
 cmake_minimum_required(VERSION 3.21)
-project(svs_c_api VERSION 0.4.0 LANGUAGES CXX C)
+project(svs_c_api VERSION 0.5.0 LANGUAGES CXX C)
 set(TARGET_NAME svs_c_api)
 
 include(GNUInstallDirs)
@@ -68,16 +68,24 @@ target_include_directories(${TARGET_NAME}
     PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src
 )
 
-find_package(OpenMP REQUIRED)
-# PRIVATE: OpenMP is an implementation detail linked into the shared library.
-# Exporting it would force consumers of the C ABI to resolve a C++ OpenMP
-# target they never asked for.
-target_link_libraries(${TARGET_NAME} PRIVATE OpenMP::OpenMP_CXX)
+# Set default visibility to hidden for all symbols in the shared library.
+target_compile_options(${TARGET_NAME} PRIVATE -fvisibility=hidden)
 
-target_compile_options(${TARGET_NAME} PRIVATE
-    -DSVS_ENABLE_OMP=1
-    -fvisibility=hidden
-)
+if(NOT DEFINED SVS_ENABLE_OMP)
+    option(SVS_ENABLE_OMP
+        "Enable OpenMP threadpool support for parallelism." ON)
+endif()
+
+if(SVS_ENABLE_OMP)
+    find_package(OpenMP REQUIRED)
+    if (OpenMP_CXX_FOUND)
+        # PRIVATE: OpenMP is an implementation detail linked into the shared library.
+        # Exporting it would force consumers of the C ABI to resolve a C++ OpenMP
+        # target they never asked for.
+        target_link_libraries(${TARGET_NAME} PRIVATE OpenMP::OpenMP_CXX)
+        target_compile_definitions(${TARGET_NAME} PRIVATE SVS_ENABLE_OMP=1)
+    endif() # OpenMP_CXX_FOUND
+endif() # SVS_ENABLE_OMP
 
 if(UNIX AND NOT APPLE)
     # Don't export 3rd-party symbols from the lib
@@ -146,7 +154,7 @@ if (SVS_RUNTIME_ENABLE_LVQ_LEANVEC)
     else()
         # Links to LTO-enabled static library, requires GCC/G++ 11.2
         if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" AND CMAKE_CXX_COMPILER_VERSION VERSION_GREATER_EQUAL "11.2" AND CMAKE_CXX_COMPILER_VERSION VERSION_LESS "11.3")
-            set(SVS_URL "https://github.com/intel/ScalableVectorSearch/releases/download/nightly/svs-shared-library-lto-nightly-2026-10-08-1629.tar.gz"
+            set(SVS_URL "https://github.com/intel/ScalableVectorSearch/releases/download/nightly/svs-shared-library-lto-nightly-2026-10-15-1661.tar.gz"
                 CACHE STRING "URL to download SVS shared library")
         else()
             # The fallback is correct but slower, so nothing downstream fails and CI
