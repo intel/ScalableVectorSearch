@@ -42,6 +42,7 @@
 #include <array>
 #include <fcntl.h>
 #include <filesystem>
+#include <mutex>
 
 // <linux/mman.h> provides some linux-specific flags like
 // MAP_POPULATE, MAP_NORESERVE, MAP_HUGETLB.

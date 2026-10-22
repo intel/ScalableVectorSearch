@@ -545,18 +545,20 @@ class DynamicVamanaIndexImpl {
             );
         } else {
             using storage_type = storage::StorageType_t<Kind, Alloc>;
+            using graph_type =
+                svs::graphs::SimpleGraph<uint32_t, svs::HugepageAllocator<uint32_t>>;
             auto threadpool = default_threadpool();
 
             svs::DistanceDispatcher distance_dispatcher(to_svs_distance(metric));
 
             return distance_dispatcher([&](auto&& distance) {
-                return new svs::DynamicVamana(
-                    svs::DynamicVamana::assemble<float, storage_type>(
-                        stream,
-                        std::forward<decltype(distance)>(distance),
-                        std::move(threadpool)
-                    )
-                );
+                return new svs::DynamicVamana(svs::DynamicVamana::assemble<float>(
+                    stream,
+                    svs::StreamLoader<graph_type>{},
+                    svs::StreamLoader<storage_type>{},
+                    std::forward<decltype(distance)>(distance),
+                    std::move(threadpool)
+                ));
             });
         }
     }

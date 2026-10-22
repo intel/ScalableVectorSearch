@@ -322,10 +322,13 @@ CATCH_TEST_CASE(
     CATCH_SECTION("Native stream") {
         std::stringstream stream;
         index.save(stream);
-        svs::DynamicVamana loaded =
-            svs::ConcurrentDynamicVamana::assemble<float, ConcurrentData>(
-                stream, svs::distance::DistanceL2(), num_threads
-            );
+        svs::DynamicVamana loaded = svs::ConcurrentDynamicVamana::assemble<float>(
+            stream,
+            svs::StreamLoader<cc::graphs::SimpleBlockedGraph<uint32_t>>{},
+            svs::StreamLoader<ConcurrentData>{},
+            svs::distance::DistanceL2(),
+            num_threads
+        );
         CATCH_REQUIRE(loaded.size() == index.size());
         require_same_results(index, loaded, k);
     }
@@ -339,10 +342,13 @@ CATCH_TEST_CASE(
             );
             svs::lib::DirectoryArchiver::pack(tempdir, stream);
         }
-        svs::DynamicVamana loaded =
-            svs::ConcurrentDynamicVamana::assemble<float, ConcurrentData>(
-                stream, svs::DistanceType::L2, num_threads
-            );
+        svs::DynamicVamana loaded = svs::ConcurrentDynamicVamana::assemble<float>(
+            stream,
+            svs::StreamLoader<cc::graphs::SimpleBlockedGraph<uint32_t>>{},
+            svs::StreamLoader<ConcurrentData>{},
+            svs::DistanceType::L2,
+            num_threads
+        );
         CATCH_REQUIRE(loaded.size() == index.size());
         require_same_results(index, loaded, k);
     }
