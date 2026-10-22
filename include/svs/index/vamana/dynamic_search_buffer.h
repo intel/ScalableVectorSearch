@@ -54,7 +54,7 @@ template <typename Idx, typename Cmp = std::less<>> class MutableBuffer {
     /// A visited filter with 65,536 entries with a memory footprint of 128 kiB.
     using set_type = VisitedFilter<Idx, 16>;
 
-  private:
+  protected:
     ///// Invariants:
     //
     // 1. 1 <= target_valid_ <= valid_capacity_
@@ -618,7 +618,7 @@ template <typename Idx, typename Cmp = std::less<>> class MutableBuffer {
         return visited_->emplace(i);
     }
 
-  private:
+  protected:
     /// Return how many more valid candidates exist than required.
     /// If the number of valid candidates is *less* than the target, a negative number
     /// is returned.
@@ -627,6 +627,7 @@ template <typename Idx, typename Cmp = std::less<>> class MutableBuffer {
                lib::narrow_cast<int64_t>(target_capacity());
     }
 
+  private:
     /// Return the index of the first preceding valid candidate beginning at the provided
     /// index.
     ///
