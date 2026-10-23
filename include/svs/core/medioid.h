@@ -18,6 +18,7 @@
 
 #include "svs/concepts/data.h"
 #include "svs/lib/array.h"
+#include "svs/lib/exception.h"
 #include "svs/lib/misc.h"
 #include "svs/lib/neighbor.h"
 #include "svs/lib/threads.h"
@@ -341,8 +342,20 @@ size_t find_medioid(
         }
     });
 
+    // When every distance is beyond float range, Infinity, or NaN, nothing beats the
+    // sentinel. Callers use the result as a graph entry point, so it must still satisfy
+    // the predicate: a deleted entry point breaks consolidation and compaction of dynamic
+    // indexes.
     if (global_min.id() >= data.size()) {
-        global_min = Neighbor<size_t>(0, global_min.distance());
+        for (size_t i = 0, imax = data.size(); i < imax; ++i) {
+            if (predicate(i)) {
+                return i;
+            }
+        }
+        throw ANNEXCEPTION(
+            "Cannot find a medioid: none of the {} elements satisfies the predicate.",
+            data.size()
+        );
     }
 
     return global_min.id();
