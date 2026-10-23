@@ -130,8 +130,8 @@ class ConcurrentDynamicVamana : public DynamicVamana {
         DataLoader&& data_loader,
         Distance distance,
         ThreadPoolProto threadpool_proto,
-        bool debug_load_from_static = false,
-        svs::logging::logger_ptr logger = svs::logging::get()
+        svs::logging::logger_ptr logger = svs::logging::get(),
+        bool debug_load_from_static = false
     )
         requires(!std::is_base_of_v<std::istream, std::remove_cvref_t<ConfigProto>> && !is_stream_loader_v<std::remove_cvref_t<GraphLoader>> && !is_stream_loader_v<std::remove_cvref_t<DataLoader>>)
     {
@@ -182,8 +182,8 @@ class ConcurrentDynamicVamana : public DynamicVamana {
         const DataLoader& data_loader,
         Distance distance,
         ThreadPoolProto threadpool_proto,
-        bool debug_load_from_static = false,
-        svs::logging::logger_ptr logger = svs::logging::get()
+        svs::logging::logger_ptr logger = svs::logging::get(),
+        bool debug_load_from_static = false
     )
         requires(is_stream_loader_v<GraphLoader> && is_stream_loader_v<DataLoader>)
     {
@@ -241,8 +241,8 @@ class ConcurrentDynamicVamana : public DynamicVamana {
             data_loader.load(data_path),
             std::move(distance),
             std::move(threadpool),
-            debug_load_from_static,
-            std::move(logger)
+            std::move(logger),
+            debug_load_from_static
         );
     }
 };
