@@ -445,12 +445,16 @@ CATCH_TEST_CASE("MutableVamana Index Memory Usage", "[graph_index][dynamic_index
     const size_t expected_graph_bytes = index.view_graph().get_data().capacity() *
                                         index.view_graph().get_data().element_size();
     using Index = decltype(index);
+    using ExternalId = typename Index::external_id_type;
+    using InternalId = typename Index::internal_id_type;
+    const size_t translator_bytes = index.view_translator().get_memory_usage();
+    CATCH_REQUIRE(
+        translator_bytes >= indices.size() * (sizeof(ExternalId) + sizeof(InternalId)) +
+                                indices.size() * sizeof(ExternalId)
+    );
     const size_t expected_metadata_bytes =
-        data_size * sizeof(svs::index::vamana::SlotMetadata) +
-        sizeof(typename Index::internal_id_type) +
-        2 * indices.size() *
-            (sizeof(typename Index::external_id_type) +
-             sizeof(typename Index::internal_id_type));
+        data_size * sizeof(svs::index::vamana::SlotMetadata) + sizeof(InternalId) +
+        translator_bytes;
     const size_t expected_total_bytes =
         expected_data_bytes + expected_graph_bytes + expected_metadata_bytes;
 
