@@ -923,7 +923,7 @@ CATCH_TEST_CASE("MutableBuffer", "[core][search_buffer]") {
             buffer.insert({0, 100, true});
             buffer.insert({11, 1, false});
             buffer.insert({1, 50, true});
-            buffer.insert({11, 1, false}); // duplicate: ignored
+            buffer.insert({11, 1, false}); // duplicate: visited once (checked by done())
             CATCH_REQUIRE(buffer.size() == 2);
             CATCH_REQUIRE(buffer.valid() == 2);
 
@@ -935,12 +935,15 @@ CATCH_TEST_CASE("MutableBuffer", "[core][search_buffer]") {
         }
 
         CATCH_SECTION("Full") {
-            // Invalid entries beyond the 4th valid entry are not visited.
-            for (uint32_t i = 0; i < 4; ++i) {
+            // Invalid entries beyond the 4th valid entry are not visited. Both invalid
+            // entries are queued before the buffer is full, so neither is skipped on
+            // insert.
+            for (uint32_t i = 0; i < 3; ++i) {
                 buffer.insert({i, svs::lib::narrow_cast<float>(10 * (i + 1)), true});
             }
             buffer.insert({10, 35, false});
             buffer.insert({11, 50, false});
+            buffer.insert({3, 40, true});
             CATCH_REQUIRE(buffer.size() == 4);
             CATCH_REQUIRE(buffer.full());
 
