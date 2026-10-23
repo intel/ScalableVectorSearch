@@ -661,6 +661,9 @@ class MutableVamanaIndex {
                         : sp.buffer_config_,
                     distance::comparator(distance_),
                     sp.search_buffer_visited_set_};
+                // Filtered: entries that fail go into the buffer's min-heap, not its
+                // sorted list.
+                buffer.enable_invalid_heap(pred != nullptr);
 
                 auto prefetch_parameters = GreedySearchPrefetchParameters{
                     sp.prefetch_lookahead_, sp.prefetch_step_};

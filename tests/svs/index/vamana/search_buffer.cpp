@@ -906,6 +906,55 @@ CATCH_TEST_CASE("MutableBuffer", "[core][search_buffer]") {
             CATCH_REQUIRE(b.done());
         }
     }
+
+    // With `enable_invalid_heap`, invalid entries are kept out of the sorted buffer but are
+    // still visited in distance order, together with the valid entries.
+    CATCH_SECTION("Invalid heap") {
+        using T = svs::PredicatedSearchNeighbor<uint32_t>;
+        auto make_visited = [](uint32_t id, float distance, bool valid) {
+            auto n = T{id, distance, valid};
+            n.set_visited();
+            return n;
+        };
+        buffer.enable_invalid_heap();
+
+        CATCH_SECTION("Not full") {
+            buffer.insert({10, 5, false});
+            buffer.insert({0, 100, true});
+            buffer.insert({11, 1, false});
+            buffer.insert({1, 50, true});
+            buffer.insert({11, 1, false}); // duplicate: ignored
+            CATCH_REQUIRE(buffer.size() == 2);
+            CATCH_REQUIRE(buffer.valid() == 2);
+
+            CATCH_REQUIRE(eq(buffer.next(), make_visited(11, 1, false)));
+            CATCH_REQUIRE(eq(buffer.next(), make_visited(10, 5, false)));
+            CATCH_REQUIRE(eq(buffer.next(), make_visited(1, 50, true)));
+            CATCH_REQUIRE(eq(buffer.next(), make_visited(0, 100, true)));
+            CATCH_REQUIRE(buffer.done());
+        }
+
+        CATCH_SECTION("Full") {
+            // Invalid entries beyond the 4th valid entry are not visited.
+            for (uint32_t i = 0; i < 4; ++i) {
+                buffer.insert({i, svs::lib::narrow_cast<float>(10 * (i + 1)), true});
+            }
+            buffer.insert({10, 35, false});
+            buffer.insert({11, 50, false});
+            CATCH_REQUIRE(buffer.size() == 4);
+            CATCH_REQUIRE(buffer.full());
+
+            CATCH_REQUIRE(eq(buffer.next(), make_visited(0, 10, true)));
+            CATCH_REQUIRE(eq(buffer.next(), make_visited(1, 20, true)));
+            CATCH_REQUIRE(eq(buffer.next(), make_visited(2, 30, true)));
+            CATCH_REQUIRE(eq(buffer.next(), make_visited(10, 35, false)));
+            CATCH_REQUIRE(eq(buffer.next(), make_visited(3, 40, true)));
+            CATCH_REQUIRE(buffer.done());
+
+            buffer.cleanup();
+            CATCH_REQUIRE(buffer.size() == 4);
+        }
+    }
 }
 
 CATCH_TEST_CASE("Fuzzing Mutable", "[core][search_buffer]") {
