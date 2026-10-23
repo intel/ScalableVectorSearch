@@ -17,6 +17,7 @@
 #pragma once
 #include "svs/concurrent/dynamic_index.h"
 #include "svs/concurrent/iterator.h"
+#include "svs/index/vamana/multi.h"
 
 #include <algorithm>
 #include <atomic>
@@ -935,70 +936,18 @@ auto auto_multi_dynamic_assemble(
     MultiMutableVamanaLoad load_from = MultiMutableVamanaLoad::FROM_MULTI,
     svs::logging::logger_ptr logger = svs::logging::get()
 ) {
-    // Load the dataset
-    auto threadpool = threads::as_threadpool(std::move(threadpool_proto));
-    auto data = svs::detail::dispatch_load(SVS_FWD(data_loader), threadpool);
-
-    // Load the graph.
-    auto graph = svs::detail::dispatch_load(SVS_FWD(graph_loader), threadpool);
-
-    // Make sure the data and the graph have the same size.
-    auto datasize = data.size();
-    auto graphsize = graph.n_nodes();
-    if (datasize != graphsize) {
-        throw ANNEXCEPTION(
-            "Reloaded data has {} nodes while the graph has {} nodes!", datasize, graphsize
-        );
-    }
-    auto [parameters, translator, labels] =
-        lib::load_from_disk<detail::MultiVamanaStateLoader>(
-            config_path, load_from, datasize
-        );
-
-    switch (load_from) {
-        case MultiMutableVamanaLoad::FROM_MULTI: {
-            if (labels.size() != datasize) {
-                throw ANNEXCEPTION(
-                    "Labels has {} IDs but should have {}", labels.size(), datasize
-                );
-            }
-            return MultiMutableVamanaIndex{
-                parameters,
-                std::move(data),
-                std::move(graph),
-                std::move(distance),
-                labels,
-                std::move(threadpool),
-                std::move(logger)};
+    return vamana::detail::assemble_multi_from_disk<detail::MultiVamanaStateLoader>(
+        config_path,
+        SVS_FWD(graph_loader),
+        SVS_FWD(data_loader),
+        distance,
+        threadpool_proto,
+        load_from,
+        logger,
+        []<typename... Args>(Args&&... args) {
+            return MultiMutableVamanaIndex{SVS_FWD(args)...};
         }
-        case MultiMutableVamanaLoad::FROM_DYNAMIC:
-        case MultiMutableVamanaLoad::FROM_STATIC: {
-            // Make sure that the translator covers all the IDs in the graph and data.
-            auto translator_size = translator.size();
-            if (translator_size != datasize) {
-                throw ANNEXCEPTION(
-                    "Translator has {} IDs but should have {}", translator_size, datasize
-                );
-            }
-
-            for (size_t i = 0; i < datasize; ++i) {
-                if (!translator.has_internal(i)) {
-                    throw ANNEXCEPTION("Translator is missing internal id {}", i);
-                }
-            }
-
-            return MultiMutableVamanaIndex{
-                parameters,
-                std::move(data),
-                std::move(graph),
-                std::move(distance),
-                std::move(translator),
-                std::move(threadpool),
-                std::move(logger)};
-        }
-        default:
-            throw ANNEXCEPTION("Invalid multi vamana load type");
-    }
+    );
 }
 
 template <
@@ -1014,45 +963,17 @@ auto auto_multi_dynamic_assemble(
     ThreadPoolProto threadpool_proto,
     svs::logging::logger_ptr logger = svs::logging::get()
 ) {
-    using label_type = size_t;
-
-    auto table = lib::detail::read_metadata(is);
-
-    auto parameters = lib::load<VamanaIndexParameters>(
-        table.template cast<toml::table>().at("parameters").template cast<toml::table>()
+    return vamana::detail::assemble_multi_from_stream(
+        is,
+        graph_loader,
+        data_loader,
+        distance,
+        threadpool_proto,
+        logger,
+        []<typename... Args>(Args&&... args) {
+            return MultiMutableVamanaIndex{SVS_FWD(args)...};
+        }
     );
-
-    auto num_labels =
-        lib::load<size_t>(table.template cast<toml::table>().at("num_labels"));
-
-    // Read labels binary data directly from the stream.
-    std::vector<label_type> labels(num_labels);
-    lib::read_binary(is, labels);
-
-    auto data = data_loader();
-    auto graph = graph_loader();
-
-    auto datasize = data.size();
-    auto graphsize = graph.n_nodes();
-    if (datasize != graphsize) {
-        throw ANNEXCEPTION(
-            "Reloaded data has {} nodes while the graph has {} nodes!", datasize, graphsize
-        );
-    }
-
-    if (labels.size() != datasize) {
-        throw ANNEXCEPTION("Labels has {} IDs but should have {}", labels.size(), datasize);
-    }
-
-    auto threadpool = threads::as_threadpool(std::move(threadpool_proto));
-    return MultiMutableVamanaIndex{
-        parameters,
-        std::move(data),
-        std::move(graph),
-        std::move(distance),
-        labels,
-        std::move(threadpool),
-        std::move(logger)};
 }
 
 } // namespace svs::index::vamana::concurrent

@@ -742,7 +742,7 @@ class SimpleGraph : public SimpleGraphBase<Idx, data::SimpleData<Idx, Dynamic, A
 
 template <typename Idx, typename A1, typename A2>
 bool operator==(const SimpleGraph<Idx, A1>& x, const SimpleGraph<Idx, A2>& y) {
-    return graphs_equal(x, y);
+    return svs::graphs::graphs_equal(x, y);
 }
 
 template <std::unsigned_integral Idx, typename Alloc = HugepageAllocator<Idx>>

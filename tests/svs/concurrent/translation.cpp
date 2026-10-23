@@ -15,7 +15,7 @@
  */
 
 // header under test.
-#include "svs/concurrent/translation.h"
+#include "svs/core/translation.h"
 
 // misc utilities
 #include "svs/lib/narrow.h"
@@ -32,7 +32,7 @@
 // The concurrent index carries its own ID translator (transactional
 // `replace_stale_and_insert` plus the non-throwing `_or` lookups). It is a
 // distinct type from `svs::IDTranslator`, which is left untouched.
-using IDTranslator = svs::index::vamana::concurrent::IDTranslator;
+using IDTranslator = svs::IDTranslator;
 
 namespace {
 template <typename Begin, typename End, typename External, typename Internal>

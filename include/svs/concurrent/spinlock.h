@@ -18,32 +18,9 @@
 
 #include "svs/lib/spinlock.h"
 
-#include <atomic>
-
 namespace svs::index::vamana::concurrent {
 
-///
-/// @brief ``svs::SpinLock`` plus value-initializing copy/move operations.
-///
-/// ``lib::SegmentedVector<SpinLock>`` constructs each segment's elements and, on
-/// ``resize``, needs the element type to be constructible from an existing element. A
-/// ``std::atomic<bool>`` member makes ``svs::SpinLock`` neither copyable nor movable, so
-/// this subclass supplies those operations. A copied or moved lock is always born
-/// *unlocked*: the operations exist to satisfy container requirements, never to transfer
-/// ownership of a held lock, and a container is only ever grown while its existing
-/// elements are untouched.
-///
-class SpinLock : public svs::SpinLock {
-  public:
-    SpinLock() = default;
-
-    SpinLock(const SpinLock& /*unused*/)
-        : svs::SpinLock{} {}
-    SpinLock& operator=(const SpinLock& /*unused*/) { return *this; }
-    SpinLock(SpinLock&& /*unused*/) noexcept
-        : svs::SpinLock{} {}
-    SpinLock& operator=(SpinLock&& /*unused*/) noexcept { return *this; }
-    ~SpinLock() = default;
-};
+/// @brief Compatibility alias for svs::SpinLock.
+using SpinLock = svs::SpinLock;
 
 } // namespace svs::index::vamana::concurrent

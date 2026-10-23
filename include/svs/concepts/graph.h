@@ -160,11 +160,11 @@ template <ImmutableMemoryGraph G> using index_type_t = typename G::index_type;
 /// };
 /// @endcode
 ///
-template <typename T>
+template <typename T, typename AddEdgeReturn = size_t>
 concept MemoryGraph = requires(T& g, const T& const_g) {
     // Adding an edge.
     requires requires(index_type_t<T> src, index_type_t<T> dst) {
-        { g.add_edge(src, dst) } -> std::convertible_to<size_t>;
+        { g.add_edge(src, dst) } -> std::convertible_to<AddEdgeReturn>;
     };
 
     // Clear adjacency list.
