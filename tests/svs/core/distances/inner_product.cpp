@@ -83,11 +83,7 @@ void test_types(T lo, T hi, size_t num_tests) {
     for (size_t i = 0; i < num_tests; ++i) {
         svs_test::populate(a, generator_a, N);
         svs_test::populate(b, generator_b, N);
-        // A fixed margin is not enough when the products cancel and the result lands near
-        // zero: the sequential fp32 sum in the generic (non-AVX) kernel then carries an
-        // absolute error that scales with the size of the terms, not of the result. On ARM
-        // and macOS that failed ~5% of runs. Widen the margin to the standard forward error
-        // bound of recursive summation, N * eps * sum(|a_i * b_i|).
+        // fp32 summation error scales with sum(|a_i * b_i|), not the result: bound it.
         auto margin = std::max(
             INNERPRODUCT_MARGIN,
             N * std::numeric_limits<float>::epsilon() * innerproduct_abs_reference(a, b)

@@ -91,8 +91,7 @@ CATCH_TEST_CASE("Basics", "[core][threads]") {
             channel.store(1000);
         });
 
-        // Poll for progress instead of sleeping a fixed 1 ms: on a loaded CI runner the
-        // worker can be descheduled for longer than that, which failed this test on ARM.
+        // Poll instead of a fixed sleep: loaded CI runners can deschedule the worker.
         auto wait_for = [&](size_t expected) {
             const auto deadline = std::chrono::steady_clock::now() + 10s;
             while (channel.load() != expected && std::chrono::steady_clock::now() < deadline
@@ -115,8 +114,7 @@ CATCH_TEST_CASE("Basics", "[core][threads]") {
         x.store(0);
         const bool released_by_second_store = wait_for(1000);
 
-        // Join before asserting: a failed REQUIRE would otherwise destroy a joinable
-        // std::thread, and std::terminate aborts the whole test binary.
+        // Join before asserting: destroying a joinable thread calls std::terminate.
         thread.join();
         CATCH_REQUIRE(waited_for_first_store);
         CATCH_REQUIRE(released_by_first_store);

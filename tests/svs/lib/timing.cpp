@@ -95,11 +95,7 @@ CATCH_TEST_CASE("Timing", "[lib][timing]") {
         }
 
         // Number of elapsed time should be pretty close to the sleep time.
-        //
-        // The upper bound only guards against gross accounting errors (double counting,
-        // a timer never stopped). A shared CI runner can deschedule the busy-sleeping
-        // thread, and a 1 ms bound failed on macOS runners that measured 20 ms for a
-        // 10 ms sleep.
+        // Loose upper bound: CI runners can deschedule the thread.
         constexpr int kSlack = 5;
         {
             const auto& t = timer.get_timer("a");
