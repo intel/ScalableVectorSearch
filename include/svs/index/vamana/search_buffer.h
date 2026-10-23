@@ -287,6 +287,19 @@ template <typename Idx, typename Cmp = std::less<>> class SearchBuffer {
         best_unvisited_ = 0;
     }
 
+    /// Reset the visited set so it holds exactly the ids currently in the buffer.
+    /// Used when a search resumes with a larger window: candidates that were seen but
+    /// dropped from the buffer can then be inserted again.
+    void reset_visited_to_contents() {
+        if (!visited_set_enabled()) {
+            return;
+        }
+        visited_->reset();
+        for (size_t i = 0; i < size_; ++i) {
+            visited_->emplace(candidates_[i].id());
+        }
+    }
+
     /// @brief Return the current number of valid elements in the buffer.
     size_t size() const { return size_; }
 

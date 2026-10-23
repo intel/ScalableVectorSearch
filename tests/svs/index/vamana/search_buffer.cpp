@@ -31,6 +31,7 @@
 #include <cstdint>
 #include <functional>
 #include <type_traits>
+#include <unordered_set>
 
 namespace vamana = svs::index::vamana;
 
@@ -308,6 +309,41 @@ template <typename Buffer> void test_visited_set_interface() {
     }
 }
 
+// After a reset, the visited set holds exactly the ids that are still in the buffer.
+template <typename Buffer> void test_reset_visited_to_contents() {
+    auto x = Buffer{4};
+    x.enable_visited_set();
+    // Visit more ids than the buffer can hold; the farthest ones get dropped.
+    for (uint32_t i = 0; i < 20; ++i) {
+        x.emplace_visited(i);
+        auto n = detail::convert_to(
+            svs::lib::Type<typename Buffer::value_type>(),
+            SearchBufferNeighbor{{i, static_cast<float>(i)}, true, false}
+        );
+        if (i == 0) {
+            x.push_back(n);
+        } else {
+            x.insert(n);
+        }
+    }
+    std::unordered_set<uint32_t> in_buffer;
+    for (const auto& n : x) {
+        in_buffer.insert(n.id());
+    }
+    CATCH_REQUIRE(in_buffer.size() < 20);
+    CATCH_REQUIRE(!in_buffer.empty());
+
+    x.reset_visited_to_contents();
+    for (uint32_t i = 0; i < 20; ++i) {
+        CATCH_REQUIRE(x.is_visited(i) == in_buffer.contains(i));
+    }
+
+    // A no-op when the visited set is disabled.
+    x.disable_visited_set();
+    x.reset_visited_to_contents();
+    CATCH_REQUIRE(!x.visited_set_enabled());
+}
+
 } // namespace
 
 CATCH_TEST_CASE("Testing Search Buffer", "[core][search_buffer]") {
@@ -543,6 +579,11 @@ CATCH_TEST_CASE("Testing Search Buffer", "[core][search_buffer]") {
     CATCH_SECTION("Visited Set") {
         test_visited_set_interface<svs::index::vamana::SearchBuffer<uint32_t>>();
         test_visited_set_interface<svs::index::vamana::MutableBuffer<uint32_t>>();
+    }
+
+    CATCH_SECTION("Reset Visited To Contents") {
+        test_reset_visited_to_contents<svs::index::vamana::SearchBuffer<uint32_t>>();
+        test_reset_visited_to_contents<svs::index::vamana::MutableBuffer<uint32_t>>();
     }
 
     CATCH_SECTION("Changing Size") {

@@ -24,6 +24,12 @@
 #include "c_api_test_utils.h"
 
 // Standard library
+#include <algorithm>
+#include <cstddef>
+#include <random>
+#include <string>
+#include <unordered_set>
+#include <utility>
 #include <vector>
 
 CATCH_TEST_CASE("C API Dynamic Index", "[c_api][index][dynamic]") {
@@ -1044,4 +1050,152 @@ CATCH_TEST_CASE(
         svs_algorithm_free(algorithm);
         svs_error_free(error);
     }
+}
+
+namespace {
+
+// Accepts IDs that are multiples of the modulus stored in `self`.
+bool filter_modulus(void* self, size_t id) {
+    return (id % *static_cast<const size_t*>(self)) == 0;
+}
+float filter_rate_unknown(void* /*self*/) { return 0.0f; }
+
+// Exact top-k (squared L2) over the IDs that pass `keep`.
+template <typename Keep>
+std::vector<size_t> restricted_ground_truth(
+    const std::vector<float>& data,
+    const float* query,
+    size_t dimension,
+    size_t k,
+    const Keep& keep
+) {
+    std::vector<std::pair<float, size_t>> scored;
+    for (size_t id = 0; id < data.size() / dimension; ++id) {
+        if (keep(id)) {
+            scored.emplace_back(
+                euclidean_distance(query, data.data() + id * dimension, dimension), id
+            );
+        }
+    }
+    const size_t n = std::min(k, scored.size());
+    std::partial_sort(scored.begin(), scored.begin() + n, scored.end());
+    std::vector<size_t> top;
+    for (size_t i = 0; i < n; ++i) {
+        top.push_back(scored[i].second);
+    }
+    return top;
+}
+
+} // namespace
+
+CATCH_TEST_CASE(
+    "C API Dynamic Filtered Search recall", "[c_api][index][dynamic][search][filter]"
+) {
+    const size_t NUM_VECTORS = 10000;
+    const size_t NUM_QUERIES = 20;
+    const size_t DIMENSION = 32;
+    const size_t K = 10;
+    const size_t NUM_THREADS = 4;
+    const size_t BLOCK_SIZE = 1024 * 1024;
+
+    std::mt19937 rng(123);
+    std::uniform_real_distribution<float> uniform(0.0f, 1.0f);
+    std::vector<float> data(NUM_VECTORS * DIMENSION);
+    std::vector<float> queries(NUM_QUERIES * DIMENSION);
+    for (auto& x : data) {
+        x = uniform(rng);
+    }
+    for (auto& x : queries) {
+        x = uniform(rng);
+    }
+    std::vector<size_t> ids(NUM_VECTORS);
+    for (size_t i = 0; i < NUM_VECTORS; ++i) {
+        ids[i] = i;
+    }
+
+    svs_error_h error = svs_error_create();
+    svs_algorithm_h algorithm = svs_algorithm_create_vamana(32, 100, 100, error);
+    CATCH_REQUIRE(algorithm != nullptr);
+    svs_index_builder_h builder = svs_index_builder_create(
+        SVS_DISTANCE_METRIC_EUCLIDEAN, DIMENSION, algorithm, error
+    );
+    CATCH_REQUIRE(builder != nullptr);
+    CATCH_REQUIRE(svs_index_builder_set_threadpool(
+        builder, SVS_THREADPOOL_KIND_NATIVE, NUM_THREADS, error
+    ));
+    svs_index_h index = svs_index_build_dynamic(
+        builder, data.data(), ids.data(), NUM_VECTORS, BLOCK_SIZE, error
+    );
+    CATCH_REQUIRE(index != nullptr);
+    svs_search_params_h search_params = svs_search_params_create_vamana(100, error);
+    CATCH_REQUIRE(search_params != nullptr);
+
+    std::unordered_set<size_t> deleted;
+
+    // Runs a filtered search and returns the mean recall against exact results restricted
+    // to the filter and to non-deleted IDs. Also checks that every returned ID is valid.
+    auto run = [&](svs_id_filter_interface& filter, auto keep) {
+        svs_search_results_t results = SVS_INIT_SEARCH_RESULTS();
+        CATCH_REQUIRE(svs_index_search_topk(
+            index, queries.data(), NUM_QUERIES, K, &results, search_params, &filter, error
+        ));
+        CATCH_REQUIRE(svs_error_ok(error));
+        CATCH_REQUIRE(results.num_queries == NUM_QUERIES);
+
+        size_t hits = 0;
+        size_t expected = 0;
+        for (size_t q = 0; q < NUM_QUERIES; ++q) {
+            const size_t num_found = results.offsets[q + 1] - results.offsets[q];
+            CATCH_REQUIRE(num_found <= K);
+            auto truth = restricted_ground_truth(
+                data, queries.data() + q * DIMENSION, DIMENSION, K, keep
+            );
+            std::unordered_set<size_t> truth_set(truth.begin(), truth.end());
+            expected += truth.size();
+            for (size_t j = 0; j < num_found; ++j) {
+                size_t id = results.indices[results.offsets[q] + j];
+                CATCH_REQUIRE(keep(id));
+                hits += truth_set.count(id);
+            }
+        }
+        svs_search_results_free(&results);
+        return static_cast<double>(hits) / static_cast<double>(expected);
+    };
+
+    for (size_t modulus : {2, 10, 100}) {
+        CATCH_SECTION("Recall with 1/" + std::to_string(modulus) + " selectivity") {
+            svs_id_filter_interface_ops ops =
+                SVS_INIT_ID_FILTER_OPS(filter_modulus, filter_rate_unknown);
+            svs_id_filter_interface filter = SVS_MAKE_INTERFACE(&modulus, ops);
+            auto keep = [&](size_t id) { return id % modulus == 0; };
+            CATCH_REQUIRE(run(filter, keep) >= 0.95);
+        }
+    }
+
+    CATCH_SECTION("Deleted points are never returned") {
+        // Delete half of the IDs that pass the filter.
+        std::vector<size_t> to_delete;
+        for (size_t id = 0; id < NUM_VECTORS; id += 20) {
+            to_delete.push_back(id);
+            deleted.insert(id);
+        }
+        size_t deleted_count = 0;
+        CATCH_REQUIRE(svs_index_dynamic_delete_points(
+            index, to_delete.data(), to_delete.size(), &deleted_count, error
+        ));
+        CATCH_REQUIRE(deleted_count == to_delete.size());
+
+        size_t modulus = 10;
+        svs_id_filter_interface_ops ops =
+            SVS_INIT_ID_FILTER_OPS(filter_modulus, filter_rate_unknown);
+        svs_id_filter_interface filter = SVS_MAKE_INTERFACE(&modulus, ops);
+        auto keep = [&](size_t id) { return id % modulus == 0 && !deleted.count(id); };
+        CATCH_REQUIRE(run(filter, keep) >= 0.95);
+    }
+
+    svs_search_params_free(search_params);
+    svs_index_free(index);
+    svs_index_builder_free(builder);
+    svs_algorithm_free(algorithm);
+    svs_error_free(error);
 }
