@@ -538,6 +538,72 @@ CATCH_TEST_CASE("Dynamic MutableVamanaIndex Default Logger Test", "[logging]") {
     CATCH_REQUIRE(index.get_logger() == default_logger);
 }
 
+CATCH_TEST_CASE("Dynamic MutableVamanaIndex Predicated Search", "[dynamic_index][filter]") {
+    auto data = svs::data::SimpleData<Eltype, N>::load(test_dataset::data_svs_file());
+    auto queries = test_dataset::queries();
+    const size_t num_queries = queries.size();
+
+    auto to_external = [](size_t i) { return 3 * i + 7; };
+    auto is_deleted = [](size_t i) { return i % 4 == 0; };
+    auto filter = [](size_t external) { return external % 5 == 0; };
+
+    // Exhaustive ground truth over internal positions, translated to external ids.
+    auto groundtruth = svs::QueryResult<size_t>(num_queries, NUM_NEIGHBORS);
+    {
+        auto flat = svs::index::flat::temporary_flat_index(data, Distance(), 2);
+        flat.search(
+            groundtruth.view(),
+            queries.cview(),
+            flat.get_search_parameters(),
+            svs::lib::Returns(svs::lib::Const<false>()),
+            [&](size_t i) { return !is_deleted(i) && filter(to_external(i)); }
+        );
+        for (size_t q = 0; q < num_queries; ++q) {
+            for (size_t j = 0; j < NUM_NEIGHBORS; ++j) {
+                groundtruth.index(q, j) = to_external(groundtruth.index(q, j));
+            }
+        }
+    }
+
+    std::vector<size_t> ids(data.size());
+    std::vector<size_t> to_delete{};
+    for (size_t i = 0; i < ids.size(); ++i) {
+        ids[i] = to_external(i);
+        if (is_deleted(i)) {
+            to_delete.push_back(ids[i]);
+        }
+    }
+
+    svs::index::vamana::VamanaBuildParameters build_params(1.2, 32, 64, 128, 28, true);
+    auto index = svs::index::vamana::MutableVamanaIndex(
+        build_params, std::move(data), ids, Distance(), svs::threads::DefaultThreadPool(4)
+    );
+    index.delete_entries(to_delete);
+
+    auto search_params = index.get_search_parameters();
+    search_params.buffer_config_ = svs::index::vamana::SearchBufferConfig{50};
+    auto results = svs::QueryResult<size_t>(num_queries, NUM_NEIGHBORS);
+    auto found = std::vector<size_t>(num_queries);
+    index.predicated_search(
+        results.view(),
+        std::span(found),
+        queries.cview(),
+        search_params,
+        filter,
+        svs::index::vamana::NeverStop{}
+    );
+
+    for (size_t q = 0; q < num_queries; ++q) {
+        CATCH_REQUIRE(found[q] == NUM_NEIGHBORS);
+        for (size_t j = 0; j < NUM_NEIGHBORS; ++j) {
+            auto id = results.index(q, j);
+            CATCH_REQUIRE(index.has_id(id));
+            CATCH_REQUIRE(filter(id));
+        }
+    }
+    CATCH_REQUIRE(svs::k_recall_at_n(groundtruth, results) >= 0.9);
+}
+
 CATCH_TEST_CASE("Dynamic Vamana Index Default Parameters", "[parameter][vamana]") {
     using Catch::Approx;
     std::filesystem::path data_path = test_dataset::data_svs_file();

@@ -23,6 +23,7 @@
 
 // svs
 #include "svs/extensions/vamana/scalar.h"
+#include "svs/index/flat/flat.h"
 #include "svs/index/vamana/build_params.h"
 #include "svs/lib/preprocessor.h"
 #include "svs/orchestrators/vamana.h"
@@ -41,6 +42,9 @@
 // svsbenchmark
 #include "svs-benchmark/benchmark.h"
 // stl
+#include <atomic>
+#include <limits>
+#include <span>
 #include <sstream>
 #include <string_view>
 
@@ -229,6 +233,157 @@ CATCH_TEST_CASE("Vamana Index Memory Usage", "[vamana][index]") {
     CATCH_REQUIRE(breakdown.total() == expected_total_bytes);
     const size_t usage = index.get_memory_breakdown().total();
     CATCH_REQUIRE(usage == expected_total_bytes);
+}
+
+CATCH_TEST_CASE("Vamana Index Predicated Search", "[vamana][index][filter]") {
+    const size_t N = 128;
+    using Eltype = float;
+    const size_t num_neighbors = 10;
+    auto data = svs::data::SimpleData<Eltype, N>::load(test_dataset::data_svs_file());
+    auto queries = test_dataset::queries();
+    const size_t num_queries = queries.size();
+    svs::distance::DistanceL2 distance_function;
+
+    auto even = [](size_t id) { return id % 2 == 0; };
+    auto every_tenth = [](size_t id) { return id % 10 == 0; };
+    auto reject_all = [](size_t SVS_UNUSED(id)) { return false; };
+
+    auto exhaustive = [&](const auto& filter) {
+        auto flat = svs::index::flat::temporary_flat_index(data, distance_function, 2);
+        auto groundtruth = svs::QueryResult<size_t>(num_queries, num_neighbors);
+        flat.search(
+            groundtruth.view(),
+            queries.cview(),
+            flat.get_search_parameters(),
+            svs::lib::Returns(svs::lib::Const<false>()),
+            filter
+        );
+        return groundtruth;
+    };
+    auto groundtruth_even = exhaustive(even);
+    auto groundtruth_tenth = exhaustive(every_tenth);
+
+    svs::index::vamana::VamanaBuildParameters build_params(1.2, 32, 64, 128, 28, true);
+    auto index = svs::index::vamana::VamanaIndex(
+        build_params,
+        svs::graphs::SimpleGraph<uint32_t>(data.size(), 32),
+        std::move(data),
+        uint32_t{0},
+        distance_function,
+        svs::threads::DefaultThreadPool(4)
+    );
+
+    auto search_params = svs::index::vamana::VamanaSearchParameters{};
+    search_params.buffer_config_ = svs::index::vamana::SearchBufferConfig{100};
+    auto results = svs::QueryResult<size_t>(num_queries, num_neighbors);
+    auto found = std::vector<size_t>(num_queries);
+
+    CATCH_SECTION("Accept-all matches regular search") {
+        auto expected = svs::QueryResult<size_t>(num_queries, num_neighbors);
+        index.search(expected.view(), queries.cview(), search_params);
+        index.predicated_search(
+            results.view(),
+            std::span(found),
+            queries.cview(),
+            search_params,
+            svs::index::vamana::AcceptAll{},
+            svs::index::vamana::NeverStop{}
+        );
+        for (size_t q = 0; q < num_queries; ++q) {
+            CATCH_REQUIRE(found[q] == num_neighbors);
+            for (size_t j = 0; j < num_neighbors; ++j) {
+                CATCH_REQUIRE(results.index(q, j) == expected.index(q, j));
+            }
+        }
+    }
+
+    CATCH_SECTION("Filtered") {
+        auto check = [&](const auto& filter, const auto& groundtruth) {
+            index.predicated_search(
+                results.view(),
+                std::span(found),
+                queries.cview(),
+                search_params,
+                filter,
+                svs::index::vamana::NeverStop{}
+            );
+            for (size_t q = 0; q < num_queries; ++q) {
+                CATCH_REQUIRE(found[q] == num_neighbors);
+                for (size_t j = 0; j < num_neighbors; ++j) {
+                    CATCH_REQUIRE(filter(results.index(q, j)));
+                }
+            }
+            CATCH_REQUIRE(svs::k_recall_at_n(groundtruth, results) >= 0.9);
+        };
+        check(even, groundtruth_even);
+        check(every_tenth, groundtruth_tenth);
+    }
+
+    CATCH_SECTION("Filter rejecting everything") {
+        index.predicated_search(
+            results.view(),
+            std::span(found),
+            queries.cview(),
+            search_params,
+            reject_all,
+            svs::index::vamana::NeverStop{}
+        );
+        for (size_t q = 0; q < num_queries; ++q) {
+            CATCH_REQUIRE(found[q] == 0);
+            CATCH_REQUIRE(results.index(q, 0) == std::numeric_limits<size_t>::max());
+        }
+    }
+
+    CATCH_SECTION("Stop predicate") {
+        const size_t max_hops = 2;
+        // Each query runs on a single worker thread, so per-query slots need no locking.
+        auto calls = std::vector<size_t>(num_queries, 0);
+        std::atomic<bool> bad_progress{false};
+        auto stop = [&](size_t query_index, const svs::index::vamana::SearchProgress& p) {
+            if (query_index >= num_queries || p.buffer_valid > p.buffer_size) {
+                bad_progress = true;
+                return true;
+            }
+            return ++calls[query_index] > max_hops;
+        };
+
+        auto full_results = svs::QueryResult<size_t>(num_queries, num_neighbors);
+        auto full_found = std::vector<size_t>(num_queries);
+        index.predicated_search(
+            full_results.view(),
+            std::span(full_found),
+            queries.cview(),
+            search_params,
+            every_tenth,
+            svs::index::vamana::NeverStop{}
+        );
+        index.predicated_search(
+            results.view(),
+            std::span(found),
+            queries.cview(),
+            search_params,
+            every_tenth,
+            stop
+        );
+        CATCH_REQUIRE(!bad_progress);
+        for (size_t q = 0; q < num_queries; ++q) {
+            CATCH_REQUIRE(calls[q] > 0);
+        }
+        // Stopping early must cost recall.
+        CATCH_REQUIRE(
+            svs::k_recall_at_n(groundtruth_tenth, results) <
+            svs::k_recall_at_n(groundtruth_tenth, full_results)
+        );
+        for (size_t q = 0; q < num_queries; ++q) {
+            CATCH_REQUIRE(found[q] <= num_neighbors);
+            for (size_t j = 0; j < found[q]; ++j) {
+                CATCH_REQUIRE(every_tenth(results.index(q, j)));
+                if (j > 0) {
+                    CATCH_REQUIRE(results.distance(q, j - 1) <= results.distance(q, j));
+                }
+            }
+        }
+    }
 }
 
 CATCH_TEST_CASE("Vamana Index Save and Load", "[vamana][index][saveload]") {

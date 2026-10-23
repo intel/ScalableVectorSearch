@@ -109,6 +109,35 @@ class ValidBuilder {
     const std::vector<SlotMetadata>& status_;
 };
 
+///
+/// @brief Builder marking deleted slots and IDs rejected by a user filter as invalid.
+///
+/// The filter is invoked with external IDs, and only for slots that are ``Valid``.
+///
+template <typename Filter> class FilteredValidBuilder {
+  public:
+    FilteredValidBuilder(
+        const std::vector<SlotMetadata>& status,
+        const IDTranslator& translator,
+        const Filter& filter
+    )
+        : status_{status}
+        , translator_{translator}
+        , filter_{filter} {}
+
+    template <typename I>
+    PredicatedSearchNeighbor<I> operator()(I i, float distance) const {
+        bool valid = getindex(status_, i) == SlotMetadata::Valid &&
+                     filter_(translator_.get_external(i));
+        return PredicatedSearchNeighbor<I>(i, distance, valid);
+    }
+
+  private:
+    const std::vector<SlotMetadata>& status_;
+    const IDTranslator& translator_;
+    const Filter& filter_;
+};
+
 template <graphs::MemoryGraph Graph, typename Data, typename Dist>
 class MutableVamanaIndex {
     friend class MultiMutableVamanaIndex<Graph, Data, Dist>;
@@ -575,13 +604,30 @@ class MutableVamanaIndex {
     // This is an internal method, mostly used to help implement the batch iterator.
     ValidBuilder internal_search_builder() const { return ValidBuilder{status_}; }
 
+    // Return a builder that also marks external IDs rejected by ``filter`` as invalid.
+    template <typename Filter>
+    FilteredValidBuilder<Filter> internal_search_builder(const Filter& filter) const {
+        return FilteredValidBuilder<Filter>{status_, translator_, filter};
+    }
+
     auto greedy_search_closure(
         GreedySearchPrefetchParameters prefetch_parameters,
         const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>())
     ) const {
-        return [&, prefetch_parameters](
-                   const auto& query, auto& accessor, auto& distance, auto& buffer
-               ) {
+        return greedy_search_closure(
+            prefetch_parameters, cancel, internal_search_builder()
+        );
+    }
+
+    template <typename Builder>
+    auto greedy_search_closure(
+        GreedySearchPrefetchParameters prefetch_parameters,
+        const lib::DefaultPredicate& cancel,
+        Builder builder
+    ) const {
+        return [&,
+                prefetch_parameters,
+                builder](const auto& query, auto& accessor, auto& distance, auto& buffer) {
             // Perform the greedy search using the provided resources.
             greedy_search(
                 graph_,
@@ -591,7 +637,7 @@ class MutableVamanaIndex {
                 distance,
                 buffer,
                 vamana::EntryPointInitializer<Idx>{lib::as_const_span(entry_point_)},
-                internal_search_builder(),
+                builder,
                 prefetch_parameters,
                 cancel
             );
@@ -665,6 +711,78 @@ class MutableVamanaIndex {
         // After the search procedure, the indices in `results` are internal.
         // Perform one more pass to convert these to external ids.
         translate_to_external(results.indices());
+    }
+
+    ///
+    /// @brief Search with an ID filter and a stop predicate.
+    ///
+    /// @copydoc svs::index::vamana::VamanaIndex::predicated_search
+    ///
+    /// ``filter`` receives external IDs. Deleted entries are never returned. Unlike
+    /// ``search``, the result buffer is not topped up by a linear scan when the graph
+    /// search finds fewer than ``result.n_neighbors()`` entries.
+    ///
+    template <
+        typename I,
+        data::ImmutableMemoryDataset Queries,
+        typename Filter,
+        typename Stop>
+    void predicated_search(
+        QueryResultView<I> results,
+        std::span<size_t> found,
+        const Queries& queries,
+        const search_parameters_type& sp,
+        const Filter& filter,
+        const Stop& stop,
+        const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>())
+    ) {
+        using compare_type = distance::compare_t<Dist>;
+        threads::parallel_for(
+            threadpool_,
+            threads::StaticPartition{queries.size()},
+            [&](const auto is, uint64_t SVS_UNUSED(tid)) {
+                size_t num_neighbors = results.n_neighbors();
+                auto buffer = MutableBuffer<Idx, compare_type, query_stop_t<Stop>>{
+                    sp.buffer_config_.get_total_capacity() < num_neighbors
+                        ? SearchBufferConfig{num_neighbors}
+                        : sp.buffer_config_,
+                    distance::comparator(distance_),
+                    sp.search_buffer_visited_set_};
+                auto prefetch_parameters = GreedySearchPrefetchParameters{
+                    sp.prefetch_lookahead_, sp.prefetch_step_};
+                auto scratch = extensions::single_search_setup(data_, distance_);
+
+                auto run = [&](const auto& builder) {
+                    for (auto i : is) {
+                        if (cancel()) {
+                            return;
+                        }
+                        buffer.set_stop(bind_query_stop(stop, i));
+                        extensions::single_search(
+                            data_,
+                            buffer,
+                            scratch,
+                            queries.get_datum(i),
+                            greedy_search_closure(prefetch_parameters, cancel, builder),
+                            extensions::SupplementSuppressed<MutableVamanaIndex>{},
+                            cancel
+                        );
+                        size_t n = copy_search_results<compare_type>(results, i, buffer);
+                        for (size_t j = 0; j < n; ++j) {
+                            auto internal = lib::narrow_cast<Idx>(results.index(i, j));
+                            results.index(i, j) = translate_internal_id(internal);
+                        }
+                        found[i] = n;
+                    }
+                };
+
+                if constexpr (std::is_same_v<Filter, AcceptAll>) {
+                    run(internal_search_builder());
+                } else {
+                    run(internal_search_builder(filter));
+                }
+            }
+        );
     }
 
     ///

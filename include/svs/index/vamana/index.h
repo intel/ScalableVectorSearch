@@ -24,6 +24,7 @@
 #include "svs/core/query_result.h"
 #include "svs/core/recall.h"
 #include "svs/index/vamana/calibrate.h"
+#include "svs/index/vamana/dynamic_search_buffer.h"
 #include "svs/index/vamana/extensions.h"
 #include "svs/index/vamana/greedy_search.h"
 #include "svs/index/vamana/search_buffer.h"
@@ -256,6 +257,25 @@ VamanaSearchParameters construct_default_search_parameters(const Data& data) {
 }
 
 ///
+/// @brief Copy the leading entries of ``buffer`` into row ``i`` of ``result``.
+///
+/// Entries past ``buffer.size()`` are filled with the sentinel neighbor for ``Cmp``.
+/// Returns the number of entries copied from ``buffer``.
+///
+template <typename Cmp, typename I, typename Buffer>
+size_t copy_search_results(QueryResultView<I>& result, size_t i, const Buffer& buffer) {
+    const size_t num_neighbors = result.n_neighbors();
+    const size_t found = std::min(buffer.size(), num_neighbors);
+    for (size_t j = 0; j < found; ++j) {
+        result.set(buffer[j], i, j);
+    }
+    for (size_t j = found; j < num_neighbors; ++j) {
+        result.set(type_traits::sentinel_v<Neighbor<I>, Cmp>, i, j);
+    }
+    return found;
+}
+
+///
 /// @brief Implementation of the static Vamana index.
 ///
 /// @tparam Graph The full type of the graph being used to conduct searches.
@@ -485,13 +505,30 @@ class VamanaIndex {
     // This is an internal method, mostly used to help implement the batch iterator.
     static NeighborBuilder internal_search_builder() { return NeighborBuilder(); }
 
+    // Return a builder marking IDs rejected by ``filter`` as invalid.
+    template <typename Filter>
+    static FilteredBuilder<Filter> internal_search_builder(const Filter& filter) {
+        return FilteredBuilder<Filter>{filter};
+    }
+
     auto greedy_search_closure(
         GreedySearchPrefetchParameters prefetch_parameters,
         const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>())
     ) const {
-        return [&, prefetch_parameters](
-                   const auto& query, auto& accessor, auto& distance, auto& buffer
-               ) {
+        return greedy_search_closure(
+            prefetch_parameters, cancel, internal_search_builder()
+        );
+    }
+
+    template <typename Builder>
+    auto greedy_search_closure(
+        GreedySearchPrefetchParameters prefetch_parameters,
+        const lib::DefaultPredicate& cancel,
+        Builder builder
+    ) const {
+        return [&,
+                prefetch_parameters,
+                builder](const auto& query, auto& accessor, auto& distance, auto& buffer) {
             greedy_search(
                 graph_,
                 data_,
@@ -500,10 +537,14 @@ class VamanaIndex {
                 distance,
                 buffer,
                 vamana::EntryPointInitializer<Idx>{lib::as_const_span(entry_point_)},
-                internal_search_builder(),
+                builder,
                 prefetch_parameters,
                 cancel
             );
+            // Predicated buffers keep invalid entries for navigation; drop them.
+            if constexpr (requires { buffer.cleanup(); }) {
+                buffer.cleanup();
+            }
         };
     }
 
@@ -616,6 +657,93 @@ class VamanaIndex {
                     *this,
                     cancel
                 );
+            }
+        );
+    }
+
+    ///
+    /// @brief Search with an ID filter and a stop predicate.
+    ///
+    /// @param result The result data structure to populate. Rows with fewer than
+    ///     ``result.n_neighbors()`` matches are padded with sentinel neighbors.
+    /// @param found Receives the number of valid neighbors for each query. Must have
+    ///     ``queries.size()`` entries.
+    /// @param queries A dense collection of queries.
+    /// @param search_parameters Search parameters to use for the search.
+    /// @param filter Invoked as ``filter(id)``; only IDs for which it returns ``true``
+    ///     are returned. Pass ``AcceptAll`` to search without filtering.
+    /// @param stop Invoked as ``stop(query_index, const SearchProgress&)`` by the search
+    ///     buffer before each graph hop. Returning ``true`` ends that query's search with
+    ///     the results found so far. Pass ``NeverStop`` to disable.
+    /// @param cancel Aborts the whole search; results are unspecified afterwards.
+    ///
+    /// ``filter`` and ``stop`` are called concurrently from the index's worker threads.
+    ///
+    template <
+        typename I,
+        data::ImmutableMemoryDataset Queries,
+        typename Filter,
+        typename Stop>
+    void predicated_search(
+        QueryResultView<I> result,
+        std::span<size_t> found,
+        const Queries& queries,
+        const search_parameters_type& search_parameters,
+        const Filter& filter,
+        const Stop& stop,
+        const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>())
+    ) {
+        using compare_type = distance::compare_t<Dist>;
+        threads::parallel_for(
+            threadpool_,
+            threads::StaticPartition{queries.size()},
+            [&](const auto is, uint64_t SVS_UNUSED(tid)) {
+                size_t num_neighbors = result.n_neighbors();
+                auto config =
+                    search_parameters.buffer_config_.get_total_capacity() < num_neighbors
+                        ? SearchBufferConfig{num_neighbors}
+                        : search_parameters.buffer_config_;
+                auto prefetch_parameters = GreedySearchPrefetchParameters{
+                    search_parameters.prefetch_lookahead_,
+                    search_parameters.prefetch_step_};
+                auto scratch = extensions::single_search_setup(data_, distance_);
+
+                auto run = [&](auto& buffer, const auto& builder) {
+                    for (auto i : is) {
+                        if (cancel()) {
+                            return;
+                        }
+                        if constexpr (requires {
+                                          buffer.set_stop(bind_query_stop(stop, i));
+                                      }) {
+                            buffer.set_stop(bind_query_stop(stop, i));
+                        }
+                        extensions::single_search(
+                            data_,
+                            buffer,
+                            scratch,
+                            queries.get_datum(i),
+                            greedy_search_closure(prefetch_parameters, cancel, builder),
+                            extensions::SupplementSuppressed<VamanaIndex>{},
+                            cancel
+                        );
+                        found[i] = copy_search_results<compare_type>(result, i, buffer);
+                    }
+                };
+
+                if constexpr (std::is_same_v<Filter, AcceptAll> && std::is_same_v<Stop, NeverStop>) {
+                    auto buffer = search_buffer_type{
+                        config,
+                        distance::comparator(distance_),
+                        search_parameters.search_buffer_visited_set_};
+                    run(buffer, internal_search_builder());
+                } else {
+                    auto buffer = MutableBuffer<Idx, compare_type, query_stop_t<Stop>>{
+                        config,
+                        distance::comparator(distance_),
+                        search_parameters.search_buffer_visited_set_};
+                    run(buffer, internal_search_builder(filter));
+                }
             }
         );
     }

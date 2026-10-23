@@ -2131,23 +2131,12 @@ class MutableVamanaIndex {
 };
 
 ///
-/// @brief Hides an index's id translation from the search extensions.
-///
-/// Every ``extensions::single_search`` implementation tops the search buffer up itself, by
-/// calling the generic ``extensions::check_and_supplement_search_buffer`` under
-/// ``if constexpr (Index::needs_id_translation)``. That routine is unsafe for this index --
-/// see ``MutableVamanaIndex::supplement_search_buffer`` -- and it is a plain function, not
-/// a customization point, so it cannot be overridden. Passing this wrapper in place of the
-/// index makes that branch disappear, leaving the top-up to the index itself.
-///
-/// The implementations touch nothing else on the index, so nothing else needs forwarding.
-///
-template <typename Index> struct SupplementSuppressed {
-    static constexpr bool needs_id_translation = false;
-};
-
-///
 /// @brief ``extensions::single_search`` for the concurrent mutable index.
+///
+/// The generic ``extensions::check_and_supplement_search_buffer`` is unsafe for this index
+/// (see ``MutableVamanaIndex::supplement_search_buffer``) and it is a plain function, not a
+/// customization point, so it is hidden with ``extensions::SupplementSuppressed`` and the
+/// top-up is left to the index itself.
 ///
 /// Runs the dataset's own search implementation and then tops the buffer up through the
 /// index (see ``MutableVamanaIndex::supplement_search_buffer``). More specialized than the
@@ -2188,7 +2177,7 @@ SVS_FORCE_INLINE void svs_invoke(
         scratch,
         query,
         search,
-        SupplementSuppressed<index_type>{},
+        vamana::extensions::SupplementSuppressed<index_type>{},
         cancel
     );
 

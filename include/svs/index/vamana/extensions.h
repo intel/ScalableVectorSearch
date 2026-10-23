@@ -452,6 +452,18 @@ void check_and_supplement_search_buffer(
 /// Customization point object for processing single queries.
 inline constexpr VamanaSingleSearchType single_search{};
 
+///
+/// @brief Hides an index's id translation from the search extensions.
+///
+/// Every ``single_search`` implementation tops the search buffer up itself, by calling
+/// ``check_and_supplement_search_buffer`` under ``if constexpr
+/// (Index::needs_id_translation)``. Passing this wrapper in place of the index makes that
+/// branch disappear. The implementations touch nothing else on the index.
+///
+template <typename Index> struct SupplementSuppressed {
+    static constexpr bool needs_id_translation = false;
+};
+
 /// In this function, cancel does not need to be called since search will call cancel
 /// However, lvq requires cancel to be called to skip reranking
 /// Here we have cancel to make the interface consistent with lvq

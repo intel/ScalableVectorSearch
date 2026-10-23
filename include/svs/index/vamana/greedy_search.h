@@ -20,6 +20,8 @@
 #include "svs/concepts/distance.h"
 #include "svs/concepts/graph.h"
 #include "svs/index/vamana/search_buffer.h"
+#include "svs/lib/neighbor.h"
+#include "svs/lib/preprocessor.h"
 
 #include <algorithm>
 #include <memory>
@@ -109,6 +111,33 @@ struct NeighborBuilder {
     constexpr SearchNeighbor<I> operator()(I i, float distance) const {
         return SearchNeighbor<I>{i, distance};
     }
+};
+
+/// ID filter that accepts every ID. Selects the unfiltered path of predicated searches.
+struct AcceptAll {
+    template <std::integral I> constexpr bool operator()(I SVS_UNUSED(id)) const {
+        return true;
+    }
+};
+
+///
+/// @brief Builder marking neighbors rejected by `filter` as invalid.
+///
+/// Requires a search buffer holding `PredicatedSearchNeighbor`, such as `MutableBuffer`.
+/// The filter is invoked with internal IDs.
+///
+template <typename Filter> class FilteredBuilder {
+  public:
+    explicit FilteredBuilder(const Filter& filter)
+        : filter_{filter} {}
+
+    template <typename I>
+    PredicatedSearchNeighbor<I> operator()(I i, float distance) const {
+        return PredicatedSearchNeighbor<I>(i, distance, filter_(i));
+    }
+
+  private:
+    const Filter& filter_;
 };
 
 template <

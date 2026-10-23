@@ -20,6 +20,7 @@
 #include "svs/lib/boundscheck.h"
 #include "svs/lib/datatype.h"
 #include "svs/lib/neighbor.h"
+#include "svs/lib/preprocessor.h"
 #include "svs/lib/threads/threadlocal.h"
 
 #include <algorithm>
@@ -33,12 +34,63 @@
 
 namespace svs::index::vamana {
 
+/////
+///// Search termination.
+/////
+
+///
+/// @brief Search buffer state passed to a ``MutableBuffer`` stop predicate.
+///
+struct SearchProgress {
+    /// Number of valid entries currently held by the buffer.
+    size_t buffer_valid = 0;
+    /// Number of entries (valid or not) currently held by the buffer.
+    size_t buffer_size = 0;
+    /// Distance of the best unvisited candidate: the next node to expand.
+    float frontier_distance = 0;
+};
+
+/// Stop predicate that never fires. Compiled out of ``MutableBuffer`` entirely.
+struct NeverStop {
+    constexpr bool operator()(const SearchProgress& SVS_UNUSED(progress)) const {
+        return false;
+    }
+};
+
+/// Adapts a predicate invocable as ``stop(query_index, progress)`` to one query.
+template <typename Stop> struct QueryStop {
+    const Stop* stop = nullptr;
+    size_t query_index = 0;
+
+    bool operator()(const SearchProgress& progress) const {
+        return (*stop)(query_index, progress);
+    }
+};
+
+template <typename Stop>
+using query_stop_t =
+    std::conditional_t<std::is_same_v<Stop, NeverStop>, NeverStop, QueryStop<Stop>>;
+
+/// Bind ``query_index`` to ``stop``; ``NeverStop`` passes through unchanged.
+template <typename Stop>
+query_stop_t<Stop> bind_query_stop(const Stop& stop, size_t query_index) {
+    if constexpr (std::is_same_v<Stop, NeverStop>) {
+        return NeverStop{};
+    } else {
+        return QueryStop<Stop>{&stop, query_index};
+    }
+}
+
 ///
 /// A search buffer that allows entries to be predicated out.
 /// The search buffer will still navigate through those entries, but it won't include
 /// them in its final result.
 ///
-template <typename Idx, typename Cmp = std::less<>> class MutableBuffer {
+/// ``Stop`` is invoked as ``stop(const SearchProgress&)`` from ``done()``; returning
+/// ``true`` ends the search with the candidates found so far.
+///
+template <typename Idx, typename Cmp = std::less<>, typename Stop = NeverStop>
+class MutableBuffer {
   public:
     // Type Aliases
     using index_type = Idx;
@@ -46,6 +98,9 @@ template <typename Idx, typename Cmp = std::less<>> class MutableBuffer {
     using reference = value_type&;
     using const_reference = const value_type&;
     using compare_type = Cmp;
+    using stop_type = Stop;
+
+    static constexpr bool tracks_progress = !std::is_same_v<Stop, NeverStop>;
 
     using vector_type = std::vector<value_type, threads::CacheAlignedAllocator<value_type>>;
     using iterator = typename vector_type::iterator;
@@ -95,18 +150,23 @@ template <typename Idx, typename Cmp = std::less<>> class MutableBuffer {
     vector_type candidates_{};
     // An optional visited filter.
     std::optional<set_type> visited_{std::nullopt};
+    [[no_unique_address]] Stop stop_{};
 
   public:
     MutableBuffer() = default;
 
     /// Construct a new buffer with the given buffer configuration.
     explicit MutableBuffer(
-        SearchBufferConfig config, Cmp compare = Cmp{}, bool enable_visited = false
+        SearchBufferConfig config,
+        Cmp compare = Cmp{},
+        bool enable_visited = false,
+        Stop stop = Stop{}
     )
         : compare_{std::move(compare)}
         , target_valid_{config.get_search_window_size()}
         , valid_capacity_{config.get_total_capacity()}
-        , candidates_{valid_capacity_} {
+        , candidates_{valid_capacity_}
+        , stop_{std::move(stop)} {
         candidates_.clear();
         if (enable_visited) {
             enable_visited_set();
@@ -114,8 +174,14 @@ template <typename Idx, typename Cmp = std::less<>> class MutableBuffer {
     }
 
     /// Construct a new buffer with the given size and capacity.
-    explicit MutableBuffer(size_t size, Cmp compare = Cmp{}, bool enable_visited = false)
-        : MutableBuffer{SearchBufferConfig{size}, std::move(compare), enable_visited} {}
+    explicit MutableBuffer(
+        size_t size, Cmp compare = Cmp{}, bool enable_visited = false, Stop stop = Stop{}
+    )
+        : MutableBuffer{
+              SearchBufferConfig{size},
+              std::move(compare),
+              enable_visited,
+              std::move(stop)} {}
 
     /// Estimate heap memory footprint of a search buffer with the given configuration.
     static constexpr size_t estimate_memory_footprint(
@@ -156,7 +222,7 @@ template <typename Idx, typename Cmp = std::less<>> class MutableBuffer {
     MutableBuffer shallow_copy() const {
         // We don't care about the contents of the buffer - just its size.
         // Therefore, we can construct a new buffer from scratch.
-        return MutableBuffer{config(), compare_, visited_set_enabled()};
+        return MutableBuffer{config(), compare_, visited_set_enabled(), stop_};
     }
 
     // TODO: Allow this construction to be noexcept.
@@ -264,12 +330,34 @@ template <typename Idx, typename Cmp = std::less<>> class MutableBuffer {
 
     /// @brief Return `true` if the search buffer has reached its terminating condition.
     ///
+    /// Also returns `true` once the stop predicate fires.
+    ///
     /// N.B.: If `done()` evaluates to `true`, do not try to extract further candidates
     /// from it using `next()`.
     bool done() const {
         // Until we've reached the target number of valid elements, we have to ignore
         // the state of `roi_end_`.
-        return best_unvisited_ == ((valid() < target_valid_) ? size() : roi_end_);
+        if (best_unvisited_ == ((valid() < target_valid_) ? size() : roi_end_)) {
+            return true;
+        }
+        if constexpr (tracks_progress) {
+            return stop_(progress());
+        } else {
+            return false;
+        }
+    }
+
+    /// @brief Replace the stop predicate, e.g. to rebind it to the next query.
+    void set_stop(Stop stop) { stop_ = std::move(stop); }
+
+    /// @brief Return the current search progress.
+    ///
+    /// Requires `done()` to be `false`.
+    SearchProgress progress() const {
+        return SearchProgress{
+            .buffer_valid = valid(),
+            .buffer_size = size(),
+            .frontier_distance = candidates_[best_unvisited_].distance()};
     }
 
     /// @brief Return the best unvisited neighbor in the buffer.
@@ -641,8 +729,8 @@ template <typename Idx, typename Cmp = std::less<>> class MutableBuffer {
     }
 };
 
-template <typename Idx, typename Cmp>
-std::ostream& operator<<(std::ostream& io, const MutableBuffer<Idx, Cmp>& buffer) {
+template <typename Idx, typename Cmp, typename Stop>
+std::ostream& operator<<(std::ostream& io, const MutableBuffer<Idx, Cmp, Stop>& buffer) {
     return io << "MutableBuffer<" << datatype_v<Idx> << ">("
               << "target_valid = " << buffer.target_capacity()
               << ", best_unvisited = " << buffer.best_unvisited()
