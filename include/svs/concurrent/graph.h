@@ -20,7 +20,7 @@
 #include "svs/concurrent/graph_concepts.h"
 #include "svs/concurrent/reverse_edges.h"
 #include "svs/concurrent/spinlock.h"
-#include "svs/core/data/simple.h"
+#include "svs/core/graph/graph.h"
 #include "svs/lib/algorithms.h"
 #include "svs/lib/boundscheck.h"
 #include "svs/lib/concurrency/atomic_span.h"
@@ -84,6 +84,8 @@ inline constexpr bool reverse_edges_rebindable_v = [] {
 // Should not be used directly. Rather, one of it's derived classes should be used instead.
 //
 template <std::unsigned_integral Idx, data::MemoryDataset Data> class SimpleGraphBase {
+    using serializer_type = svs::graphs::detail::GraphSerializer<Idx, Data>;
+
   public:
     using data_type = Data;
 
@@ -428,63 +430,28 @@ template <std::unsigned_integral Idx, data::MemoryDataset Data> class SimpleGrap
     }
 
     ///// Saving
-    static constexpr lib::Version save_version = lib::Version(0, 0, 0);
-    static constexpr std::string_view serialization_schema = "default_graph";
+    static constexpr lib::Version save_version = serializer_type::save_version;
+    static constexpr std::string_view serialization_schema =
+        serializer_type::serialization_schema;
 
-    lib::SaveTable metadata() const {
-        auto table = lib::SaveTable(
-            serialization_schema,
-            save_version,
-            {{"name", "graph"},
-             {"max_degree", lib::save(max_degree())},
-             {"num_vertices", lib::save(n_nodes())},
-             {"eltype", lib::save(datatype_v<Idx>)}}
-        );
-        return table;
-    }
+    lib::SaveTable metadata() const { return serializer_type::metadata(*this); }
 
     template <class FileName>
     lib::SaveTable metadata(const FileName& filename, const lib::UUID& uuid) const {
-        auto table = metadata();
-        table.insert("binary_file", filename);
-        table.insert("uuid", uuid.str());
-        return table;
+        return serializer_type::metadata(*this, filename, uuid);
     }
 
     lib::SaveTable save(const lib::SaveContext& ctx) const {
-        auto uuid = lib::UUID{};
-        auto filename = ctx.generate_name("graph");
-        io::save(data_, io::NativeFile(filename), uuid);
-        return metadata(lib::save(filename.filename()), uuid);
+        return serializer_type::save(*this, ctx);
     }
 
-    void save(std::ostream& os) const { io::save(data_, os); }
+    void save(std::ostream& os) const { serializer_type::save(*this, os); }
 
   protected:
     template <lib::LazyInvocable<data_type> F, typename... Args>
     static lib::lazy_result_t<F, data_type>
     load(const lib::LoadTable& table, const F& lazy, Args&&... args) {
-        // Perform a sanity check on the element type.
-        // Make sure we're loading the correct kind.
-        auto eltype = lib::load_at<DataType>(table, "eltype");
-        if (eltype != datatype_v<Idx>) {
-            throw ANNEXCEPTION(
-                "Trying to load a graph with adjacency list types {} to a graph with "
-                "adjacency list types {}.",
-                // Qualified: `svs::index::vamana::name(SlotMetadata)` hides `svs::name`
-                // for unqualified lookup from this nested namespace.
-                svs::name(eltype),
-                svs::name<datatype_v<Idx>>()
-            );
-        }
-
-        // Now that this is out of the way, resolve the file and load the data.
-        auto uuid = lib::load_at<lib::UUID>(table, "uuid");
-        auto binaryfile = io::find_uuid(table.context().get_directory(), uuid);
-        if (!binaryfile.has_value()) {
-            throw ANNEXCEPTION("Could not open file with uuid {}!", uuid.str());
-        }
-        return lazy(data_type::load(binaryfile.value(), std::forward<Args>(args)...));
+        return serializer_type::load(table, lazy, std::forward<Args>(args)...);
     }
 
     template <lib::LazyInvocable<data_type> F, typename... AllocArgs>
@@ -494,34 +461,8 @@ template <std::unsigned_integral Idx, data::MemoryDataset Data> class SimpleGrap
         std::istream& is,
         AllocArgs&&... alloc_args
     ) {
-        // Perform a sanity check on the element type.
-        // Make sure we're loading the correct kind.
-        auto eltype = lib::load_at<DataType>(table, "eltype");
-        if (eltype != datatype_v<Idx>) {
-            throw ANNEXCEPTION(
-                "Trying to load a graph with adjacency list types {} to a graph with "
-                "adjacency list types {}.",
-                // Qualified: `svs::index::vamana::name(SlotMetadata)` hides `svs::name`
-                // for unqualified lookup from this nested namespace.
-                svs::name(eltype),
-                svs::name<datatype_v<Idx>>()
-            );
-        }
-
-        size_t num_vertices = lib::load_at<size_t>(table, "num_vertices");
-        size_t max_degree = lib::load_at<size_t>(table, "max_degree");
-
-        // Build a table compatible with GenericSerializer
-        auto data_table = toml::table{
-            {lib::config_schema_key, data::GenericSerializer::serialization_schema},
-            {lib::config_version_key, data::GenericSerializer::save_version.str()},
-            {"eltype", lib::save(datatype_v<Idx>)},
-            {"num_vectors", lib::save(num_vertices)},
-            {"dims", lib::save(max_degree + 1)},
-        };
-
-        return lazy(
-            data_type::load(lib::ContextFreeLoadTable(data_table), is, alloc_args...)
+        return serializer_type::load(
+            table, lazy, is, std::forward<AllocArgs>(alloc_args)...
         );
     }
 
