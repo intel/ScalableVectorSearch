@@ -56,7 +56,20 @@ class DynamicVamanaInterface : public VamanaInterface {
 
     // Check if the index has been consolidated - no `Deleted` entries remain.
     virtual bool is_consolidated() const = 0;
+
+    // Filtered search; false if the data type does not support it. Keep last (ABI).
+    virtual bool filtered_search(
+        svs::QueryResultView<size_t> results,
+        AnonymousArray<2> queries,
+        const index::vamana::VamanaSearchParameters& search_parameters,
+        const std::function<bool(size_t)>& filter
+    ) = 0;
 };
+
+// Filtered search is only enabled for uncompressed data.
+template <typename T> inline constexpr bool is_simple_data = false;
+template <typename T, size_t Extent, typename Alloc>
+inline constexpr bool is_simple_data<data::SimpleData<T, Extent, Alloc>> = true;
 
 template <lib::TypeList QueryTypes, typename Impl>
 class DynamicVamanaImpl : public VamanaImpl<QueryTypes, Impl, DynamicVamanaInterface> {
@@ -109,6 +122,46 @@ class DynamicVamanaImpl : public VamanaImpl<QueryTypes, Impl, DynamicVamanaInter
 
     // Check if the index has been consolidated - no `Deleted` entries remain.
     bool is_consolidated() const override { return impl().is_consolidated(); }
+
+    bool filtered_search(
+        svs::QueryResultView<size_t> results,
+        AnonymousArray<2> queries,
+        const index::vamana::VamanaSearchParameters& search_parameters,
+        const std::function<bool(size_t)>& filter
+    ) override {
+        // Indexes whose `search` has no filter argument (e.g. the concurrent index) report
+        // "unsupported" like other data types.
+        constexpr bool supported =
+            is_simple_data<typename Impl::data_type> &&
+            requires(
+                Impl & idx,
+                svs::QueryResultView<size_t> r,
+                data::ConstSimpleDataView<float> q,
+                const index::vamana::VamanaSearchParameters& sp,
+                const std::function<bool(size_t)>* pred
+            ) { idx.search(r, q, sp, lib::Returns(lib::Const<false>()), pred); };
+        if constexpr (supported) {
+            lib::match(
+                QueryTypes{},
+                queries.type(),
+                [&]<typename T>(lib::Type<T> SVS_UNUSED(type)) {
+                    impl().search(
+                        results,
+                        data::ConstSimpleDataView<T>(queries),
+                        search_parameters,
+                        lib::Returns(lib::Const<false>()),
+                        &filter
+                    );
+                },
+                [&](svs::DataType data_type) {
+                    throw ANNEXCEPTION("Unsupported query datatype! Got: {}.", data_type);
+                }
+            );
+            return true;
+        } else {
+            return false;
+        }
+    }
 };
 
 // Forward Declaractions.
@@ -609,6 +662,20 @@ class DynamicVamana : public manager::IndexManager<DynamicVamanaInterface> {
 
     /// @brief Check if the index has been consolidated - no `Deleted` entries remain.
     bool is_consolidated() const { return impl_->is_consolidated(); }
+
+    /// @brief Filtered search: only ids for which ``filter(id)`` is true are returned.
+    /// Returns false if the data type does not support it.
+    template <typename QueryType>
+    bool filtered_search(
+        QueryResultView<size_t> results,
+        data::ConstSimpleDataView<QueryType> queries,
+        const VamanaSearchParameters& search_parameters,
+        const std::function<bool(size_t)>& filter
+    ) {
+        return impl_->filtered_search(
+            results, AnonymousArray<2>(queries), search_parameters, filter
+        );
+    }
 };
 
 ///

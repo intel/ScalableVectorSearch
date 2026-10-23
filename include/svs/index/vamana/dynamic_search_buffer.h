@@ -95,6 +95,13 @@ template <typename Idx, typename Cmp = std::less<>> class MutableBuffer {
     vector_type candidates_{};
     // An optional visited filter.
     std::optional<set_type> visited_{std::nullopt};
+    // Optional (`enable_invalid_heap`): invalid entries go into this min-heap (best on
+    // top) instead of `candidates_`, so `candidates_` holds only valid entries and stays
+    // short. `invalid_seen_` replaces the duplicate check `candidates_` would have done.
+    bool use_invalid_heap_ = false;
+    vector_type invalid_heap_{};
+    std::unordered_set<Idx> invalid_seen_{};
+    value_type popped_{};
 
   public:
     MutableBuffer() = default;
@@ -197,6 +204,8 @@ template <typename Idx, typename Cmp = std::less<>> class MutableBuffer {
     /// @brief Prepare the buffer for a new search operation.
     void clear() {
         candidates_.clear();
+        invalid_heap_.clear();
+        invalid_seen_.clear();
         best_unvisited_ = 0;
         roi_end_ = 0;
         valid_ = 0;
@@ -222,6 +231,9 @@ template <typename Idx, typename Cmp = std::less<>> class MutableBuffer {
     }
 
     size_t capacity() const { return candidates_.capacity(); }
+
+    /// @brief Keep invalid entries in a separate min-heap instead of the sorted buffer.
+    void enable_invalid_heap(bool enable = true) { use_invalid_heap_ = enable; }
 
     /// @brief Return the number of valid elements currently contained in the buffer.
     size_t valid() const { return valid_; }
@@ -269,7 +281,8 @@ template <typename Idx, typename Cmp = std::less<>> class MutableBuffer {
     bool done() const {
         // Until we've reached the target number of valid elements, we have to ignore
         // the state of `roi_end_`.
-        return best_unvisited_ == ((valid() < target_valid_) ? size() : roi_end_);
+        return best_unvisited_ == ((valid() < target_valid_) ? size() : roi_end_) &&
+               !invalid_ready();
     }
 
     /// @brief Return the best unvisited neighbor in the buffer.
@@ -282,6 +295,21 @@ template <typename Idx, typename Cmp = std::less<>> class MutableBuffer {
     /// Post-conditions:
     /// * The returned neighbor will be marked as visited.
     const_reference next() {
+        // The best invalid entry goes first if it beats the best unvisited valid one.
+        if (invalid_ready()) {
+            size_t end = (valid() < target_valid_) ? size() : roi_end_;
+            if (best_unvisited_ == end || compare_(
+                                              invalid_heap_.front().distance(),
+                                              candidates_[best_unvisited_].distance()
+                                          )) {
+                std::pop_heap(invalid_heap_.begin(), invalid_heap_.end(), heap_compare());
+                popped_ = invalid_heap_.back();
+                invalid_heap_.pop_back();
+                popped_.set_visited();
+                return popped_;
+            }
+        }
+
         // Get the best unvisited node
         reference node = getindex(candidates_, best_unvisited_);
         node.set_visited();
@@ -306,6 +334,10 @@ template <typename Idx, typename Cmp = std::less<>> class MutableBuffer {
         // allows.
         bool valid = neighbor.valid();
         if (full() && valid) {
+            return;
+        }
+        if (use_invalid_heap_ && !valid) {
+            push_invalid(neighbor);
             return;
         }
         candidates_.push_back(neighbor);
@@ -460,6 +492,10 @@ template <typename Idx, typename Cmp = std::less<>> class MutableBuffer {
     }
 
     size_t insert_inner(value_type neighbor) {
+        if (use_invalid_heap_ && !neighbor.valid()) {
+            push_invalid(neighbor);
+            return size();
+        }
         const auto start = begin();
 
         // Binary search to the first location where `distance` is less than the stored
@@ -557,6 +593,8 @@ template <typename Idx, typename Cmp = std::less<>> class MutableBuffer {
         auto new_end =
             std::remove_if(begin(), end(), [](const auto& x) { return !x.valid(); });
         candidates_.resize(new_end - begin());
+        invalid_heap_.clear();
+        invalid_seen_.clear();
     }
 
     /// @brief Return the size of the underlying vector.
@@ -619,6 +657,36 @@ template <typename Idx, typename Cmp = std::less<>> class MutableBuffer {
     }
 
   private:
+    // Heap order for `invalid_heap_`: the best (closest) entry on top.
+    auto heap_compare() const {
+        return [this](const value_type& a, const value_type& b) {
+            return compare_(b.distance(), a.distance());
+        };
+    }
+
+    // Queue an invalid entry once per search.
+    void push_invalid(value_type neighbor) {
+        if (invalid_seen_.insert(neighbor.id()).second) {
+            invalid_heap_.push_back(neighbor);
+            std::push_heap(invalid_heap_.begin(), invalid_heap_.end(), heap_compare());
+        }
+    }
+
+    // Is the best invalid entry worth expanding? Same rule as an invalid entry in the
+    // sorted buffer: always while fewer than `target_valid_` valid entries are found,
+    // afterwards only if it is closer than the `target_valid_`th valid entry.
+    bool invalid_ready() const {
+        if (invalid_heap_.empty()) {
+            return false;
+        }
+        if (valid() < target_valid_) {
+            return true;
+        }
+        return compare_(
+            invalid_heap_.front().distance(), candidates_[roi_end_ - 1].distance()
+        );
+    }
+
     /// Return how many more valid candidates exist than required.
     /// If the number of valid candidates is *less* than the target, a negative number
     /// is returned.
