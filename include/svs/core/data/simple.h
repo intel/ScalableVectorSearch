@@ -704,11 +704,45 @@ template <typename To, typename Alloc> struct AllocatorRebinder<To, data::Blocke
 } // namespace lib::detail
 
 namespace data {
+namespace detail {
+
+template <typename Allocator> struct BlockedDataTraits;
+
+template <typename Alloc> struct BlockedDataTraits<Blocked<Alloc>> {
+    using inner_allocator_type = Alloc;
+    template <typename A> using rebind_allocator = Blocked<A>;
+    template <typename Array> using blocks_type = std::vector<Array>;
+
+    static lib::PowerOfTwo blocksize(const Blocked<Alloc>& alloc, size_t dimensions) {
+        return compute_blocksize(alloc, dimensions);
+    }
+
+    template <typename Array>
+    static void reserve(blocks_type<Array>& blocks, size_t num_blocks) {
+        blocks.reserve(num_blocks);
+    }
+
+    template <typename Array, typename Dims>
+    static void append(blocks_type<Array>& blocks, Dims&& dims, const Alloc& alloc) {
+        blocks.emplace_back(SVS_FWD(dims), alloc);
+    }
+
+    static size_t load_size(const size_t& size_) { return size_; }
+    static void store_size(size_t& size_, size_t new_size) { size_ = new_size; }
+};
+
+} // namespace detail
+
 ///
 /// @brief A specialization of ``SimpleData`` for large-scale dynamic datasets.
 ///
-template <typename T, size_t Extent, typename Alloc>
-class SimpleData<T, Extent, Blocked<Alloc>> {
+template <typename T, size_t Extent, typename Allocator>
+    requires requires {
+                 typename detail::BlockedDataTraits<Allocator>::inner_allocator_type;
+             }
+class SimpleData<T, Extent, Allocator> {
+    using storage_traits = detail::BlockedDataTraits<Allocator>;
+
   public:
     ///// Static Members
 
@@ -719,8 +753,8 @@ class SimpleData<T, Extent, Blocked<Alloc>> {
 
     // Type Aliases
     using dim_type = std::tuple<size_t, dim_type_t<Extent>>;
-    using allocator_type = Blocked<Alloc>;
-    using inner_allocator_type = Alloc;
+    using allocator_type = Allocator;
+    using inner_allocator_type = typename storage_traits::inner_allocator_type;
     using array_type = DenseArray<T, dim_type, inner_allocator_type>;
 
     /// Return the underlying allocator.
@@ -731,27 +765,33 @@ class SimpleData<T, Extent, Blocked<Alloc>> {
     using value_type = std::span<T, Extent>;
     using const_value_type = std::span<const T, Extent>;
 
-    using lib_alloc_data_type = SimpleData<T, Extent, Blocked<lib::Allocator<T>>>;
+    using lib_alloc_data_type = SimpleData<
+        T,
+        Extent,
+        typename storage_traits::template rebind_allocator<lib::Allocator<T>>>;
     /// Already blocked, so lib_blocked_alloc_data_type is the same as lib_alloc_data_type.
-    using lib_blocked_alloc_data_type = SimpleData<T, Dynamic, Blocked<lib::Allocator<T>>>;
+    using lib_blocked_alloc_data_type = SimpleData<
+        T,
+        Dynamic,
+        typename storage_traits::template rebind_allocator<lib::Allocator<T>>>;
 
     ///// Constructors
-    SimpleData(size_t n_elements, size_t n_dimensions, const Blocked<Alloc>& alloc)
-        : blocksize_{compute_blocksize(alloc, n_dimensions)}
+    SimpleData(size_t n_elements, size_t n_dimensions, const allocator_type& alloc)
+        : blocksize_{storage_traits::blocksize(alloc, n_dimensions)}
         , blocks_{}
         , dimensions_{n_dimensions}
         , size_{n_elements}
         , allocator_{alloc} {
         size_t elements_per_block = blocksize_.value();
         size_t num_blocks = lib::div_round_up(n_elements, elements_per_block);
-        blocks_.reserve(num_blocks);
+        storage_traits::reserve(blocks_, num_blocks);
         for (size_t i = 0; i < num_blocks; ++i) {
             add_block();
         }
     }
 
     SimpleData(size_t n_elements, size_t n_dimensions)
-        : SimpleData{n_elements, n_dimensions, Blocked<Alloc>()} {}
+        : SimpleData{n_elements, n_dimensions, allocator_type()} {}
 
     ///
     /// Convert a linear index into an inner-outer index to access the blocked dataset.
@@ -797,7 +837,8 @@ class SimpleData<T, Extent, Blocked<Alloc>> {
     /// Add a new data block to the end of the current collection of blocks.
     ///
     void add_block() {
-        blocks_.emplace_back(
+        storage_traits::append(
+            blocks_,
             make_dims(blocksize().value(), lib::forward_extent<Extent>(dimensions())),
             allocator_.get_allocator()
         );
@@ -821,10 +862,10 @@ class SimpleData<T, Extent, Blocked<Alloc>> {
             while (new_size > capacity()) {
                 add_block();
             }
-            size_ = new_size;
+            storage_traits::store_size(size_, new_size);
         } else if (new_size < size()) {
             // Reset size then drop blocks until the new size is within the last block.
-            size_ = new_size;
+            storage_traits::store_size(size_, new_size);
             while (capacity() - blocksize().value() > new_size) {
                 drop_block();
             }
@@ -839,7 +880,7 @@ class SimpleData<T, Extent, Blocked<Alloc>> {
     ///// Dataset API
     /////
 
-    size_t size() const { return size_; }
+    size_t size() const { return storage_traits::load_size(size_); }
     constexpr size_t dimensions() const {
         if constexpr (Extent != Dynamic) {
             return Extent;
@@ -932,7 +973,7 @@ class SimpleData<T, Extent, Blocked<Alloc>> {
     }
 
     static SimpleData
-    load(const lib::LoadTable& table, const Blocked<Alloc>& allocator = {}) {
+    load(const lib::LoadTable& table, const allocator_type& allocator = {}) {
         return GenericSerializer::load<T>(
             table, lib::Lazy([&allocator](size_t n_elements, size_t n_dimensions) {
                 return SimpleData(n_elements, n_dimensions, allocator);
@@ -943,7 +984,7 @@ class SimpleData<T, Extent, Blocked<Alloc>> {
     static SimpleData load(
         const lib::ContextFreeLoadTable& table,
         std::istream& is,
-        const Blocked<Alloc>& allocator = {}
+        const allocator_type& allocator = {}
     ) {
         return GenericSerializer::load<T>(
             table, is, lib::Lazy([&allocator](size_t n_elements, size_t n_dimensions) {
@@ -953,7 +994,7 @@ class SimpleData<T, Extent, Blocked<Alloc>> {
     }
 
     static SimpleData
-    load(const std::filesystem::path& path, const Blocked<Alloc>& allocator = {}) {
+    load(const std::filesystem::path& path, const allocator_type& allocator = {}) {
         if (detail::is_likely_reload(path)) {
             return lib::load_from_disk<SimpleData>(path, allocator);
         }
@@ -968,10 +1009,10 @@ class SimpleData<T, Extent, Blocked<Alloc>> {
   private:
     // The blocksize in terms of number of vectors.
     lib::PowerOfTwo blocksize_;
-    std::vector<array_type> blocks_;
+    typename storage_traits::template blocks_type<array_type> blocks_;
     size_t dimensions_;
     size_t size_;
-    Blocked<Alloc> allocator_;
+    allocator_type allocator_;
 };
 
 template <typename T, size_t Extent = Dynamic, typename Alloc = lib::Allocator<T>>
