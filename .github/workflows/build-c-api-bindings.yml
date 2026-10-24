@@ -54,8 +54,18 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
+      - uses: docker/setup-buildx-action@v3
+
+      # Layer cache shared by both bindings workflows; only pushes to main write it.
       - name: Build Docker image
-        run: docker build -t svs-manylinux228:latest -f docker/x86_64/manylinux228/Dockerfile .
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: docker/x86_64/manylinux228/Dockerfile
+          tags: svs-manylinux228:latest
+          load: true
+          cache-from: type=gha,scope=manylinux228
+          cache-to: ${{ github.event_name == 'push' && 'type=gha,mode=max,scope=manylinux228' || '' }}
 
       - name: Build C API bindings in Docker container
         run: |
@@ -104,8 +114,18 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
+      - uses: docker/setup-buildx-action@v3
+
+      # Layer cache shared by both bindings workflows; only pushes to main write it.
       - name: Build Docker image
-        run: docker build -t svs-manylinux228:latest -f docker/x86_64/manylinux228/Dockerfile .
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: docker/x86_64/manylinux228/Dockerfile
+          tags: svs-manylinux228:latest
+          load: true
+          cache-from: type=gha,scope=manylinux228
+          cache-to: ${{ github.event_name == 'push' && 'type=gha,mode=max,scope=manylinux228' || '' }}
 
       # Need to download for a new job
       - name: Download C API package
