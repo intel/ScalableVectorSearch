@@ -64,7 +64,7 @@ jobs:
           tags: svs-manylinux228:latest
           load: true
           cache-from: type=gha,scope=manylinux228
-          cache-to: type=gha,mode=max,scope=manylinux228
+          cache-to: ${{ github.event_name == 'push' && 'type=gha,mode=max,scope=manylinux228' || '' }}
 
       - name: Build libraries in Docker container
         run: |
@@ -133,7 +133,7 @@ jobs:
           tags: svs-manylinux228:latest
           load: true
           cache-from: type=gha,scope=manylinux228
-          cache-to: type=gha,mode=max,scope=manylinux228
+          cache-to: ${{ github.event_name == 'push' && 'type=gha,mode=max,scope=manylinux228' || '' }}
 
       # Need to download for a new job
       - name: Download conda package
