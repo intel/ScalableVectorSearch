@@ -34,31 +34,8 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  # Build the manylinux image once and share it with every job below as an
-  # artifact, instead of rebuilding it (~4 min) in each matrix job.
-  build-image:
-    name: Build manylinux228 Docker image
-    runs-on: ubuntu-22.04
-    steps:
-      - uses: actions/checkout@v6
-
-      - name: Build Docker image
-        run: docker build -t svs-manylinux228:latest -f docker/x86_64/manylinux228/Dockerfile .
-
-      - name: Save Docker image
-        run: docker save svs-manylinux228:latest | gzip -1 > /tmp/svs-manylinux228.tar.gz
-
-      - name: Upload Docker image
-        uses: actions/upload-artifact@v7
-        with:
-          name: svs-manylinux228-image
-          path: /tmp/svs-manylinux228.tar.gz
-          compression-level: 0
-          retention-days: 1
-
   build-cpp-runtime-bindings:
     name: Build and unit tests for C++ runtime bindings
-    needs: build-image
     runs-on: ubuntu-22.04
     strategy:
       matrix:
@@ -76,14 +53,18 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - name: Download Docker image
-        uses: actions/download-artifact@v8
-        with:
-          name: svs-manylinux228-image
-          path: /tmp/docker-image
+      - uses: docker/setup-buildx-action@v3
 
-      - name: Load Docker image
-        run: docker load -i /tmp/docker-image/svs-manylinux228.tar.gz
+      # Layer cache shared by both bindings workflows; only pushes to main write it.
+      - name: Build Docker image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: docker/x86_64/manylinux228/Dockerfile
+          tags: svs-manylinux228:latest
+          load: true
+          cache-from: type=gha,scope=manylinux228
+          cache-to: type=gha,mode=max,scope=manylinux228
 
       - name: Build libraries in Docker container
         run: |
@@ -123,7 +104,7 @@ jobs:
   # Run full test script using the built artifacts
   test:
     name: Integration tests for C++ runtime
-    needs: [build-image, build-cpp-runtime-bindings]
+    needs: build-cpp-runtime-bindings
     runs-on: ubuntu-22.04
     strategy:
       matrix:
@@ -141,14 +122,18 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - name: Download Docker image
-        uses: actions/download-artifact@v8
-        with:
-          name: svs-manylinux228-image
-          path: /tmp/docker-image
+      - uses: docker/setup-buildx-action@v3
 
-      - name: Load Docker image
-        run: docker load -i /tmp/docker-image/svs-manylinux228.tar.gz
+      # Layer cache shared by both bindings workflows; only pushes to main write it.
+      - name: Build Docker image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: docker/x86_64/manylinux228/Dockerfile
+          tags: svs-manylinux228:latest
+          load: true
+          cache-from: type=gha,scope=manylinux228
+          cache-to: type=gha,mode=max,scope=manylinux228
 
       # Need to download for a new job
       - name: Download conda package
