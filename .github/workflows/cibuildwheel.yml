@@ -28,6 +28,10 @@ on:
     - 'docker/x86_64/manylinux228/**'
     - 'examples/python/**'
     - 'tools/pybuild.py'
+    # setup.py reads these from the repo root (long description, license_files)
+    - 'README.md'
+    - 'LICENSE'
+    - 'THIRD-PARTY-PROGRAMS'
     - '.github/workflows/cibuildwheel.yml'
   workflow_dispatch:
 

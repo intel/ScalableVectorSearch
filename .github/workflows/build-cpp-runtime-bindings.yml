@@ -27,8 +27,6 @@ on:
       - '.github/dependabot.yml'
       - '.github/workflows/cibuildwheel.yml'
       - '.github/workflows/skywalking-eyes.yml'
-      - 'LICENSE*'
-      - 'THIRD-PARTY-PROGRAMS'
   workflow_dispatch:
 
 permissions:
