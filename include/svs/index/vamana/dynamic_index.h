@@ -661,6 +661,8 @@ class MutableVamanaIndex {
                         : sp.buffer_config_,
                     distance::comparator(distance_),
                     sp.search_buffer_visited_set_};
+                // Filtered: use two heaps in the buffer during the search.
+                buffer.enable_heap(pred != nullptr);
 
                 auto prefetch_parameters = GreedySearchPrefetchParameters{
                     sp.prefetch_lookahead_, sp.prefetch_step_};

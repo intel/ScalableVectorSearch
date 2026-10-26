@@ -906,6 +906,46 @@ CATCH_TEST_CASE("MutableBuffer", "[core][search_buffer]") {
             CATCH_REQUIRE(b.done());
         }
     }
+
+    // With `enable_heap`, entries are visited from a min-heap and the best valid entries
+    // are kept in a max-heap; `cleanup()` returns them sorted.
+    CATCH_SECTION("Heap") {
+        buffer.enable_heap();
+        buffer.insert({10, 5, false});
+        buffer.insert({0, 100, true});
+        buffer.insert({11, 1, false});
+        buffer.insert({1, 50, true});
+        buffer.insert({11, 1, false}); // duplicate: ignored
+        CATCH_REQUIRE(buffer.size() == 2);
+        CATCH_REQUIRE(buffer.valid() == 2);
+        CATCH_REQUIRE(buffer[0].id() == 0); // worst result on top
+
+        CATCH_REQUIRE(buffer.next().id() == 11);
+        CATCH_REQUIRE(buffer.next().id() == 10);
+        buffer.insert({2, 40, true});
+        buffer.insert({3, 30, true});
+        CATCH_REQUIRE(buffer.full());
+        // Full: worse than the worst valid entry (100) is skipped.
+        buffer.insert({4, 200, true});
+        buffer.insert({12, 150, false});
+        // A better valid entry pushes out the worst valid one (id 0).
+        buffer.insert({5, 20, true});
+        CATCH_REQUIRE(buffer.size() == 4);
+
+        CATCH_REQUIRE(buffer.next().id() == 5);
+        CATCH_REQUIRE(buffer.next().id() == 3);
+        CATCH_REQUIRE(buffer.next().id() == 2);
+        CATCH_REQUIRE(buffer.next().id() == 1);
+        // Only id 0 (100) is left in the heap; it is worse than the worst result (50).
+        CATCH_REQUIRE(buffer.done());
+
+        buffer.cleanup();
+        CATCH_REQUIRE(buffer.size() == 4);
+        CATCH_REQUIRE(eq(buffer[0], {5, 20, true}));
+        CATCH_REQUIRE(eq(buffer[1], {3, 30, true}));
+        CATCH_REQUIRE(eq(buffer[2], {2, 40, true}));
+        CATCH_REQUIRE(eq(buffer[3], {1, 50, true}));
+    }
 }
 
 CATCH_TEST_CASE("Fuzzing Mutable", "[core][search_buffer]") {
