@@ -95,6 +95,14 @@ template <typename Idx, typename Cmp = std::less<>> class MutableBuffer {
     vector_type candidates_{};
     // An optional visited filter.
     std::optional<set_type> visited_{std::nullopt};
+    // Optional (`enable_heap`): while searching, entries to visit are taken from this
+    // min-heap (best on top), and `candidates_` keeps only the best valid entries, sorted.
+    // `seen_`: ids already queued in this search (exact duplicate check).
+    bool use_heap_ = false;
+    bool heap_done_ = false;
+    vector_type heap_{};
+    std::unordered_set<Idx> seen_{};
+    value_type popped_{};
 
   public:
     MutableBuffer() = default;
@@ -197,6 +205,9 @@ template <typename Idx, typename Cmp = std::less<>> class MutableBuffer {
     /// @brief Prepare the buffer for a new search operation.
     void clear() {
         candidates_.clear();
+        heap_.clear();
+        seen_.clear();
+        heap_done_ = false;
         best_unvisited_ = 0;
         roi_end_ = 0;
         valid_ = 0;
@@ -222,6 +233,9 @@ template <typename Idx, typename Cmp = std::less<>> class MutableBuffer {
     }
 
     size_t capacity() const { return candidates_.capacity(); }
+
+    /// @brief Visit entries from a min-heap during search (search window = capacity).
+    void enable_heap(bool enable = true) { use_heap_ = enable; }
 
     /// @brief Return the number of valid elements currently contained in the buffer.
     size_t valid() const { return valid_; }
@@ -267,6 +281,12 @@ template <typename Idx, typename Cmp = std::less<>> class MutableBuffer {
     /// N.B.: If `done()` evaluates to `true`, do not try to extract further candidates
     /// from it using `next()`.
     bool done() const {
+        if (heap_mode()) {
+            // Nothing left to visit, or the best one is worse than the worst result.
+            return heap_.empty() ||
+                   (full() &&
+                    compare_(candidates_.back().distance(), heap_.front().distance()));
+        }
         // Until we've reached the target number of valid elements, we have to ignore
         // the state of `roi_end_`.
         return best_unvisited_ == ((valid() < target_valid_) ? size() : roi_end_);
@@ -282,6 +302,13 @@ template <typename Idx, typename Cmp = std::less<>> class MutableBuffer {
     /// Post-conditions:
     /// * The returned neighbor will be marked as visited.
     const_reference next() {
+        if (heap_mode()) {
+            std::pop_heap(heap_.begin(), heap_.end(), heap_compare());
+            popped_ = heap_.back();
+            heap_.pop_back();
+            popped_.set_visited();
+            return popped_;
+        }
         // Get the best unvisited node
         reference node = getindex(candidates_, best_unvisited_);
         node.set_visited();
@@ -302,6 +329,10 @@ template <typename Idx, typename Cmp = std::less<>> class MutableBuffer {
     ///
     /// Therefore, sequences of `push_back` must always be followed by a call to `sort`.
     void push_back(value_type neighbor) {
+        if (heap_mode()) {
+            heap_insert(neighbor);
+            return;
+        }
         // Follow the contract of not appending more valid elements than the capacity
         // allows.
         bool valid = neighbor.valid();
@@ -453,6 +484,9 @@ template <typename Idx, typename Cmp = std::less<>> class MutableBuffer {
 
     /// Insert the given neighbor into the search buffer.
     size_t insert(value_type neighbor) {
+        if (heap_mode()) {
+            return heap_insert(neighbor);
+        }
         if (can_skip(neighbor.distance())) {
             return size();
         }
@@ -505,6 +539,9 @@ template <typename Idx, typename Cmp = std::less<>> class MutableBuffer {
 
     // Sort all stored elements in the buffer.
     void sort() {
+        if (heap_mode()) {
+            return; // `candidates_` is kept sorted on every insert.
+        }
         assert(valid() <= valid_capacity_);
 
         // Put the elements in ascending order.
@@ -554,6 +591,13 @@ template <typename Idx, typename Cmp = std::less<>> class MutableBuffer {
 
     // TODO: Switch over to using iterators for the return values to avoid this.
     void cleanup() {
+        if (heap_mode()) {
+            // `candidates_` already holds only valid entries; continue as a sorted list
+            // (e.g. for the top-up).
+            heap_.clear();
+            seen_.clear();
+            heap_done_ = true;
+        }
         auto new_end =
             std::remove_if(begin(), end(), [](const auto& x) { return !x.valid(); });
         candidates_.resize(new_end - begin());
@@ -619,6 +663,43 @@ template <typename Idx, typename Cmp = std::less<>> class MutableBuffer {
     }
 
   private:
+    bool heap_mode() const { return use_heap_ && !heap_done_; }
+
+    // Min-heap order: the best entry on top.
+    auto heap_compare() const {
+        return [this](const value_type& a, const value_type& b) {
+            return compare_(b.distance(), a.distance());
+        };
+    }
+
+    size_t heap_insert(value_type neighbor) {
+        // Skip entries worse than the worst result when full, and ids already queued.
+        if (can_skip(neighbor.distance()) || !seen_.insert(neighbor.id()).second) {
+            return size();
+        }
+        heap_.push_back(neighbor);
+        std::push_heap(heap_.begin(), heap_.end(), heap_compare());
+        if (!neighbor.valid()) {
+            return size();
+        }
+        // Valid: keep it among the best `valid_capacity_` results.
+        auto pos = std::upper_bound(
+            begin(),
+            end(),
+            neighbor.distance(),
+            [&](const float& d, const value_type& other) {
+                return compare_(d, other.distance());
+            }
+        );
+        size_t i = pos - begin();
+        candidates_.insert(pos, neighbor);
+        if (candidates_.size() > valid_capacity_) {
+            candidates_.pop_back();
+        }
+        valid_ = candidates_.size();
+        return i;
+    }
+
     /// Return how many more valid candidates exist than required.
     /// If the number of valid candidates is *less* than the target, a negative number
     /// is returned.
