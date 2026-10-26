@@ -906,6 +906,46 @@ CATCH_TEST_CASE("MutableBuffer", "[core][search_buffer]") {
             CATCH_REQUIRE(b.done());
         }
     }
+
+    // With `enable_heap`, the buffer is a max-heap while searching: entries are visited in
+    // distance order, and `cleanup()` returns the valid entries sorted.
+    CATCH_SECTION("Heap") {
+        buffer.enable_heap();
+        buffer.insert({10, 5, false});
+        buffer.insert({0, 100, true});
+        buffer.insert({11, 1, false});
+        buffer.insert({1, 50, true});
+        buffer.insert({11, 1, false}); // duplicate: ignored
+        CATCH_REQUIRE(buffer.size() == 4);
+        CATCH_REQUIRE(buffer.valid() == 2);
+
+        CATCH_REQUIRE(buffer.next().id() == 11);
+        CATCH_REQUIRE(buffer.next().id() == 10);
+        buffer.insert({2, 40, true});
+        buffer.insert({3, 30, true});
+        CATCH_REQUIRE(buffer.full());
+        // Full: worse than the worst valid entry (100) is skipped.
+        buffer.insert({4, 200, true});
+        buffer.insert({12, 150, false});
+        CATCH_REQUIRE(buffer.size() == 6);
+        // A better valid entry evicts the worst valid one (id 0).
+        buffer.insert({5, 20, true});
+        CATCH_REQUIRE(buffer.size() == 6);
+
+        CATCH_REQUIRE(buffer.next().id() == 5);
+        CATCH_REQUIRE(buffer.next().id() == 3);
+        CATCH_REQUIRE(buffer.next().id() == 2);
+        CATCH_REQUIRE(buffer.next().id() == 1);
+        CATCH_REQUIRE(buffer.done());
+
+        buffer.cleanup();
+        // Entries stay in the buffer when visited, so compare ids (they are marked visited).
+        CATCH_REQUIRE(buffer.size() == 4);
+        CATCH_REQUIRE(buffer[0].id() == 5);
+        CATCH_REQUIRE(buffer[1].id() == 3);
+        CATCH_REQUIRE(buffer[2].id() == 2);
+        CATCH_REQUIRE(buffer[3].id() == 1);
+    }
 }
 
 CATCH_TEST_CASE("Fuzzing Mutable", "[core][search_buffer]") {
