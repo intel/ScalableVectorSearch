@@ -26,6 +26,7 @@
 #include "svs/index/vamana/extensions.h"
 #include "svs/index/vamana/search_buffer.h"
 #include "svs/index/vamana/search_tracker.h"
+#include "svs/index/vamana/vamana_build.h"
 #include "svs/lib/boundscheck.h"
 #include "svs/lib/exception.h"
 #include "svs/lib/misc.h"
@@ -45,53 +46,12 @@
 #include <concepts>
 #include <memory>
 #include <mutex>
-#include <optional>
 #include <span>
 #include <tuple>
 #include <type_traits>
 #include <vector>
 
 namespace svs::index::vamana::concurrent {
-
-// Optional search tracker to get full history of graph search.
-template <typename Idx> class OptionalTracker {
-  public:
-    using set_type = tsl::robin_set<Neighbor<Idx>, IDHash, IDEqual>;
-    using const_iterator = typename set_type::const_iterator;
-
-  private:
-    std::optional<set_type> neighbors_;
-
-  public:
-    ///// Constructors
-    OptionalTracker(bool enable)
-        : neighbors_{std::nullopt} {
-        if (enable) {
-            neighbors_.emplace();
-        }
-    }
-
-    ///// Methods
-    bool enabled() const { return neighbors_.has_value(); }
-    size_t size() const { return enabled() ? (*neighbors_).size() : 0; }
-
-    const_iterator begin() const { return neighbors_.value().begin(); }
-    const_iterator end() const { return neighbors_.value().end(); }
-
-    void clear() {
-        // This method is safe to call even if the tracker isn't being used.
-        if (enabled()) {
-            (*neighbors_).clear();
-        }
-    }
-
-    ///// Search Tracker API
-    void visited(const Neighbor<Idx>& neighbor, size_t SVS_UNUSED(distance_computations)) {
-        if (enabled()) {
-            (*neighbors_).insert(neighbor);
-        }
-    }
-};
 
 // Define an auxiliary struct to disambiguate constructor calls.
 struct BackedgeBufferParameters {
@@ -369,7 +329,8 @@ class VamanaBuilder {
                 // It seems to help in high-window-size scenarios.
                 search_buffer.enable_visited_set();
                 set_type<Idx> visited{};
-                auto tracker = OptionalTracker<Idx>(params_.use_full_search_history);
+                auto tracker =
+                    vamana::OptionalTracker<Idx>(params_.use_full_search_history);
 
                 // Unpack adaptor.
                 auto build_adaptor = extensions::build_adaptor(data_, distance_function_);
