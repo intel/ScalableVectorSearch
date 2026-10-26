@@ -21,10 +21,8 @@
 #include "svs/index/index.h"
 #include "svs/index/vamana/index.h"
 #include "svs/index/vamana/iterator.h"
-#include "svs/lib/scopeguard.h"
 
 // stl
-#include <unordered_set>
 #include <vector>
 
 namespace svs::index::vamana::concurrent {

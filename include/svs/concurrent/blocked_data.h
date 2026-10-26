@@ -27,10 +27,10 @@
 ///
 /// This header supplies the same storage with a grow-stable outer directory
 /// (``lib::SegmentedVector``), selected by a distinct allocator tag so that **no existing
-/// dataset type changes**: ``SegmentedBlocked<Alloc>`` picks up a partial specialization of
-/// ``svs::data::SimpleData`` that is otherwise a line-for-line copy of the ``Blocked``
-/// specialization. Element addressing ``(block_id, data_id)`` is unchanged; only the outer
-/// block directory becomes a two-level lock-free array.
+/// dataset type changes**: ``SegmentedBlocked<Alloc>`` selects storage traits for the
+/// shared blocked ``svs::data::SimpleData`` specialization. Those traits provide the
+/// segmented directory and atomic size publication; element addressing
+/// ``(block_id, data_id)`` is unchanged.
 ///
 /// Because the result is still a ``svs::data::SimpleData``, every generic facility written
 /// against that template — the dataset concepts, the ``extensions`` customization points,
@@ -50,8 +50,8 @@ namespace svs::index::vamana::concurrent {
 ///
 /// @brief Allocator tag selecting grow-stable blocked storage.
 ///
-/// Behaves exactly like ``svs::data::Blocked<Alloc>`` — same blocking parameters, same
-/// inner allocator — and differs only in which ``SimpleData`` specialization it selects.
+/// Uses the same blocking parameters and inner allocator as ``svs::data::Blocked<Alloc>``.
+/// Selects segmented storage traits in the shared blocked ``SimpleData`` specialization.
 ///
 template <typename Alloc> class SegmentedBlocked : public svs::data::Blocked<Alloc> {
   public:
@@ -108,22 +108,19 @@ namespace svs::data {
 namespace detail {
 
 ///
-/// @brief ``SimpleData`` specialization with a grow-stable block directory.
+/// @brief Storage traits for grow-stable blocked ``SimpleData``.
 ///
-/// A line-for-line copy of the ``SimpleData<T, Extent, Blocked<Alloc>>`` specialization
-/// with two changes:
+/// @tparam Alloc Allocator for the elements stored in each block.
 ///
-/// 1. ``blocks_`` is a ``lib::SegmentedVector`` rather than a ``std::vector``, so appending
-///    a block never relocates the existing block wrappers (or the heap buffers they point
-///    at). A concurrent lock-free reader subscripting ``blocks_[block_id]`` is therefore
-///    safe against a writer growing the dataset.
-/// 2. ``add_block`` move-constructs into the new slot (``push_back``) instead of
-///    ``emplace_back``, because ``DenseArray``'s move-*assignment* compares allocators.
+/// ``blocks_type`` supplies the grow-stable directory described below. ``reserve`` is
+/// a no-op because its segments are allocated as needed. ``append`` uses the directory's
+/// move-constructing ``push_back`` API; it does not provide ``emplace_back``.
+/// ``blocksize`` uses the shared calculation with the allocator's blocking parameters.
+/// ``load_size`` and ``store_size`` use acquire/release publication so readers observe
+/// the blocks backing the published size.
 ///
-/// Shrinking still frees storage: ``drop_block`` destroys the trailing block, releasing its
-/// heap buffer. A reader inside that block would dangle, so the owning index must drain
-/// readers (exclusive lock) before shrinking — the same obligation the ``Blocked``
-/// specialization carries.
+/// Shrinking still destroys trailing blocks and frees their buffers. The owning index
+/// must exclude readers before shrinking, or a reader inside a removed block would dangle.
 ///
 template <typename Alloc>
 struct BlockedDataTraits<svs::index::vamana::concurrent::SegmentedBlocked<Alloc>> {
@@ -144,9 +141,7 @@ struct BlockedDataTraits<svs::index::vamana::concurrent::SegmentedBlocked<Alloc>
         const svs::index::vamana::concurrent::SegmentedBlocked<Alloc>& alloc,
         size_t dimensions
     ) {
-        return svs::data::compute_blocksize(
-            static_cast<const Blocked<Alloc>&>(alloc), dimensions
-        );
+        return svs::data::compute_blocksize(alloc, dimensions);
     }
 
     template <typename Array> static void reserve(blocks_type<Array>&, size_t) {}

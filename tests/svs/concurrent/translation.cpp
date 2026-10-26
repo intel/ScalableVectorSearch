@@ -29,9 +29,8 @@
 // stl
 #include <iterator>
 
-// The concurrent index carries its own ID translator (transactional
-// `replace_stale_and_insert` plus the non-throwing `_or` lookups). It is a
-// distinct type from `svs::IDTranslator`, which is left untouched.
+// These tests exercise the shared translator used by the concurrent index,
+// including its stale-ID replacement operation.
 using IDTranslator = svs::IDTranslator;
 
 namespace {

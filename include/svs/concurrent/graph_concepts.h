@@ -20,16 +20,6 @@
 /// @file
 ///
 
-///
-/// @ingroup concepts
-/// @defgroup graph_concept_entry Main Graph Concepts.
-///
-
-///
-/// @ingroup concepts
-/// @defgroup graph_concept_public Graph Concept Helpers.
-///
-
 #include "svs/concepts/graph.h"
 
 #include <cstdint>
@@ -46,6 +36,14 @@ enum class AddEdgeResult : uint8_t {
     Rejected,      // The source is no longer eligible for a backlink.
 };
 
+///
+/// @ingroup graph_concept_entry
+/// @brief Mutable graph whose edge insertion returns an ``AddEdgeResult`` status.
+///
+/// @tparam T Graph type to check.
+/// @see svs::graphs::MemoryGraph for the shared graph requirements.
+/// @see AddEdgeResult for the insertion outcomes and their meanings.
+///
 template <typename T>
 concept MemoryGraph = svs::graphs::MemoryGraph<T, AddEdgeResult>;
 
