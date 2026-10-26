@@ -27,6 +27,7 @@
 #include <functional>
 #include <iostream>
 #include <optional>
+#include <span>
 #include <type_traits>
 #include <unordered_set>
 #include <vector>
@@ -94,6 +95,29 @@ class SearchBufferConfig {
 
     friend bool operator==(SearchBufferConfig, SearchBufferConfig) = default;
 };
+
+///
+/// @brief Return the index of the first neighbor ordered after ``distance``.
+///
+/// ``neighbors`` must be sorted by distance with respect to ``compare``.
+///
+template <typename T, typename Cmp>
+size_t
+distance_upper_bound(std::span<const T> neighbors, float distance, const Cmp& compare) {
+    size_t n = neighbors.size();
+    if (n == 0) {
+        return 0;
+    }
+    // Branchless: distance comparisons are unpredictable, so cmov beats branching.
+    const T* first = neighbors.data();
+    const T* base = first;
+    while (n > 1) {
+        size_t half = n / 2;
+        base = compare(distance, base[half].distance()) ? base : base + half;
+        n -= half;
+    }
+    return static_cast<size_t>(base - first) + !compare(distance, base->distance());
+}
 
 ///
 /// @brief Class used to store search results for static greedy search.
@@ -404,16 +428,7 @@ template <typename Idx, typename Cmp = std::less<>> class SearchBuffer {
 
     size_t insert_inner(value_type neighbor) {
         const auto start = begin();
-        // Binary search to the first location where `distance` is less than the stored
-        // neighbor.
-        auto pos = std::lower_bound(
-            start,
-            end(),
-            neighbor.distance(),
-            [&](const value_type& other, const float& d) {
-                return !compare_(d, other.distance());
-            }
-        );
+        auto pos = start + distance_upper_bound(view(), neighbor.distance(), compare_);
 
         // Because repeat ids can exist, we have to search until we're sure no repeat will
         // be found.

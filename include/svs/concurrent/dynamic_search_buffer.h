@@ -426,17 +426,7 @@ template <typename Idx, typename Cmp = std::less<>> class MutableBuffer {
 
     size_t insert_inner(value_type neighbor) {
         const auto start = begin();
-
-        // Binary search to the first location where `distance` is less than the stored
-        // neighbor.
-        auto pos = std::lower_bound(
-            start,
-            end(),
-            neighbor.distance(),
-            [&](const value_type& other, const float& d) {
-                return !compare_(d, other.distance());
-            }
-        );
+        auto pos = start + distance_upper_bound(view(), neighbor.distance(), compare_);
 
         // Because repeat ids can exist, we have to search until we're sure no repeat will
         // be found.
@@ -543,6 +533,9 @@ template <typename Idx, typename Cmp = std::less<>> class MutableBuffer {
     /// That is the only context in which non-internal interaction with the search buffer
     /// should operate.
     size_t size() const { return candidates_.size(); }
+
+    /// @brief Return a view of all stored candidates, both valid and invalid.
+    std::span<const value_type> view() const { return candidates_; }
 
     ///// Visited API
     bool visited_set_enabled() const { return visited_.has_value(); }
