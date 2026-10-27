@@ -105,19 +105,8 @@ class ValidBuilder {
         , translator_{translator}
         , pred_{pred} {}
 
-    /// With a predicate: skip the predicate for entries `buffer` would drop anyway.
-    template <typename Buffer> void skip_if_dropped_by(const Buffer& buffer) {
-        skip_buffer_ = &buffer;
-        skip_ = [](const void* b, float d) {
-            return static_cast<const Buffer*>(b)->can_skip(d);
-        };
-    }
-
     template <typename I>
     constexpr PredicatedSearchNeighbor<I> operator()(I i, float distance) const {
-        if (pred_ != nullptr && skip_ != nullptr && skip_(skip_buffer_, distance)) {
-            return PredicatedSearchNeighbor<I>(i, distance, false);
-        }
         bool invalid = getindex(status_, i) == SlotMetadata::Deleted;
         // This neighbor should be skipped if the metadata corresponding to the given index
         // marks this slot as deleted.
@@ -131,8 +120,6 @@ class ValidBuilder {
     const std::vector<SlotMetadata>& status_;
     const IDTranslator* translator_;
     const std::function<bool(size_t)>* pred_;
-    const void* skip_buffer_ = nullptr;
-    bool (*skip_)(const void*, float) = nullptr;
 };
 
 template <graphs::MemoryGraph Graph, typename Data, typename Dist>
@@ -615,10 +602,6 @@ class MutableVamanaIndex {
         return [&, prefetch_parameters, pred](
                    const auto& query, auto& accessor, auto& distance, auto& buffer
                ) {
-            auto builder = internal_search_builder(pred);
-            if constexpr (requires { buffer.can_skip(0.0f); }) {
-                builder.skip_if_dropped_by(buffer);
-            }
             // Perform the greedy search using the provided resources.
             greedy_search(
                 graph_,
@@ -628,7 +611,7 @@ class MutableVamanaIndex {
                 distance,
                 buffer,
                 vamana::EntryPointInitializer<Idx>{lib::as_const_span(entry_point_)},
-                builder,
+                internal_search_builder(pred),
                 prefetch_parameters,
                 cancel
             );
