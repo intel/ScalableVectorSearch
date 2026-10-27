@@ -95,7 +95,6 @@ svs::DynamicVamana load_dynamic_vamana_index(
         std::move(data),
         std::move(D),
         std::move(pool),
-        /*debug_load_from_static=*/false,
         std::move(logger)
     );
 }
@@ -129,7 +128,6 @@ svs::DynamicVamana load_stream_dynamic_vamana_index(
         svs::make_stream_loader<data_type>(allocator),
         distance,
         std::move(pool),
-        /*debug_load_from_static=*/false,
         std::move(logger)
     );
 }

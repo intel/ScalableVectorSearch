@@ -100,7 +100,6 @@ struct RegularVamanaFlavor {
             std::move(data),
             std::move(distance),
             std::move(pool),
-            /*debug_load_from_static=*/false,
             std::move(logger)
         );
     }
