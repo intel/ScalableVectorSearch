@@ -26,6 +26,7 @@
 #include <cstring>
 #include <functional>
 #include <iostream>
+#include <limits>
 #include <optional>
 #include <type_traits>
 #include <unordered_set>
@@ -95,6 +96,17 @@ template <typename Idx, typename Cmp = std::less<>> class MutableBuffer {
     vector_type candidates_{};
     // An optional visited filter.
     std::optional<set_type> visited_{std::nullopt};
+    // Optional (`enable_heap`): keep `candidates_` as a min-heap (best entry on top)
+    // instead of a sorted list while searching. `cleanup()` sorts it once at the end and
+    // returns to the sorted-list behaviour.
+    // `passes_`: the filter, called with an internal id; a neighbor that fails it stays in
+    // the buffer (it is still visited) but is marked not valid.
+    bool use_heap_ = false;
+    const std::function<bool(Idx)>* passes_ = nullptr;
+    bool heap_sorted_ = false;
+    // Cached index of the best unvisited entry (`size()` if none); `npos` if stale.
+    static constexpr size_t npos = std::numeric_limits<size_t>::max();
+    mutable size_t heap_next_ = npos;
 
   public:
     MutableBuffer() = default;
@@ -197,6 +209,8 @@ template <typename Idx, typename Cmp = std::less<>> class MutableBuffer {
     /// @brief Prepare the buffer for a new search operation.
     void clear() {
         candidates_.clear();
+        heap_sorted_ = false;
+        heap_next_ = npos;
         best_unvisited_ = 0;
         roi_end_ = 0;
         valid_ = 0;
@@ -222,6 +236,13 @@ template <typename Idx, typename Cmp = std::less<>> class MutableBuffer {
     }
 
     size_t capacity() const { return candidates_.capacity(); }
+
+    /// @brief Keep the buffer as a min-heap during search (search window = capacity). A
+    /// neighbor is valid only if it also passes `*passes` (called with its internal id).
+    void enable_heap(const std::function<bool(Idx)>* passes) {
+        use_heap_ = passes != nullptr;
+        passes_ = passes;
+    }
 
     /// @brief Return the number of valid elements currently contained in the buffer.
     size_t valid() const { return valid_; }
@@ -267,6 +288,9 @@ template <typename Idx, typename Cmp = std::less<>> class MutableBuffer {
     /// N.B.: If `done()` evaluates to `true`, do not try to extract further candidates
     /// from it using `next()`.
     bool done() const {
+        if (heap_mode()) {
+            return heap_best_unvisited() == size();
+        }
         // Until we've reached the target number of valid elements, we have to ignore
         // the state of `roi_end_`.
         return best_unvisited_ == ((valid() < target_valid_) ? size() : roi_end_);
@@ -282,6 +306,12 @@ template <typename Idx, typename Cmp = std::less<>> class MutableBuffer {
     /// Post-conditions:
     /// * The returned neighbor will be marked as visited.
     const_reference next() {
+        if (heap_mode()) {
+            reference node = candidates_[heap_best_unvisited()];
+            node.set_visited();
+            heap_next_ = npos;
+            return node;
+        }
         // Get the best unvisited node
         reference node = getindex(candidates_, best_unvisited_);
         node.set_visited();
@@ -302,6 +332,10 @@ template <typename Idx, typename Cmp = std::less<>> class MutableBuffer {
     ///
     /// Therefore, sequences of `push_back` must always be followed by a call to `sort`.
     void push_back(value_type neighbor) {
+        if (heap_mode()) {
+            heap_insert(neighbor);
+            return;
+        }
         // Follow the contract of not appending more valid elements than the capacity
         // allows.
         bool valid = neighbor.valid();
@@ -453,6 +487,9 @@ template <typename Idx, typename Cmp = std::less<>> class MutableBuffer {
 
     /// Insert the given neighbor into the search buffer.
     size_t insert(value_type neighbor) {
+        if (heap_mode()) {
+            return heap_insert(neighbor);
+        }
         if (can_skip(neighbor.distance())) {
             return size();
         }
@@ -505,6 +542,9 @@ template <typename Idx, typename Cmp = std::less<>> class MutableBuffer {
 
     // Sort all stored elements in the buffer.
     void sort() {
+        if (heap_mode()) {
+            return; // The heap is kept in order on every insert.
+        }
         assert(valid() <= valid_capacity_);
 
         // Put the elements in ascending order.
@@ -554,6 +594,11 @@ template <typename Idx, typename Cmp = std::less<>> class MutableBuffer {
 
     // TODO: Switch over to using iterators for the return values to avoid this.
     void cleanup() {
+        if (heap_mode()) {
+            // Sort once, then continue as a sorted list (e.g. for the top-up).
+            std::sort(begin(), end(), compare_);
+            heap_sorted_ = true;
+        }
         auto new_end =
             std::remove_if(begin(), end(), [](const auto& x) { return !x.valid(); });
         candidates_.resize(new_end - begin());
@@ -619,6 +664,93 @@ template <typename Idx, typename Cmp = std::less<>> class MutableBuffer {
     }
 
   private:
+    bool heap_mode() const { return use_heap_ && !heap_sorted_; }
+
+    // Min-heap order: the best entry on top.
+    auto heap_compare() const {
+        return [this](const value_type& a, const value_type& b) {
+            return compare_(b.distance(), a.distance());
+        };
+    }
+
+    // The worst valid entry is not on top of a min-heap: linear scan (`size()` if none).
+    size_t heap_worst_valid() const {
+        size_t worst = size();
+        for (size_t i = 0; i < size(); ++i) {
+            if (candidates_[i].valid() &&
+                (worst == size() ||
+                 compare_(candidates_[worst].distance(), candidates_[i].distance()))) {
+                worst = i;
+            }
+        }
+        return worst;
+    }
+
+    // Remove entry `i` (swap with the last, pop); the caller re-heapifies afterwards.
+    void heap_remove(size_t i) {
+        valid_ -= static_cast<size_t>(candidates_[i].valid());
+        candidates_[i] = candidates_.back();
+        candidates_.pop_back();
+    }
+
+    size_t heap_insert(value_type neighbor) {
+        // Same rules as the sorted list: skip entries worse than the worst valid one when
+        // full, and ids already present.
+        if (full() &&
+            compare_(candidates_[heap_worst_valid()].distance(), neighbor.distance())) {
+            return size();
+        }
+        for (const auto& candidate : candidates_) {
+            if (candidate.id() == neighbor.id()) {
+                return size() + 1;
+            }
+        }
+        // Only now (the entry could improve the results) is the filter called.
+        if (neighbor.valid() && !(*passes_)(neighbor.id())) {
+            neighbor = value_type(neighbor.id(), neighbor.distance(), false);
+        }
+        candidates_.push_back(neighbor);
+        std::push_heap(begin(), end(), heap_compare());
+        valid_ += static_cast<size_t>(neighbor.valid());
+        const size_t pushed = size();
+        // Too many valid entries: drop the worst valid one.
+        if (valid_ > valid_capacity_) {
+            heap_remove(heap_worst_valid());
+        }
+        // When full, invalid entries worse than the worst valid one are dropped.
+        if (full()) {
+            const auto worst = candidates_[heap_worst_valid()].distance();
+            for (size_t i = 0; i < size();) {
+                if (!candidates_[i].valid() && compare_(worst, candidates_[i].distance())) {
+                    heap_remove(i);
+                } else {
+                    ++i;
+                }
+            }
+        }
+        if (size() != pushed) {
+            std::make_heap(begin(), end(), heap_compare());
+        }
+        heap_next_ = npos;
+        return 0;
+    }
+
+    // Linear scan for the best unvisited entry; cached until the next insert or `next()`.
+    size_t heap_best_unvisited() const {
+        if (heap_next_ == npos) {
+            size_t best = size();
+            for (size_t i = 0; i < size(); ++i) {
+                if (!candidates_[i].visited() &&
+                    (best == size() ||
+                     compare_(candidates_[i].distance(), candidates_[best].distance()))) {
+                    best = i;
+                }
+            }
+            heap_next_ = best;
+        }
+        return heap_next_;
+    }
+
     /// Return how many more valid candidates exist than required.
     /// If the number of valid candidates is *less* than the target, a negative number
     /// is returned.

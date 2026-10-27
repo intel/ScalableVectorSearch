@@ -532,6 +532,9 @@ class MutableVamanaIndex {
             [&](const auto is, uint64_t /*tid*/) {
                 for (auto i : is) {
                     for (size_t j = 0, jmax = getsize<1>(ids); j < jmax; ++j) {
+                        if (ids.at(i, j) == static_cast<size_t>(-1)) {
+                            continue; // Padding from a filtered search.
+                        }
                         auto internal = lib::narrow_cast<Idx>(ids.at(i, j));
                         ids.at(i, j) = translate_internal_id(internal);
                     }
@@ -623,8 +626,12 @@ class MutableVamanaIndex {
         QueryResultView<I> results,
         const Queries& queries,
         const search_parameters_type& sp,
-        const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>())
+        const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>()),
+        const std::function<bool(size_t)>* pred = nullptr
     ) {
+        // Optional `pred`: only entries whose external id passes are returned. It is called
+        // from all search threads. Rows with fewer passing entries than requested are
+        // padded with id `size_t(-1)` and the worst score.
         threads::parallel_for(
             threadpool_,
             threads::StaticPartition{queries.size()},
@@ -637,23 +644,37 @@ class MutableVamanaIndex {
                         : sp.buffer_config_,
                     distance::comparator(distance_),
                     sp.search_buffer_visited_set_};
+                // Filtered: the buffer checks the filter itself (two heaps).
+                std::function<bool(Idx)> passes;
+                if (pred != nullptr) {
+                    passes = [&](Idx i) { return (*pred)(translator_.get_external(i)); };
+                    buffer.enable_heap(&passes);
+                }
 
                 auto prefetch_parameters = GreedySearchPrefetchParameters{
                     sp.prefetch_lookahead_, sp.prefetch_step_};
 
                 auto scratch = extensions::per_thread_batch_search_setup(data_, distance_);
 
-                extensions::per_thread_batch_search(
-                    data_,
-                    buffer,
-                    scratch,
-                    queries,
-                    results,
-                    threads::UnitRange{is},
-                    greedy_search_closure(prefetch_parameters, cancel),
-                    *this,
-                    cancel
-                );
+                auto run = [&](const auto& search) {
+                    extensions::per_thread_batch_search(
+                        data_,
+                        buffer,
+                        scratch,
+                        queries,
+                        results,
+                        threads::UnitRange{is},
+                        search,
+                        *this,
+                        cancel
+                    );
+                };
+                auto search = greedy_search_closure(prefetch_parameters, cancel);
+                if (pred == nullptr) {
+                    run(search);
+                } else {
+                    run(extensions::FilteredSearch<decltype(search)>{search, pred});
+                }
             }
         );
 
