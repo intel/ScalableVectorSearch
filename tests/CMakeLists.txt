@@ -41,7 +41,7 @@ FetchContent_Declare(
 )
 
 FetchContent_MakeAvailable(Catch2)
-set(CMAKE_CXX_STANDARD ${PRESET_CMAKE_CXX_STANRARD})
+set(CMAKE_CXX_STANDARD ${PRESET_CMAKE_CXX_STANDARD})
 
 # Add top level test executable and link with the unit test library.
 set(TEST_DIR ${CMAKE_CURRENT_LIST_DIR})
