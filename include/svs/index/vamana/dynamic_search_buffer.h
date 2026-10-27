@@ -96,10 +96,13 @@ template <typename Idx, typename Cmp = std::less<>> class MutableBuffer {
     // An optional visited filter.
     std::optional<set_type> visited_{std::nullopt};
     // Optional (`enable_heap`): two heaps while searching. `to_visit_` is a min-heap of
-    // entries still to visit (best on top); `candidates_` is a max-heap of the best valid
-    // entries (worst on top). `cleanup()` sorts `candidates_` once at the end.
+    // entries still to visit (best on top). During heap mode `candidates_` holds the
+    // results: a max-heap of the best valid entries that pass the filter (worst on top).
+    // `cleanup()` sorts `candidates_` once at the end.
     // `seen_`: ids already queued in this search (exact duplicate check).
+    // `passes_`: the filter, called with an internal id.
     bool use_heap_ = false;
+    const std::function<bool(Idx)>* passes_ = nullptr;
     bool heap_done_ = false;
     vector_type to_visit_{};
     std::unordered_set<Idx> seen_{};
@@ -235,8 +238,12 @@ template <typename Idx, typename Cmp = std::less<>> class MutableBuffer {
 
     size_t capacity() const { return candidates_.capacity(); }
 
-    /// @brief Use two heaps during search (search window = capacity).
-    void enable_heap(bool enable = true) { use_heap_ = enable; }
+    /// @brief Use two heaps during search (search window = capacity). A neighbor enters the
+    /// results only if `*passes` accepts its internal id.
+    void enable_heap(const std::function<bool(Idx)>* passes) {
+        use_heap_ = passes != nullptr;
+        passes_ = passes;
+    }
 
     /// @brief Return the number of valid elements currently contained in the buffer.
     size_t valid() const { return valid_; }
@@ -478,10 +485,6 @@ template <typename Idx, typename Cmp = std::less<>> class MutableBuffer {
     }
 
     bool can_skip(float distance) const {
-        if (heap_mode()) {
-            // While searching, the worst result is the top of the result max-heap.
-            return full() && compare_(candidates_.front().distance(), distance);
-        }
         // If not full - we cannot skip appending this item.
         // If we are full, then rely on invariant 6 to compare with the last valid element.
         return full() && compare_(back().distance(), distance);
@@ -693,10 +696,11 @@ template <typename Idx, typename Cmp = std::less<>> class MutableBuffer {
         }
         to_visit_.push_back(neighbor);
         std::push_heap(to_visit_.begin(), to_visit_.end(), to_visit_compare());
-        if (!neighbor.valid()) {
+        // Only valid entries that pass the filter become results; the rest are only visited.
+        if (!neighbor.valid() || !(*passes_)(neighbor.id())) {
             return size();
         }
-        // Valid: keep it among the best `valid_capacity_` results (drop the worst).
+        // Keep it among the best `valid_capacity_` results (drop the worst).
         candidates_.push_back(neighbor);
         std::push_heap(begin(), end(), result_compare());
         if (candidates_.size() > valid_capacity_) {
