@@ -94,32 +94,19 @@ inline constexpr std::string_view name(SlotMetadata metadata) {
 
 class ValidBuilder {
   public:
-    // Optional `pred` (with `translator`): an entry is also invalid if `pred(external_id)`
-    // is false. Invalid entries are navigated through but never returned.
-    ValidBuilder(
-        const std::vector<SlotMetadata>& status,
-        const IDTranslator* translator = nullptr,
-        const std::function<bool(size_t)>* pred = nullptr
-    )
-        : status_{status}
-        , translator_{translator}
-        , pred_{pred} {}
+    ValidBuilder(const std::vector<SlotMetadata>& status)
+        : status_{status} {}
 
     template <typename I>
     constexpr PredicatedSearchNeighbor<I> operator()(I i, float distance) const {
         bool invalid = getindex(status_, i) == SlotMetadata::Deleted;
         // This neighbor should be skipped if the metadata corresponding to the given index
         // marks this slot as deleted.
-        if (!invalid && pred_ != nullptr) {
-            invalid = !(*pred_)(translator_->get_external(i));
-        }
         return PredicatedSearchNeighbor<I>(i, distance, !invalid);
     }
 
   private:
     const std::vector<SlotMetadata>& status_;
-    const IDTranslator* translator_;
-    const std::function<bool(size_t)>* pred_;
 };
 
 template <graphs::MemoryGraph Graph, typename Data, typename Dist>
@@ -589,17 +576,13 @@ class MutableVamanaIndex {
 
     // Return a `greedy_search` compatible builder for this index.
     // This is an internal method, mostly used to help implement the batch iterator.
-    ValidBuilder internal_search_builder(const std::function<bool(size_t)>* pred = nullptr
-    ) const {
-        return ValidBuilder{status_, &translator_, pred};
-    }
+    ValidBuilder internal_search_builder() const { return ValidBuilder{status_}; }
 
     auto greedy_search_closure(
         GreedySearchPrefetchParameters prefetch_parameters,
-        const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>()),
-        const std::function<bool(size_t)>* pred = nullptr
+        const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>())
     ) const {
-        return [&, prefetch_parameters, pred](
+        return [&, prefetch_parameters](
                    const auto& query, auto& accessor, auto& distance, auto& buffer
                ) {
             // Perform the greedy search using the provided resources.
@@ -611,7 +594,7 @@ class MutableVamanaIndex {
                 distance,
                 buffer,
                 vamana::EntryPointInitializer<Idx>{lib::as_const_span(entry_point_)},
-                internal_search_builder(pred),
+                internal_search_builder(),
                 prefetch_parameters,
                 cancel
             );
@@ -661,8 +644,12 @@ class MutableVamanaIndex {
                         : sp.buffer_config_,
                     distance::comparator(distance_),
                     sp.search_buffer_visited_set_};
-                // Filtered: visit entries from a min-heap during the search.
-                buffer.enable_heap(pred != nullptr);
+                // Filtered: the buffer checks the filter itself (two heaps).
+                std::function<bool(Idx)> passes;
+                if (pred != nullptr) {
+                    passes = [&](Idx i) { return (*pred)(translator_.get_external(i)); };
+                    buffer.enable_heap(&passes);
+                }
 
                 auto prefetch_parameters = GreedySearchPrefetchParameters{
                     sp.prefetch_lookahead_, sp.prefetch_step_};
@@ -682,7 +669,7 @@ class MutableVamanaIndex {
                         cancel
                     );
                 };
-                auto search = greedy_search_closure(prefetch_parameters, cancel, pred);
+                auto search = greedy_search_closure(prefetch_parameters, cancel);
                 if (pred == nullptr) {
                     run(search);
                 } else {
