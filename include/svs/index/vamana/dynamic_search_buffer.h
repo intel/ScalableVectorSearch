@@ -480,10 +480,6 @@ template <typename Idx, typename Cmp = std::less<>> class MutableBuffer {
     }
 
     bool can_skip(float distance) const {
-        if (heap_mode()) {
-            // While searching, `worst_` is the worst result.
-            return full() && compare_(candidates_[worst_].distance(), distance);
-        }
         // If not full - we cannot skip appending this item.
         // If we are full, then rely on invariant 6 to compare with the last valid element.
         return full() && compare_(back().distance(), distance);
