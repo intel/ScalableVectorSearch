@@ -639,6 +639,23 @@ template <typename Data> struct UsesReranking {
 
 template <typename Data> inline constexpr UsesReranking<Data> calibration_uses_reranking{};
 
+/// Whether `DynamicVamana::filtered_search` is supported for `Data`.
+/// Data types opt in by providing an `svs_invoke` overload.
+template <typename Data> struct SupportsFilteredSearch {
+    constexpr bool operator()() const {
+        if constexpr (svs::svs_invocable<SupportsFilteredSearch>) {
+            return svs::svs_invoke(*this);
+        } else {
+            return false;
+        }
+    }
+};
+
+template <typename T, size_t Extent, typename Alloc>
+constexpr bool svs_invoke(SupportsFilteredSearch<data::SimpleData<T, Extent, Alloc>>) {
+    return true;
+}
+
 /////
 ///// Reconstruct Vector
 /////
