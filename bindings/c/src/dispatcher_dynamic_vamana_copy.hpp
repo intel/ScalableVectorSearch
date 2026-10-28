@@ -91,8 +91,8 @@ struct RegularVamanaFlavor {
 
         auto translator = svs::IDTranslator{};
         translator.insert(external_ids, internal_ids);
-        svs::index::vamana::detail::VamanaStateLoader state_loader{
-            config, std::move(translator), std::move(status)};
+        svs::index::vamana::detail::VamanaStateLoader<svs::index::vamana::SlotMetadata>
+            state_loader{config, std::move(translator), std::move(status)};
 
         return svs::DynamicVamana::assemble<float>(
             std::move(state_loader),

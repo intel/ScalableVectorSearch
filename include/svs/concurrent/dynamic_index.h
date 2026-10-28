@@ -36,7 +36,6 @@
 #include "svs/concurrent/dynamic_search_buffer.h"
 #include "svs/concurrent/graph.h"
 #include "svs/concurrent/greedy_search.h"
-#include "svs/concurrent/translation.h"
 #include "svs/concurrent/vamana_build.h"
 #include "svs/core/data.h"
 #include "svs/core/distance.h"
@@ -45,6 +44,8 @@
 #include "svs/core/medioid.h"
 #include "svs/core/query_result.h"
 #include "svs/core/recall.h"
+#include "svs/core/translation.h"
+#include "svs/index/vamana/dynamic_index.h"
 #include "svs/index/vamana/index.h"
 #include "svs/lib/boundscheck.h"
 #include "svs/lib/neighbor.h"
@@ -1746,58 +1747,12 @@ class MutableVamanaIndex {
         const std::filesystem::path& graph_directory,
         const std::filesystem::path& data_directory
     ) {
-        // Post-consolidation, all entries should be "valid".
-        // Therefore, we don't need to save the slot metadata.
-        consolidate();
-        compact();
-
-        // Save auxiliary data structures.
-        lib::save_to_disk(
-            lib::SaveOverride([&](const lib::SaveContext& ctx) {
-                // Save the construction parameters.
-                return lib::SaveTable(
-                    "vamana_dynamic_auxiliary_parameters",
-                    save_version,
-                    {
-                        {"name", lib::save(name())},
-                        {"parameters", lib::save(parameters(), ctx)},
-                        {"translation", lib::save(translator_, ctx)},
-                    }
-                );
-            }),
-            config_directory
+        vamana::detail::save_dynamic_index(
+            *this, config_directory, graph_directory, data_directory
         );
-
-        // Save the dataset.
-        lib::save_to_disk(data_, data_directory);
-        // Save the graph.
-        lib::save_to_disk(graph_, graph_directory);
     }
 
-    void save(std::ostream& os) {
-        // Post-consolidation, all entries should be "valid".
-        // Therefore, we don't need to save the slot metadata.
-        consolidate();
-        compact();
-
-        lib::begin_serialization(os);
-        auto save_table = lib::SaveTable(
-            "vamana_dynamic_auxiliary_parameters",
-            save_version,
-            {
-                {"name", lib::save(name())},
-                {"parameters", lib::save(parameters())},
-                {"translation", lib::detail::exit_hook(translator_.metadata())},
-            }
-        );
-        lib::save_to_stream(save_table, os);
-        translator_.save(os);
-
-        // Save the dataset.
-        lib::save_to_stream(data_, os);
-        // Save the graph.
-        lib::save_to_stream(graph_, os);
-    }
+    void save(std::ostream& os) { vamana::detail::save_dynamic_index(*this, os); }
 
     /////
     ///// Calibrate
@@ -1820,32 +1775,14 @@ class MutableVamanaIndex {
         double target_recall,
         const CalibrationParameters& calibration_parameters = {}
     ) {
-        // Preallocate the destination for search.
-        // Further, reference the search lambda in the recall lambda.
-        auto results = svs::QueryResult<size_t>{queries.size(), num_neighbors};
-
-        auto do_search = [&](const search_parameters_type& p) {
-            this->search(results.view(), queries, p);
-        };
-
-        auto compute_recall = [&](const search_parameters_type& p) {
-            // Calling `do_search` will mutate `results`.
-            do_search(p);
-            return svs::k_recall_at_n(results, groundtruth, num_neighbors, num_neighbors);
-        };
-
-        auto p = vamana::calibrate(
-            calibration_parameters,
+        return vamana::detail::calibrate_dynamic_index(
             *this,
+            queries,
+            groundtruth,
             num_neighbors,
             target_recall,
-            compute_recall,
-            do_search,
-            logger_
+            calibration_parameters
         );
-
-        set_search_parameters(p);
-        return p;
     }
 
     /// @brief Reconstruct vectors.
@@ -2230,60 +2167,6 @@ MutableVamanaIndex(
     svs::logging::logger_ptr
 ) -> MutableVamanaIndex<graphs::SimpleBlockedGraph<uint32_t>, Data, Dist>;
 
-namespace detail {
-
-struct VamanaStateLoader {
-    ///// Loading
-    static bool
-    check_load_compatibility(std::string_view schema, const lib::Version& version) {
-        // We provide the option to load from a static index.
-        return VamanaIndexParameters::check_load_compatibility(schema, version) ||
-               (schema == "vamana_dynamic_auxiliary_parameters" &&
-                version == lib::Version(0, 0, 0));
-    }
-
-    // Provide a compatibility path for loading static datasets.
-    static VamanaStateLoader
-    load(const lib::LoadTable& table, bool debug_load_from_static, size_t assume_datasize) {
-        if (debug_load_from_static) {
-            return VamanaStateLoader{
-                lib::load<VamanaIndexParameters>(table),
-                IDTranslator::Identity(assume_datasize),
-                std::vector<SlotMetadata>(assume_datasize, SlotMetadata::Valid)};
-        }
-
-        return VamanaStateLoader{
-            SVS_LOAD_MEMBER_AT_(table, parameters),
-            svs::lib::load_at<IDTranslator>(table, "translation"),
-            std::vector<SlotMetadata>(assume_datasize, SlotMetadata::Valid),
-        };
-    }
-
-    ///// Members
-    VamanaIndexParameters parameters_;
-    IDTranslator translator_;
-    std::vector<SlotMetadata> status_;
-};
-
-template <typename ConfigProto>
-VamanaStateLoader auto_load_state(
-    ConfigProto&& config_proto,
-    [[maybe_unused]] bool debug_load_from_static,
-    [[maybe_unused]] size_t assume_datasize
-) {
-    if constexpr (std::is_convertible_v<ConfigProto, std::filesystem::path>) {
-        return lib::load_from_disk<VamanaStateLoader>(
-            std::filesystem::path(std::forward<ConfigProto>(config_proto)),
-            debug_load_from_static,
-            assume_datasize
-        );
-    } else {
-        return svs::detail::dispatch_load(std::forward<ConfigProto>(config_proto));
-    }
-}
-
-} // namespace detail
-
 ///
 /// @brief Build an index whose data and graph both use grow-stable storage.
 ///
@@ -2407,7 +2290,7 @@ auto auto_dynamic_assemble(
     //     }
     // }};
     // auto [parameters, translator] = lib::load_from_disk(reloader, config_path);
-    auto [parameters, translator, status] = detail::auto_load_state(
+    auto [parameters, translator, status] = vamana::detail::auto_load_state<SlotMetadata>(
         std::forward<ConfigProto>(config_proto), debug_load_from_static, datasize
     );
 

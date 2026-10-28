@@ -110,7 +110,8 @@ class ConcurrentDynamicVamana : public DynamicVamana {
     /// @brief Reload a ConcurrentDynamicVamana index from separate config, graph and data.
     ///
     /// @param config_proto Directory holding the saved index configuration, or an
-    ///     already-loaded ``index::vamana::concurrent::detail::VamanaStateLoader``.
+    ///     already-loaded ``index::vamana::detail::VamanaStateLoader`` specialized with
+    ///     ``index::vamana::concurrent::SlotMetadata``.
     /// @param graph_loader Loader (or graph) producing a concurrent ``SimpleBlockedGraph``.
     /// @param data_loader Loader (or dataset) producing ``SegmentedBlocked`` storage.
     /// @param distance Distance functor or ``svs::DistanceType`` enum.

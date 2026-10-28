@@ -18,7 +18,7 @@
 
 #include "svs/concepts/data.h"
 #include "svs/concepts/distance.h"
-#include "svs/concurrent/graph_concepts.h"
+#include "svs/concepts/graph.h"
 #include "svs/concurrent/spinlock.h"
 // For `svs::index::vamana::GreedySearchPrefetchParameters`, which this stack reuses
 // unchanged -- see the using-declaration below.
@@ -51,7 +51,7 @@ using svs::index::vamana::EntryPointInitializer;
 using svs::index::vamana::NeighborBuilder;
 
 template <
-    graphs::ImmutableMemoryGraph Graph,
+    svs::graphs::ImmutableMemoryGraph Graph,
     data::ImmutableMemoryDataset Dataset,
     data::AccessorFor<Dataset> Accessor,
     typename QueryType,
@@ -163,7 +163,7 @@ void greedy_search(
 // Overload to provide a default search tracker because search trackers are taken by
 // lvalue reference.
 template <
-    graphs::ImmutableMemoryGraph Graph,
+    svs::graphs::ImmutableMemoryGraph Graph,
     data::ImmutableMemoryDataset Dataset,
     data::AccessorFor<Dataset> Accessor,
     typename QueryType,
