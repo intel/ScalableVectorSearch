@@ -1130,11 +1130,37 @@ class MutableVamanaIndex {
         const std::filesystem::path& graph_directory,
         const std::filesystem::path& data_directory
     ) {
-        // Post-consolidation, all entries should be "valid".
-        // Therefore, we don't need to save the slot metadata.
-        consolidate();
-        compact();
+        repair_if_needed();
+        save_impl(config_directory, graph_directory, data_directory);
+    }
 
+    void save(std::ostream& os) {
+        repair_if_needed();
+        save_impl(os);
+    }
+
+  private:
+    bool needs_repair() const {
+        return std::any_of(status_.begin(), status_.end(), [](SlotMetadata status) {
+            return status != SlotMetadata::Valid;
+        });
+    }
+
+    /// Skipped when every slot is Valid to avoid a buffer roundtrip
+    void repair_if_needed() {
+        if (needs_repair()) {
+            consolidate();
+            compact();
+        }
+    }
+
+    /// Requires every slot to be Valid: slot metadata is not saved, so a Deleted or
+    /// Empty slot makes the loader reject the index.
+    void save_impl(
+        const std::filesystem::path& config_directory,
+        const std::filesystem::path& graph_directory,
+        const std::filesystem::path& data_directory
+    ) const {
         // Save auxiliary data structures.
         lib::save_to_disk(
             lib::SaveOverride([&](const lib::SaveContext& ctx) {
@@ -1158,12 +1184,9 @@ class MutableVamanaIndex {
         lib::save_to_disk(graph_, graph_directory);
     }
 
-    void save(std::ostream& os) {
-        // Post-consolidation, all entries should be "valid".
-        // Therefore, we don't need to save the slot metadata.
-        consolidate();
-        compact();
-
+    /// Requires every slot to be Valid: slot metadata is not saved, so a Deleted or
+    /// Empty slot makes the loader reject the index.
+    void save_impl(std::ostream& os) const {
         lib::begin_serialization(os);
         auto save_table = lib::SaveTable(
             "vamana_dynamic_auxiliary_parameters",
@@ -1183,6 +1206,7 @@ class MutableVamanaIndex {
         lib::save_to_stream(graph_, os);
     }
 
+  public:
     /////
     ///// Calibrate
     /////

@@ -22,6 +22,7 @@
 #include "svs/lib/float16.h"
 #include "svs/lib/preprocessor.h"
 #include "svs/lib/timing.h"
+#include "svs/orchestrators/dynamic_vamana.h"
 
 #include "svs/misc/dynamic_helper.h"
 
@@ -673,5 +674,81 @@ CATCH_TEST_CASE("Dynamic Vamana Index Default Parameters", "[parameter][vamana]"
         CATCH_REQUIRE(
             index.get_full_search_history() == svs::VAMANA_USE_FULL_SEARCH_HISTORY_DEFAULT
         );
+    }
+}
+
+CATCH_TEST_CASE(
+    "Dynamic Vamana Index Stream Save Round Trip",
+    "[graph_index][dynamic_index][saveload]"
+) {
+    const size_t num_threads = 2;
+    using Distance = svs::distance::DistanceL2;
+    using Data_t = svs::data::BlockedData<float>;
+
+    auto data = test_dataset::data_blocked_f32();
+    std::vector<size_t> indices(data.size());
+    std::iota(indices.begin(), indices.end(), 0);
+
+    svs::index::vamana::VamanaBuildParameters parameters{1.2, 64, 10, 20, 10, true};
+    auto index = svs::index::vamana::MutableVamanaIndex(
+        parameters, std::move(data), indices, Distance(), num_threads
+    );
+
+    const size_t num_neighbors = 10;
+    auto queries = test_dataset::queries();
+    auto search_params = svs::index::vamana::VamanaSearchParameters{};
+    search_params.buffer_config_ = svs::index::vamana::SearchBufferConfig{num_neighbors};
+
+    CATCH_SECTION("No deletions: stream save reloads identical results") {
+        auto results = svs::QueryResult<size_t>(queries.size(), num_neighbors);
+        index.search(results.view(), queries.cview(), search_params);
+
+        std::stringstream stream;
+        index.save(stream);
+        auto loaded =
+            svs::DynamicVamana::assemble<float, Data_t>(stream, Distance(), num_threads);
+
+        CATCH_REQUIRE(loaded.size() == index.size());
+
+        auto loaded_results = svs::QueryResult<size_t>(queries.size(), num_neighbors);
+        loaded.search(loaded_results.view(), queries.cview(), search_params);
+        for (size_t q = 0; q < queries.size(); ++q) {
+            for (size_t i = 0; i < num_neighbors; ++i) {
+                CATCH_REQUIRE(loaded_results.index(q, i) == results.index(q, i));
+            }
+        }
+
+        std::vector<uint64_t> sample_ids(indices.begin(), indices.begin() + 5);
+        auto original_vectors =
+            svs::data::SimpleData<float>(sample_ids.size(), index.dimensions());
+        auto reloaded_vectors =
+            svs::data::SimpleData<float>(sample_ids.size(), index.dimensions());
+        index.reconstruct_at(
+            original_vectors.view(), std::span<const uint64_t>(sample_ids)
+        );
+        loaded.reconstruct_at(reloaded_vectors.view(), sample_ids);
+        for (size_t i = 0; i < sample_ids.size(); ++i) {
+            auto a = original_vectors.get_datum(i);
+            auto b = reloaded_vectors.get_datum(i);
+            CATCH_REQUIRE(std::equal(a.begin(), a.end(), b.begin()));
+        }
+    }
+
+    // The loader rejects Deleted or Empty slots, so this reload throws if
+    // repair_if_needed() wrongly skips the repair.
+    CATCH_SECTION("Deletions: stream save repairs and drops deleted ids") {
+        std::vector<size_t> ids_to_delete(indices.begin(), indices.begin() + 3);
+        index.delete_entries(ids_to_delete);
+        size_t live_count = index.size();
+
+        std::stringstream stream;
+        index.save(stream);
+        auto loaded =
+            svs::DynamicVamana::assemble<float, Data_t>(stream, Distance(), num_threads);
+
+        CATCH_REQUIRE(loaded.size() == live_count);
+        for (auto id : ids_to_delete) {
+            CATCH_REQUIRE(!loaded.has_id(id));
+        }
     }
 }

@@ -637,11 +637,31 @@ class MultiMutableVamanaIndex {
         const std::filesystem::path& graph_directory,
         const std::filesystem::path& data_directory
     ) {
-        // Post-consolidation, all entries should be "valid".
-        // Therefore, we don't need to save the slot metadata.
-        consolidate();
-        compact();
+        repair_if_needed();
+        save_impl(config_directory, graph_directory, data_directory);
+    }
 
+    void save(std::ostream& os) {
+        repair_if_needed();
+        save_impl(os);
+    }
+
+  private:
+    /// Skipped when the parent index needs no repair to avoid a buffer roundtrip
+    void repair_if_needed() {
+        if (index_->needs_repair()) {
+            consolidate();
+            compact();
+        }
+    }
+
+    /// Requires every slot to be Valid: slot metadata is not saved, so a Deleted or
+    /// Empty slot makes the loader reject the index.
+    void save_impl(
+        const std::filesystem::path& config_directory,
+        const std::filesystem::path& graph_directory,
+        const std::filesystem::path& data_directory
+    ) const {
         auto labels = get_labels();
         size_t num_labels = labels.size();
 
@@ -673,10 +693,9 @@ class MultiMutableVamanaIndex {
         lib::save_to_disk(index_->graph_, graph_directory);
     }
 
-    void save(std::ostream& os) {
-        consolidate();
-        compact();
-
+    /// Requires every slot to be Valid: slot metadata is not saved, so a Deleted or
+    /// Empty slot makes the loader reject the index.
+    void save_impl(std::ostream& os) const {
         auto labels = get_labels();
         size_t num_labels = labels.size();
 
