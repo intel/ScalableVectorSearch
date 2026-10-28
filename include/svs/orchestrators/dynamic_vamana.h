@@ -66,11 +66,6 @@ class DynamicVamanaInterface : public VamanaInterface {
     ) = 0;
 };
 
-// Filtered search is only enabled for uncompressed data.
-template <typename T> inline constexpr bool is_simple_data = false;
-template <typename T, size_t Extent, typename Alloc>
-inline constexpr bool is_simple_data<data::SimpleData<T, Extent, Alloc>> = true;
-
 template <lib::TypeList QueryTypes, typename Impl>
 class DynamicVamanaImpl : public VamanaImpl<QueryTypes, Impl, DynamicVamanaInterface> {
   public:
@@ -132,7 +127,7 @@ class DynamicVamanaImpl : public VamanaImpl<QueryTypes, Impl, DynamicVamanaInter
         // Indexes whose `search` has no filter argument (e.g. the concurrent index) report
         // "unsupported" like other data types.
         constexpr bool supported =
-            is_simple_data<typename Impl::data_type> &&
+            index::vamana::extensions::SupportsFilteredSearch<typename Impl::data_type>{}() &&
             requires(
                 Impl & idx,
                 svs::QueryResultView<size_t> r,
