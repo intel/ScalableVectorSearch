@@ -53,8 +53,6 @@ struct ConsolidationParameters {
     float alpha;
 };
 
-using vamana::BulkUpdate;
-
 template <std::integral I> struct ConsolidateThreadLocal {
     template <typename T> using allocator_type = threads::CacheAlignedAllocator<T>;
 
