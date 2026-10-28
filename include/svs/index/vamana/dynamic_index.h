@@ -1146,8 +1146,7 @@ class MutableVamanaIndex {
         });
     }
 
-    /// Skipped when every slot is Valid: compact() rewrites every data and graph row even
-    /// then, which dirties every page of a forked save via copy-on-write.
+    /// Skipped when every slot is Valid to avoid a buffer roundtrip
     void repair_if_needed() {
         if (needs_repair()) {
             consolidate();
