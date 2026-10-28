@@ -20,6 +20,7 @@
 #include "svs/concurrent/graph.h"
 #include "svs/concurrent/prune.h"
 #include "svs/core/distance.h"
+#include "svs/index/vamana/consolidate.h"
 #include "svs/index/vamana/extensions.h"
 #include "svs/lib/array.h"
 #include "svs/lib/threads.h"
@@ -50,69 +51,6 @@ struct ConsolidationParameters {
     size_t prune_to;
     size_t max_candidate_pool_size;
     float alpha;
-};
-
-///
-/// A helper struct to store pending updates for the consolidated graph.
-/// Represents pending updates using several large allocations rather than many small ones.
-///
-template <std::integral I> class BulkUpdate {
-  public:
-    // Constructor
-    BulkUpdate(size_t max_batch_size, size_t prune_to)
-        : neighbors_{make_dims(max_batch_size, prune_to)}
-        , lengths_{max_batch_size}
-        , needs_update_{max_batch_size} {}
-
-    ///
-    /// Pre-conditions:
-    /// * 0 <= src < max_batch_size
-    /// * neighbors.size() <= prune_to
-    /// * May be called concurrently from multiple threads as long as `src` is
-    ///   unique for each thread.
-    ///
-    template <typename Allocator>
-    void insert(size_t src, const std::vector<I, Allocator>& neighbors) {
-        assert(neighbors.size() <= getsize<1>(neighbors_));
-        assert(src < getsize<0>(neighbors_));
-
-        needs_update_.at(src) = true;
-        // N.B.: There is no way we get even close to crossing what can be
-        // expressed as a 32-bit unsigned number.
-        lengths_.at(src) = lib::narrow_cast<I>(neighbors.size());
-        std::copy(neighbors.begin(), neighbors.end(), neighbors_.slice(src).begin());
-    }
-
-    ///
-    /// Return `true` if index `src` has a pending update.
-    ///
-    bool needs_update(size_t src) const { return needs_update_.at(src); }
-
-    ///
-    /// Return the pending update for `src`.
-    /// Pre-conditions:
-    /// * `needs_update(src) == true`
-    ///
-    std::span<const I> get_update(size_t src) const {
-        assert(needs_update(src));
-        return neighbors_.slice(src).first(lengths_.at(src));
-    }
-
-    ///
-    /// Prepare the data structure for another batch of processing.
-    /// **Preconditions:**
-    ///
-    /// * Must be called from a single thread.
-    ///
-    void prepare() { std::fill(needs_update_.begin(), needs_update_.end(), false); }
-
-  private:
-    Matrix<I> neighbors_;
-    Vector<I> lengths_;
-    // N.B.: Use a `Vector` instead of a `std::vector` because `std::vector`
-    // specialized on `bool` and will thus cannot be guarantee coherent updates from
-    // multiple threads.
-    Vector<bool> needs_update_;
 };
 
 template <std::integral I> struct ConsolidateThreadLocal {
@@ -287,22 +225,6 @@ class GraphConsolidator {
                 final_candidates
             );
             graph_.replace_node(src, lib::as_const_span(final_candidates), node_lock);
-        }
-    }
-
-    ///
-    /// Write pending updates to the graph.
-    ///
-    template <typename GlobalIds>
-    void apply_updates(
-        BulkUpdate<I>& update_buffer,
-        const GlobalIds& global_ids,
-        const threads::UnitRange<size_t>& local_ids
-    ) {
-        for (auto i : local_ids) {
-            if (update_buffer.needs_update(i)) {
-                graph_.replace_node(global_ids[i], update_buffer.get_update(i));
-            }
         }
     }
 

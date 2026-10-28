@@ -49,8 +49,6 @@ class ConcurrentDynamicVamana : public DynamicVamana {
     using base_type = DynamicVamana;
     using default_graph_allocator_type =
         index::vamana::concurrent::SegmentedBlocked<HugepageAllocator<uint32_t>>;
-    using default_graph_type =
-        index::vamana::concurrent::graphs::SimpleBlockedGraph<uint32_t>;
 
     template <lib::TypeList QueryTypes, typename Impl>
     explicit ConcurrentDynamicVamana(AssembleTag tag, QueryTypes types, Impl impl)
@@ -80,7 +78,8 @@ class ConcurrentDynamicVamana : public DynamicVamana {
         std::span<const size_t> ids,
         Distance distance,
         ThreadPoolProto threadpool_proto,
-        const GraphAllocator& graph_allocator = {}
+        const GraphAllocator& graph_allocator = {},
+        svs::logging::logger_ptr logger = svs::logging::get()
     ) {
         auto threadpool = threads::as_threadpool(std::move(threadpool_proto));
         auto data =
@@ -95,7 +94,8 @@ class ConcurrentDynamicVamana : public DynamicVamana {
                     ids,
                     std::move(distance_function),
                     std::move(threadpool),
-                    graph_allocator
+                    graph_allocator,
+                    std::move(logger)
                 )
             );
         };
@@ -110,7 +110,8 @@ class ConcurrentDynamicVamana : public DynamicVamana {
     /// @brief Reload a ConcurrentDynamicVamana index from separate config, graph and data.
     ///
     /// @param config_proto Directory holding the saved index configuration, or an
-    ///     already-loaded ``index::vamana::concurrent::detail::VamanaStateLoader``.
+    ///     already-loaded ``index::vamana::detail::VamanaStateLoader`` specialized with
+    ///     ``index::vamana::concurrent::SlotMetadata``.
     /// @param graph_loader Loader (or graph) producing a concurrent ``SimpleBlockedGraph``.
     /// @param data_loader Loader (or dataset) producing ``SegmentedBlocked`` storage.
     /// @param distance Distance functor or ``svs::DistanceType`` enum.
@@ -130,6 +131,7 @@ class ConcurrentDynamicVamana : public DynamicVamana {
         DataLoader&& data_loader,
         Distance distance,
         ThreadPoolProto threadpool_proto,
+        svs::logging::logger_ptr logger = svs::logging::get(),
         bool debug_load_from_static = false
     )
         requires(!std::is_base_of_v<std::istream, std::remove_cvref_t<ConfigProto>> && !is_stream_loader_v<std::remove_cvref_t<GraphLoader>> && !is_stream_loader_v<std::remove_cvref_t<DataLoader>>)
@@ -145,7 +147,8 @@ class ConcurrentDynamicVamana : public DynamicVamana {
                     std::forward<DataLoader>(data_loader),
                     std::move(distance_function),
                     std::move(threadpool),
-                    debug_load_from_static
+                    debug_load_from_static,
+                    std::move(logger)
                 )
             );
         };
@@ -180,6 +183,7 @@ class ConcurrentDynamicVamana : public DynamicVamana {
         const DataLoader& data_loader,
         Distance distance,
         ThreadPoolProto threadpool_proto,
+        svs::logging::logger_ptr logger = svs::logging::get(),
         bool debug_load_from_static = false
     )
         requires(is_stream_loader_v<GraphLoader> && is_stream_loader_v<DataLoader>)
@@ -204,7 +208,8 @@ class ConcurrentDynamicVamana : public DynamicVamana {
                         [&]() -> Data { return data_loader.load(stream); },
                         std::move(distance_function),
                         std::move(threadpool),
-                        debug_load_from_static
+                        debug_load_from_static,
+                        std::move(logger)
                     )
                 );
             };
@@ -237,6 +242,7 @@ class ConcurrentDynamicVamana : public DynamicVamana {
             data_loader.load(data_path),
             std::move(distance),
             std::move(threadpool),
+            std::move(logger),
             debug_load_from_static
         );
     }

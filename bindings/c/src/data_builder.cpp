@@ -25,7 +25,7 @@
 #include <variant>
 
 namespace svs::c_runtime {
-// namespace {
+namespace {
 template <typename DataBuilder>
 size_t
 estimate_size(DataBuilder builder, size_t num_vectors, size_t dimension, svs::lib::Empty) {
@@ -59,19 +59,13 @@ void register_data_size_specializations(Dispatcher& dispatcher) {
         dispatcher.register_target(&estimate_size<DataBuilder>);
     };
 
-    for_simple_specializations<false>(size_closure);
-    for_leanvec_specializations<false>(size_closure);
-    for_lvq_specializations<false>(size_closure);
-    for_sq_specializations<false>(size_closure);
+    for_all_specializations<BlockKind::None>(size_closure);
 
     auto blocked_size_closure = [&dispatcher]<typename DataBuilder, typename = void>() {
         dispatcher.register_target(&estimate_blocked_size<DataBuilder>);
     };
 
-    for_simple_specializations<true>(blocked_size_closure);
-    for_leanvec_specializations<true>(blocked_size_closure);
-    for_lvq_specializations<true>(blocked_size_closure);
-    for_sq_specializations<true>(blocked_size_closure);
+    for_all_specializations<BlockKind::Blocked>(blocked_size_closure);
 }
 
 using BlocksizeArg = std::variant<svs::lib::Empty, svs::data::BlockingParameters>;
@@ -95,7 +89,7 @@ size_t dispatch_data_size_estimation(
         storage, num_vectors, dimension, std::move(block_params)
     );
 }
-//} // namespace
+} // namespace
 
 size_t estimate_data_size(const Storage* storage, size_t num_vectors, size_t dimension) {
     if (storage == nullptr) {

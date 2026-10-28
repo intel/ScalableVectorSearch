@@ -13,7 +13,7 @@
 # limitations under the License.
 
 cmake_minimum_required(VERSION 3.21)
-project(svs_c_api VERSION 0.4.0 LANGUAGES CXX C)
+project(svs_c_api VERSION 0.5.0 LANGUAGES CXX C)
 set(TARGET_NAME svs_c_api)
 
 include(GNUInstallDirs)
@@ -33,6 +33,8 @@ set(SVS_C_API_HEADERS
 
 set(SVS_C_API_SOURCES
     src/algorithm.hpp
+    src/dispatcher_concurrent_vamana.hpp
+    src/dispatcher_dynamic_vamana_copy.hpp
     src/error.hpp
     src/filtered_search.hpp
     src/index.hpp
@@ -49,6 +51,7 @@ set(SVS_C_API_SOURCES
     src/svs_c.cpp
     src/dispatcher_vamana.cpp
     src/dispatcher_dynamic_vamana.cpp
+    src/dispatcher_concurrent_vamana.cpp
     src/leanvec_training_data.cpp
     src/data_builder.cpp
     src/index_builder.cpp
@@ -154,7 +157,7 @@ if (SVS_RUNTIME_ENABLE_LVQ_LEANVEC)
     else()
         # Links to LTO-enabled static library, requires GCC/G++ 11.2
         if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" AND CMAKE_CXX_COMPILER_VERSION VERSION_GREATER_EQUAL "11.2" AND CMAKE_CXX_COMPILER_VERSION VERSION_LESS "11.3")
-            set(SVS_URL "https://github.com/intel/ScalableVectorSearch/releases/download/nightly/svs-shared-library-lto-nightly-2026-10-15-1661.tar.gz"
+            set(SVS_URL "https://github.com/intel/ScalableVectorSearch/releases/download/v0.5.0/svs-shared-library-lto.tar.gz"
                 CACHE STRING "URL to download SVS shared library")
         else()
             # The fallback is correct but slower, so nothing downstream fails and CI
@@ -169,7 +172,7 @@ if (SVS_RUNTIME_ENABLE_LVQ_LEANVEC)
                 "Pre-built LVQ/LeanVec SVS library requires GCC/G++ v.11.2 to apply LTO optimizations."
                 "Current compiler: ${CMAKE_CXX_COMPILER_ID} ${CMAKE_CXX_COMPILER_VERSION}"
             )
-            set(SVS_URL "https://github.com/intel/ScalableVectorSearch/releases/download/v0.4.0/svs-shared-library.tar.gz"
+            set(SVS_URL "https://github.com/intel/ScalableVectorSearch/releases/download/v0.5.0/svs-shared-library.tar.gz"
                 CACHE STRING "URL to download SVS shared library")
         endif()
         include(FetchContent)

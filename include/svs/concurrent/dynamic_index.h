@@ -36,7 +36,6 @@
 #include "svs/concurrent/dynamic_search_buffer.h"
 #include "svs/concurrent/graph.h"
 #include "svs/concurrent/greedy_search.h"
-#include "svs/concurrent/translation.h"
 #include "svs/concurrent/vamana_build.h"
 #include "svs/core/data.h"
 #include "svs/core/distance.h"
@@ -45,6 +44,8 @@
 #include "svs/core/medioid.h"
 #include "svs/core/query_result.h"
 #include "svs/core/recall.h"
+#include "svs/core/translation.h"
+#include "svs/index/vamana/dynamic_index.h"
 #include "svs/index/vamana/index.h"
 #include "svs/lib/boundscheck.h"
 #include "svs/lib/neighbor.h"
@@ -249,11 +250,16 @@ class MutableVamanaIndex {
     // compact() holds it exclusive.
     //
     // Lock acquisition order across the codebase:
+    //   compact_gatekeeper_ -> compact_mutex_ (never reversed)
     //   compact_mutex_ -> slot_alloc_mutex_   (never reversed)
     //   compact_mutex_ -> translator_mutex_   (never reversed)
     // slot_alloc_mutex_ and translator_mutex_ are never held simultaneously
     // (add_points takes them sequentially), so they have no relative order.
     std::unique_ptr<std::shared_mutex> compact_mutex_{
+        std::make_unique<std::shared_mutex>()};
+    // Once compaction owns this gate, new shared users cannot delay its
+    // storage lock. Readers hold the gate only while acquiring compact_mutex_.
+    std::unique_ptr<std::shared_mutex> compact_gatekeeper_{
         std::make_unique<std::shared_mutex>()};
     // Iterators check this under compact_mutex_ before reusing cached internal IDs.
     size_t compaction_epoch_ = 0;
@@ -820,7 +826,7 @@ class MutableVamanaIndex {
     /// @param new_id The external ID to assign. Must not be mapped at all.
     ///
     ReplaceExternalIdResult replace_external_id(size_t old_id, size_t new_id) {
-        std::shared_lock compact_lock{*compact_mutex_};
+        auto compact_lock = lock_storage_shared();
         std::lock_guard lock{*translator_mutex_};
 
         // The translator's own check only asks whether a mapping exists. A soft-deleted or
@@ -839,7 +845,7 @@ class MutableVamanaIndex {
     ///
     auto get_datum(size_t e) const {
         // Lock order: compact_mutex_ then translator_mutex_ (global order).
-        std::shared_lock compact_lock{*compact_mutex_};
+        auto compact_lock = lock_storage_shared();
         std::shared_lock lock{*translator_mutex_};
         if (!translator_.has_external(e)) {
             throw ANNEXCEPTION("External ID {} not found in index!", e);
@@ -855,7 +861,7 @@ class MutableVamanaIndex {
     template <typename F>
         requires std::invocable<F&, typename Data::const_value_type> bool
     on_datum(size_t e, F&& f) const {
-        std::shared_lock compact_lock{*compact_mutex_};
+        auto compact_lock = lock_storage_shared();
         std::shared_lock lock{*translator_mutex_};
         if (!unsafe_has_id(e)) {
             return false;
@@ -876,14 +882,14 @@ class MutableVamanaIndex {
     // This is an internal method, mostly used to help implement the batch iterator.
     ValidBuilder internal_search_builder() const { return ValidBuilder{status_}; }
 
-    /// @brief RAII reader lock guarding data_/graph_ against compact()'s shrink
-    /// (which frees segments). Used by BatchIterator::next() to protect the
-    /// greedy traversal — mirrors the shared lock taken by search(). Growth by
-    /// add_points needs no lock (grow-stable SegmentedVector storage).
+    /// @brief RAII shared lock guarding data_/graph_ against compact()'s shrink
+    /// (which frees segments). Used by searches, iterators and mutations that
+    /// may overlap each other but must exclude compaction.
     ///
     /// Hold this through internal-to-external ID translation. Acquire the translation
     /// lock inside this guard, preserving the compact -> translator lock order.
-    [[nodiscard]] std::shared_lock<std::shared_mutex> lock_for_search() const {
+    [[nodiscard]] std::shared_lock<std::shared_mutex> lock_storage_shared() const {
+        std::shared_lock gatekeeper_lock{*compact_gatekeeper_};
         return std::shared_lock<std::shared_mutex>(*compact_mutex_);
     }
 
@@ -935,7 +941,7 @@ class MutableVamanaIndex {
     ) const {
         // Hold compact_mutex_ shared so compact()'s shrink can't free segments
         // mid-traversal. add_points growth is lock-free (grow-stable storage).
-        std::shared_lock compact_lock{*compact_mutex_};
+        auto compact_lock = lock_storage_shared();
         extensions::single_search(
             data_,
             scratch.buffer,
@@ -954,7 +960,7 @@ class MutableVamanaIndex {
         const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>())
     ) {
         // Internal IDs must retain their meaning until translation has completed.
-        std::shared_lock compact_lock{*compact_mutex_};
+        auto compact_lock = lock_storage_shared();
         {
             threads::parallel_for(
                 threadpool_,
@@ -1105,7 +1111,7 @@ class MutableVamanaIndex {
         // Reserve slot ownership against compact(). Held for the entire call,
         // including the lock-free Phase 2-4 below; compact() takes this
         // exclusive and so will block until every in-flight add finishes.
-        std::shared_lock compact_lock{*compact_mutex_};
+        auto compact_lock = lock_storage_shared();
 
         // Phase 1: reserve slots (Empty->Pending). Pending means
         // "reserved by an in-flight add"
@@ -1309,7 +1315,7 @@ class MutableVamanaIndex {
     ///   graph.
     ///
     template <typename T> size_t delete_entries(const T& ids) {
-        std::shared_lock compact_lock{*compact_mutex_};
+        auto compact_lock = lock_storage_shared();
         std::shared_lock lock{*translator_mutex_};
         size_t deleted = 0;
         for (auto i : ids) {
@@ -1394,6 +1400,7 @@ class MutableVamanaIndex {
     ///     improve performance but requires more working memory.
     ///
     void compact(Idx batch_size = 1'000) {
+        std::lock_guard gatekeeper_lock{*compact_gatekeeper_};
         std::lock_guard compact_lock{*compact_mutex_};
 
         // All users of the old anchor have drained. A live medoid can now be
@@ -1606,7 +1613,7 @@ class MutableVamanaIndex {
 
     ///// Mutation
     void consolidate() {
-        std::shared_lock compact_lock{*compact_mutex_};
+        auto compact_lock = lock_storage_shared();
         consolidate_locked();
     }
 
@@ -1695,7 +1702,7 @@ class MutableVamanaIndex {
     /// @returns The number of listed IDs that were consolidated.
     ///
     template <typename T> size_t consolidate(const T& ids) {
-        std::shared_lock compact_lock{*compact_mutex_};
+        auto compact_lock = lock_storage_shared();
 
         // Collect the internal slots of the listed, already-soft-deleted IDs.
         tsl::robin_set<Idx> targets{};
@@ -1740,58 +1747,12 @@ class MutableVamanaIndex {
         const std::filesystem::path& graph_directory,
         const std::filesystem::path& data_directory
     ) {
-        // Post-consolidation, all entries should be "valid".
-        // Therefore, we don't need to save the slot metadata.
-        consolidate();
-        compact();
-
-        // Save auxiliary data structures.
-        lib::save_to_disk(
-            lib::SaveOverride([&](const lib::SaveContext& ctx) {
-                // Save the construction parameters.
-                return lib::SaveTable(
-                    "vamana_dynamic_auxiliary_parameters",
-                    save_version,
-                    {
-                        {"name", lib::save(name())},
-                        {"parameters", lib::save(parameters(), ctx)},
-                        {"translation", lib::save(translator_, ctx)},
-                    }
-                );
-            }),
-            config_directory
+        vamana::detail::save_dynamic_index(
+            *this, config_directory, graph_directory, data_directory
         );
-
-        // Save the dataset.
-        lib::save_to_disk(data_, data_directory);
-        // Save the graph.
-        lib::save_to_disk(graph_, graph_directory);
     }
 
-    void save(std::ostream& os) {
-        // Post-consolidation, all entries should be "valid".
-        // Therefore, we don't need to save the slot metadata.
-        consolidate();
-        compact();
-
-        lib::begin_serialization(os);
-        auto save_table = lib::SaveTable(
-            "vamana_dynamic_auxiliary_parameters",
-            save_version,
-            {
-                {"name", lib::save(name())},
-                {"parameters", lib::save(parameters())},
-                {"translation", lib::detail::exit_hook(translator_.metadata())},
-            }
-        );
-        lib::save_to_stream(save_table, os);
-        translator_.save(os);
-
-        // Save the dataset.
-        lib::save_to_stream(data_, os);
-        // Save the graph.
-        lib::save_to_stream(graph_, os);
-    }
+    void save(std::ostream& os) { vamana::detail::save_dynamic_index(*this, os); }
 
     /////
     ///// Calibrate
@@ -1814,32 +1775,14 @@ class MutableVamanaIndex {
         double target_recall,
         const CalibrationParameters& calibration_parameters = {}
     ) {
-        // Preallocate the destination for search.
-        // Further, reference the search lambda in the recall lambda.
-        auto results = svs::QueryResult<size_t>{queries.size(), num_neighbors};
-
-        auto do_search = [&](const search_parameters_type& p) {
-            this->search(results.view(), queries, p);
-        };
-
-        auto compute_recall = [&](const search_parameters_type& p) {
-            // Calling `do_search` will mutate `results`.
-            do_search(p);
-            return svs::k_recall_at_n(results, groundtruth, num_neighbors, num_neighbors);
-        };
-
-        auto p = vamana::calibrate(
-            calibration_parameters,
+        return vamana::detail::calibrate_dynamic_index(
             *this,
+            queries,
+            groundtruth,
             num_neighbors,
             target_recall,
-            compute_recall,
-            do_search,
-            logger_
+            calibration_parameters
         );
-
-        set_search_parameters(p);
-        return p;
     }
 
     /// @brief Reconstruct vectors.
@@ -1877,7 +1820,7 @@ class MutableVamanaIndex {
         // Lock order: compact_mutex_ then translator_mutex_ (global order).
         // compact_mutex_ shared guards data_/graph_ against compact()'s shrink;
         // translator_mutex_ shared guards the ID translation reads below.
-        std::shared_lock compact_lock{*compact_mutex_};
+        auto compact_lock = lock_storage_shared();
         std::shared_lock lock{*translator_mutex_};
 
         // Bounds checking.
@@ -2040,7 +1983,7 @@ class MutableVamanaIndex {
         // Lock order: compact_mutex_ then translator_mutex_ (global order).
         // compact_mutex_ shared guards data_ against compact()'s shrink;
         // translator_mutex_ shared guards the ID translation read.
-        std::shared_lock compact_lock{*compact_mutex_};
+        auto compact_lock = lock_storage_shared();
         std::shared_lock lock{*translator_mutex_};
 
         // Check if the external ID exists
@@ -2224,60 +2167,6 @@ MutableVamanaIndex(
     svs::logging::logger_ptr
 ) -> MutableVamanaIndex<graphs::SimpleBlockedGraph<uint32_t>, Data, Dist>;
 
-namespace detail {
-
-struct VamanaStateLoader {
-    ///// Loading
-    static bool
-    check_load_compatibility(std::string_view schema, const lib::Version& version) {
-        // We provide the option to load from a static index.
-        return VamanaIndexParameters::check_load_compatibility(schema, version) ||
-               (schema == "vamana_dynamic_auxiliary_parameters" &&
-                version == lib::Version(0, 0, 0));
-    }
-
-    // Provide a compatibility path for loading static datasets.
-    static VamanaStateLoader
-    load(const lib::LoadTable& table, bool debug_load_from_static, size_t assume_datasize) {
-        if (debug_load_from_static) {
-            return VamanaStateLoader{
-                lib::load<VamanaIndexParameters>(table),
-                IDTranslator::Identity(assume_datasize),
-                std::vector<SlotMetadata>(assume_datasize, SlotMetadata::Valid)};
-        }
-
-        return VamanaStateLoader{
-            SVS_LOAD_MEMBER_AT_(table, parameters),
-            svs::lib::load_at<IDTranslator>(table, "translation"),
-            std::vector<SlotMetadata>(assume_datasize, SlotMetadata::Valid),
-        };
-    }
-
-    ///// Members
-    VamanaIndexParameters parameters_;
-    IDTranslator translator_;
-    std::vector<SlotMetadata> status_;
-};
-
-template <typename ConfigProto>
-VamanaStateLoader auto_load_state(
-    ConfigProto&& config_proto,
-    [[maybe_unused]] bool debug_load_from_static,
-    [[maybe_unused]] size_t assume_datasize
-) {
-    if constexpr (std::is_convertible_v<ConfigProto, std::filesystem::path>) {
-        return lib::load_from_disk<VamanaStateLoader>(
-            std::filesystem::path(std::forward<ConfigProto>(config_proto)),
-            debug_load_from_static,
-            assume_datasize
-        );
-    } else {
-        return svs::detail::dispatch_load(std::forward<ConfigProto>(config_proto));
-    }
-}
-
-} // namespace detail
-
 ///
 /// @brief Build an index whose data and graph both use grow-stable storage.
 ///
@@ -2401,7 +2290,7 @@ auto auto_dynamic_assemble(
     //     }
     // }};
     // auto [parameters, translator] = lib::load_from_disk(reloader, config_path);
-    auto [parameters, translator, status] = detail::auto_load_state(
+    auto [parameters, translator, status] = vamana::detail::auto_load_state<SlotMetadata>(
         std::forward<ConfigProto>(config_proto), debug_load_from_static, datasize
     );
 

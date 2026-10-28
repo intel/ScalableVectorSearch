@@ -41,7 +41,7 @@ FetchContent_Declare(
 )
 
 FetchContent_MakeAvailable(Catch2)
-set(CMAKE_CXX_STANDARD ${PRESET_CMAKE_CXX_STANRARD})
+set(CMAKE_CXX_STANDARD ${PRESET_CMAKE_CXX_STANDARD})
 
 # Add top level test executable and link with the unit test library.
 set(TEST_DIR ${CMAKE_CURRENT_LIST_DIR})
@@ -253,6 +253,13 @@ list(APPEND CMAKE_MODULE_PATH ${catch2_SOURCE_DIR}/extras)
 include(CTest)
 include(Catch)
 catch_discover_tests(tests ADD_TAGS_AS_LABELS SKIP_IS_FAILURE)
+
+option(SVS_TEST_CONCURRENT_FULL_SIZE
+    "Run the concurrent MutableVamanaIndex tests at full (stress) problem size (slow)" OFF
+)
+if (SVS_TEST_CONCURRENT_FULL_SIZE)
+    target_compile_definitions(tests PRIVATE SVS_TEST_CONCURRENT_FULL_SIZE)
+endif()
 
 #####
 ##### ThreadSanitizer targets for the concurrent index
