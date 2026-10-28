@@ -675,3 +675,47 @@ CATCH_TEST_CASE("Dynamic Vamana Index Default Parameters", "[parameter][vamana]"
         );
     }
 }
+
+CATCH_TEST_CASE(
+    "Dynamic Vamana Index Compact After Far-Away Point", "[graph_index][dynamic_index]"
+) {
+    // A point whose squared distances overflow float made consolidate pick a deleted
+    // point as the new entry point, and compact then failed with "Couldn't find key."
+    const size_t dims = 8;
+    const size_t num_points = 500;
+    std::mt19937 rng(1234);
+    std::uniform_real_distribution<float> uniform(0, 1);
+    auto data = svs::data::BlockedData<float>(num_points, dims);
+    std::vector<float> datum(dims);
+    for (size_t i = 0; i < num_points; ++i) {
+        std::generate(datum.begin(), datum.end(), [&]() { return uniform(rng); });
+        data.set_datum(i, datum);
+    }
+    std::vector<size_t> ids(num_points);
+    std::iota(ids.begin(), ids.end(), 0);
+
+    svs::index::vamana::VamanaBuildParameters parameters{1.2, 32, 64, 1000, 28, true};
+    auto index = svs::index::vamana::MutableVamanaIndex(
+        parameters, std::move(data), ids, Distance(), 2
+    );
+
+    auto far_point = svs::data::SimpleData<float>(1, dims);
+    far_point.set_datum(0, std::vector<float>(dims, 3e38f));
+    index.add_points(far_point, std::vector<size_t>{num_points});
+
+    // Delete the entry point, so consolidate must choose a new one, and point 0, which
+    // consolidate used to fall back to when no distance was below the float sentinel.
+    size_t entry_point = index.translate_internal_id(index.entry_point());
+    std::vector<size_t> to_delete{entry_point};
+    if (entry_point != 0) {
+        to_delete.push_back(0);
+    }
+    index.delete_entries(to_delete);
+    index.consolidate();
+    CATCH_REQUIRE(!index.is_deleted(index.entry_point()));
+
+    index.compact();
+    index.debug_check_invariants(false);
+    CATCH_REQUIRE(index.size() == num_points + 1 - to_delete.size());
+    CATCH_REQUIRE(index.has_id(num_points));
+}
