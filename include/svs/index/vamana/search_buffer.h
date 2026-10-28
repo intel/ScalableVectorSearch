@@ -43,28 +43,17 @@ class SearchBufferConfig {
     size_t search_window_size_{0};
     size_t total_capacity_{0};
 
-    // Tags to bypass invariant checks.
-    struct BypassInvariantCheckTag {};
-
   public:
     constexpr SearchBufferConfig() = default;
 
-    SearchBufferConfig(
-        BypassInvariantCheckTag, size_t search_window_size, size_t total_capacity
-    )
-        : search_window_size_{search_window_size}
-        , total_capacity_{total_capacity} {}
-
+    // A capacity smaller than the window size is raised to the window size.
+    // Callers such as FAISS pass a default capacity alongside a user-chosen window
+    // size, so rejecting the pair would fail searches the user never misconfigured.
     SearchBufferConfig(size_t search_window_size, size_t total_capacity)
-        : SearchBufferConfig(
-              BypassInvariantCheckTag(), search_window_size, total_capacity
-          ) {
-        check_invariants();
-    }
+        : search_window_size_{search_window_size}
+        , total_capacity_{std::max(search_window_size, total_capacity)} {}
     /*not explicit*/ SearchBufferConfig(size_t search_window_size)
-        : SearchBufferConfig(
-              BypassInvariantCheckTag(), search_window_size, search_window_size
-          ) {}
+        : SearchBufferConfig(search_window_size, search_window_size) {}
 
     // Increment both the window size and capacity.
     void increment(size_t by) {
@@ -80,17 +69,6 @@ class SearchBufferConfig {
     // Read-only accessors.
     size_t get_search_window_size() const { return search_window_size_; }
     size_t get_total_capacity() const { return total_capacity_; }
-
-    void check_invariants() const {
-        if (search_window_size_ > total_capacity_) {
-            throw ANNEXCEPTION(
-                "Improper configuration for search buffer! Effective size ({}) cannot be "
-                "less than capacity ({}).",
-                search_window_size_,
-                total_capacity_
-            );
-        }
-    }
 
     friend bool operator==(SearchBufferConfig, SearchBufferConfig) = default;
 };
