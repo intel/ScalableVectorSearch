@@ -259,6 +259,7 @@ template <typename Data, typename Dist> class DynamicFlatIndex {
         // Try to update the id translation now that we have internal ids.
         // If this fails, we still haven't mutated the index data structure so we're safe
         // to throw an exception.
+        translator_.reserve(status_.size());
         translator_.insert(external_ids, slots);
 
         // Copy the given points into the data.
@@ -364,6 +365,7 @@ template <typename Data, typename Dist> class DynamicFlatIndex {
             }
         }
         status_.resize(max_index);
+        translator_.shrink(max_index);
     }
 
     ///// Consolidation
