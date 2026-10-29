@@ -611,10 +611,9 @@ void svs_invoke(
             if constexpr (requires { search.pred; }) {
                 if (j >= search_buffer.size()) { // Filtered: fewer than k passed.
                     result.index(i, j) = static_cast<I>(-1);
-                    result.distance(i, j) =
-                        distance::comparator(distance)(0.0f, 1.0f)
-                            ? std::numeric_limits<float>::infinity()
-                            : -std::numeric_limits<float>::infinity();
+                    result.distance(i, j) = distance::comparator(distance)(0.0f, 1.0f)
+                                                ? std::numeric_limits<float>::infinity()
+                                                : -std::numeric_limits<float>::infinity();
                     continue;
                 }
             }
