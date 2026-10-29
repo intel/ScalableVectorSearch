@@ -127,7 +127,8 @@ class DynamicVamanaImpl : public VamanaImpl<QueryTypes, Impl, DynamicVamanaInter
         // Indexes whose `search` has no filter argument (e.g. the concurrent index) report
         // "unsupported" like other data types.
         constexpr bool supported =
-            index::vamana::extensions::SupportsFilteredSearch<typename Impl::data_type>{}() &&
+            index::vamana::extensions::SupportsFilteredSearch<typename Impl::data_type>{}(
+            ) &&
             requires(
                 Impl & idx,
                 svs::QueryResultView<size_t> r,
