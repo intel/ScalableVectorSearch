@@ -27,6 +27,7 @@
 #include <svs/concurrent/graph.h>
 #include <svs/concurrent/spinlock.h>
 #include <svs/core/distance.h>
+#include <svs/core/translation.h>
 #include <svs/index/vamana/build_params.h>
 #include <svs/orchestrators/concurrent_dynamic_vamana.h>
 
@@ -111,7 +112,7 @@ struct ConcurrentVamanaFlavor {
         );
         svs::data::copy(src_graph.get_data(), graph.get_data());
 
-        auto translator = cc::IDTranslator{};
+        auto translator = svs::IDTranslator{};
         translator.insert(external_ids, internal_ids);
         auto concurrent_status = std::vector<cc::SlotMetadata>();
         concurrent_status.reserve(status.size());
@@ -191,7 +192,6 @@ svs::DynamicVamana load_concurrent_vamana_index(
         std::move(data),
         std::move(D),
         std::move(pool),
-        /*debug_load_from_static=*/false,
         std::move(logger)
     );
 }

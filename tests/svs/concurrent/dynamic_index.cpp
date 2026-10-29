@@ -31,6 +31,7 @@
 
 // svs
 #include "svs/core/recall.h"
+#include "svs/lib/spinlock.h"
 #include "svs/lib/timing.h"
 
 // catch2
@@ -608,7 +609,7 @@ CATCH_TEST_CASE(
     // policy. So pin the directory and require a non-empty payload on top of it.
     using ReverseList = typename ConcurrentGraph::reverse_edges_type::list_type;
     const size_t expected_reverse_directory_bytes =
-        segmented_capacity * (sizeof(ReverseList) + sizeof(cc::SpinLock));
+        segmented_capacity * (sizeof(ReverseList) + sizeof(svs::SpinLock));
 
     // Dynamic get_memory_usage() should exactly match the capacity-based graph and data
     // bytes plus the deterministic metadata implied by the input ids, plus the
