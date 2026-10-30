@@ -12,6 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# Vendored headers must stay byte-identical to upstream; include/svs/third-party/pot/README.md lists their hashes.
+exclude: ^include/svs/third-party/pot/
+
 repos:
   - repo: https://github.com/pre-commit/mirrors-clang-format
     rev: "ea59a72ffc9a1ce6b79b02a8076d031aa7ea7805" # v15.0.7
