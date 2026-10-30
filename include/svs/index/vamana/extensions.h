@@ -501,7 +501,8 @@ SVS_FORCE_INLINE void svs_invoke(
     if constexpr (Index::needs_id_translation) {
         const std::function<bool(size_t)>* filter = nullptr;
         if constexpr (requires { search.filter; }) {
-            filter = search.filter; // Filtered search: keep filtered-out ids out of the top-up.
+            filter =
+                search.filter; // Filtered search: keep filtered-out ids out of the top-up.
         }
         check_and_supplement_search_buffer(index, search_buffer, query, filter);
     }

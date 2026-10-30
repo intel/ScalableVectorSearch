@@ -629,9 +629,9 @@ class MutableVamanaIndex {
         const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>()),
         const std::function<bool(size_t)>* filter = nullptr
     ) {
-        // Optional `filter`: only entries whose external id passes are returned. It is called
-        // from all search threads. Rows with fewer passing entries than requested are
-        // padded with id `size_t(-1)` and the worst score.
+        // Optional `filter`: only entries whose external id passes are returned. It is
+        // called from all search threads. Rows with fewer passing entries than requested
+        // are padded with id `size_t(-1)` and the worst score.
         threads::parallel_for(
             threadpool_,
             threads::StaticPartition{queries.size()},
@@ -647,7 +647,9 @@ class MutableVamanaIndex {
                 // Filtered: the buffer checks the filter itself (two heaps).
                 std::function<bool(Idx)> internal_filter;
                 if (filter != nullptr) {
-                    internal_filter = [&](Idx i) { return (*filter)(translator_.get_external(i)); };
+                    internal_filter = [&](Idx i) {
+                        return (*filter)(translator_.get_external(i));
+                    };
                     buffer.enable_heap(&internal_filter);
                 }
 
