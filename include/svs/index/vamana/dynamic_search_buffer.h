@@ -696,7 +696,8 @@ template <typename Idx, typename Cmp = std::less<>> class MutableBuffer {
         }
         to_visit_.push_back(neighbor);
         std::push_heap(to_visit_.begin(), to_visit_.end(), to_visit_compare());
-        // Only valid entries that pass the filter become results; the rest are only visited.
+        // Only valid entries that pass the filter become results; the rest are only
+        // visited.
         if (!neighbor.valid() || !(*internal_filter_)(neighbor.id())) {
             return size();
         }
