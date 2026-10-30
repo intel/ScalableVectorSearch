@@ -100,9 +100,9 @@ template <typename Idx, typename Cmp = std::less<>> class MutableBuffer {
     // results: a max-heap of the best valid entries that pass the filter (worst on top).
     // `cleanup()` sorts `candidates_` once at the end.
     // `seen_`: ids already queued in this search (exact duplicate check).
-    // `passes_`: the filter, called with an internal id.
+    // `internal_filter_`: the filter, called with an internal id.
     bool use_heap_ = false;
-    const std::function<bool(Idx)>* passes_ = nullptr;
+    const std::function<bool(Idx)>* internal_filter_ = nullptr;
     bool heap_done_ = false;
     vector_type to_visit_{};
     std::unordered_set<Idx> seen_{};
@@ -239,10 +239,10 @@ template <typename Idx, typename Cmp = std::less<>> class MutableBuffer {
     size_t capacity() const { return candidates_.capacity(); }
 
     /// @brief Use two heaps during search (search window = capacity). A neighbor enters the
-    /// results only if `*passes` accepts its internal id.
-    void enable_heap(const std::function<bool(Idx)>* passes) {
-        use_heap_ = passes != nullptr;
-        passes_ = passes;
+    /// results only if `*internal_filter` accepts its internal id.
+    void enable_heap(const std::function<bool(Idx)>* internal_filter) {
+        use_heap_ = internal_filter != nullptr;
+        internal_filter_ = internal_filter;
     }
 
     /// @brief Return the number of valid elements currently contained in the buffer.
@@ -697,7 +697,7 @@ template <typename Idx, typename Cmp = std::less<>> class MutableBuffer {
         to_visit_.push_back(neighbor);
         std::push_heap(to_visit_.begin(), to_visit_.end(), to_visit_compare());
         // Only valid entries that pass the filter become results; the rest are only visited.
-        if (!neighbor.valid() || !(*passes_)(neighbor.id())) {
+        if (!neighbor.valid() || !(*internal_filter_)(neighbor.id())) {
             return size();
         }
         // Keep it among the best `valid_capacity_` results (drop the worst).

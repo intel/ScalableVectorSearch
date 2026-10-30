@@ -627,9 +627,9 @@ class MutableVamanaIndex {
         const Queries& queries,
         const search_parameters_type& sp,
         const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>()),
-        const std::function<bool(size_t)>* pred = nullptr
+        const std::function<bool(size_t)>* filter = nullptr
     ) {
-        // Optional `pred`: only entries whose external id passes are returned. It is called
+        // Optional `filter`: only entries whose external id passes are returned. It is called
         // from all search threads. Rows with fewer passing entries than requested are
         // padded with id `size_t(-1)` and the worst score.
         threads::parallel_for(
@@ -645,10 +645,10 @@ class MutableVamanaIndex {
                     distance::comparator(distance_),
                     sp.search_buffer_visited_set_};
                 // Filtered: the buffer checks the filter itself (two heaps).
-                std::function<bool(Idx)> passes;
-                if (pred != nullptr) {
-                    passes = [&](Idx i) { return (*pred)(translator_.get_external(i)); };
-                    buffer.enable_heap(&passes);
+                std::function<bool(Idx)> internal_filter;
+                if (filter != nullptr) {
+                    internal_filter = [&](Idx i) { return (*filter)(translator_.get_external(i)); };
+                    buffer.enable_heap(&internal_filter);
                 }
 
                 auto prefetch_parameters = GreedySearchPrefetchParameters{
@@ -670,10 +670,10 @@ class MutableVamanaIndex {
                     );
                 };
                 auto search = greedy_search_closure(prefetch_parameters, cancel);
-                if (pred == nullptr) {
+                if (filter == nullptr) {
                     run(search);
                 } else {
-                    run(extensions::FilteredSearch<decltype(search)>{search, pred});
+                    run(extensions::FilteredSearch<decltype(search)>{search, filter});
                 }
             }
         );
