@@ -124,11 +124,9 @@ class DynamicVamanaImpl : public VamanaImpl<QueryTypes, Impl, DynamicVamanaInter
         const index::vamana::VamanaSearchParameters& search_parameters,
         const std::function<bool(size_t)>& filter
     ) override {
-        // Indexes whose `search` has no filter argument (e.g. the concurrent index) report
-        // "unsupported" like other data types.
+        // Filtered search is available for every data type. Indexes whose `search` has no
+        // filter argument (e.g. the concurrent index) report "unsupported".
         constexpr bool supported =
-            index::vamana::extensions::SupportsFilteredSearch<typename Impl::data_type>{}(
-            ) &&
             requires(
                 Impl & idx,
                 svs::QueryResultView<size_t> r,
