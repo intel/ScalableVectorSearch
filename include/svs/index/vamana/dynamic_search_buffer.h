@@ -99,10 +99,10 @@ template <typename Idx, typename Cmp = std::less<>> class MutableBuffer {
     // Optional (`enable_heap`): keep `candidates_` as a max-heap (worst entry on top)
     // instead of a sorted list while searching. `cleanup()` sorts it once at the end and
     // returns to the sorted-list behaviour.
-    // `passes_`: the filter, called with an internal id; a neighbor that fails it stays in
+    // `internal_filter_`: the filter, called with an internal id; a neighbor that fails it stays in
     // the buffer (it is still visited) but is marked not valid.
     bool use_heap_ = false;
-    const std::function<bool(Idx)>* passes_ = nullptr;
+    const std::function<bool(Idx)>* internal_filter_ = nullptr;
     bool heap_sorted_ = false;
     // Cached index of the best unvisited entry (`size()` if none); `npos` if stale.
     static constexpr size_t npos = std::numeric_limits<size_t>::max();
@@ -238,10 +238,10 @@ template <typename Idx, typename Cmp = std::less<>> class MutableBuffer {
     size_t capacity() const { return candidates_.capacity(); }
 
     /// @brief Keep the buffer as a max-heap during search (search window = capacity). A
-    /// neighbor is valid only if it also passes `*passes` (called with its internal id).
-    void enable_heap(const std::function<bool(Idx)>* passes) {
-        use_heap_ = passes != nullptr;
-        passes_ = passes;
+    /// neighbor is valid only if it also passes `*internal_filter` (called with its internal id).
+    void enable_heap(const std::function<bool(Idx)>* internal_filter) {
+        use_heap_ = internal_filter != nullptr;
+        internal_filter_ = internal_filter;
     }
 
     /// @brief Return the number of valid elements currently contained in the buffer.
@@ -685,7 +685,7 @@ template <typename Idx, typename Cmp = std::less<>> class MutableBuffer {
             }
         }
         // Only now (the entry could improve the results) is the filter called.
-        if (neighbor.valid() && !(*passes_)(neighbor.id())) {
+        if (neighbor.valid() && !(*internal_filter_)(neighbor.id())) {
             neighbor = value_type(neighbor.id(), neighbor.distance(), false);
         }
         candidates_.push_back(neighbor);

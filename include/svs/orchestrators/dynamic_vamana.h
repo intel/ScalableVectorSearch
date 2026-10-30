@@ -131,8 +131,8 @@ class DynamicVamanaImpl : public VamanaImpl<QueryTypes, Impl, DynamicVamanaInter
             svs::QueryResultView<size_t> r,
             data::ConstSimpleDataView<float> q,
             const index::vamana::VamanaSearchParameters& sp,
-            const std::function<bool(size_t)>* pred
-        ) { idx.search(r, q, sp, lib::Returns(lib::Const<false>()), pred); };
+            const std::function<bool(size_t)>* filter
+        ) { idx.search(r, q, sp, lib::Returns(lib::Const<false>()), filter); };
         if constexpr (supported) {
             lib::match(
                 QueryTypes{},
