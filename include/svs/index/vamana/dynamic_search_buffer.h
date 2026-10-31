@@ -104,7 +104,9 @@ template <typename Idx, typename Cmp = std::less<>> class MutableBuffer {
     // `internal_filter_`: the filter, called with an internal id.
     bool use_heap_ = false;
     const std::function<bool(Idx)>* internal_filter_ = nullptr;
-    bool heap_done_ = false;
+    // `heap_mode_` is `use_heap_` until `cleanup()`; it is a single flag so the sorted-list
+    // path pays one load per check.
+    bool heap_mode_ = false;
     vector_type to_visit_{};
     vector_type extras_{};
     std::unordered_set<Idx> seen_{};
@@ -214,7 +216,7 @@ template <typename Idx, typename Cmp = std::less<>> class MutableBuffer {
         to_visit_.clear();
         extras_.clear();
         seen_.clear();
-        heap_done_ = false;
+        heap_mode_ = use_heap_;
         best_unvisited_ = 0;
         roi_end_ = 0;
         valid_ = 0;
@@ -247,6 +249,7 @@ template <typename Idx, typename Cmp = std::less<>> class MutableBuffer {
     /// its internal id.
     void enable_heap(const std::function<bool(Idx)>* internal_filter) {
         use_heap_ = internal_filter != nullptr;
+        heap_mode_ = use_heap_;
         internal_filter_ = internal_filter;
         if (use_heap_) {
             extras_.reserve(valid_capacity_ - target_valid_);
@@ -297,7 +300,7 @@ template <typename Idx, typename Cmp = std::less<>> class MutableBuffer {
     /// N.B.: If `done()` evaluates to `true`, do not try to extract further candidates
     /// from it using `next()`.
     bool done() const {
-        if (heap_mode()) {
+        if (heap_mode()) [[unlikely]] {
             // Nothing left to visit, or the best one is worse than the worst result.
             return to_visit_.empty() ||
                    (candidates_.size() == target_valid_ &&
@@ -318,7 +321,7 @@ template <typename Idx, typename Cmp = std::less<>> class MutableBuffer {
     /// Post-conditions:
     /// * The returned neighbor will be marked as visited.
     const_reference next() {
-        if (heap_mode()) {
+        if (heap_mode()) [[unlikely]] {
             std::pop_heap(to_visit_.begin(), to_visit_.end(), to_visit_compare());
             popped_ = to_visit_.back();
             to_visit_.pop_back();
@@ -345,7 +348,7 @@ template <typename Idx, typename Cmp = std::less<>> class MutableBuffer {
     ///
     /// Therefore, sequences of `push_back` must always be followed by a call to `sort`.
     void push_back(value_type neighbor) {
-        if (heap_mode()) {
+        if (heap_mode()) [[unlikely]] {
             heap_insert(neighbor);
             return;
         }
@@ -500,7 +503,7 @@ template <typename Idx, typename Cmp = std::less<>> class MutableBuffer {
 
     /// Insert the given neighbor into the search buffer.
     size_t insert(value_type neighbor) {
-        if (heap_mode()) {
+        if (heap_mode()) [[unlikely]] {
             return heap_insert(neighbor);
         }
         if (can_skip(neighbor.distance())) {
@@ -555,7 +558,7 @@ template <typename Idx, typename Cmp = std::less<>> class MutableBuffer {
 
     // Sort all stored elements in the buffer.
     void sort() {
-        if (heap_mode()) {
+        if (heap_mode()) [[unlikely]] {
             return; // Both heaps are kept in order on every insert.
         }
         assert(valid() <= valid_capacity_);
@@ -607,7 +610,7 @@ template <typename Idx, typename Cmp = std::less<>> class MutableBuffer {
 
     // TODO: Switch over to using iterators for the return values to avoid this.
     void cleanup() {
-        if (heap_mode()) {
+        if (heap_mode()) [[unlikely]] {
             // `candidates_` and `extras_` hold only valid entries: merge, sort once, then
             // continue as a sorted list (e.g. for the re-rank and the top-up).
             candidates_.insert(candidates_.end(), extras_.begin(), extras_.end());
@@ -615,7 +618,7 @@ template <typename Idx, typename Cmp = std::less<>> class MutableBuffer {
             extras_.clear();
             to_visit_.clear();
             seen_.clear();
-            heap_done_ = true;
+            heap_mode_ = false;
         }
         auto new_end =
             std::remove_if(begin(), end(), [](const auto& x) { return !x.valid(); });
@@ -682,7 +685,7 @@ template <typename Idx, typename Cmp = std::less<>> class MutableBuffer {
     }
 
   private:
-    bool heap_mode() const { return use_heap_ && !heap_done_; }
+    bool heap_mode() const { return heap_mode_; }
 
     // `to_visit_`: the best entry on top.
     auto to_visit_compare() const {

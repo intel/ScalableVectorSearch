@@ -582,7 +582,7 @@ class MutableVamanaIndex {
         GreedySearchPrefetchParameters prefetch_parameters,
         const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>())
     ) const {
-        return [&, prefetch_parameters](
+        return [&, prefetch_parameters] [[gnu::always_inline]] (
                    const auto& query, auto& accessor, auto& distance, auto& buffer
                ) {
             // Perform the greedy search using the provided resources.
