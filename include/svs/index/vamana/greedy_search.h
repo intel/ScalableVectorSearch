@@ -121,7 +121,7 @@ template <
     typename Initializer,
     typename Builder,
     GreedySearchTracker<typename Graph::index_type> Tracker>
-SVS_FORCE_INLINE void greedy_search(
+void greedy_search(
     const Graph& graph,
     const Dataset& dataset,
     Accessor& accessor,
@@ -213,7 +213,7 @@ template <
     typename Buffer,
     typename Initializer,
     typename Builder = NeighborBuilder>
-SVS_FORCE_INLINE void greedy_search(
+void greedy_search(
     const Graph& graph,
     const Dataset& dataset,
     Accessor& accessor,

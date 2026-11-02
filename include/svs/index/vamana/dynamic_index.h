@@ -600,9 +600,9 @@ class MutableVamanaIndex {
         const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>()),
         const std::function<bool(size_t)>* filter = nullptr
     ) const {
-        return [&, prefetch_parameters, filter] [[gnu::always_inline]] (
-                   const auto& query, auto& accessor, auto& distance, auto& buffer
-               ) {
+        return [&,
+                prefetch_parameters,
+                filter](const auto& query, auto& accessor, auto& distance, auto& buffer) {
             // Perform the greedy search using the provided resources.
             greedy_search(
                 graph_,
