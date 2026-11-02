@@ -177,12 +177,9 @@ std::vector<size_t> filtered_topk_search(
         auto params = index.get_search_parameters();
         params.buffer_config_ = svs::index::vamana::SearchBufferConfig{
             std::max(results.n_neighbors(), initial_batch_hint)};
-        if (index.filtered_search(
-                results.view(),
-                queries,
-                params,
-                [id_filter](size_t id) { return id_filter->is_member(id); }
-            )) {
+        if (index.filtered_search(results.view(), queries, params, [id_filter](size_t id) {
+                return id_filter->is_member(id);
+            })) {
             std::vector<size_t> found(queries.size(), 0);
             for (size_t i = 0; i < queries.size(); ++i) {
                 for (size_t j = 0; j < results.n_neighbors(); ++j) {
