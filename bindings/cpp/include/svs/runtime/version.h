@@ -46,12 +46,12 @@
 
 #ifndef SVS_RUNTIME_VERSION_PATCH
 /// Patch version number - incremented for backward-compatible bug fixes
-#define SVS_RUNTIME_VERSION_PATCH 0
+#define SVS_RUNTIME_VERSION_PATCH 1
 #endif
 
 #ifndef SVS_RUNTIME_VERSION_STRING
 /// Complete version string
-#define SVS_RUNTIME_VERSION_STRING "0.5.0"
+#define SVS_RUNTIME_VERSION_STRING "0.5.1"
 #endif
 
 #ifndef SVS_RUNTIME_API_VERSION
