@@ -51,11 +51,11 @@ struct NoMutableBufferHeapState {};
 /// The search buffer will still navigate through those entries, but it won't include
 /// them in its final result.
 ///
-/// With `HeapMode == true` the buffer uses two heaps while searching and takes the filter
-/// through `enable_heap()`. With `HeapMode == false` (the default) none of the heap code or
+/// With `Filtered == true` the buffer takes a filter through `set_filter()` and uses two
+/// heaps while searching. With `Filtered == false` (the default) none of the heap code or
 /// state exists.
 ///
-template <typename Idx, typename Cmp = std::less<>, bool HeapMode = false>
+template <typename Idx, typename Cmp = std::less<>, bool Filtered = false>
 class MutableBuffer {
   public:
     // Type Aliases
@@ -113,7 +113,7 @@ class MutableBuffer {
     vector_type candidates_{};
     // An optional visited filter.
     std::optional<set_type> visited_{std::nullopt};
-    // `HeapMode` only (`enable_heap`): two heaps while searching. `to_visit_` is a
+    // `Filtered` only (`set_filter`): two heaps while searching. `to_visit_` is a
     // min-heap of entries still to visit (best on top). Until `cleanup()`, `candidates_`
     // holds the results: a max-heap of the best `target_valid_` valid entries that pass
     // the filter (worst on top). `extras_` is a max-heap of the next best passing entries,
@@ -121,7 +121,7 @@ class MutableBuffer {
     // `seen_`: ids already queued in this search (exact duplicate check).
     // `internal_filter_`: the filter, called with an internal id.
     [[no_unique_address]] std::conditional_t<
-        HeapMode,
+        Filtered,
         detail::MutableBufferHeapState<Idx, vector_type>,
         detail::NoMutableBufferHeapState>
         heap_{};
@@ -227,7 +227,7 @@ class MutableBuffer {
     /// @brief Prepare the buffer for a new search operation.
     void clear() {
         candidates_.clear();
-        if constexpr (HeapMode) {
+        if constexpr (Filtered) {
             heap_.to_visit_.clear();
             heap_.extras_.clear();
             heap_.seen_.clear();
@@ -263,11 +263,18 @@ class MutableBuffer {
     /// `target_window()` entries and bounds the search; up to `target_capacity()` entries
     /// are kept in total. A neighbor enters the results only if `*internal_filter` accepts
     /// its internal id.
-    void enable_heap(const std::function<bool(Idx)>* internal_filter)
-        requires HeapMode
+    void set_filter(const std::function<bool(Idx)>* internal_filter)
+        requires Filtered
     {
         heap_.internal_filter_ = internal_filter;
         heap_.extras_.reserve(valid_capacity_ - target_valid_);
+    }
+
+    /// @brief The filter given to `set_filter`.
+    const std::function<bool(Idx)>* filter() const
+        requires Filtered
+    {
+        return heap_.internal_filter_;
     }
 
     /// @brief Return the number of valid elements currently contained in the buffer.
@@ -314,7 +321,7 @@ class MutableBuffer {
     /// N.B.: If `done()` evaluates to `true`, do not try to extract further candidates
     /// from it using `next()`.
     bool done() const {
-        if constexpr (HeapMode) {
+        if constexpr (Filtered) {
             if (!heap_.done_) {
                 // Nothing left to visit, or the best one is worse than the worst result.
                 return heap_.to_visit_.empty() || (candidates_.size() == target_valid_ &&
@@ -339,7 +346,7 @@ class MutableBuffer {
     /// Post-conditions:
     /// * The returned neighbor will be marked as visited.
     const_reference next() {
-        if constexpr (HeapMode) {
+        if constexpr (Filtered) {
             if (!heap_.done_) {
                 std::pop_heap(
                     heap_.to_visit_.begin(), heap_.to_visit_.end(), to_visit_compare()
@@ -370,7 +377,7 @@ class MutableBuffer {
     ///
     /// Therefore, sequences of `push_back` must always be followed by a call to `sort`.
     void push_back(value_type neighbor) {
-        if constexpr (HeapMode) {
+        if constexpr (Filtered) {
             if (!heap_.done_) {
                 heap_insert(neighbor);
                 return;
@@ -527,7 +534,7 @@ class MutableBuffer {
 
     /// Insert the given neighbor into the search buffer.
     size_t insert(value_type neighbor) {
-        if constexpr (HeapMode) {
+        if constexpr (Filtered) {
             if (!heap_.done_) {
                 return heap_insert(neighbor);
             }
@@ -584,7 +591,7 @@ class MutableBuffer {
 
     // Sort all stored elements in the buffer.
     void sort() {
-        if constexpr (HeapMode) {
+        if constexpr (Filtered) {
             if (!heap_.done_) {
                 return; // Both heaps are kept in order on every insert.
             }
@@ -638,7 +645,7 @@ class MutableBuffer {
 
     // TODO: Switch over to using iterators for the return values to avoid this.
     void cleanup() {
-        if constexpr (HeapMode) {
+        if constexpr (Filtered) {
             if (!heap_.done_) {
                 // `candidates_` and `extras_` hold only valid entries: merge, sort once,
                 // then continue as a sorted list (e.g. for the re-rank and the top-up).
@@ -808,9 +815,9 @@ class MutableBuffer {
     }
 };
 
-template <typename Idx, typename Cmp, bool HeapMode>
+template <typename Idx, typename Cmp, bool Filtered>
 std::ostream&
-operator<<(std::ostream& io, const MutableBuffer<Idx, Cmp, HeapMode>& buffer) {
+operator<<(std::ostream& io, const MutableBuffer<Idx, Cmp, Filtered>& buffer) {
     return io << "MutableBuffer<" << datatype_v<Idx> << ">("
               << "target_valid = " << buffer.target_capacity()
               << ", best_unvisited = " << buffer.best_unvisited()

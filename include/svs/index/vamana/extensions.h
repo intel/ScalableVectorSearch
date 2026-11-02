@@ -27,7 +27,6 @@
 #include "svs/lib/preprocessor.h"
 #include "svs/lib/threads.h"
 
-#include <functional>
 #include <limits>
 
 namespace svs::index::vamana::extensions {
@@ -435,19 +434,18 @@ struct VamanaSingleSearchType {
 /// with additional results.
 template <typename Index, typename SearchBuffer, typename Query>
 void check_and_supplement_search_buffer(
-    const Index& index,
-    SearchBuffer& search_buffer,
-    const Query& query,
-    const std::function<bool(size_t)>* filter = nullptr
+    const Index& index, SearchBuffer& search_buffer, const Query& query
 ) {
     if (search_buffer.valid() < search_buffer.target_window() &&
         search_buffer.valid() < index.size()) {
         search_buffer.sort();
         for (auto external_id : index.external_ids()) {
-            if (filter != nullptr && !(*filter)(external_id)) {
-                continue;
-            }
             auto internal_id = index.translate_external_id(external_id);
+            if constexpr (requires { search_buffer.filter(); }) {
+                if (!(*search_buffer.filter())(internal_id)) {
+                    continue; // Filtered search: keep filtered-out ids out of the top-up.
+                }
+            }
             auto dist = index.get_distance(external_id, query);
             auto builder = index.internal_search_builder();
             search_buffer.insert(builder(internal_id, dist));
@@ -457,15 +455,6 @@ void check_and_supplement_search_buffer(
         }
     }
 }
-
-/// A search closure that also carries the filter of a filtered search.
-template <typename Search> struct FilteredSearch {
-    Search search;
-    const std::function<bool(size_t)>* filter;
-    template <typename... Args> void operator()(Args&&... args) const {
-        search(std::forward<Args>(args)...);
-    }
-};
 
 /// Customization point object for processing single queries.
 inline constexpr VamanaSingleSearchType single_search{};
@@ -499,12 +488,7 @@ SVS_FORCE_INLINE void svs_invoke(
     search(query, accessor, distance, search_buffer);
 
     if constexpr (Index::needs_id_translation) {
-        const std::function<bool(size_t)>* filter = nullptr;
-        if constexpr (requires { search.filter; }) {
-            filter =
-                search.filter; // Filtered search: keep filtered-out ids out of the top-up.
-        }
-        check_and_supplement_search_buffer(index, search_buffer, query, filter);
+        check_and_supplement_search_buffer(index, search_buffer, query);
     }
 }
 
@@ -609,8 +593,9 @@ void svs_invoke(
 
         // Copy back results.
         for (size_t j = 0; j < num_neighbors; ++j) {
-            if constexpr (requires { search.filter; }) {
-                if (j >= search_buffer.size()) { // Filtered: fewer than k passed.
+            if constexpr (requires { search_buffer.filter(); }) {
+                if (j >= search_buffer.size()) {
+                    // Filtered search with fewer than k passing entries: pad.
                     result.index(i, j) = static_cast<I>(-1);
                     result.distance(i, j) = distance::comparator(distance)(0.0f, 1.0f)
                                                 ? std::numeric_limits<float>::infinity()
