@@ -130,6 +130,7 @@ class MutableVamanaIndex {
 
     using distance_type = Dist;
     using search_buffer_type = MutableBuffer<Idx, distance::compare_t<Dist>>;
+    using filtered_search_buffer_type = MutableBuffer<Idx, distance::compare_t<Dist>, true>;
 
     using graph_type = Graph;
     using data_type = Data;
@@ -636,6 +637,10 @@ class MutableVamanaIndex {
             threadpool_,
             threads::StaticPartition{queries.size()},
             [&](const auto is, uint64_t SVS_UNUSED(tid)) {
+                if (filter != nullptr) {
+                    filtered_search_thread(results, queries, sp, cancel, *filter, is);
+                    return;
+                }
                 size_t num_neighbors = results.n_neighbors();
                 auto buffer = search_buffer_type{
                     // Legalize search buffer for this search.
@@ -644,39 +649,23 @@ class MutableVamanaIndex {
                         : sp.buffer_config_,
                     distance::comparator(distance_),
                     sp.search_buffer_visited_set_};
-                // Filtered: the buffer checks the filter itself (two heaps).
-                std::function<bool(Idx)> internal_filter;
-                if (filter != nullptr) {
-                    internal_filter = [&](Idx i) {
-                        return (*filter)(translator_.get_external(i));
-                    };
-                    buffer.enable_heap(&internal_filter);
-                }
 
                 auto prefetch_parameters = GreedySearchPrefetchParameters{
                     sp.prefetch_lookahead_, sp.prefetch_step_};
 
                 auto scratch = extensions::per_thread_batch_search_setup(data_, distance_);
 
-                auto run = [&](const auto& search) {
-                    extensions::per_thread_batch_search(
-                        data_,
-                        buffer,
-                        scratch,
-                        queries,
-                        results,
-                        threads::UnitRange{is},
-                        search,
-                        *this,
-                        cancel
-                    );
-                };
-                auto search = greedy_search_closure(prefetch_parameters, cancel);
-                if (filter == nullptr) {
-                    run(search);
-                } else {
-                    run(extensions::FilteredSearch<decltype(search)>{search, filter});
-                }
+                extensions::per_thread_batch_search(
+                    data_,
+                    buffer,
+                    scratch,
+                    queries,
+                    results,
+                    threads::UnitRange{is},
+                    greedy_search_closure(prefetch_parameters, cancel),
+                    *this,
+                    cancel
+                );
             }
         );
 
@@ -690,6 +679,50 @@ class MutableVamanaIndex {
         translate_to_external(results.indices());
     }
 
+  private:
+    // The part of `search` that handles a filter. Kept apart so that the unfiltered search
+    // above is compiled with the regular buffer only.
+    template <typename I, data::ImmutableMemoryDataset Queries, typename Range>
+    SVS_NOINLINE void filtered_search_thread(
+        QueryResultView<I>& results,
+        const Queries& queries,
+        const search_parameters_type& sp,
+        const lib::DefaultPredicate& cancel,
+        const std::function<bool(size_t)>& filter,
+        const Range& is
+    ) {
+        size_t num_neighbors = results.n_neighbors();
+        auto buffer = filtered_search_buffer_type{
+            // Legalize search buffer for this search.
+            sp.buffer_config_.get_total_capacity() < num_neighbors
+                ? SearchBufferConfig{num_neighbors}
+                : sp.buffer_config_,
+            distance::comparator(distance_),
+            sp.search_buffer_visited_set_};
+        // The buffer checks the filter itself (two heaps).
+        std::function<bool(Idx)> internal_filter = [&](Idx i) {
+            return filter(translator_.get_external(i));
+        };
+        buffer.enable_heap(&internal_filter);
+
+        auto prefetch_parameters =
+            GreedySearchPrefetchParameters{sp.prefetch_lookahead_, sp.prefetch_step_};
+        auto scratch = extensions::per_thread_batch_search_setup(data_, distance_);
+        auto search = greedy_search_closure(prefetch_parameters, cancel);
+        extensions::per_thread_batch_search(
+            data_,
+            buffer,
+            scratch,
+            queries,
+            results,
+            threads::UnitRange{is},
+            extensions::FilteredSearch<decltype(search)>{search, &filter},
+            *this,
+            cancel
+        );
+    }
+
+  public:
     ///
     /// @brief Return a unique instance of the distance function.
     ///
