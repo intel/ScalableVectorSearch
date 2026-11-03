@@ -39,7 +39,6 @@ template <typename Idx, typename Vector> struct MutableBufferHeapState {
     std::function<bool(Idx)> internal_filter_{};
     bool done_ = false;
     Vector to_visit_{};
-    Vector extras_{};
     std::unordered_set<Idx> seen_{};
     PredicatedSearchNeighbor<Idx> popped_{};
 };
@@ -116,8 +115,10 @@ class MutableBuffer {
     // `Filtered` only (`set_filter`): two heaps while searching. `to_visit_` is a
     // min-heap of entries still to visit (best on top). Until `cleanup()`, `candidates_`
     // holds the results: a max-heap of the best `target_valid_` valid entries that pass
-    // the filter (worst on top). `extras_` is a max-heap of the next best passing entries,
-    // up to `valid_capacity_` in total. `cleanup()` merges both and sorts once at the end.
+    // the filter (worst on top) in `[0, target_valid_)`. Passing entries beyond that are
+    // appended unsorted after it, trimmed to the best `valid_capacity_ - target_valid_`
+    // when the tail gets too long. `cleanup()` sorts once and keeps the best
+    // `valid_capacity_`.
     // `seen_`: ids already queued in this search (exact duplicate check).
     // `internal_filter_`: the filter, called with an internal id.
     [[no_unique_address]] std::conditional_t<
@@ -229,7 +230,6 @@ class MutableBuffer {
         candidates_.clear();
         if constexpr (Filtered) {
             heap_.to_visit_.clear();
-            heap_.extras_.clear();
             heap_.seen_.clear();
             heap_.done_ = false;
         }
@@ -271,7 +271,6 @@ class MutableBuffer {
         heap_.internal_filter_ = [f = &filter, t = &translator](Idx i) {
             return (*f)(t->get_external(i));
         };
-        heap_.extras_.reserve(valid_capacity_ - target_valid_);
     }
 
     /// @brief The filter given to `set_filter`.
@@ -328,7 +327,7 @@ class MutableBuffer {
         if constexpr (Filtered) {
             if (!heap_.done_) {
                 // Nothing left to visit, or the best one is worse than the worst result.
-                return heap_.to_visit_.empty() || (candidates_.size() == target_valid_ &&
+                return heap_.to_visit_.empty() || (candidates_.size() >= target_valid_ &&
                                                    compare_(
                                                        candidates_.front().distance(),
                                                        heap_.to_visit_.front().distance()
@@ -651,13 +650,14 @@ class MutableBuffer {
     void cleanup() {
         if constexpr (Filtered) {
             if (!heap_.done_) {
-                // `candidates_` and `extras_` hold only valid entries: merge, sort once,
-                // then continue as a sorted list (e.g. for the re-rank and the top-up).
-                candidates_.insert(
-                    candidates_.end(), heap_.extras_.begin(), heap_.extras_.end()
-                );
+                // `candidates_` holds only valid entries: sort once and keep the best
+                // `valid_capacity_`, then continue as a sorted list (e.g. for the re-rank
+                // and the top-up).
                 std::sort(begin(), end(), compare_);
-                heap_.extras_.clear();
+                if (candidates_.size() > valid_capacity_) {
+                    candidates_.resize(valid_capacity_);
+                }
+                valid_ = candidates_.size();
                 heap_.to_visit_.clear();
                 heap_.seen_.clear();
                 heap_.done_ = true;
@@ -742,29 +742,35 @@ class MutableBuffer {
         };
     }
 
-    // Keep `neighbor` among the extras (the passing entries after the best `target_valid_`)
-    // unless they already hold `valid_capacity_ - target_valid_` better ones.
+    // Append `neighbor` after the results heap. When there are twice as many appended
+    // entries as extras, keep the best `valid_capacity_ - target_valid_` of them plus the
+    // next one, `candidates_[valid_capacity_]`, which then bounds what is worth appending.
     void heap_keep_extra(const value_type& neighbor) {
-        heap_.extras_.push_back(neighbor);
-        std::push_heap(heap_.extras_.begin(), heap_.extras_.end(), result_compare());
-        if (heap_.extras_.size() > valid_capacity_ - target_valid_) {
-            std::pop_heap(heap_.extras_.begin(), heap_.extras_.end(), result_compare());
-            heap_.extras_.pop_back();
+        const size_t extra = valid_capacity_ - target_valid_;
+        if (extra == 0) {
+            return;
+        }
+        candidates_.push_back(neighbor);
+        if (candidates_.size() - target_valid_ > 2 * extra) {
+            std::nth_element(
+                begin() + target_valid_, begin() + valid_capacity_, end(), compare_
+            );
+            candidates_.resize(valid_capacity_ + 1);
         }
     }
 
     size_t heap_insert(value_type neighbor) {
         // Entries worse than the `target_valid_`th result are not visited, but may still
-        // be kept among the extras.
-        bool beyond_window = candidates_.size() == target_valid_ &&
-                             compare_(candidates_.front().distance(), neighbor.distance());
-        bool extras_wanted =
-            heap_.extras_.size() < valid_capacity_ - target_valid_ ||
-            (!heap_.extras_.empty() &&
-             compare_(neighbor.distance(), heap_.extras_.front().distance()));
+        // be kept after the results heap.
+        bool full = candidates_.size() >= target_valid_;
+        bool beyond_window =
+            full && compare_(candidates_.front().distance(), neighbor.distance());
         // Skip entries that are not wanted, and ids already queued.
-        if ((beyond_window && !extras_wanted) ||
-            !heap_.seen_.insert(neighbor.id()).second) {
+        bool extra_wanted =
+            valid_capacity_ > target_valid_ &&
+            (candidates_.size() <= valid_capacity_ ||
+             compare_(neighbor.distance(), candidates_[valid_capacity_].distance()));
+        if ((beyond_window && !extra_wanted) || !heap_.seen_.insert(neighbor.id()).second) {
             return size();
         }
         if (!beyond_window) {
@@ -780,20 +786,19 @@ class MutableBuffer {
         }
         if (beyond_window) {
             heap_keep_extra(neighbor);
-        } else {
-            // Keep it among the best `target_valid_` results (the worst becomes an extra).
+        } else if (!full) {
             candidates_.push_back(neighbor);
             std::push_heap(begin(), end(), result_compare());
-            if (candidates_.size() > target_valid_) {
-                std::pop_heap(begin(), end(), result_compare());
-                value_type worst = candidates_.back();
-                candidates_.pop_back();
-                if (valid_capacity_ > target_valid_) {
-                    heap_keep_extra(worst);
-                }
-            }
+        } else {
+            // Replace the worst of the best `target_valid_` results; it moves to the tail.
+            auto heap_end = begin() + target_valid_;
+            std::pop_heap(begin(), heap_end, result_compare());
+            value_type worst = *(heap_end - 1);
+            *(heap_end - 1) = neighbor;
+            std::push_heap(begin(), heap_end, result_compare());
+            heap_keep_extra(worst);
         }
-        valid_ = candidates_.size() + heap_.extras_.size();
+        valid_ = std::min(candidates_.size(), valid_capacity_);
         return size();
     }
 
