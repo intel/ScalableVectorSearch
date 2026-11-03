@@ -18,7 +18,6 @@
 
 // stdlib
 #include <algorithm>
-#include <functional>
 #include <memory>
 #include <stdexcept>
 
@@ -622,28 +621,6 @@ class MutableVamanaIndex {
         );
     }
 
-  private:
-    // Build the search buffer for one thread of a batch search.
-    template <bool Filtered>
-    auto make_search_buffer(
-        const search_parameters_type& sp,
-        size_t num_neighbors,
-        const std::function<bool(size_t)>* filter
-    ) const {
-        MutableBuffer<Idx, distance::compare_t<Dist>, Filtered> buffer{
-            // Legalize search buffer for this search.
-            sp.buffer_config_.get_total_capacity() < num_neighbors
-                ? SearchBufferConfig{num_neighbors}
-                : sp.buffer_config_,
-            distance::comparator(distance_),
-            sp.search_buffer_visited_set_};
-        if constexpr (Filtered) {
-            buffer.set_filter(*filter, translator_);
-        }
-        return buffer;
-    }
-
-  public:
     template <typename I, data::ImmutableMemoryDataset Queries>
     void search(
         QueryResultView<I> results,
@@ -652,20 +629,36 @@ class MutableVamanaIndex {
         const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>()),
         const std::function<bool(size_t)>* filter = nullptr
     ) {
+        // Optional `filter`: only entries whose external id passes are returned. It is
+        // called from all search threads. Rows with fewer passing entries than requested
+        // are padded with id `size_t(-1)` and the worst score.
         threads::parallel_for(
             threadpool_,
             threads::StaticPartition{queries.size()},
             [&](const auto is, uint64_t SVS_UNUSED(tid)) {
-                auto body = [&]<bool Filtered>(std::bool_constant<Filtered>) {
-                    size_t num_neighbors = results.n_neighbors();
-                    auto buffer = make_search_buffer<Filtered>(sp, num_neighbors, filter);
+                size_t num_neighbors = results.n_neighbors();
+                auto buffer = search_buffer_type{
+                    // Legalize search buffer for this search.
+                    sp.buffer_config_.get_total_capacity() < num_neighbors
+                        ? SearchBufferConfig{num_neighbors}
+                        : sp.buffer_config_,
+                    distance::comparator(distance_),
+                    sp.search_buffer_visited_set_};
+                // Filtered: the buffer checks the filter itself (two heaps).
+                std::function<bool(Idx)> internal_filter;
+                if (filter != nullptr) {
+                    internal_filter = [&](Idx i) {
+                        return (*filter)(translator_.get_external(i));
+                    };
+                    buffer.enable_heap(&internal_filter);
+                }
 
-                    auto prefetch_parameters = GreedySearchPrefetchParameters{
-                        sp.prefetch_lookahead_, sp.prefetch_step_};
+                auto prefetch_parameters = GreedySearchPrefetchParameters{
+                    sp.prefetch_lookahead_, sp.prefetch_step_};
 
-                    auto scratch =
-                        extensions::per_thread_batch_search_setup(data_, distance_);
+                auto scratch = extensions::per_thread_batch_search_setup(data_, distance_);
 
+                auto run = [&](const auto& search) {
                     extensions::per_thread_batch_search(
                         data_,
                         buffer,
@@ -673,16 +666,16 @@ class MutableVamanaIndex {
                         queries,
                         results,
                         threads::UnitRange{is},
-                        greedy_search_closure(prefetch_parameters, cancel),
+                        search,
                         *this,
                         cancel
                     );
                 };
-                if (filter != nullptr) {
-                    [&]() __attribute__((noinline)) { body(std::true_type{}); }
-                    ();
+                auto search = greedy_search_closure(prefetch_parameters, cancel);
+                if (filter == nullptr) {
+                    run(search);
                 } else {
-                    body(std::false_type{});
+                    run(extensions::FilteredSearch<decltype(search)>{search, filter});
                 }
             }
         );
