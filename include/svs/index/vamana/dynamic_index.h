@@ -21,7 +21,6 @@
 #include <functional>
 #include <memory>
 #include <stdexcept>
-#include <variant>
 
 // Include the flat index to spin-up exhaustive searches on demand.
 #include "svs/index/flat/flat.h"
@@ -623,6 +622,28 @@ class MutableVamanaIndex {
         );
     }
 
+  private:
+    // Build the search buffer for one thread of a batch search.
+    template <bool Filtered>
+    auto make_search_buffer(
+        const search_parameters_type& sp,
+        size_t num_neighbors,
+        const std::function<bool(size_t)>* filter
+    ) const {
+        MutableBuffer<Idx, distance::compare_t<Dist>, Filtered> buffer{
+            // Legalize search buffer for this search.
+            sp.buffer_config_.get_total_capacity() < num_neighbors
+                ? SearchBufferConfig{num_neighbors}
+                : sp.buffer_config_,
+            distance::comparator(distance_),
+            sp.search_buffer_visited_set_};
+        if constexpr (Filtered) {
+            buffer.set_filter(*filter, translator_);
+        }
+        return buffer;
+    }
+
+  public:
     template <typename I, data::ImmutableMemoryDataset Queries>
     void search(
         QueryResultView<I> results,
@@ -637,22 +658,7 @@ class MutableVamanaIndex {
             [&](const auto is, uint64_t SVS_UNUSED(tid)) {
                 auto body = [&]<bool Filtered>(std::bool_constant<Filtered>) {
                     size_t num_neighbors = results.n_neighbors();
-                    auto buffer = MutableBuffer<Idx, distance::compare_t<Dist>, Filtered>{
-                        // Legalize search buffer for this search.
-                        sp.buffer_config_.get_total_capacity() < num_neighbors
-                            ? SearchBufferConfig{num_neighbors}
-                            : sp.buffer_config_,
-                        distance::comparator(distance_),
-                        sp.search_buffer_visited_set_};
-                    // Alive for the whole search; only the filtered buffer uses it.
-                    std::conditional_t<Filtered, std::function<bool(Idx)>, std::monostate>
-                        internal_filter{};
-                    if constexpr (Filtered) {
-                        internal_filter = [&](Idx i) {
-                            return (*filter)(translator_.get_external(i));
-                        };
-                        buffer.set_filter(&internal_filter);
-                    }
+                    auto buffer = make_search_buffer<Filtered>(sp, num_neighbors, filter);
 
                     auto prefetch_parameters = GreedySearchPrefetchParameters{
                         sp.prefetch_lookahead_, sp.prefetch_step_};

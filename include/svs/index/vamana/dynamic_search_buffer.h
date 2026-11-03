@@ -36,7 +36,7 @@ namespace svs::index::vamana {
 namespace detail {
 // State used only by the two-heap mode of `MutableBuffer` (see below).
 template <typename Idx, typename Vector> struct MutableBufferHeapState {
-    const std::function<bool(Idx)>* internal_filter_ = nullptr;
+    std::function<bool(Idx)> internal_filter_{};
     bool done_ = false;
     Vector to_visit_{};
     Vector extras_{};
@@ -261,12 +261,16 @@ class MutableBuffer {
 
     /// @brief Use two heaps during search. The results heap holds the best
     /// `target_window()` entries and bounds the search; up to `target_capacity()` entries
-    /// are kept in total. A neighbor enters the results only if `*internal_filter` accepts
-    /// its internal id.
-    void set_filter(const std::function<bool(Idx)>* internal_filter)
+    /// are kept in total. A neighbor enters the results only if `filter` accepts its
+    /// external id (`translator` maps internal to external ids). Both must outlive the
+    /// use of this buffer.
+    template <typename Translator>
+    void set_filter(const std::function<bool(size_t)>& filter, const Translator& translator)
         requires Filtered
     {
-        heap_.internal_filter_ = internal_filter;
+        heap_.internal_filter_ = [f = &filter, t = &translator](Idx i) {
+            return (*f)(t->get_external(i));
+        };
         heap_.extras_.reserve(valid_capacity_ - target_valid_);
     }
 
@@ -274,7 +278,7 @@ class MutableBuffer {
     const std::function<bool(Idx)>* filter() const
         requires Filtered
     {
-        return heap_.internal_filter_;
+        return &heap_.internal_filter_;
     }
 
     /// @brief Return the number of valid elements currently contained in the buffer.
@@ -771,7 +775,7 @@ class MutableBuffer {
         }
         // Only valid entries that pass the filter become results; the rest are only
         // visited.
-        if (!neighbor.valid() || !(*heap_.internal_filter_)(neighbor.id())) {
+        if (!neighbor.valid() || !heap_.internal_filter_(neighbor.id())) {
             return size();
         }
         if (beyond_window) {
