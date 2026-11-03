@@ -636,46 +636,55 @@ class MutableVamanaIndex {
             threadpool_,
             threads::StaticPartition{queries.size()},
             [&](const auto is, uint64_t SVS_UNUSED(tid)) {
-                size_t num_neighbors = results.n_neighbors();
-                auto buffer = search_buffer_type{
-                    // Legalize search buffer for this search.
-                    sp.buffer_config_.get_total_capacity() < num_neighbors
-                        ? SearchBufferConfig{num_neighbors}
-                        : sp.buffer_config_,
-                    distance::comparator(distance_),
-                    sp.search_buffer_visited_set_};
-                // Filtered: the buffer checks the filter itself (two heaps).
-                std::function<bool(Idx)> internal_filter;
-                if (filter != nullptr) {
-                    internal_filter = [&](Idx i) {
-                        return (*filter)(translator_.get_external(i));
+                auto body = [&]<bool Filtered>(std::bool_constant<Filtered>) {
+                    size_t num_neighbors = results.n_neighbors();
+                    auto buffer = MutableBuffer<Idx, distance::compare_t<Dist>, Filtered>{
+                        // Legalize search buffer for this search.
+                        sp.buffer_config_.get_total_capacity() < num_neighbors
+                            ? SearchBufferConfig{num_neighbors}
+                            : sp.buffer_config_,
+                        distance::comparator(distance_),
+                        sp.search_buffer_visited_set_};
+                    // Filtered: the buffer checks the filter itself (two heaps).
+                    std::function<bool(Idx)> internal_filter;
+                    if constexpr (Filtered) {
+                        internal_filter = [&](Idx i) {
+                            return (*filter)(translator_.get_external(i));
+                        };
+                        buffer.enable_heap(&internal_filter);
+                    }
+
+                    auto prefetch_parameters = GreedySearchPrefetchParameters{
+                        sp.prefetch_lookahead_, sp.prefetch_step_};
+
+                    auto scratch =
+                        extensions::per_thread_batch_search_setup(data_, distance_);
+
+                    auto run = [&](const auto& search) {
+                        extensions::per_thread_batch_search(
+                            data_,
+                            buffer,
+                            scratch,
+                            queries,
+                            results,
+                            threads::UnitRange{is},
+                            search,
+                            *this,
+                            cancel
+                        );
                     };
-                    buffer.enable_heap(&internal_filter);
-                }
-
-                auto prefetch_parameters = GreedySearchPrefetchParameters{
-                    sp.prefetch_lookahead_, sp.prefetch_step_};
-
-                auto scratch = extensions::per_thread_batch_search_setup(data_, distance_);
-
-                auto run = [&](const auto& search) {
-                    extensions::per_thread_batch_search(
-                        data_,
-                        buffer,
-                        scratch,
-                        queries,
-                        results,
-                        threads::UnitRange{is},
-                        search,
-                        *this,
-                        cancel
-                    );
+                    auto search = greedy_search_closure(prefetch_parameters, cancel);
+                    if constexpr (Filtered) {
+                        run(extensions::FilteredSearch<decltype(search)>{search, filter});
+                    } else {
+                        run(search);
+                    }
                 };
-                auto search = greedy_search_closure(prefetch_parameters, cancel);
-                if (filter == nullptr) {
-                    run(search);
+                if (filter != nullptr) {
+                    [&]() __attribute__((noinline)) { body(std::true_type{}); }
+                    ();
                 } else {
-                    run(extensions::FilteredSearch<decltype(search)>{search, filter});
+                    body(std::false_type{});
                 }
             }
         );

@@ -38,7 +38,8 @@ namespace svs::index::vamana {
 /// The search buffer will still navigate through those entries, but it won't include
 /// them in its final result.
 ///
-template <typename Idx, typename Cmp = std::less<>> class MutableBuffer {
+template <typename Idx, typename Cmp = std::less<>, bool Filtered = false>
+class MutableBuffer {
   public:
     // Type Aliases
     using index_type = Idx;
@@ -672,7 +673,13 @@ template <typename Idx, typename Cmp = std::less<>> class MutableBuffer {
     }
 
   private:
-    bool heap_mode() const { return use_heap_ && !heap_done_; }
+    bool heap_mode() const {
+        if constexpr (!Filtered) {
+            return false;
+        } else {
+            return use_heap_ && !heap_done_;
+        }
+    }
 
     // `to_visit_`: the best entry on top.
     auto to_visit_compare() const {
@@ -734,8 +741,9 @@ template <typename Idx, typename Cmp = std::less<>> class MutableBuffer {
     }
 };
 
-template <typename Idx, typename Cmp>
-std::ostream& operator<<(std::ostream& io, const MutableBuffer<Idx, Cmp>& buffer) {
+template <typename Idx, typename Cmp, bool Filtered>
+std::ostream&
+operator<<(std::ostream& io, const MutableBuffer<Idx, Cmp, Filtered>& buffer) {
     return io << "MutableBuffer<" << datatype_v<Idx> << ">("
               << "target_valid = " << buffer.target_capacity()
               << ", best_unvisited = " << buffer.best_unvisited()
