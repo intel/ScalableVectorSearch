@@ -147,10 +147,19 @@ enum class ReplaceExternalIdResult : uint8_t {
 inline constexpr size_t no_external_id =
     type_traits::sentinel_v<Neighbor<size_t>, std::less<>>.id();
 
-class ValidBuilder {
+template <bool Filtered = false, typename Index = void> class ValidBuilder {
   public:
-    ValidBuilder(const lib::SegmentedVector<SlotMetadata>& status)
-        : status_{status} {}
+    // Optional `filter` (with `index`): an entry is also invalid if
+    // `filter(external_id)` is false. Invalid entries are navigated through but never
+    // returned.
+    ValidBuilder(
+        const lib::SegmentedVector<SlotMetadata>& status,
+        const Index* index = nullptr,
+        const std::function<bool(size_t)>* filter = nullptr
+    )
+        : status_{status}
+        , index_{index}
+        , filter_{filter} {}
 
     template <typename I>
     constexpr PredicatedSearchNeighbor<I> operator()(I i, float distance) const {
@@ -163,11 +172,21 @@ class ValidBuilder {
                 .load(std::memory_order_acquire) != SlotMetadata::Valid;
         // This neighbor should be skipped if the metadata corresponding to the given index
         // marks this slot as deleted.
+        if constexpr (Filtered) {
+            if (!invalid) {
+                // Locks the translation per lookup so writers keep running. An id erased
+                // concurrently has no external id and fails the filter.
+                size_t external = index_->translate_internal_id(i);
+                invalid = external == no_external_id || !(*filter_)(external);
+            }
+        }
         return PredicatedSearchNeighbor<I>(i, distance, !invalid);
     }
 
   private:
     const lib::SegmentedVector<SlotMetadata>& status_;
+    const Index* index_;
+    const std::function<bool(size_t)>* filter_;
 };
 
 template <graphs::MemoryGraph Graph, typename Data, typename Dist>
@@ -804,6 +823,9 @@ class MutableVamanaIndex {
             [&](const auto is, uint64_t /*tid*/) {
                 for (auto i : is) {
                     for (size_t j = 0, jmax = getsize<1>(ids); j < jmax; ++j) {
+                        if (ids.at(i, j) == static_cast<size_t>(-1)) {
+                            continue; // Padding from a filtered search.
+                        }
                         auto internal = lib::narrow_cast<Idx>(ids.at(i, j));
                         ids.at(i, j) = unsafe_translate_internal_id(internal);
                     }
@@ -874,7 +896,11 @@ class MutableVamanaIndex {
 
     // Return a `greedy_search` compatible builder for this index.
     // This is an internal method, mostly used to help implement the batch iterator.
-    ValidBuilder internal_search_builder() const { return ValidBuilder{status_}; }
+    template <bool Filtered = false>
+    ValidBuilder<Filtered, MutableVamanaIndex>
+    internal_search_builder(const std::function<bool(size_t)>* filter = nullptr) const {
+        return ValidBuilder<Filtered, MutableVamanaIndex>{status_, this, filter};
+    }
 
     /// @brief RAII reader lock guarding data_/graph_ against compact()'s shrink
     /// (which frees segments). Used by BatchIterator::next() to protect the
@@ -894,13 +920,15 @@ class MutableVamanaIndex {
         return std::shared_lock<std::shared_mutex>(*translator_mutex_);
     }
 
+    template <bool Filtered = false>
     auto greedy_search_closure(
         GreedySearchPrefetchParameters prefetch_parameters,
-        const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>())
+        const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>()),
+        const std::function<bool(size_t)>* filter = nullptr
     ) const {
-        return [&, prefetch_parameters](
-                   const auto& query, auto& accessor, auto& distance, auto& buffer
-               ) {
+        return [&,
+                prefetch_parameters,
+                filter](const auto& query, auto& accessor, auto& distance, auto& buffer) {
             const Idx seed = entry_point();
             if (seed == NO_ENTRY) {
                 buffer.clear();
@@ -915,7 +943,7 @@ class MutableVamanaIndex {
                 distance,
                 buffer,
                 vamana::EntryPointInitializer<Idx>{std::span<const Idx>{&seed, 1}},
-                internal_search_builder(),
+                internal_search_builder<Filtered>(filter),
                 prefetch_parameters,
                 cancel
             );
@@ -941,7 +969,7 @@ class MutableVamanaIndex {
             scratch.buffer,
             scratch.scratch,
             query,
-            greedy_search_closure(scratch.prefetch_parameters, cancel),
+            greedy_search_closure<false>(scratch.prefetch_parameters, cancel),
             *this
         );
     }
@@ -951,7 +979,8 @@ class MutableVamanaIndex {
         QueryResultView<I> results,
         const Queries& queries,
         const search_parameters_type& sp,
-        const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>())
+        const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>()),
+        const std::function<bool(size_t)>* filter = nullptr
     ) {
         // Internal IDs must retain their meaning until translation has completed.
         std::shared_lock compact_lock{*compact_mutex_};
@@ -960,33 +989,52 @@ class MutableVamanaIndex {
                 threadpool_,
                 threads::StaticPartition{queries.size()},
                 [&](const auto is, uint64_t SVS_UNUSED(tid)) {
-                    size_t num_neighbors = results.n_neighbors();
-                    auto buffer = search_buffer_type{
-                        sp.buffer_config_,
-                        distance::comparator(distance_),
-                        sp.search_buffer_visited_set_};
+                    auto body = [&]<bool Filtered>(std::bool_constant<Filtered>) {
+                        size_t num_neighbors = results.n_neighbors();
+                        auto buffer = search_buffer_type{
+                            sp.buffer_config_,
+                            distance::comparator(distance_),
+                            sp.search_buffer_visited_set_};
 
-                    auto prefetch_parameters = GreedySearchPrefetchParameters{
-                        sp.prefetch_lookahead_, sp.prefetch_step_};
+                        auto prefetch_parameters = GreedySearchPrefetchParameters{
+                            sp.prefetch_lookahead_, sp.prefetch_step_};
 
-                    // Legalize search buffer for this search.
-                    if (buffer.target_capacity() < num_neighbors) {
-                        buffer.change_maxsize(num_neighbors);
+                        // Legalize search buffer for this search.
+                        if (buffer.target_capacity() < num_neighbors) {
+                            buffer.change_maxsize(num_neighbors);
+                        }
+                        auto scratch =
+                            extensions::per_thread_batch_search_setup(data_, distance_);
+
+                        auto run = [&](const auto& search) {
+                            extensions::per_thread_batch_search(
+                                data_,
+                                buffer,
+                                scratch,
+                                queries,
+                                results,
+                                threads::UnitRange{is},
+                                search,
+                                *this,
+                                cancel
+                            );
+                        };
+                        auto search = greedy_search_closure<Filtered>(
+                            prefetch_parameters, cancel, filter
+                        );
+                        if constexpr (Filtered) {
+                            run(extensions::FilteredSearch<decltype(search)>{search, filter}
+                            );
+                        } else {
+                            run(search);
+                        }
+                    };
+                    if (filter != nullptr) {
+                        [&]() __attribute__((noinline)) { body(std::true_type{}); }
+                        ();
+                    } else {
+                        body(std::false_type{});
                     }
-                    auto scratch =
-                        extensions::per_thread_batch_search_setup(data_, distance_);
-
-                    extensions::per_thread_batch_search(
-                        data_,
-                        buffer,
-                        scratch,
-                        queries,
-                        results,
-                        threads::UnitRange{is},
-                        greedy_search_closure(prefetch_parameters, cancel),
-                        *this,
-                        cancel
-                    );
                 }
             );
         }
@@ -2087,7 +2135,11 @@ class MutableVamanaIndex {
     /// Called from the ``extensions::single_search`` override below.
     ///
     template <typename SearchBuffer, typename Query>
-    void supplement_search_buffer(SearchBuffer& search_buffer, const Query& query) const {
+    void supplement_search_buffer(
+        SearchBuffer& search_buffer,
+        const Query& query,
+        const std::function<bool(size_t)>* filter = nullptr
+    ) const {
         if (search_buffer.valid() >= search_buffer.target_window() ||
             search_buffer.valid() >= size()) {
             return;
@@ -2100,6 +2152,10 @@ class MutableVamanaIndex {
         auto builder = internal_search_builder();
         for (auto pair : translator_) {
             auto internal_id = pair.second;
+            // `pair.first` is the external id, read under the lock held above.
+            if (filter != nullptr && !(*filter)(pair.first)) {
+                continue;
+            }
             // Skip slots pending deferred translator cleanup, reserved by an in-flight
             // add_points, or otherwise not live.
             if (std::atomic_ref<SlotMetadata>(const_cast<SlotMetadata&>(status_[internal_id]
@@ -2190,7 +2246,11 @@ SVS_FORCE_INLINE void svs_invoke(
     if (cancel()) {
         return;
     }
-    index.supplement_search_buffer(search_buffer, query);
+    const std::function<bool(size_t)>* filter = nullptr;
+    if constexpr (requires { search.filter; }) {
+        filter = search.filter; // Filtered search: keep filtered-out ids out of the top-up.
+    }
+    index.supplement_search_buffer(search_buffer, query, filter);
 }
 
 ///// Deduction Guides.
