@@ -742,16 +742,18 @@ class MutableBuffer {
         };
     }
 
-    // Append `neighbor` after the results heap. When there are twice as many appended
-    // entries as extras, keep the best `valid_capacity_ - target_valid_` of them plus the
-    // next one, `candidates_[valid_capacity_]`, which then bounds what is worth appending.
+    // Append `neighbor` after the results heap. When the appended entries first exceed
+    // the extras, and whenever they are twice as many, keep the best
+    // `valid_capacity_ - target_valid_` of them plus the next one,
+    // `candidates_[valid_capacity_]`, which then bounds what is worth appending.
     void heap_keep_extra(const value_type& neighbor) {
         const size_t extra = valid_capacity_ - target_valid_;
         if (extra == 0) {
             return;
         }
         candidates_.push_back(neighbor);
-        if (candidates_.size() - target_valid_ > 2 * extra) {
+        if (candidates_.size() == valid_capacity_ + 1 ||
+            candidates_.size() - target_valid_ > 2 * extra) {
             std::nth_element(
                 begin() + target_valid_, begin() + valid_capacity_, end(), compare_
             );
