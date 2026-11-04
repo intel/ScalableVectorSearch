@@ -187,8 +187,8 @@ template <bool Filtered = false, typename Index = void> class ValidBuilder {
         // marks this slot as deleted.
         if constexpr (Filtered) {
             if (!invalid) {
-                // The caller holds `lock_for_translation()`. An id erased before the lock
-                // was taken has no external id and fails the filter.
+                // Lock-free read of the internal->external table. A slot whose id was
+                // erased has no external id and fails the filter.
                 size_t external = index_->unsafe_translate_internal_id(i);
                 invalid = external == no_external_id || !(*filter_)(external);
             }
@@ -763,7 +763,8 @@ class MutableVamanaIndex {
     }
 
     /// @copydoc translate_internal_id
-    /// Requires the caller to hold `lock_for_translation()`.
+    /// Requires the caller to hold `lock_for_translation()`, except in filtered search
+    /// where the internal->external table is read lock-free.
     size_t unsafe_translate_internal_id(Idx i) const {
         // Not `i` itself: an internal ID is no label, and a caller would report it as one.
         return translator_.get_external_or(i, no_external_id);
@@ -1044,8 +1045,6 @@ class MutableVamanaIndex {
                             prefetch_parameters, cancel, filter
                         );
                         if constexpr (Filtered) {
-                            // Held once for this thread's queries, not per lookup.
-                            auto translation_lock = lock_for_translation();
                             run(extensions::FilteredSearch<decltype(search)>{search, filter}
                             );
                         } else {
@@ -1600,6 +1599,7 @@ class MutableVamanaIndex {
                 }
             }
             status_.resize(max_index);
+            translator_.shrink(max_index);
 
             // Remap the surviving anchor, or publish the genuinely empty state.
             auto ep = old_to_new_id_map.find(entry_point());
@@ -2156,7 +2156,8 @@ class MutableVamanaIndex {
     /// and skipping slots that are no longer ``Valid``.
     ///
     /// Called from the ``extensions::single_search`` override below. With a ``filter`` the
-    /// caller must hold ``lock_for_translation()`` (``search()`` does).
+    /// scan walks the slots and reads their ids lock-free, so the filter runs without
+    /// ``translator_mutex_`` held.
     ///
     template <typename SearchBuffer, typename Query>
     void supplement_search_buffer(
@@ -2170,20 +2171,33 @@ class MutableVamanaIndex {
         }
         search_buffer.sort();
 
-        // translator_mutex_ shared: guards both the traversal of ``translator_`` and the
-        // internal IDs it yields against erasure by consolidate()/compact(). A filtered
-        // search already holds it (see ``search()``); locking again would be recursive.
-        std::shared_lock translator_lock{*translator_mutex_, std::defer_lock};
-        if (filter == nullptr) {
-            translator_lock.lock();
+        if (filter != nullptr) {
+            // compact_mutex_ shared (held by the caller) keeps the slots in place.
+            auto builder = internal_search_builder();
+            for (size_t i = 0, n = status_.size(); i < n; ++i) {
+                if (std::atomic_ref<SlotMetadata>(const_cast<SlotMetadata&>(status_[i]))
+                        .load(std::memory_order_acquire) != SlotMetadata::Valid) {
+                    continue;
+                }
+                auto external = unsafe_translate_internal_id(i);
+                if (external == no_external_id || !(*filter)(external)) {
+                    continue;
+                }
+                auto dist = extensions::get_distance_ext(data_, distance_, i, query);
+                search_buffer.insert(builder(static_cast<Idx>(i), dist));
+                if (search_buffer.valid() >= search_buffer.target_window()) {
+                    break;
+                }
+            }
+            return;
         }
+
+        // translator_mutex_ shared: guards both the traversal of ``translator_`` and the
+        // internal IDs it yields against erasure by consolidate()/compact().
+        std::shared_lock translator_lock{*translator_mutex_};
         auto builder = internal_search_builder();
         for (auto pair : translator_) {
             auto internal_id = pair.second;
-            // `pair.first` is the external id, read under the lock held above.
-            if (filter != nullptr && !(*filter)(pair.first)) {
-                continue;
-            }
             // Skip slots pending deferred translator cleanup, reserved by an in-flight
             // add_points, or otherwise not live.
             if (std::atomic_ref<SlotMetadata>(const_cast<SlotMetadata&>(status_[internal_id]
