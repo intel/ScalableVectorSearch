@@ -147,18 +147,18 @@ enum class ReplaceExternalIdResult : uint8_t {
 inline constexpr size_t no_external_id =
     type_traits::sentinel_v<Neighbor<size_t>, std::less<>>.id();
 
-template <bool Filtered = false, typename Index = void> class ValidBuilder {
+template <bool Filtered = false> class ValidBuilder {
   public:
     // Optional `filter` (with `index`): an entry is also invalid if
     // `filter(external_id)` is false. Invalid entries are navigated through but never
     // returned.
     ValidBuilder(
         const lib::SegmentedVector<SlotMetadata>& status,
-        const Index* index = nullptr,
+        const lib::SegmentedVector<size_t>* external_ids = nullptr,
         const std::function<bool(size_t)>* filter = nullptr
     )
         : status_{status}
-        , index_{index}
+        , external_ids_{external_ids}
         , filter_{filter} {}
 
     /// Filtered only: skip the filter for entries `buffer` would drop anyway.
@@ -187,9 +187,11 @@ template <bool Filtered = false, typename Index = void> class ValidBuilder {
         // marks this slot as deleted.
         if constexpr (Filtered) {
             if (!invalid) {
-                // Locks the translation per lookup so writers keep running. An id erased
-                // concurrently has no external id and fails the filter.
-                size_t external = index_->translate_internal_id(i);
+                // Lock-free: the id was stored before the slot's Valid release above.
+                size_t external =
+                    std::atomic_ref<size_t>(const_cast<size_t&>(getindex(*external_ids_, i))
+                    )
+                        .load(std::memory_order_acquire);
                 invalid = external == no_external_id || !(*filter_)(external);
             }
         }
@@ -198,7 +200,7 @@ template <bool Filtered = false, typename Index = void> class ValidBuilder {
 
   private:
     const lib::SegmentedVector<SlotMetadata>& status_;
-    const Index* index_;
+    const lib::SegmentedVector<size_t>* external_ids_;
     const std::function<bool(size_t)>* filter_;
     const void* skip_buffer_ = nullptr;
     bool (*skip_)(const void*, float) = nullptr;
@@ -254,6 +256,9 @@ class MutableVamanaIndex {
     // Grow-stable per-slot metadata: search reads status_[i] lock-free via ValidBuilder
     // while a concurrent add_points grows it. See svs/lib/segmented_vector.h.
     lib::SegmentedVector<SlotMetadata> status_;
+    // External id of each slot (or no_external_id); mirrors translator_ for lock-free
+    // reads.
+    lib::SegmentedVector<size_t> external_ids_;
     // a lower bound such that the append path
     // (reuse_empty == false) scans for Empty slots starting here.
     std::unique_ptr<std::atomic<size_t>> first_empty_{
@@ -332,6 +337,7 @@ class MutableVamanaIndex {
         , data_{std::move(data)}
         , entry_point_{data_.size() == 0 ? NO_ENTRY : entry_point}
         , status_(data_.size(), SlotMetadata::Valid)
+        , external_ids_(data_.size(), no_external_id)
         , first_empty_{std::make_unique<std::atomic<size_t>>(data_.size())}
         , first_reusable_{std::make_unique<std::atomic<size_t>>(data_.size())}
         , translator_()
@@ -349,6 +355,9 @@ class MutableVamanaIndex {
             throw ANNEXCEPTION("Graph node count does not match external IDs size");
         }
         translator_.insert(external_ids, threads::UnitRange<Idx>(0, external_ids.size()));
+        for (auto pair : translator_) {
+            external_ids_[pair.second] = pair.first;
+        }
     }
 
   public:
@@ -491,6 +500,7 @@ class MutableVamanaIndex {
         , data_{std::move(data)}
         , entry_point_{data_.size() == 0 ? NO_ENTRY : lib::narrow<Idx>(config.entry_point)}
         , status_{data_.size(), SlotMetadata::Empty} // filled later in the body
+        , external_ids_{data_.size(), no_external_id}
         , first_empty_{std::make_unique<std::atomic<size_t>>(data_.size())}
         , first_reusable_{std::make_unique<std::atomic<size_t>>(data_.size())}
         , translator_{std::move(translator)}
@@ -556,6 +566,7 @@ class MutableVamanaIndex {
                     pair.second
                 );
             }
+            external_ids_[pair.second] = pair.first;
         }
 
         num_valid_->store(num_valid);
@@ -866,7 +877,10 @@ class MutableVamanaIndex {
             return ReplaceExternalIdResult::OldIdMissing;
         }
         try {
+            auto slot = translator_.get_internal(old_id);
             translator_.remap_external_id(old_id, new_id);
+            std::atomic_ref<size_t>(external_ids_[slot])
+                .store(new_id, std::memory_order_relaxed);
         } catch (const ANNException&) { return ReplaceExternalIdResult::NewIdExists; }
         return ReplaceExternalIdResult::Ok;
     }
@@ -912,9 +926,9 @@ class MutableVamanaIndex {
     // Return a `greedy_search` compatible builder for this index.
     // This is an internal method, mostly used to help implement the batch iterator.
     template <bool Filtered = false>
-    ValidBuilder<Filtered, MutableVamanaIndex>
+    ValidBuilder<Filtered>
     internal_search_builder(const std::function<bool(size_t)>* filter = nullptr) const {
-        return ValidBuilder<Filtered, MutableVamanaIndex>{status_, this, filter};
+        return ValidBuilder<Filtered>{status_, &external_ids_, filter};
     }
 
     /// @brief RAII reader lock guarding data_/graph_ against compact()'s shrink
@@ -1220,6 +1234,7 @@ class MutableVamanaIndex {
                 data_.resize(new_size);
                 graph_.unsafe_resize(new_size);
                 status_.resize(new_size, SlotMetadata::Empty);
+                external_ids_.resize(new_size, no_external_id);
                 for (size_t i = current_size; i < new_size; ++i) {
                     std::atomic_ref<SlotMetadata>(status_[i])
                         .store(SlotMetadata::Pending, std::memory_order_release);
@@ -1240,6 +1255,12 @@ class MutableVamanaIndex {
         // maps to a live slot.
         try {
             std::lock_guard lock{*translator_mutex_};
+            std::vector<size_t> stale{};
+            for (auto e : external_ids) {
+                if (translator_.has_external(e)) {
+                    stale.push_back(translator_.get_internal(e));
+                }
+            }
             translator_
                 .replace_stale_and_insert(external_ids, slots, [this](auto internal) {
                     return std::atomic_ref<SlotMetadata>(
@@ -1247,6 +1268,17 @@ class MutableVamanaIndex {
                            )
                                .load(std::memory_order_acquire) == SlotMetadata::Deleted;
                 });
+            // Slots whose mapping was just erased must not keep a now-live id.
+            for (auto s : stale) {
+                std::atomic_ref<size_t>(external_ids_[s])
+                    .store(no_external_id, std::memory_order_relaxed);
+            }
+            // Stored before the slots turn Valid (release), which readers pair with.
+            size_t j = 0;
+            for (auto e : external_ids) {
+                std::atomic_ref<size_t>(external_ids_[slots[j++]])
+                    .store(e, std::memory_order_relaxed);
+            }
         } catch (...) {
             // Release the reserved slots back to Empty.
             for (auto s : slots) {
@@ -1591,11 +1623,13 @@ class MutableVamanaIndex {
 
                 auto status = getindex(status_, old_id);
                 status_[new_id] = status;
+                external_ids_[new_id] = getindex(external_ids_, old_id);
                 if (status == SlotMetadata::Valid) {
                     translator_.remap_internal_id(old_id, new_id);
                 }
             }
             status_.resize(max_index);
+            external_ids_.resize(max_index);
 
             // Remap the surviving anchor, or publish the genuinely empty state.
             auto ep = old_to_new_id_map.find(entry_point());
@@ -1730,6 +1764,10 @@ class MutableVamanaIndex {
                 }
             }
             if (!deleted_internal_ids.empty()) {
+                for (auto i : deleted_internal_ids) {
+                    std::atomic_ref<size_t>(external_ids_[i])
+                        .store(no_external_id, std::memory_order_relaxed);
+                }
                 translator_.delete_internal(deleted_internal_ids, false);
             }
             // The anchor's external mapping is removed above like any deletion,
