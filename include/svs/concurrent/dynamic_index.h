@@ -161,8 +161,21 @@ template <bool Filtered = false, typename Index = void> class ValidBuilder {
         , index_{index}
         , filter_{filter} {}
 
+    /// Filtered only: skip the filter for entries `buffer` would drop anyway.
+    template <typename Buffer> void skip_if_dropped_by(const Buffer& buffer) {
+        skip_buffer_ = &buffer;
+        skip_ = [](const void* b, float d) {
+            return static_cast<const Buffer*>(b)->can_skip(d);
+        };
+    }
+
     template <typename I>
     constexpr PredicatedSearchNeighbor<I> operator()(I i, float distance) const {
+        if constexpr (Filtered) {
+            if (skip_ != nullptr && skip_(skip_buffer_, distance)) {
+                return PredicatedSearchNeighbor<I>(i, distance, false);
+            }
+        }
         // A neighbor is returnable only if its slot is Valid. Deleted slots
         // must be skipped; Pending slots are reserved by an in-flight add and
         // their vectors/edges are not yet fully published. Empty slots should
@@ -187,6 +200,8 @@ template <bool Filtered = false, typename Index = void> class ValidBuilder {
     const lib::SegmentedVector<SlotMetadata>& status_;
     const Index* index_;
     const std::function<bool(size_t)>* filter_;
+    const void* skip_buffer_ = nullptr;
+    bool (*skip_)(const void*, float) = nullptr;
 };
 
 template <graphs::MemoryGraph Graph, typename Data, typename Dist>
@@ -934,6 +949,10 @@ class MutableVamanaIndex {
                 buffer.clear();
                 return;
             }
+            auto builder = internal_search_builder<Filtered>(filter);
+            if constexpr (Filtered) {
+                builder.skip_if_dropped_by(buffer);
+            }
             // Perform the greedy search using the provided resources.
             concurrent::greedy_search(
                 graph_,
@@ -943,7 +962,7 @@ class MutableVamanaIndex {
                 distance,
                 buffer,
                 vamana::EntryPointInitializer<Idx>{std::span<const Idx>{&seed, 1}},
-                internal_search_builder<Filtered>(filter),
+                builder,
                 prefetch_parameters,
                 cancel
             );
