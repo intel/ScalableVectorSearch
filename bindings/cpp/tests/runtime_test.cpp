@@ -1346,6 +1346,86 @@ CATCH_TEST_CASE("RangeSearchFunctionalStatic", "[runtime][static_vamana]") {
     svs::runtime::v0::VamanaIndex::destroy(index);
 }
 
+CATCH_TEST_CASE("SearchBufferCapacityRaisedToWindowSize", "[runtime]") {
+    const auto& test_data = get_test_data();
+    const int nq = 5;
+    const float* xq = test_data.data();
+    const int k = 20;
+    std::vector<float> distances(nq * k);
+    std::vector<size_t> result_labels(nq * k);
+
+    svs::runtime::v0::VamanaIndex::SearchParams small_capacity;
+    small_capacity.search_window_size = 50;
+    small_capacity.search_buffer_capacity = 10;
+
+    CATCH_SECTION("Static, per-search parameters") {
+        svs::runtime::v0::VamanaIndex* index = nullptr;
+        auto status = svs::runtime::v0::VamanaIndex::build(
+            &index,
+            test_d,
+            svs::runtime::v0::MetricType::L2,
+            svs::runtime::v0::StorageKind::FP32,
+            svs::runtime::v0::VamanaIndex::BuildParams{64}
+        );
+        CATCH_REQUIRE(status.ok());
+        status = index->add(test_n, test_data.data());
+        CATCH_REQUIRE(status.ok());
+
+        status = index->search(
+            nq, xq, k, distances.data(), result_labels.data(), &small_capacity
+        );
+        CATCH_REQUIRE(status.ok());
+        for (int i = 0; i < nq; ++i) {
+            CATCH_REQUIRE(result_labels[i * k] == static_cast<size_t>(i));
+        }
+        svs::runtime::v0::VamanaIndex::destroy(index);
+    }
+
+    CATCH_SECTION("Static, default search parameters") {
+        svs::runtime::v0::VamanaIndex* index = nullptr;
+        auto status = svs::runtime::v0::VamanaIndex::build(
+            &index,
+            test_d,
+            svs::runtime::v0::MetricType::L2,
+            svs::runtime::v0::StorageKind::FP32,
+            svs::runtime::v0::VamanaIndex::BuildParams{64},
+            small_capacity
+        );
+        CATCH_REQUIRE(status.ok());
+        status = index->add(test_n, test_data.data());
+        CATCH_REQUIRE(status.ok());
+
+        status = index->search(nq, xq, k, distances.data(), result_labels.data(), nullptr);
+        CATCH_REQUIRE(status.ok());
+        svs::runtime::v0::VamanaIndex::destroy(index);
+    }
+
+    CATCH_SECTION("Dynamic, per-search parameters") {
+        svs::runtime::v0::DynamicVamanaIndex* index = nullptr;
+        auto status = svs::runtime::v0::DynamicVamanaIndex::build(
+            &index,
+            test_d,
+            svs::runtime::v0::MetricType::L2,
+            svs::runtime::v0::StorageKind::FP32,
+            svs::runtime::v0::VamanaIndex::BuildParams{64}
+        );
+        CATCH_REQUIRE(status.ok());
+        std::vector<size_t> labels(test_n);
+        std::iota(labels.begin(), labels.end(), 0);
+        status = index->add(test_n, labels.data(), test_data.data());
+        CATCH_REQUIRE(status.ok());
+
+        status = index->search(
+            nq, xq, k, distances.data(), result_labels.data(), &small_capacity
+        );
+        CATCH_REQUIRE(status.ok());
+        for (int i = 0; i < nq; ++i) {
+            CATCH_REQUIRE(result_labels[i * k] == static_cast<size_t>(i));
+        }
+        svs::runtime::v0::DynamicVamanaIndex::destroy(index);
+    }
+}
+
 CATCH_TEST_CASE("GetDistanceDynamic", "[runtime]") {
     const auto& test_data = get_test_data();
     svs::runtime::v0::DynamicVamanaIndex* index = nullptr;

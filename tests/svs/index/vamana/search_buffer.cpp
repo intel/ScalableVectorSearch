@@ -324,9 +324,10 @@ CATCH_TEST_CASE("Testing Search Buffer", "[core][search_buffer]") {
         CATCH_REQUIRE(config.get_search_window_size() == 10);
         CATCH_REQUIRE(config.get_total_capacity() == 20);
 
-        // Ensure we get an error if mis-configuring.
-        auto f = []() { return vamana::SearchBufferConfig{10, 9}; };
-        CATCH_REQUIRE_THROWS_AS(f(), svs::ANNException);
+        // A capacity smaller than the window size is raised to the window size.
+        config = vamana::SearchBufferConfig{10, 9};
+        CATCH_REQUIRE(config.get_search_window_size() == 10);
+        CATCH_REQUIRE(config.get_total_capacity() == 10);
     }
 
     // Type Traits
