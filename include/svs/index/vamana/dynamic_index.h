@@ -26,6 +26,7 @@
 
 // svs
 #include "svs/concepts/distance.h"
+#include "svs/concurrent/graph_concepts.h"
 #include "svs/core/data.h"
 #include "svs/core/distance.h"
 #include "svs/core/graph.h"
@@ -48,7 +49,8 @@ namespace svs::index::vamana {
 
 // Forward declaration
 template <typename Index, typename QueryType> class BatchIterator;
-template <graphs::MemoryGraph Graph, typename Data, typename Dist>
+template <typename Graph, typename Data, typename Dist>
+    requires(graphs::MemoryGraph<Graph> || concurrent::graphs::MemoryGraph<Graph>)
 class MultiMutableVamanaIndex;
 
 /////

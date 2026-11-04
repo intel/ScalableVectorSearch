@@ -15,8 +15,20 @@
  */
 
 #pragma once
+#include "svs/concurrent/dynamic_index.h"
+#include "svs/concurrent/graph_concepts.h"
+#include "svs/concurrent/iterator.h"
 #include "svs/index/vamana/dynamic_index.h"
 #include "svs/index/vamana/iterator.h"
+#include "svs/lib/meta.h"
+#include "svs/lib/misc.h"
+
+#include <atomic>
+#include <memory>
+#include <mutex>
+#include <optional>
+#include <shared_mutex>
+#include <type_traits>
 
 namespace svs::index::vamana {
 
@@ -29,6 +41,9 @@ namespace svs::index::vamana {
 /// each label can have multiple vectors.
 /// This iterator ensures that neighbors are retrieved with unique labels
 template <typename Index, typename QueryType> class MultiBatchIterator {
+    static constexpr bool Concurrent =
+        concurrent::graphs::MemoryGraph<typename Index::graph_type>;
+
     using label_type = size_t;
     using external_id_type = size_t;
     using value_type = Neighbor<label_type>;
@@ -57,7 +72,6 @@ template <typename Index, typename QueryType> class MultiBatchIterator {
         size_t batch_size,
         const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>())
     ) {
-        const auto& external_to_label = index_.get_external_to_label_lookup();
         auto results_copy = results_;
         results_.clear();
         get_results_from_extra(batch_size);
@@ -70,7 +84,18 @@ template <typename Index, typename QueryType> class MultiBatchIterator {
                 throw error;
             }
             for (auto& result : batch_iterator_) {
-                auto label = external_to_label.at(result.id());
+                label_type label;
+                // Concurrent updates need locking, and deletions can leave missing labels.
+                // Ordinary iteration assumes stable mappings and uses a throwing lookup.
+                if constexpr (Concurrent) {
+                    auto found_label = index_.find_label(result.id());
+                    if (!found_label.has_value()) {
+                        continue;
+                    }
+                    label = *found_label;
+                } else {
+                    label = index_.get_external_to_label_lookup().at(result.id());
+                }
                 auto found_in_returned = returned_.find(label);
                 auto new_result = Neighbor<label_type>{label, result.distance()};
 
@@ -96,6 +121,12 @@ template <typename Index, typename QueryType> class MultiBatchIterator {
             }
         }
 
+        // Later parent batches can add closer labels or improve existing scores.
+        auto cmp = TotalOrder(compare{});
+        if (!std::is_sorted(results_.begin(), results_.end(), cmp)) {
+            std::sort(results_.begin(), results_.end(), cmp);
+        }
+
         ++iteration_;
         return;
     }
@@ -119,8 +150,23 @@ template <typename Index, typename QueryType> class MultiBatchIterator {
     size_t size() const { return results_.size(); }
 
     bool done() const {
-        return (batch_iterator_.done() && extra_results_.empty()) ||
-               (returned_.size() == index_.labelcount());
+        if (batch_iterator_.done() && extra_results_.empty()) {
+            return true;
+        }
+        // Deletions can make the counts equal while live labels remain unreturned.
+        // Ordinary iteration has stable labels, so equal counts suffice.
+        if constexpr (Concurrent) {
+            if (returned_.size() < index_.labelcount()) {
+                return false;
+            }
+            bool all_returned = true;
+            index_.on_ids([&](label_type label) {
+                all_returned = all_returned && returned_.contains(label);
+            });
+            return all_returned;
+        } else {
+            return returned_.size() == index_.labelcount();
+        }
     }
 
     std::span<const value_type> contents() const { return lib::as_const_span(results_); }
@@ -148,18 +194,63 @@ template <typename Index, typename QueryType> class MultiBatchIterator {
     std::unordered_set<label_type> returned_;
     std::vector<Neighbor<label_type>> results_;
     std::vector<Neighbor<label_type>> extra_results_;
-    BatchIterator<ParentIndex, QueryType> batch_iterator_;
+    std::conditional_t<
+        Concurrent,
+        concurrent::BatchIterator<ParentIndex, QueryType>,
+        BatchIterator<ParentIndex, QueryType>>
+        batch_iterator_;
 };
 
-template <graphs::MemoryGraph Graph, typename Data, typename Dist>
+namespace detail {
+
+template <typename Graph, typename Data, typename Dist> auto multi_parent_index_type() {
+    // Concurrent graphs return edge statuses; ordinary graphs return counts.
+    // Instantiate only the parent whose graph constraint matches.
+    if constexpr (concurrent::graphs::MemoryGraph<Graph>) {
+        return lib::Type<concurrent::MutableVamanaIndex<Graph, Data, Dist>>{};
+    } else {
+        return lib::Type<MutableVamanaIndex<Graph, Data, Dist>>{};
+    }
+}
+
+template <typename T, bool Concurrent> class Counter {
+  public:
+    /// Reserve the next ID, starting at zero, and return its value before incrementing.
+    T operator++(int) {
+        // Concurrent adders reserve IDs atomically; ordinary calls are serialized.
+        if constexpr (Concurrent) {
+            return value_->fetch_add(1, std::memory_order_relaxed);
+        } else {
+            return value_++;
+        }
+    }
+
+  private:
+    std::conditional_t<Concurrent, std::unique_ptr<std::atomic<T>>, T> value_{[] {
+        // Concurrent adders share an atomic counter; ordinary calls use a scalar.
+        if constexpr (Concurrent) {
+            return std::make_unique<std::atomic<T>>(0);
+        } else {
+            return T{0};
+        }
+    }()};
+};
+
+} // namespace detail
+
+template <typename Graph, typename Data, typename Dist>
+    requires(graphs::MemoryGraph<Graph> || concurrent::graphs::MemoryGraph<Graph>)
 class MultiMutableVamanaIndex {
+    static constexpr bool Concurrent = concurrent::graphs::MemoryGraph<Graph>;
+
   public:
     static constexpr bool supports_insertions = true;
     static constexpr bool supports_deletions = true;
     static constexpr bool supports_saving = false; // temporary disable for now
     static constexpr bool needs_id_translation = true;
 
-    using ParentIndex = MutableVamanaIndex<Graph, Data, Dist>;
+    using ParentIndex =
+        typename decltype(detail::multi_parent_index_type<Graph, Data, Dist>())::type;
     using compare = distance::compare_t<Dist>;
     using Idx = typename ParentIndex::Idx;
     using search_parameters_type = typename ParentIndex::search_parameters_type;
@@ -174,23 +265,79 @@ class MultiMutableVamanaIndex {
     using external_to_label_type = std::unordered_map<external_id_type, label_type>;
 
   private:
+    using slot_metadata_type =
+        std::conditional_t<Concurrent, concurrent::SlotMetadata, SlotMetadata>;
+
     distance_type distance_;
-    external_id_type counter_{0};
+    detail::Counter<external_id_type, Concurrent> counter_;
     std::unique_ptr<ParentIndex> index_{nullptr};
     label_to_external_type label_to_external_;
     external_to_label_type external_to_label_;
+
+    struct ConcurrentState {
+        // External IDs that have been soft-deleted but not yet consolidated in the parent
+        // index Keyed by the label they belonged to so that consolidate(labels) can recover
+        // them Guarded by l2e_mutex_
+        label_to_external_type pending_deletes_;
+        // Guard the label<->external id translation maps for concurrent add/delete/search.
+        // The locking order is:
+        // l2e_mutex_ -> e2l_mutex_
+        std::unique_ptr<std::shared_mutex> l2e_mutex_{
+            std::make_unique<std::shared_mutex>()};
+        std::unique_ptr<std::shared_mutex> e2l_mutex_{
+            std::make_unique<std::shared_mutex>()};
+    };
+    // Serialized ordinary calls need neither map locks nor partial-consolidation history.
+    [[no_unique_address]] std::conditional_t<Concurrent, ConcurrentState, lib::Empty>
+        concurrent_state_;
+
+    template <template <typename> typename Lock = std::lock_guard> auto lock_l2e() const {
+        // Concurrent label access needs locking; ordinary calls are serialized.
+        if constexpr (Concurrent) {
+            return Lock<std::shared_mutex>{*concurrent_state_.l2e_mutex_};
+        } else {
+            return lib::Empty{};
+        }
+    }
+
+    template <template <typename> typename Lock = std::lock_guard> auto lock_e2l() const {
+        // Concurrent reverse lookups can race updates; ordinary calls are serialized.
+        if constexpr (Concurrent) {
+            return Lock<std::shared_mutex>{*concurrent_state_.e2l_mutex_};
+        } else {
+            return lib::Empty{};
+        }
+    }
 
     template <class Labels>
     void
     prepare_added_id_by_label(const Labels& labels, std::vector<external_id_type>& adds) {
         for (const auto l : labels) {
-            if (label_to_external_.find(l) == label_to_external_.end()) {
-                label_to_external_.insert({l, std::vector<external_id_type>{}});
+            // Concurrent callers can create the same label; ordinary calls are exclusive.
+            if constexpr (Concurrent) {
+                // Ensure a bucket exists for this label (it may be new).
+                auto l2e_lock = lock_l2e<std::shared_lock>();
+                bool missing = label_to_external_.find(l) == label_to_external_.end();
+                l2e_lock.unlock();
+                if (missing) {
+                    auto lock = lock_l2e();
+                    label_to_external_.insert({l, std::vector<external_id_type>{}});
+                }
+            } else {
+                if (label_to_external_.find(l) == label_to_external_.end()) {
+                    label_to_external_.insert({l, std::vector<external_id_type>{}});
+                }
             }
 
             size_t new_external_id = counter_++;
-            label_to_external_[l].push_back(new_external_id);
-            external_to_label_.insert({new_external_id, l});
+            {
+                [[maybe_unused]] auto l2e_lock = lock_l2e();
+                label_to_external_[l].push_back(new_external_id);
+            }
+            {
+                [[maybe_unused]] auto e2l_lock = lock_e2l();
+                external_to_label_.insert({new_external_id, l});
+            }
             adds.push_back(new_external_id);
         }
     }
@@ -270,7 +417,7 @@ class MultiMutableVamanaIndex {
             std::move(data),
             std::move(graph),
             distance_,
-            std::vector<SlotMetadata>(data.size(), SlotMetadata::Valid),
+            std::vector<slot_metadata_type>(adds.size(), slot_metadata_type::Valid),
             remapped_translator,
             std::move(threadpool),
             std::move(logger)
@@ -314,7 +461,7 @@ class MultiMutableVamanaIndex {
             std::move(data),
             std::move(graph),
             distance_,
-            std::vector<SlotMetadata>(data.size(), SlotMetadata::Valid),
+            std::vector<slot_metadata_type>(adds.size(), slot_metadata_type::Valid),
             remapped_translator,
             std::move(threadpool),
             std::move(logger)
@@ -334,6 +481,7 @@ class MultiMutableVamanaIndex {
     template <typename Query>
     double get_distance(label_type label, const Query& query) const {
         double best = INVALID_DISTANCE;
+        [[maybe_unused]] auto l2e_lock = lock_l2e<std::shared_lock>();
         auto it = label_to_external_.find(label);
 
         if (it != label_to_external_.end()) {
@@ -354,6 +502,30 @@ class MultiMutableVamanaIndex {
         }
 
         return best;
+    }
+
+    ///
+    /// @brief Call `f` with the raw data of every vector of `label` while it is locked.
+    ///
+    /// @returns The number of vectors `f` was called for.
+    ///
+    template <typename F> size_t on_data(label_type label, F&& f) const {
+        [[maybe_unused]] auto l2e_lock = lock_l2e<std::shared_lock>();
+        auto it = label_to_external_.find(label);
+        if (it == label_to_external_.end()) {
+            return 0;
+        }
+        size_t visited = 0;
+        for (auto external_id : it->second) {
+            // Concurrent callbacks need stable storage; ordinary calls are serialized.
+            if constexpr (Concurrent) {
+                visited += index_->on_datum(external_id, f);
+            } else {
+                f(index_->get_datum(external_id));
+                ++visited;
+            }
+        }
+        return visited;
     }
 
     template <data::ImmutableMemoryDataset Points, typename Labels>
@@ -381,18 +553,39 @@ class MultiMutableVamanaIndex {
     template <typename T> size_t delete_entries(const T& labels) {
         std::vector<external_id_type> deletes;
 
-        for (auto& label : labels) {
-            auto it = label_to_external_.find(label);
-            if (it != label_to_external_.end()) {
-                auto& externals = (*it).second;
-                deletes.insert(deletes.end(), externals.begin(), externals.end());
-                for (auto& ext : externals) {
-                    external_to_label_.erase(ext);
+        {
+            [[maybe_unused]] auto l2e_lock = lock_l2e();
+            for (auto& label : labels) {
+                auto it = label_to_external_.find(label);
+                if (it != label_to_external_.end()) {
+                    auto& externals = (*it).second;
+                    deletes.insert(deletes.end(), externals.begin(), externals.end());
+                    // Concurrent partial consolidation needs saved IDs; ordinary deletion
+                    // removes the label mappings immediately.
+                    if constexpr (Concurrent) {
+                        // Remember the soft-deleted externals under their label so a
+                        // later consolidate(labels) can consolidate just these points.
+                        auto& pending = concurrent_state_.pending_deletes_[label];
+                        pending.insert(pending.end(), externals.begin(), externals.end());
+                    } else {
+                        for (auto& ext : externals) {
+                            external_to_label_.erase(ext);
+                        }
+                    }
+                    label_to_external_.erase(it);
                 }
-                label_to_external_.erase(it);
             }
         }
         index_->delete_entries(deletes);
+
+        [[maybe_unused]] auto e2l_lock = lock_e2l();
+        // Concurrent readers can see parent entries until deletion retires them.
+        // Ordinary deletion already erased the mappings without racing readers.
+        if constexpr (Concurrent) {
+            for (auto& ext : deletes) {
+                external_to_label_.erase(ext);
+            }
+        }
         return deletes.size();
     }
 
@@ -410,13 +603,26 @@ class MultiMutableVamanaIndex {
     ///
     /// @see has_id, delete_entries
     ///
-    void replace_external_id(label_type old_label, label_type new_label) {
+    auto replace_external_id(label_type old_label, label_type new_label) {
+        // Lock order: l2e_mutex_ then e2l_mutex_ (see the mutex members).
+        [[maybe_unused]] auto l2e_lock = lock_l2e();
+        [[maybe_unused]] auto e2l_lock = lock_e2l();
         auto it = label_to_external_.find(old_label);
         if (it == label_to_external_.end()) {
-            throw ANNEXCEPTION("Index does not contain label {}!", old_label);
+            // Concurrent renames can race and return status; ordinary missing IDs throw.
+            if constexpr (Concurrent) {
+                return concurrent::ReplaceExternalIdResult::OldIdMissing;
+            } else {
+                throw ANNEXCEPTION("Index does not contain label {}!", old_label);
+            }
         }
         if (label_to_external_.find(new_label) != label_to_external_.end()) {
-            throw ANNEXCEPTION("Index already contains label {}!", new_label);
+            // Concurrent conflicts return status; the ordinary API reports an exception.
+            if constexpr (Concurrent) {
+                return concurrent::ReplaceExternalIdResult::NewIdExists;
+            } else {
+                throw ANNEXCEPTION("Index already contains label {}!", new_label);
+            }
         }
 
         auto externals = std::move(it->second);
@@ -425,6 +631,19 @@ class MultiMutableVamanaIndex {
             external_to_label_.at(ext) = new_label;
         }
         label_to_external_.insert({new_label, std::move(externals)});
+
+        // Only concurrent indexes keep pending IDs for later consolidation by label.
+        if constexpr (Concurrent) {
+            // Vectors soft-deleted under the old label follow it
+            auto pending = concurrent_state_.pending_deletes_.find(old_label);
+            if (pending != concurrent_state_.pending_deletes_.end()) {
+                auto moved = std::move(pending->second);
+                concurrent_state_.pending_deletes_.erase(pending);
+                auto& destination = concurrent_state_.pending_deletes_[new_label];
+                destination.insert(destination.end(), moved.begin(), moved.end());
+            }
+            return concurrent::ReplaceExternalIdResult::Ok;
+        }
     }
 
     template <typename Query>
@@ -467,7 +686,9 @@ class MultiMutableVamanaIndex {
 
                     for (; j < num_neighbors; ++j) {
                         // insert default neighbor if not enough
-                        results.set(Neighbor<label_type>{}, i, j);
+                        results.set(
+                            type_traits::sentinel_v<Neighbor<label_type>, compare>, i, j
+                        );
                     }
                 }
             }
@@ -476,9 +697,49 @@ class MultiMutableVamanaIndex {
         return;
     }
 
-    void compact(Idx batch_size = 1'000) { index_->compact(batch_size); }
+    void compact(Idx batch_size = 1'000) {
+        index_->compact(batch_size);
+        // Only concurrent indexes retain pending IDs for partial consolidation.
+        if constexpr (Concurrent) {
+            // compact() fully consolidates, reclaiming every soft-deleted point.
+            auto l2e_lock = lock_l2e();
+            concurrent_state_.pending_deletes_.clear();
+        }
+    }
 
-    void consolidate() { index_->consolidate(); }
+    void consolidate() {
+        index_->consolidate();
+        // Only concurrent indexes retain pending IDs for partial consolidation.
+        if constexpr (Concurrent) {
+            // Full consolidation reclaims every soft-deleted point.
+            auto l2e_lock = lock_l2e();
+            concurrent_state_.pending_deletes_.clear();
+        }
+    }
+
+    // Consolidate only the soft-deleted vectors belonging to the listed `labels`.
+    // Mirrors delete_entries(labels): `labels` is any iterable of label values.
+    // Vectors soft-deleted under other labels remain in the graph and navigable
+    // until a later consolidate(). Returns the number of external vectors
+    // consolidated (a label may map to several vectors).
+    template <typename T>
+    size_t consolidate(const T& labels)
+        requires(Concurrent)
+    {
+        std::vector<external_id_type> externals;
+        {
+            auto l2e_lock = lock_l2e();
+            for (auto& label : labels) {
+                auto it = concurrent_state_.pending_deletes_.find(label);
+                if (it == concurrent_state_.pending_deletes_.end()) {
+                    continue; // No soft-deleted vectors pending for this label.
+                }
+                externals.insert(externals.end(), it->second.begin(), it->second.end());
+                concurrent_state_.pending_deletes_.erase(it);
+            }
+        }
+        return index_->consolidate(externals);
+    }
 
     template <typename QueryType>
     auto make_batch_iterator(
@@ -514,12 +775,16 @@ class MultiMutableVamanaIndex {
     }
 
     bool has_id(size_t e) const {
+        [[maybe_unused]] auto l2e_lock = lock_l2e<std::shared_lock>();
         return label_to_external_.find(e) != label_to_external_.end();
     }
 
     size_t size() const { return index_->size(); }
 
-    size_t labelcount() const { return label_to_external_.size(); }
+    size_t labelcount() const {
+        [[maybe_unused]] auto l2e_lock = lock_l2e<std::shared_lock>();
+        return label_to_external_.size();
+    }
 
     // scrathspace from parent index
     scratchspace_type scratchspace(const search_parameters_type& sp) const {
@@ -531,7 +796,24 @@ class MultiMutableVamanaIndex {
 
     // translate internal id -> external id -> label
     label_type translate_internal_id(Idx i) const {
-        return external_to_label_.at(index_->translate_internal_id(i));
+        auto external_id = index_->translate_internal_id(i);
+        // Concurrent deletion can remove a mapping; ordinary translation requires it.
+        if constexpr (Concurrent) {
+            return find_label(external_id).value_or(concurrent::no_external_id);
+        } else {
+            return external_to_label_.at(external_id);
+        }
+    }
+
+    /// @brief The label owning `external_id`, or ``std::nullopt`` if it has none.
+    ///
+    std::optional<label_type> find_label(external_id_type external_id) const {
+        [[maybe_unused]] auto e2l_lock = lock_e2l<std::shared_lock>();
+        auto it = external_to_label_.find(external_id);
+        if (it == external_to_label_.end()) {
+            return std::nullopt;
+        }
+        return it->second;
     }
 
     /// @brief Call the functor with all labels in the index.
@@ -540,6 +822,7 @@ class MultiMutableVamanaIndex {
     ///     each external ID in the index.
     ///
     template <typename F> void on_ids(F&& f) const {
+        [[maybe_unused]] auto l2e_lock = lock_l2e<std::shared_lock>();
         for (auto pair : label_to_external_) {
             f(pair.first);
         }
@@ -622,7 +905,7 @@ class MultiMutableVamanaIndex {
 
     VamanaIndexParameters get_parameters() const {
         return {
-            index_->entry_point_.front(),
+            index_->entry_point(),
             {get_alpha(),
              max_degree(),
              get_construction_window_size(),
