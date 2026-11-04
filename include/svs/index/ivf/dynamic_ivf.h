@@ -494,6 +494,7 @@ class DynamicIVFIndex {
         std::vector<size_t> global_ids = allocate_ids(num_points, reuse_empty);
 
         // Try to update ID translation
+        translator_.reserve(status_.size());
         translator_.insert(external_ids, global_ids);
 
         // Insert points into their assigned clusters
@@ -630,6 +631,7 @@ class DynamicIVFIndex {
         first_empty_ = new_size;
 
         // Step 6: Re-add all IDs to translator
+        translator_.reserve(new_size);
         translator_.insert(external_ids, new_internal_ids, false);
 
         svs::logging::info(logger_, "Compaction complete: {} valid entries", new_size);
