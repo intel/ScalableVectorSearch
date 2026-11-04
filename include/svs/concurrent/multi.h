@@ -20,6 +20,7 @@
 namespace svs::index::vamana::concurrent {
 
 using vamana::auto_multi_dynamic_assemble;
+using vamana::MultiBatchIterator;
 using vamana::MultiMutableVamanaIndex;
 using vamana::MultiMutableVamanaLoad;
 

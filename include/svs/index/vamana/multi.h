@@ -203,7 +203,10 @@ template <typename Index, typename QueryType> class MultiBatchIterator {
 
 namespace detail {
 
-template <typename Graph, typename Data, typename Dist> auto multi_parent_index_type() {
+// Reject non-graph CTAD candidates before return-type deduction instantiates a parent.
+template <typename Graph, typename Data, typename Dist>
+    requires(graphs::MemoryGraph<Graph> || concurrent::graphs::MemoryGraph<Graph>)
+auto multi_parent_index_type() {
     // Concurrent graphs return edge statuses; ordinary graphs return counts.
     // Instantiate only the parent whose graph constraint matches.
     if constexpr (concurrent::graphs::MemoryGraph<Graph>) {
