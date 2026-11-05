@@ -147,13 +147,33 @@ enum class ReplaceExternalIdResult : uint8_t {
 inline constexpr size_t no_external_id =
     type_traits::sentinel_v<Neighbor<size_t>, std::less<>>.id();
 
-class ValidBuilder {
+// Template so the compiler builds a separate regular-search copy with no filter check.
+template <bool Filtered = false> class ValidBuilder {
   public:
-    ValidBuilder(const lib::SegmentedVector<SlotMetadata>& status)
-        : status_{status} {}
+    ValidBuilder(
+        const lib::SegmentedVector<SlotMetadata>& status,
+        const IDTranslator* translator = nullptr,
+        const std::function<bool(size_t)>* filter = nullptr
+    )
+        : status_{status}
+        , translator_{translator}
+        , filter_{filter} {}
+
+    // Once the window is full, only candidates closer than its worst entry are filtered.
+    template <typename Buffer> void skip_if_dropped_by(const Buffer& buffer) {
+        skip_buffer_ = &buffer;
+        skip_ = [](const void* b, float d) {
+            return static_cast<const Buffer*>(b)->can_skip(d);
+        };
+    }
 
     template <typename I>
     constexpr PredicatedSearchNeighbor<I> operator()(I i, float distance) const {
+        if constexpr (Filtered) {
+            if (skip_ != nullptr && skip_(skip_buffer_, distance)) {
+                return PredicatedSearchNeighbor<I>(i, distance, false);
+            }
+        }
         // A neighbor is returnable only if its slot is Valid. Deleted slots
         // must be skipped; Pending slots are reserved by an in-flight add and
         // their vectors/edges are not yet fully published. Empty slots should
@@ -163,11 +183,23 @@ class ValidBuilder {
                 .load(std::memory_order_acquire) != SlotMetadata::Valid;
         // This neighbor should be skipped if the metadata corresponding to the given index
         // marks this slot as deleted.
+        if constexpr (Filtered) {
+            if (!invalid) {
+                // Lock-free read of the internal->external table. A slot whose id was
+                // erased has no external id and fails the filter.
+                size_t external = translator_->get_external_or(i, no_external_id);
+                invalid = external == no_external_id || !(*filter_)(external);
+            }
+        }
         return PredicatedSearchNeighbor<I>(i, distance, !invalid);
     }
 
   private:
     const lib::SegmentedVector<SlotMetadata>& status_;
+    const IDTranslator* translator_;
+    const std::function<bool(size_t)>* filter_;
+    const void* skip_buffer_ = nullptr;
+    bool (*skip_)(const void*, float) = nullptr;
 };
 
 template <graphs::MemoryGraph Graph, typename Data, typename Dist>
@@ -804,6 +836,9 @@ class MutableVamanaIndex {
             [&](const auto is, uint64_t /*tid*/) {
                 for (auto i : is) {
                     for (size_t j = 0, jmax = getsize<1>(ids); j < jmax; ++j) {
+                        if (ids.at(i, j) == static_cast<size_t>(-1)) {
+                            continue; // Padding from a filtered search.
+                        }
                         auto internal = lib::narrow_cast<Idx>(ids.at(i, j));
                         ids.at(i, j) = unsafe_translate_internal_id(internal);
                     }
@@ -874,7 +909,11 @@ class MutableVamanaIndex {
 
     // Return a `greedy_search` compatible builder for this index.
     // This is an internal method, mostly used to help implement the batch iterator.
-    ValidBuilder internal_search_builder() const { return ValidBuilder{status_}; }
+    template <bool Filtered = false>
+    ValidBuilder<Filtered>
+    internal_search_builder(const std::function<bool(size_t)>* filter = nullptr) const {
+        return ValidBuilder<Filtered>{status_, &translator_, filter};
+    }
 
     /// @brief RAII reader lock guarding data_/graph_ against compact()'s shrink
     /// (which frees segments). Used by BatchIterator::next() to protect the
@@ -894,36 +933,24 @@ class MutableVamanaIndex {
         return std::shared_lock<std::shared_mutex>(*translator_mutex_);
     }
 
-    // Filtered: ids failing `filter` are traversed but never returned.
     template <bool Filtered = false>
     auto greedy_search_closure(
         GreedySearchPrefetchParameters prefetch_parameters,
         const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>()),
         const std::function<bool(size_t)>* filter = nullptr
     ) const {
-        auto search = [&, prefetch_parameters, filter](
-                          const auto& query, auto& accessor, auto& distance, auto& buffer
-                      ) {
+        return [&,
+                prefetch_parameters,
+                filter](const auto& query, auto& accessor, auto& distance, auto& buffer) {
             const Idx seed = entry_point();
             if (seed == NO_ENTRY) {
                 buffer.clear();
                 return;
             }
-            auto valid = internal_search_builder();
-            auto builder = [&](Idx i, float dist) {
-                auto neighbor = valid(i, dist);
-                if constexpr (Filtered) {
-                    // The filter is not called for candidates a full buffer would drop.
-                    if (neighbor.valid() && !buffer.can_skip(dist)) {
-                        // Lock-free read; an erased slot has no external id.
-                        size_t external = unsafe_translate_internal_id(i);
-                        if (external == no_external_id || !(*filter)(external)) {
-                            return PredicatedSearchNeighbor<Idx>(i, dist, false);
-                        }
-                    }
-                }
-                return neighbor;
-            };
+            auto builder = internal_search_builder<Filtered>(filter);
+            if constexpr (Filtered) {
+                builder.skip_if_dropped_by(buffer);
+            }
             // Perform the greedy search using the provided resources.
             concurrent::greedy_search(
                 graph_,
@@ -941,11 +968,6 @@ class MutableVamanaIndex {
             // might remain.
             buffer.cleanup();
         };
-        if constexpr (Filtered) {
-            return extensions::FilteredSearch<decltype(search)>{search, filter};
-        } else {
-            return search;
-        }
     }
 
     // The scratch buffer contains internal IDs. Consuming them after this call requires
@@ -964,14 +986,14 @@ class MutableVamanaIndex {
             scratch.buffer,
             scratch.scratch,
             query,
-            greedy_search_closure(scratch.prefetch_parameters, cancel),
+            greedy_search_closure<false>(scratch.prefetch_parameters, cancel),
             *this
         );
     }
 
     // `filter` runs on every search thread without the translator lock; it must be
     // thread-safe.
-    template <bool Filtered = false, typename I, data::ImmutableMemoryDataset Queries>
+    template <typename I, data::ImmutableMemoryDataset Queries>
     void search(
         QueryResultView<I> results,
         const Queries& queries,
@@ -986,35 +1008,52 @@ class MutableVamanaIndex {
                 threadpool_,
                 threads::StaticPartition{queries.size()},
                 [&](const auto is, uint64_t SVS_UNUSED(tid)) {
-                    size_t num_neighbors = results.n_neighbors();
-                    auto buffer = search_buffer_type{
-                        sp.buffer_config_,
-                        distance::comparator(distance_),
-                        sp.search_buffer_visited_set_};
+                    auto body = [&]<bool Filtered>(std::bool_constant<Filtered>) {
+                        size_t num_neighbors = results.n_neighbors();
+                        auto buffer = search_buffer_type{
+                            sp.buffer_config_,
+                            distance::comparator(distance_),
+                            sp.search_buffer_visited_set_};
 
-                    auto prefetch_parameters = GreedySearchPrefetchParameters{
-                        sp.prefetch_lookahead_, sp.prefetch_step_};
+                        auto prefetch_parameters = GreedySearchPrefetchParameters{
+                            sp.prefetch_lookahead_, sp.prefetch_step_};
 
-                    // Legalize search buffer for this search.
-                    if (buffer.target_capacity() < num_neighbors) {
-                        buffer.change_maxsize(num_neighbors);
-                    }
-                    auto scratch =
-                        extensions::per_thread_batch_search_setup(data_, distance_);
+                        // Legalize search buffer for this search.
+                        if (buffer.target_capacity() < num_neighbors) {
+                            buffer.change_maxsize(num_neighbors);
+                        }
+                        auto scratch =
+                            extensions::per_thread_batch_search_setup(data_, distance_);
 
-                    extensions::per_thread_batch_search(
-                        data_,
-                        buffer,
-                        scratch,
-                        queries,
-                        results,
-                        threads::UnitRange{is},
-                        greedy_search_closure<Filtered>(
+                        auto run = [&](const auto& search) {
+                            extensions::per_thread_batch_search(
+                                data_,
+                                buffer,
+                                scratch,
+                                queries,
+                                results,
+                                threads::UnitRange{is},
+                                search,
+                                *this,
+                                cancel
+                            );
+                        };
+                        auto search = greedy_search_closure<Filtered>(
                             prefetch_parameters, cancel, filter
-                        ),
-                        *this,
-                        cancel
-                    );
+                        );
+                        if constexpr (Filtered) {
+                            run(extensions::FilteredSearch<decltype(search)>{search, filter}
+                            );
+                        } else {
+                            run(search);
+                        }
+                    };
+                    if (filter != nullptr) {
+                        [&]() __attribute__((noinline)) { body(std::true_type{}); }
+                        ();
+                    } else {
+                        body(std::false_type{});
+                    }
                 }
             );
         }

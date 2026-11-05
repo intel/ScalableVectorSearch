@@ -57,8 +57,8 @@ class DynamicVamanaInterface : public VamanaInterface {
     // Check if the index has been consolidated - no `Deleted` entries remain.
     virtual bool is_consolidated() const = 0;
 
-    // Filtered search: only ids with filter(id) == true are returned. Keep last (ABI).
-    virtual void filtered_search(
+    // Filtered search; false if the data type does not support it. Keep last (ABI).
+    virtual bool filtered_search(
         svs::QueryResultView<size_t> results,
         AnonymousArray<2> queries,
         const index::vamana::VamanaSearchParameters& search_parameters,
@@ -118,7 +118,7 @@ class DynamicVamanaImpl : public VamanaImpl<QueryTypes, Impl, DynamicVamanaInter
     // Check if the index has been consolidated - no `Deleted` entries remain.
     bool is_consolidated() const override { return impl().is_consolidated(); }
 
-    void filtered_search(
+    bool filtered_search(
         svs::QueryResultView<size_t> results,
         AnonymousArray<2> queries,
         const index::vamana::VamanaSearchParameters& search_parameters,
@@ -128,7 +128,7 @@ class DynamicVamanaImpl : public VamanaImpl<QueryTypes, Impl, DynamicVamanaInter
             QueryTypes{},
             queries.type(),
             [&]<typename T>(lib::Type<T> SVS_UNUSED(type)) {
-                impl().template search<true>(
+                impl().search(
                     results,
                     data::ConstSimpleDataView<T>(queries),
                     search_parameters,
@@ -137,13 +137,10 @@ class DynamicVamanaImpl : public VamanaImpl<QueryTypes, Impl, DynamicVamanaInter
                 );
             },
             [&](svs::DataType data_type) {
-                throw ANNEXCEPTION(
-                    "Unsupported datatype! Got: {}. Expected one of: {}.",
-                    data_type,
-                    fmt::join(QueryTypes::data_types(), ", ")
-                );
+                throw ANNEXCEPTION("Unsupported query datatype! Got: {}.", data_type);
             }
         );
+        return true;
     }
 };
 
@@ -649,13 +646,13 @@ class DynamicVamana : public manager::IndexManager<DynamicVamanaInterface> {
     /// @brief Filtered search: only ids for which ``filter(id)`` is true are returned.
     /// Rows with fewer passing entries than requested are padded with id ``size_t(-1)``.
     template <typename QueryType>
-    void filtered_search(
+    bool filtered_search(
         QueryResultView<size_t> results,
         data::ConstSimpleDataView<QueryType> queries,
         const VamanaSearchParameters& search_parameters,
         const std::function<bool(size_t)>& filter
     ) {
-        impl_->filtered_search(
+        return impl_->filtered_search(
             results, AnonymousArray<2>(queries), search_parameters, filter
         );
     }
