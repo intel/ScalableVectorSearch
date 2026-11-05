@@ -21,6 +21,7 @@
 #include "catch2/catch_test_macros.hpp"
 
 // Test utilities
+#include "c_api_filtered_topk_checks.h"
 #include "c_api_test_utils.h"
 
 // Standard library
@@ -1547,4 +1548,29 @@ CATCH_TEST_CASE("C API Filtered Search topK", "[c_api][index][search][filter]") 
         svs_algorithm_free(algorithm);
         svs_error_free(error);
     }
+}
+
+CATCH_TEST_CASE(
+    "C API Filtered Search topK by pass rate", "[c_api][index][search][filter]"
+) {
+    filtered_topk_checks::Dataset ds;
+    svs_error_h error = svs_error_create();
+    svs_algorithm_h algorithm = svs_algorithm_create_vamana(32, 100, 100, error);
+    CATCH_REQUIRE(algorithm != nullptr);
+    svs_index_builder_h builder = svs_index_builder_create(
+        SVS_DISTANCE_METRIC_EUCLIDEAN, ds.dimension, algorithm, error
+    );
+    CATCH_REQUIRE(builder != nullptr);
+    CATCH_REQUIRE(
+        svs_index_builder_set_threadpool(builder, SVS_THREADPOOL_KIND_NATIVE, 4, error)
+    );
+    svs_index_h index = svs_index_build(builder, ds.data.data(), ds.num_vectors, error);
+    CATCH_REQUIRE(index != nullptr);
+
+    filtered_topk_checks::run(index, ds);
+
+    svs_index_free(index);
+    svs_index_builder_free(builder);
+    svs_algorithm_free(algorithm);
+    svs_error_free(error);
 }
