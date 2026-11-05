@@ -150,7 +150,8 @@ inline constexpr size_t no_external_id =
 // Filtered is a template parameter so regular search compiles without any filter check.
 template <bool Filtered = false> class ValidBuilder {
   public:
-    // Filtered: entries failing filter(external_id) are navigated but not returned.
+    // Filtered: a candidate failing filter(external_id) still gets its distance computed
+    // and its neighbors visited, but is marked invalid and never returned.
     ValidBuilder(
         const lib::SegmentedVector<SlotMetadata>& status,
         const IDTranslator* translator = nullptr,
