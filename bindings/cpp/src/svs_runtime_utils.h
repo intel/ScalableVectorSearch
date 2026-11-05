@@ -57,6 +57,7 @@ inline bool lvq_leanvec_enabled() { return false; }
 #include <memory>
 #include <random>
 #include <type_traits>
+#include <unordered_map>
 #include <variant>
 #include <vector>
 
@@ -479,6 +480,94 @@ inline size_t sample_size_for_filter_stop(float filter_stop) {
         return kFilterSampleSize;
     }
     return std::max(kFilterSampleSize, static_cast<size_t>(1.0f / filter_stop));
+}
+
+// Grouped top-k over a batch iterator: pull batches until `k` distinct groups are
+// found or the iterator is exhausted, keeping the best element per group.
+// NO_GROUP ids each count as their own group; `filter` is applied first, and the
+// search gives up (empty result) while short of `k` groups if the filter hit rate
+// falls below `filter_stop`, as in the filtered search.
+template <typename BatchIterator, typename Compare>
+std::vector<Neighbor<size_t>> grouped_topk(
+    BatchIterator& iterator,
+    size_t k,
+    IDFilter* filter,
+    float filter_stop,
+    const IDGrouper& grouper,
+    const Compare& closer, // closer(a, b): distance `a` is closer than `b`
+    size_t initial_batch_size,
+    size_t max_batch_size
+) {
+    std::vector<Neighbor<size_t>> best;
+    best.reserve(k);
+    std::unordered_map<size_t, size_t> group_slot; // group id -> index in `best`
+    size_t total_checked = 0;
+    size_t filter_hits = 0;
+    auto batch_size = initial_batch_size;
+    do {
+        batch_size = predict_further_processing(
+            total_checked, best.size(), k, batch_size, max_batch_size
+        );
+        iterator.next(batch_size);
+        total_checked += iterator.size();
+        for (auto& neighbor : iterator.results()) {
+            // Batches are sorted by distance: with k groups kept, nothing later in
+            // the batch can improve them.
+            if (best.size() == k) {
+                break;
+            }
+            if (filter != nullptr && !filter->is_member(neighbor.id())) {
+                continue;
+            }
+            filter_hits++;
+            const size_t group = grouper.get_group(neighbor.id());
+            const auto candidate = Neighbor<size_t>{neighbor.id(), neighbor.distance()};
+            if (group == IDGrouper::NO_GROUP) {
+                // Ungrouped id: counts as its own group, never deduplicated.
+                best.push_back(candidate);
+                continue;
+            }
+            auto [slot, inserted] = group_slot.try_emplace(group, best.size());
+            if (inserted) {
+                best.push_back(candidate);
+            } else if (closer(candidate.distance(), best[slot->second].distance())) {
+                best[slot->second] = candidate;
+            }
+        }
+        if (best.size() < k &&
+            should_stop_filtered_search(total_checked, filter_hits, filter_stop)) {
+            return {};
+        }
+    } while (best.size() < k && !iterator.done());
+
+    // Replacements can break the by-distance order; restore it.
+    std::stable_sort(best.begin(), best.end(), [&](const auto& a, const auto& b) {
+        return closer(a.distance(), b.distance());
+    });
+    return best;
+}
+
+// In place: keep the best element per group (first-seen group order); NO_GROUP ids stay.
+template <typename Compare>
+void reduce_to_group_best(
+    std::vector<Neighbor<size_t>>& results, const IDGrouper& grouper, const Compare& closer
+) {
+    std::unordered_map<size_t, size_t> group_slot; // group id -> index in kept prefix
+    size_t kept = 0;
+    for (const auto& neighbor : results) {
+        const size_t group = grouper.get_group(neighbor.id());
+        if (group == IDGrouper::NO_GROUP) {
+            results[kept++] = neighbor;
+            continue;
+        }
+        auto [slot, inserted] = group_slot.try_emplace(group, kept);
+        if (inserted) {
+            results[kept++] = neighbor;
+        } else if (closer(neighbor.distance(), results[slot->second].distance())) {
+            results[slot->second] = neighbor;
+        }
+    }
+    results.resize(kept);
 }
 
 // Fill all result slots with unspecified values.
