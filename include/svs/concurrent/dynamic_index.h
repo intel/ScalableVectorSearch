@@ -148,21 +148,19 @@ enum class ReplaceExternalIdResult : uint8_t {
 inline constexpr size_t no_external_id =
     type_traits::sentinel_v<Neighbor<size_t>, std::less<>>.id();
 
-template <bool Filtered = false, typename Index = void> class ValidBuilder {
+// Template so the compiler builds a separate regular-search copy with no filter check.
+template <bool Filtered = false> class ValidBuilder {
   public:
-    // Optional `filter` (with `index`): an entry is also invalid if
-    // `filter(external_id)` is false. Invalid entries are navigated through but never
-    // returned.
     ValidBuilder(
         const lib::SegmentedVector<SlotMetadata>& status,
-        const Index* index = nullptr,
+        const IDTranslator* translator = nullptr,
         const std::function<bool(size_t)>* filter = nullptr
     )
         : status_{status}
-        , index_{index}
+        , translator_{translator}
         , filter_{filter} {}
 
-    /// Filtered only: skip the filter for entries `buffer` would drop anyway.
+    // Once the window is full, only candidates closer than its worst entry are filtered.
     template <typename Buffer> void skip_if_dropped_by(const Buffer& buffer) {
         skip_buffer_ = &buffer;
         skip_ = [](const void* b, float d) {
@@ -188,9 +186,8 @@ template <bool Filtered = false, typename Index = void> class ValidBuilder {
         // marks this slot as deleted.
         if constexpr (Filtered) {
             if (!invalid) {
-                // The caller holds `lock_for_translation()`. An id erased before the lock
-                // was taken has no external id and fails the filter.
-                size_t external = index_->unsafe_translate_internal_id(i);
+                // Lock-free read; an erased slot has no external id and fails.
+                size_t external = translator_->get_external_or(i, no_external_id);
                 invalid = external == no_external_id || !(*filter_)(external);
             }
         }
@@ -199,7 +196,7 @@ template <bool Filtered = false, typename Index = void> class ValidBuilder {
 
   private:
     const lib::SegmentedVector<SlotMetadata>& status_;
-    const Index* index_;
+    const IDTranslator* translator_;
     const std::function<bool(size_t)>* filter_;
     const void* skip_buffer_ = nullptr;
     bool (*skip_)(const void*, float) = nullptr;
@@ -918,9 +915,9 @@ class MutableVamanaIndex {
     // Return a `greedy_search` compatible builder for this index.
     // This is an internal method, mostly used to help implement the batch iterator.
     template <bool Filtered = false>
-    ValidBuilder<Filtered, MutableVamanaIndex>
+    ValidBuilder<Filtered>
     internal_search_builder(const std::function<bool(size_t)>* filter = nullptr) const {
-        return ValidBuilder<Filtered, MutableVamanaIndex>{status_, this, filter};
+        return ValidBuilder<Filtered>{status_, &translator_, filter};
     }
 
     /// @brief RAII shared lock guarding data_/graph_ against compact()'s shrink
@@ -994,13 +991,12 @@ class MutableVamanaIndex {
             scratch.buffer,
             scratch.scratch,
             query,
-            greedy_search_closure<false>(scratch.prefetch_parameters, cancel),
+            greedy_search_closure(scratch.prefetch_parameters, cancel),
             *this
         );
     }
 
-    // `filter` runs while this thread holds the translator lock shared: it must not call
-    // back into this index (no writers, no self-locking readers such as `has_id`).
+    // `filter` is called from every search thread without locks; it must be thread-safe.
     template <typename I, data::ImmutableMemoryDataset Queries>
     void search(
         QueryResultView<I> results,
@@ -2098,8 +2094,7 @@ class MutableVamanaIndex {
     /// ``translator_mutex_`` shared (preserving the global compact -> translator order)
     /// and skipping slots that are no longer ``Valid``.
     ///
-    /// Called from the ``extensions::single_search`` override below. With a ``filter`` the
-    /// caller must hold ``lock_for_translation()`` (``search()`` does).
+    /// Called from the ``extensions::single_search`` override below.
     ///
     template <typename SearchBuffer, typename Query>
     void supplement_search_buffer(
@@ -2219,7 +2214,7 @@ SVS_FORCE_INLINE void svs_invoke(
     }
     const std::function<bool(size_t)>* filter = nullptr;
     if constexpr (requires { search.filter; }) {
-        filter = search.filter; // Filtered search: keep filtered-out ids out of the top-up.
+        filter = search.filter;
     }
     index.supplement_search_buffer(search_buffer, query, filter);
 }
