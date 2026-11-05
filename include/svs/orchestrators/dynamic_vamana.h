@@ -124,36 +124,23 @@ class DynamicVamanaImpl : public VamanaImpl<QueryTypes, Impl, DynamicVamanaInter
         const index::vamana::VamanaSearchParameters& search_parameters,
         const std::function<bool(size_t)>& filter
     ) override {
-        // Filtered search is available for every data type. Indexes whose `search` has no
-        // filter argument (e.g. the concurrent index) report "unsupported".
-        constexpr bool supported = requires(
-            Impl & idx,
-            svs::QueryResultView<size_t> r,
-            data::ConstSimpleDataView<float> q,
-            const index::vamana::VamanaSearchParameters& sp,
-            const std::function<bool(size_t)>* filter
-        ) { idx.search(r, q, sp, lib::Returns(lib::Const<false>()), filter); };
-        if constexpr (supported) {
-            lib::match(
-                QueryTypes{},
-                queries.type(),
-                [&]<typename T>(lib::Type<T> SVS_UNUSED(type)) {
-                    impl().search(
-                        results,
-                        data::ConstSimpleDataView<T>(queries),
-                        search_parameters,
-                        lib::Returns(lib::Const<false>()),
-                        &filter
-                    );
-                },
-                [&](svs::DataType data_type) {
-                    throw ANNEXCEPTION("Unsupported query datatype! Got: {}.", data_type);
-                }
-            );
-            return true;
-        } else {
-            return false;
-        }
+        lib::match(
+            QueryTypes{},
+            queries.type(),
+            [&]<typename T>(lib::Type<T> SVS_UNUSED(type)) {
+                impl().search(
+                    results,
+                    data::ConstSimpleDataView<T>(queries),
+                    search_parameters,
+                    lib::Returns(lib::Const<false>()),
+                    &filter
+                );
+            },
+            [&](svs::DataType data_type) {
+                throw ANNEXCEPTION("Unsupported query datatype! Got: {}.", data_type);
+            }
+        );
+        return true;
     }
 };
 
@@ -657,7 +644,7 @@ class DynamicVamana : public manager::IndexManager<DynamicVamanaInterface> {
     bool is_consolidated() const { return impl_->is_consolidated(); }
 
     /// @brief Filtered search: only ids for which ``filter(id)`` is true are returned.
-    /// Returns false if the data type does not support it.
+    /// Rows with fewer passing entries than requested are padded with id ``size_t(-1)``.
     template <typename QueryType>
     bool filtered_search(
         QueryResultView<size_t> results,

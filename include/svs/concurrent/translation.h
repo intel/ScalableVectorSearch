@@ -77,12 +77,6 @@ class IDTranslator {
     size_t size() const { return external_to_internal_.size(); }
 
     ///
-    /// @brief Drop the internal-to-external slots ``[n, ...)``. No internal ID ``>= n`` may
-    /// be mapped, and no reader may be active (see ``lib::SegmentedVector::shrink_to``).
-    ///
-    void shrink(size_t n) { internal_to_external_.shrink_to(n); }
-
-    ///
     /// @brief Insert the two ranges.
     ///
     /// @param external Container implementing forward iteration of the external IDs to add.
@@ -529,8 +523,8 @@ class IDTranslator {
     }
 
     tsl::robin_map<external_id_type, internal_id_type> external_to_internal_{};
-    // Indexed by internal ID. Grow-stable, so `load_external` is safe without a lock while
-    // a writer (holding the index's exclusive translator lock) grows it or stores entries.
+    // TODO: moves to #447 (same vector-based internal-to-external table); not in this PR.
+    // Grow-stable: `load_external` is safe without a lock.
     lib::SegmentedVector<external_id_type> internal_to_external_{};
 
     external_id_type load_external(internal_id_type i) const {

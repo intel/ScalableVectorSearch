@@ -92,11 +92,10 @@ inline constexpr std::string_view name(SlotMetadata metadata) {
 }
 // clang-format on
 
+// Filtered is a template parameter so regular search compiles without any filter check.
 template <bool Filtered = false> class ValidBuilder {
   public:
-    // Optional `filter` (with `translator`): an entry is also invalid if
-    // `filter(external_id)` is false. Invalid entries are navigated through but never
-    // returned.
+    // Filtered: entries failing filter(external_id) are navigated but not returned.
     ValidBuilder(
         const std::vector<SlotMetadata>& status,
         const IDTranslator* translator = nullptr,
@@ -106,7 +105,7 @@ template <bool Filtered = false> class ValidBuilder {
         , translator_{translator}
         , filter_{filter} {}
 
-    /// Filtered only: skip the filter for entries `buffer` would drop anyway.
+    // Once the window is full, only candidates closer than its worst entry are filtered.
     template <typename Buffer> void skip_if_dropped_by(const Buffer& buffer) {
         skip_buffer_ = &buffer;
         skip_ = [](const void* b, float d) {
@@ -670,9 +669,6 @@ class MutableVamanaIndex {
         const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>()),
         const std::function<bool(size_t)>* filter = nullptr
     ) {
-        // Optional `filter`: only entries whose external id passes are returned. It is
-        // called from all search threads. Rows with fewer passing entries than requested
-        // are padded with id `size_t(-1)` and the worst score.
         threads::parallel_for(
             threadpool_,
             threads::StaticPartition{queries.size()},
