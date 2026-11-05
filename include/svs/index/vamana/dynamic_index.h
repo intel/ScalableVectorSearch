@@ -92,11 +92,10 @@ inline constexpr std::string_view name(SlotMetadata metadata) {
 }
 // clang-format on
 
-// Filtered is a template parameter so regular search compiles without any filter check.
+// Marks deleted (and, if Filtered, filtered-out) slots invalid: searched through, never
+// returned; a template so regular search has no filter check.
 template <bool Filtered = false> class ValidBuilder {
   public:
-    // Filtered: a candidate failing filter(external_id) still gets its distance computed
-    // and its neighbors visited, but is marked invalid and never returned.
     ValidBuilder(
         const std::vector<SlotMetadata>& status,
         const IDTranslator* translator = nullptr,

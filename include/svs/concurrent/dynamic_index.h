@@ -147,11 +147,10 @@ enum class ReplaceExternalIdResult : uint8_t {
 inline constexpr size_t no_external_id =
     type_traits::sentinel_v<Neighbor<size_t>, std::less<>>.id();
 
-// Filtered is a template parameter so regular search compiles without any filter check.
+// Marks deleted (and, if Filtered, filtered-out) slots invalid: searched through, never
+// returned; a template so regular search has no filter check.
 template <bool Filtered = false> class ValidBuilder {
   public:
-    // Filtered: a candidate failing filter(external_id) still gets its distance computed
-    // and its neighbors visited, but is marked invalid and never returned.
     ValidBuilder(
         const lib::SegmentedVector<SlotMetadata>& status,
         const IDTranslator* translator = nullptr,
