@@ -92,8 +92,7 @@ inline constexpr std::string_view name(SlotMetadata metadata) {
 }
 // clang-format on
 
-// Marks deleted (and, if Filtered, filtered-out) slots invalid: searched through, never
-// returned; a template so regular search has no filter check.
+// Template so the compiler builds a separate regular-search copy with no filter check.
 template <bool Filtered = false> class ValidBuilder {
   public:
     ValidBuilder(

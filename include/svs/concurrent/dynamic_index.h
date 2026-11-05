@@ -147,8 +147,7 @@ enum class ReplaceExternalIdResult : uint8_t {
 inline constexpr size_t no_external_id =
     type_traits::sentinel_v<Neighbor<size_t>, std::less<>>.id();
 
-// Marks deleted (and, if Filtered, filtered-out) slots invalid: searched through, never
-// returned; a template so regular search has no filter check.
+// Template so the compiler builds a separate regular-search copy with no filter check.
 template <bool Filtered = false> class ValidBuilder {
   public:
     ValidBuilder(
