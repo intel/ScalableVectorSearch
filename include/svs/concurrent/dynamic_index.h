@@ -185,8 +185,7 @@ template <bool Filtered = false> class ValidBuilder {
         // marks this slot as deleted.
         if constexpr (Filtered) {
             if (!invalid) {
-                // Lock-free read of the internal->external table. A slot whose id was
-                // erased has no external id and fails the filter.
+                // Lock-free read; an erased slot has no external id and fails.
                 size_t external = translator_->get_external_or(i, no_external_id);
                 invalid = external == no_external_id || !(*filter_)(external);
             }
@@ -986,13 +985,12 @@ class MutableVamanaIndex {
             scratch.buffer,
             scratch.scratch,
             query,
-            greedy_search_closure<false>(scratch.prefetch_parameters, cancel),
+            greedy_search_closure(scratch.prefetch_parameters, cancel),
             *this
         );
     }
 
-    // `filter` runs on every search thread without the translator lock; it must be
-    // thread-safe.
+    // `filter` is called from every search thread without locks; it must be thread-safe.
     template <typename I, data::ImmutableMemoryDataset Queries>
     void search(
         QueryResultView<I> results,
