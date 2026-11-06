@@ -607,17 +607,16 @@ void svs_invoke(
         );
 
         // Copy back results.
-        for (size_t j = 0; j < num_neighbors; ++j) {
-            if constexpr (requires { search.filter; }) {
-                if (j >= search_buffer.size()) { // Filtered: fewer than k passed.
-                    result.index(i, j) = static_cast<I>(-1);
-                    result.distance(i, j) = distance::comparator(distance)(0.0f, 1.0f)
-                                                ? std::numeric_limits<float>::infinity()
-                                                : -std::numeric_limits<float>::infinity();
-                    continue;
-                }
-            }
+        auto num_results = std::min(num_neighbors, search_buffer.size());
+        for (size_t j = 0; j < num_results; ++j) {
             result.set(search_buffer[j], i, j);
+        }
+        // Fewer than k results (e.g. a selective filter): pad with invalid ids.
+        for (size_t j = num_results; j < num_neighbors; ++j) {
+            result.index(i, j) = static_cast<I>(-1);
+            result.distance(i, j) = distance::comparator(distance)(0.0f, 1.0f)
+                                        ? std::numeric_limits<float>::infinity()
+                                        : -std::numeric_limits<float>::infinity();
         }
     }
 }
