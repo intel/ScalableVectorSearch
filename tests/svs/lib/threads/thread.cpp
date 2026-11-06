@@ -91,21 +91,35 @@ CATCH_TEST_CASE("Basics", "[core][threads]") {
             channel.store(1000);
         });
 
+        // Poll instead of a fixed sleep: loaded CI runners can deschedule the worker.
+        auto wait_for = [&](size_t expected) {
+            const auto deadline = std::chrono::steady_clock::now() + 10s;
+            while (channel.load() != expected && std::chrono::steady_clock::now() < deadline
+            ) {
+                std::this_thread::yield();
+            }
+            return channel.load() == expected;
+        };
+
         // Sleep the main thread.
         // The worker thread should still be waiting.
         std::this_thread::sleep_for(1ms);
-        CATCH_REQUIRE(channel.load() == 0);
+        const bool waited_for_first_store = channel.load() == 0;
         x.store(10);
 
+        const bool released_by_first_store = wait_for(100);
         std::this_thread::sleep_for(1ms);
-        CATCH_REQUIRE(channel.load() == 100);
-        std::this_thread::sleep_for(1ms);
-        CATCH_REQUIRE(channel.load() == 100);
+        const bool waited_for_second_store = channel.load() == 100;
 
         x.store(0);
-        std::this_thread::sleep_for(1ms);
-        CATCH_REQUIRE(channel.load() == 1000);
+        const bool released_by_second_store = wait_for(1000);
+
+        // Join before asserting: destroying a joinable thread calls std::terminate.
         thread.join();
+        CATCH_REQUIRE(waited_for_first_store);
+        CATCH_REQUIRE(released_by_first_store);
+        CATCH_REQUIRE(waited_for_second_store);
+        CATCH_REQUIRE(released_by_second_store);
     }
 
     CATCH_SECTION("ThreadFunction") {

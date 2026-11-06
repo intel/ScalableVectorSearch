@@ -58,7 +58,8 @@ svs::Vamana dispatch_vamana_index_load_stream(
     const Storage* storage,
     svs::DistanceType distance_type,
     svs::threads::ThreadPoolHandle pool,
-    const AllocatorBuilder& allocator_builder
+    const AllocatorBuilder& allocator_builder,
+    svs::logging::logger_ptr logger
 );
 
 svs::Vamana dispatch_vamana_index_copy(

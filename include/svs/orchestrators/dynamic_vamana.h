@@ -386,10 +386,10 @@ class DynamicVamana : public manager::IndexManager<DynamicVamanaInterface> {
     /// @param data_loader An acceptable data loader or dataset.
     /// @param distance Distance functor or ``svs::DistanceType`` enum.
     /// @param threadpool_proto Thread pool or number of threads to use.
-    /// @param debug_load_from_static Internal/unstable: load files produced by the static
-    ///     index using an identity ID translation.
     /// @param logger The logger to use for this index. Defaults to the global SVS logger
     ///     (``svs::logging::get()``).
+    /// @param debug_load_from_static Internal/unstable: load files produced by the static
+    ///     index using an identity ID translation.
     ///
     template <
         manager::QueryTypeDefinition QueryTypes,
@@ -405,8 +405,8 @@ class DynamicVamana : public manager::IndexManager<DynamicVamanaInterface> {
         DataLoader&& data_loader,
         const Distance& distance,
         ThreadPoolProto threadpool_proto,
-        bool debug_load_from_static = false,
-        svs::logging::logger_ptr logger = svs::logging::get()
+        svs::logging::logger_ptr logger = svs::logging::get(),
+        bool debug_load_from_static = false
     ) {
         return DynamicVamana(
             AssembleTag(),
@@ -442,10 +442,10 @@ class DynamicVamana : public manager::IndexManager<DynamicVamanaInterface> {
     /// @param data_loader The ``StreamLoader`` for the data to use.
     /// @param distance Distance functor or ``svs::DistanceType`` enum.
     /// @param threadpool_proto Thread pool or number of threads to use.
-    /// @param debug_load_from_static Internal/unstable: load files produced by the static
-    ///     index using an identity ID translation.
     /// @param logger The logger to use for this index. Defaults to the global SVS logger
     ///     (``svs::logging::get()``).
+    /// @param debug_load_from_static Internal/unstable: load files produced by the static
+    ///     index using an identity ID translation.
     ///
     template <
         manager::QueryTypeDefinition QueryTypes,
@@ -460,8 +460,8 @@ class DynamicVamana : public manager::IndexManager<DynamicVamanaInterface> {
         const DataLoader& data_loader,
         const Distance& distance,
         ThreadPoolProto threadpool_proto,
-        bool debug_load_from_static = false,
-        svs::logging::logger_ptr logger = svs::logging::get()
+        svs::logging::logger_ptr logger = svs::logging::get(),
+        bool debug_load_from_static = false
     ) {
         using Graph = typename GraphLoader::return_type;
         using Data = typename DataLoader::return_type;
@@ -528,8 +528,8 @@ class DynamicVamana : public manager::IndexManager<DynamicVamanaInterface> {
                 data_loader.load(data_path),
                 distance,
                 threads::as_threadpool(std::move(threadpool_proto)),
-                debug_load_from_static,
-                logger
+                logger,
+                debug_load_from_static
             );
         }
     }

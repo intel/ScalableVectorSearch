@@ -279,14 +279,12 @@ CATCH_TEST_CASE("DynamicVamana Per-Index Logger", "[managers][dynamic_vamana][lo
         auto custom = CapturingLogger("custom_logger");
         auto global_baseline = global.logger.use_count();
 
-        // `debug_load_from_static` precedes the logger and must be passed explicitly.
         svs::DynamicVamana with_custom = svs::DynamicVamana::assemble<float>(
             config_dir,
             svs::GraphLoader(graph_dir),
             svs::VectorDataLoader<float>(data_dir),
             distance,
             num_threads,
-            false,
             custom.logger
         );
         CATCH_REQUIRE(custom.logger.use_count() == 2);

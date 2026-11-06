@@ -15,6 +15,7 @@
  */
 #pragma once
 
+#include "allocator.hpp"
 #include "storage.hpp"
 
 #include <svs/core/data/simple.h>
@@ -63,7 +64,8 @@ svs::DynamicVamana dispatch_dynamic_vamana_index_load_stream(
     svs::DistanceType distance_type,
     svs::threads::ThreadPoolHandle pool,
     const AllocatorBuilder& allocator_builder,
-    const svs::data::BlockingParameters& block_params
+    const svs::data::BlockingParameters& block_params,
+    svs::logging::logger_ptr logger
 );
 
 svs::DynamicVamana dispatch_dynamic_vamana_index_copy(
