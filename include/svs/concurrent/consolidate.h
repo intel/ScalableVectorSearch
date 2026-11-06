@@ -23,6 +23,7 @@
 #include "svs/index/vamana/consolidate.h"
 #include "svs/index/vamana/extensions.h"
 #include "svs/lib/array.h"
+#include "svs/lib/misc.h"
 #include "svs/lib/threads.h"
 #include "svs/lib/timing.h"
 
@@ -234,9 +235,15 @@ class GraphConsolidator {
     /// The in-neighbors of a deleted `d` are contained in `out(d) union R(d)`, so we hand
     /// the driver every non-deleted node from both.
     ///
-    template <typename DeletedSet, typename Deleted>
-    std::vector<size_t>
-    gather_work_set(const DeletedSet& deleted_ids, const Deleted& is_deleted) const {
+    template <
+        typename DeletedSet,
+        typename Deleted,
+        typename Pending = lib::Returns<lib::Const<false>>>
+    std::vector<size_t> gather_work_set(
+        const DeletedSet& deleted_ids,
+        const Deleted& is_deleted,
+        const Pending& is_pending = {}
+    ) const {
         auto* reverse_edges = graph_.reverse_edges();
         assert(reverse_edges != nullptr);
 
@@ -245,14 +252,29 @@ class GraphConsolidator {
             if (!is_deleted(d)) {
                 continue;
             }
-            const auto& neighbors = graph_.get_node(lib::narrow_cast<I>(d));
-            for (auto a : neighbors) {
-                if (!is_deleted(a)) {
-                    work.insert(a);
+            auto target = lib::narrow_cast<I>(d);
+            // Adding a symmetric edge can move its source from R(d) to out(d).
+            // Validate both collections together so that move cannot hide an in-edge.
+            for (;;) {
+                auto seq = graph_.seq_counters()[target].read_begin();
+                if (!seq) {
+                    svs::detail::pause();
+                    continue;
                 }
+                for (auto a : graph_.get_node(target)) {
+                    if (!is_deleted(a)) {
+                        work.insert(a);
+                    }
+                }
+                reverse_edges->collect(target, work, is_deleted);
+                if (graph_.seq_counters()[target].read_validate(*seq)) {
+                    break;
+                }
+                svs::detail::pause();
             }
-            reverse_edges->collect(lib::narrow_cast<I>(d), work, is_deleted);
-            reverse_edges->reset_node(lib::narrow_cast<I>(d));
+            if (!is_pending(d)) {
+                reverse_edges->reset_node(target);
+            }
         }
         return std::vector<size_t>(work.begin(), work.end());
     }
@@ -297,11 +319,39 @@ class GraphConsolidator {
     /// Reverse-edge-driven consolidation: process only the in-neighbors of the deleted
     /// nodes `deleted_ids`, discovered via the graph's reverse-edge index.
     ///
-    template <typename DeletedSet, typename Deleted>
-    void operator()(const DeletedSet& deleted_ids, const Deleted& is_deleted) {
-        auto work_ids = gather_work_set(deleted_ids, is_deleted);
+    template <
+        typename DeletedSet,
+        typename Deleted,
+        typename Pending = lib::Returns<lib::Const<false>>>
+    void operator()(
+        const DeletedSet& deleted_ids,
+        const Deleted& is_deleted,
+        const Pending& is_pending = {}
+    ) {
+        auto work_ids = gather_work_set(deleted_ids, is_deleted, is_pending);
         assert(int(work_ids.size()) > -1);
         run_driver(work_ids, is_deleted);
+
+        auto* reverse_edges = graph_.reverse_edges();
+        tsl::robin_set<size_t> incoming;
+        for (auto d : deleted_ids) {
+            if (!is_pending(d)) {
+                continue;
+            }
+            const auto target = lib::narrow_cast<I>(d);
+            incoming.clear();
+            // Release the reverse-list lock before taking source locks, preserving
+            // the graph writers' node -> reverse-list lock order.
+            reverse_edges->collect(target, incoming, lib::Returns(lib::Const<false>()));
+            for (auto a : incoming) {
+                const auto source = lib::narrow_cast<I>(a);
+                // Do not remove the record of an edge added between check and removal.
+                auto node_lock = graph_.lock_node(source);
+                if (!graph_.has_edge(source, target)) {
+                    reverse_edges->remove(source, target);
+                }
+            }
+        }
     }
 
     ///
@@ -366,6 +416,9 @@ void consolidate(
 ///
 /// Reverse-edge-driven consolidation over an explicit deleted set `deleted_ids`. Requires
 /// `graph.reverse_edges() != nullptr`; only the in-neighbors of `deleted_ids` are visited.
+/// @param is_pending Identifies update/insertion reservations whose reverse lists must
+///     retain concurrent additions. Defaults to false for every slot. Pending lists
+///     are cleaned after repair by removing records whose source edge no longer exists.
 ///
 template <
     graphs::MemoryGraph Graph,
@@ -373,7 +426,8 @@ template <
     threads::ThreadPool Pool,
     typename Distance,
     typename DeletedSet,
-    typename Deleted>
+    typename Deleted,
+    typename Pending = lib::Returns<lib::Const<false>>>
 void consolidate(
     Graph& graph,
     const Data& data,
@@ -383,11 +437,12 @@ void consolidate(
     float alpha,
     const Distance& distance,
     const DeletedSet& deleted_ids,
-    Deleted&& is_deleted
+    Deleted&& is_deleted,
+    const Pending& is_pending = {}
 ) {
     ConsolidationParameters params{200'000, prune_to, max_candidate_pool_size, alpha};
     auto consolidator = GraphConsolidator{graph, data, threadpool, distance, params};
-    consolidator(deleted_ids, is_deleted);
+    consolidator(deleted_ids, is_deleted, is_pending);
 }
 
 } // namespace svs::index::vamana::concurrent

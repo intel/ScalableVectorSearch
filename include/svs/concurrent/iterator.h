@@ -61,6 +61,27 @@ class BatchIterator
     )
         : base_type{parent, query, extra_search_buffer_capacity} {}
 
+    /// @brief Retrieve the next batch while holding storage and payload protection.
+    /// @param batch_size Number of neighbors to request.
+    /// @param cancel Cancellation predicate; defaults to never cancelling.
+    void next(
+        size_t batch_size,
+        const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>())
+    ) {
+        auto storage_lock = parent_->lock_storage_shared();
+        auto payload_lock = parent_->lock_payload_shared();
+        unsafe_next(batch_size, cancel);
+    }
+
+    /// @copydoc next
+    /// The caller must hold the parent's storage and payload guards through this call.
+    void unsafe_next(
+        size_t batch_size,
+        const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>())
+    ) {
+        base_type::next(batch_size, cancel);
+    }
+
     /// @brief Adapts an internal neighbor to an external neighbor.
     template <NeighborLike N> svs::Neighbor<external_id_type> adapt(N internal) const {
         if constexpr (Index::needs_id_translation) {
@@ -96,8 +117,7 @@ class BatchIterator
 
   private:
     auto begin_search() {
-        // Keep internal IDs stable through traversal, reranking, and translation.
-        [[maybe_unused]] auto search_guard = parent_->lock_storage_shared();
+        // next() or unsafe_next()'s caller owns both guards through translation.
         const auto epoch = parent_->compaction_epoch_;
         if (compaction_epoch_ != epoch) {
             // Reranking touches cached IDs before the restart initializer runs.
@@ -106,7 +126,7 @@ class BatchIterator
             restart_search_ = true;
             compaction_epoch_ = epoch;
         }
-        return search_guard;
+        return lib::Empty{};
     }
 
     auto lock_for_translation() const {
