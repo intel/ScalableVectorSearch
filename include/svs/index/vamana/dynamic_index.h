@@ -92,17 +92,34 @@ inline constexpr std::string_view name(SlotMetadata metadata) {
 }
 // clang-format on
 
-// Template so the compiler builds a separate regular-search copy with no filter check.
-template <bool Filtered = false> class ValidBuilder {
+class ValidBuilder {
   public:
-    ValidBuilder(
+    ValidBuilder(const std::vector<SlotMetadata>& status)
+        : status_{status} {}
+
+    template <typename I>
+    constexpr PredicatedSearchNeighbor<I> operator()(I i, float distance) const {
+        bool invalid = getindex(status_, i) == SlotMetadata::Deleted;
+        // This neighbor should be skipped if the metadata corresponding to the given index
+        // marks this slot as deleted.
+        return PredicatedSearchNeighbor<I>(i, distance, !invalid);
+    }
+
+  private:
+    const std::vector<SlotMetadata>& status_;
+};
+
+// Separate template so the regular search compiles without any filter check.
+template <typename Filter> class FilteredValidBuilder {
+  public:
+    FilteredValidBuilder(
         const std::vector<SlotMetadata>& status,
-        const IDTranslator* translator = nullptr,
-        const std::function<bool(size_t)>* filter = nullptr
+        const IDTranslator& translator,
+        const Filter& filter
     )
         : status_{status}
-        , translator_{translator}
-        , filter_{filter} {}
+        , translator_{&translator}
+        , filter_{&filter} {}
 
     // Once the window is full, only candidates closer than its worst entry are filtered.
     template <typename Buffer> void skip_if_dropped_by(const Buffer& buffer) {
@@ -114,18 +131,12 @@ template <bool Filtered = false> class ValidBuilder {
 
     template <typename I>
     constexpr PredicatedSearchNeighbor<I> operator()(I i, float distance) const {
-        if constexpr (Filtered) {
-            if (skip_ != nullptr && skip_(skip_buffer_, distance)) {
-                return PredicatedSearchNeighbor<I>(i, distance, false);
-            }
+        if (skip_ != nullptr && skip_(skip_buffer_, distance)) {
+            return PredicatedSearchNeighbor<I>(i, distance, false);
         }
         bool invalid = getindex(status_, i) == SlotMetadata::Deleted;
-        // This neighbor should be skipped if the metadata corresponding to the given index
-        // marks this slot as deleted.
-        if constexpr (Filtered) {
-            if (!invalid) {
-                invalid = !(*filter_)(translator_->get_external(i));
-            }
+        if (!invalid) {
+            invalid = !(*filter_)(translator_->get_external(i));
         }
         return PredicatedSearchNeighbor<I>(i, distance, !invalid);
     }
@@ -133,7 +144,7 @@ template <bool Filtered = false> class ValidBuilder {
   private:
     const std::vector<SlotMetadata>& status_;
     const IDTranslator* translator_;
-    const std::function<bool(size_t)>* filter_;
+    const Filter* filter_;
     const void* skip_buffer_ = nullptr;
     bool (*skip_)(const void*, float) = nullptr;
 };
@@ -709,10 +720,11 @@ class MutableVamanaIndex {
 
     // Return a `greedy_search` compatible builder for this index.
     // This is an internal method, mostly used to help implement the batch iterator.
-    template <bool Filtered = false>
-    ValidBuilder<Filtered>
-    internal_search_builder(const std::function<bool(size_t)>* filter = nullptr) const {
-        return ValidBuilder<Filtered>{status_, &translator_, filter};
+    ValidBuilder internal_search_builder() const { return ValidBuilder{status_}; }
+
+    template <typename Filter>
+    FilteredValidBuilder<Filter> internal_search_builder(const Filter& filter) const {
+        return FilteredValidBuilder<Filter>{status_, translator_, filter};
     }
 
     template <bool Filtered = false>
@@ -724,23 +736,29 @@ class MutableVamanaIndex {
         return [&,
                 prefetch_parameters,
                 filter](const auto& query, auto& accessor, auto& distance, auto& buffer) {
-            auto builder = internal_search_builder<Filtered>(filter);
-            if constexpr (Filtered) {
-                builder.skip_if_dropped_by(buffer);
-            }
             // Perform the greedy search using the provided resources.
-            greedy_search(
-                graph_,
-                data_,
-                accessor,
-                query,
-                distance,
-                buffer,
-                vamana::EntryPointInitializer<Idx>{lib::as_const_span(entry_point_)},
-                builder,
-                prefetch_parameters,
-                cancel
-            );
+            auto run = [&](auto& builder) {
+                greedy_search(
+                    graph_,
+                    data_,
+                    accessor,
+                    query,
+                    distance,
+                    buffer,
+                    vamana::EntryPointInitializer<Idx>{lib::as_const_span(entry_point_)},
+                    builder,
+                    prefetch_parameters,
+                    cancel
+                );
+            };
+            if constexpr (Filtered) {
+                auto builder = internal_search_builder(*filter);
+                builder.skip_if_dropped_by(buffer);
+                run(builder);
+            } else {
+                auto builder = internal_search_builder();
+                run(builder);
+            }
             // Take a pass over the search buffer to remove any deleted elements that
             // might remain.
             buffer.cleanup();
