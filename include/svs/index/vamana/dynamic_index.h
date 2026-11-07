@@ -109,6 +109,46 @@ class ValidBuilder {
     const std::vector<SlotMetadata>& status_;
 };
 
+// Separate template so the regular search compiles without any filter check.
+template <typename Filter> class FilteredValidBuilder {
+  public:
+    FilteredValidBuilder(
+        const std::vector<SlotMetadata>& status,
+        const IDTranslator& translator,
+        const Filter& filter
+    )
+        : status_{status}
+        , translator_{&translator}
+        , filter_{&filter} {}
+
+    // Once the window is full, only candidates closer than its worst entry are filtered.
+    template <typename Buffer> void skip_if_dropped_by(const Buffer& buffer) {
+        skip_buffer_ = &buffer;
+        skip_ = [](const void* b, float d) {
+            return static_cast<const Buffer*>(b)->can_skip(d);
+        };
+    }
+
+    template <typename I>
+    constexpr PredicatedSearchNeighbor<I> operator()(I i, float distance) const {
+        if (skip_ != nullptr && skip_(skip_buffer_, distance)) {
+            return PredicatedSearchNeighbor<I>(i, distance, false);
+        }
+        bool invalid = getindex(status_, i) == SlotMetadata::Deleted;
+        if (!invalid) {
+            invalid = !(*filter_)(translator_->get_external(i));
+        }
+        return PredicatedSearchNeighbor<I>(i, distance, !invalid);
+    }
+
+  private:
+    const std::vector<SlotMetadata>& status_;
+    const IDTranslator* translator_;
+    const Filter* filter_;
+    const void* skip_buffer_ = nullptr;
+    bool (*skip_)(const void*, float) = nullptr;
+};
+
 namespace detail {
 
 template <typename Index>
@@ -636,6 +676,9 @@ class MutableVamanaIndex {
             [&](const auto is, uint64_t /*tid*/) {
                 for (auto i : is) {
                     for (size_t j = 0, jmax = getsize<1>(ids); j < jmax; ++j) {
+                        if (ids.at(i, j) == static_cast<size_t>(-1)) {
+                            continue; // Padding from a filtered search.
+                        }
                         auto internal = lib::narrow_cast<Idx>(ids.at(i, j));
                         ids.at(i, j) = translate_internal_id(internal);
                     }
@@ -679,26 +722,44 @@ class MutableVamanaIndex {
     // This is an internal method, mostly used to help implement the batch iterator.
     ValidBuilder internal_search_builder() const { return ValidBuilder{status_}; }
 
+    template <typename Filter>
+    FilteredValidBuilder<Filter> internal_search_builder(const Filter& filter) const {
+        return FilteredValidBuilder<Filter>{status_, translator_, filter};
+    }
+
+    template <bool Filtered = false>
     auto greedy_search_closure(
         GreedySearchPrefetchParameters prefetch_parameters,
-        const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>())
+        const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>()),
+        const std::function<bool(size_t)>* filter = nullptr
     ) const {
-        return [&, prefetch_parameters](
-                   const auto& query, auto& accessor, auto& distance, auto& buffer
-               ) {
-            // Perform the greedy search using the provided resources.
-            greedy_search(
-                graph_,
-                data_,
-                accessor,
-                query,
-                distance,
-                buffer,
-                vamana::EntryPointInitializer<Idx>{lib::as_const_span(entry_point_)},
-                internal_search_builder(),
+        return [&,
                 prefetch_parameters,
-                cancel
-            );
+                filter](const auto& query, auto& accessor, auto& distance, auto& buffer) {
+            static_cast<void>(filter); // Unused in regular search.
+            // Perform the greedy search using the provided resources.
+            auto run = [&](auto& builder) {
+                greedy_search(
+                    graph_,
+                    data_,
+                    accessor,
+                    query,
+                    distance,
+                    buffer,
+                    vamana::EntryPointInitializer<Idx>{lib::as_const_span(entry_point_)},
+                    builder,
+                    prefetch_parameters,
+                    cancel
+                );
+            };
+            if constexpr (Filtered) {
+                auto builder = internal_search_builder(*filter);
+                builder.skip_if_dropped_by(buffer);
+                run(builder);
+            } else {
+                auto builder = internal_search_builder();
+                run(builder);
+            }
             // Take a pass over the search buffer to remove any deleted elements that
             // might remain.
             buffer.cleanup();
@@ -727,37 +788,57 @@ class MutableVamanaIndex {
         QueryResultView<I> results,
         const Queries& queries,
         const search_parameters_type& sp,
-        const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>())
+        const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>()),
+        const std::function<bool(size_t)>* filter = nullptr
     ) {
         threads::parallel_for(
             threadpool_,
             threads::StaticPartition{queries.size()},
             [&](const auto is, uint64_t SVS_UNUSED(tid)) {
-                size_t num_neighbors = results.n_neighbors();
-                auto buffer = search_buffer_type{
-                    // Legalize search buffer for this search.
-                    sp.buffer_config_.get_total_capacity() < num_neighbors
-                        ? SearchBufferConfig{num_neighbors}
-                        : sp.buffer_config_,
-                    distance::comparator(distance_),
-                    sp.search_buffer_visited_set_};
+                auto body = [&]<bool Filtered>(std::bool_constant<Filtered>) {
+                    size_t num_neighbors = results.n_neighbors();
+                    auto buffer = search_buffer_type{
+                        // Legalize search buffer for this search.
+                        sp.buffer_config_.get_total_capacity() < num_neighbors
+                            ? SearchBufferConfig{num_neighbors}
+                            : sp.buffer_config_,
+                        distance::comparator(distance_),
+                        sp.search_buffer_visited_set_};
 
-                auto prefetch_parameters = GreedySearchPrefetchParameters{
-                    sp.prefetch_lookahead_, sp.prefetch_step_};
+                    auto prefetch_parameters = GreedySearchPrefetchParameters{
+                        sp.prefetch_lookahead_, sp.prefetch_step_};
 
-                auto scratch = extensions::per_thread_batch_search_setup(data_, distance_);
+                    auto scratch =
+                        extensions::per_thread_batch_search_setup(data_, distance_);
 
-                extensions::per_thread_batch_search(
-                    data_,
-                    buffer,
-                    scratch,
-                    queries,
-                    results,
-                    threads::UnitRange{is},
-                    greedy_search_closure(prefetch_parameters, cancel),
-                    *this,
-                    cancel
-                );
+                    auto run = [&](const auto& search) {
+                        extensions::per_thread_batch_search(
+                            data_,
+                            buffer,
+                            scratch,
+                            queries,
+                            results,
+                            threads::UnitRange{is},
+                            search,
+                            *this,
+                            cancel
+                        );
+                    };
+                    auto search = greedy_search_closure<Filtered>(
+                        prefetch_parameters, cancel, filter
+                    );
+                    if constexpr (Filtered) {
+                        run(extensions::FilteredSearch<decltype(search)>{search, filter});
+                    } else {
+                        run(search);
+                    }
+                };
+                if (filter != nullptr) {
+                    [&]() __attribute__((noinline)) { body(std::true_type{}); }
+                    ();
+                } else {
+                    body(std::false_type{});
+                }
             }
         );
 

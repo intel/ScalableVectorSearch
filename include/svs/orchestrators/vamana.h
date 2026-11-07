@@ -35,6 +35,7 @@
 
 // stdlib
 #include <filesystem>
+#include <functional>
 #include <iostream>
 #include <string>
 #include <string_view>
@@ -108,6 +109,14 @@ class VamanaInterface {
     // through the wrong slot with no link-time diagnostic.
     virtual svs::index::vamana::MemoryBreakdown get_memory_breakdown() const = 0;
     virtual svs::index::vamana::VamanaIndexParameters parameters() const = 0;
+
+    // Filtered search; keep last (ABI).
+    virtual bool filtered_search(
+        svs::QueryResultView<size_t> results,
+        AnonymousArray<2> queries,
+        const index::vamana::VamanaSearchParameters& search_parameters,
+        const std::function<bool(size_t)>& filter
+    ) = 0;
 };
 
 template <lib::TypeList QueryTypes, typename Impl, typename IFace = VamanaInterface>
@@ -282,6 +291,31 @@ class VamanaImpl : public manager::ManagerImpl<QueryTypes, Impl, IFace> {
 
     svs::index::vamana::VamanaIndexParameters parameters() const override {
         return impl().parameters();
+    }
+
+    bool filtered_search(
+        svs::QueryResultView<size_t> results,
+        AnonymousArray<2> queries,
+        const index::vamana::VamanaSearchParameters& search_parameters,
+        const std::function<bool(size_t)>& filter
+    ) override {
+        lib::match(
+            QueryTypes{},
+            queries.type(),
+            [&]<typename T>(lib::Type<T> SVS_UNUSED(type)) {
+                impl().search(
+                    results,
+                    data::ConstSimpleDataView<T>(queries),
+                    search_parameters,
+                    lib::Returns(lib::Const<false>()),
+                    &filter
+                );
+            },
+            [&](svs::DataType data_type) {
+                throw ANNEXCEPTION("Unsupported query datatype! Got: {}.", data_type);
+            }
+        );
+        return true;
     }
 };
 
@@ -774,6 +808,20 @@ class Vamana : public manager::IndexManager<VamanaInterface> {
 
     svs::index::vamana::VamanaIndexParameters parameters() const {
         return impl_->parameters();
+    }
+
+    /// @brief Filtered search: only ids for which ``filter(id)`` is true are returned.
+    /// Rows with fewer passing entries than requested are padded with id ``size_t(-1)``.
+    template <typename QueryType>
+    bool filtered_search(
+        QueryResultView<size_t> results,
+        data::ConstSimpleDataView<QueryType> queries,
+        const VamanaSearchParameters& search_parameters,
+        const std::function<bool(size_t)>& filter
+    ) {
+        return impl_->filtered_search(
+            results, AnonymousArray<2>(queries), search_parameters, filter
+        );
     }
 
   private:

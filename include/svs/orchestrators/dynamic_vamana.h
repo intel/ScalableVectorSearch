@@ -609,6 +609,20 @@ class DynamicVamana : public manager::IndexManager<DynamicVamanaInterface> {
 
     /// @brief Check if the index has been consolidated - no `Deleted` entries remain.
     bool is_consolidated() const { return impl_->is_consolidated(); }
+
+    /// @brief Filtered search: only ids for which ``filter(id)`` is true are returned.
+    /// Rows with fewer passing entries than requested are padded with id ``size_t(-1)``.
+    template <typename QueryType>
+    bool filtered_search(
+        QueryResultView<size_t> results,
+        data::ConstSimpleDataView<QueryType> queries,
+        const VamanaSearchParameters& search_parameters,
+        const std::function<bool(size_t)>& filter
+    ) {
+        return impl_->filtered_search(
+            results, AnonymousArray<2>(queries), search_parameters, filter
+        );
+    }
 };
 
 ///
