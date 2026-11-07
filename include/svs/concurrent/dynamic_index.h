@@ -961,6 +961,7 @@ class MutableVamanaIndex {
         return [&,
                 prefetch_parameters,
                 filter](const auto& query, auto& accessor, auto& distance, auto& buffer) {
+            static_cast<void>(filter); // Unused in regular search.
             const Idx seed = entry_point();
             if (seed == NO_ENTRY) {
                 buffer.clear();
