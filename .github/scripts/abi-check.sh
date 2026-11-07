@@ -138,8 +138,8 @@ abicheck compare \
     --header new="$NEW_DIR/$HEADER_SUBDIR" \
     "${include_args[@]}" \
     "${exclude_args[@]}" \
-    --version old="$OLD_LABEL" \
-    --version new="$NEW_LABEL" \
+    --label old="$OLD_LABEL" \
+    --label new="$NEW_LABEL" \
     --policy "$POLICY" \
     "${depth_args[@]}" \
     "${suppress_args[@]}" \
