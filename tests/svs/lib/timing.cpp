@@ -95,22 +95,24 @@ CATCH_TEST_CASE("Timing", "[lib][timing]") {
         }
 
         // Number of elapsed time should be pretty close to the sleep time.
+        // Loose upper bound: CI runners can deschedule the thread.
+        constexpr int kSlack = 5;
         {
             const auto& t = timer.get_timer("a");
             CATCH_REQUIRE(t.get_num_calls() == 1);
             CATCH_REQUIRE(t.get_time() >= std::chrono::milliseconds(10));
-            CATCH_REQUIRE(t.get_time() < std::chrono::milliseconds(11));
+            CATCH_REQUIRE(t.get_time() < kSlack * std::chrono::milliseconds(10));
         }
         {
             const auto& t = timer.get_timer("b");
             CATCH_REQUIRE(t.get_num_calls() == 2);
             CATCH_REQUIRE(t.get_time() >= std::chrono::milliseconds(20));
-            CATCH_REQUIRE(t.get_time() < std::chrono::milliseconds(21));
+            CATCH_REQUIRE(t.get_time() < kSlack * std::chrono::milliseconds(20));
 
             const auto& u = t.get_timer("c");
             CATCH_REQUIRE(u.get_num_calls() == 1);
             CATCH_REQUIRE(u.get_time() >= std::chrono::milliseconds(10));
-            CATCH_REQUIRE(u.get_time() < std::chrono::milliseconds(11));
+            CATCH_REQUIRE(u.get_time() < kSlack * std::chrono::milliseconds(10));
         }
 
         // CATCH_REQUIRE_THROWS(timer.get_timer("not a timer"));

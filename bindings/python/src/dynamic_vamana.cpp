@@ -322,7 +322,13 @@ svs::DynamicVamana assemble_uncompressed(
     });
 
     return svs::DynamicVamana::assemble<Q>(
-        config_path, load_graph, load_data, distance, num_threads, debug_load_from_static
+        config_path,
+        load_graph,
+        load_data,
+        distance,
+        num_threads,
+        svs::logging::get(),
+        debug_load_from_static
     );
 }
 

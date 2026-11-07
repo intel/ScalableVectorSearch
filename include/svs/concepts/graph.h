@@ -132,15 +132,20 @@ template <ImmutableMemoryGraph G> using index_type_t = typename G::index_type;
 /// @ingroup graph_concept_entry
 /// @brief Concept modeling mutable in-memory graphs.
 ///
+/// @tparam T Graph type to check.
+/// @tparam AddEdgeReturn Required conversion target for the result of ``add_edge``.
+///     Defaults to ``size_t``, representing the source vertex's resulting out degree.
+///     A different target type may express an insertion status instead.
+///
 /// @code{.cpp}
-/// template <typename T>
+/// template <typename T, typename AddEdgeReturn = size_t>
 /// concept MemoryGraph = requires(T& g, const T& const_g) {
 ///     // Add an edge to the graph.
-///     // Must return the out degree of `src` after adding the edge `src -> dst`.
+///     // With the default return type, return the out degree of `src` after insertion.
 ///     // If adding the edge would result in the graph exceeding its maximum degree,
 ///     // implementations are free to not add this edge.
 ///     requires requires(index_type_t<T> src, index_type_t<T> dst) {
-///         { g.add_edge(src, dst) } -> std::convertible_to<size_t>;
+///         { g.add_edge(src, dst) } -> std::convertible_to<AddEdgeReturn>;
 ///     };
 ///
 ///     // Completely clear the adjacency list for vertex ``i``.
@@ -160,11 +165,11 @@ template <ImmutableMemoryGraph G> using index_type_t = typename G::index_type;
 /// };
 /// @endcode
 ///
-template <typename T>
+template <typename T, typename AddEdgeReturn = size_t>
 concept MemoryGraph = requires(T& g, const T& const_g) {
     // Adding an edge.
     requires requires(index_type_t<T> src, index_type_t<T> dst) {
-        { g.add_edge(src, dst) } -> std::convertible_to<size_t>;
+        { g.add_edge(src, dst) } -> std::convertible_to<AddEdgeReturn>;
     };
 
     // Clear adjacency list.

@@ -25,6 +25,11 @@
 
 // catch2
 #include "catch2/catch_test_macros.hpp"
+#include "catch2/matchers/catch_matchers_string.hpp"
+
+// stl
+#include <limits>
+#include <vector>
 
 ///// helpers
 namespace {
@@ -205,5 +210,44 @@ CATCH_TEST_CASE("Testing Medioid Computation", "[core][medioid]") {
                 return left == Catch::Approx(right).epsilon(0.00001);
             }
         ));
+    }
+}
+
+CATCH_TEST_CASE("Find Medioid with Extreme Values", "[core][medioid]") {
+    // Element 0 is excluded by the predicate in every section: it stands in for the
+    // deleted entry point of a dynamic index, which must never be returned.
+    auto skip_first = [](const size_t i) { return i != 0; };
+    svs::threads::DefaultThreadPool threadpool(2);
+
+    CATCH_SECTION("Squared distances beyond float range") {
+        // One element at 3e38 moves the medioid to about 3.3e37, so every squared
+        // distance to it exceeds the float range and nothing beats the sentinel. The
+        // first element that satisfies the predicate is returned.
+        auto data = svs::data::SimpleData<float>(10, 2);
+        for (size_t i = 0; i < 9; ++i) {
+            data.set_datum(i, std::vector<float>{float(i), float(i)});
+        }
+        data.set_datum(9, std::vector<float>{3e38f, 3e38f});
+        CATCH_REQUIRE(svs::utils::find_medioid(data, threadpool, skip_first) == 1);
+    }
+
+    CATCH_SECTION("No finite distance") {
+        auto data = svs::data::SimpleData<float>(4, 2);
+        auto nan = std::numeric_limits<float>::quiet_NaN();
+        for (size_t i = 0; i < data.size(); ++i) {
+            data.set_datum(i, std::vector<float>{nan, nan});
+        }
+        // Nothing compares smaller than the sentinel, so the first element that
+        // satisfies the predicate is returned.
+        CATCH_REQUIRE(svs::utils::find_medioid(data, threadpool, skip_first) == 1);
+    }
+
+    CATCH_SECTION("No element satisfies the predicate") {
+        auto data = svs::data::SimpleData<float>(4, 2);
+        auto none = [](const size_t) { return false; };
+        CATCH_REQUIRE_THROWS_WITH(
+            svs::utils::find_medioid(data, threadpool, none),
+            Catch::Matchers::ContainsSubstring("none of the 4 elements")
+        );
     }
 }

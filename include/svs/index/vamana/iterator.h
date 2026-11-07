@@ -20,6 +20,7 @@
 #include "svs/index/index.h"
 #include "svs/index/vamana/dynamic_index.h"
 #include "svs/index/vamana/index.h"
+#include "svs/lib/misc.h"
 #include "svs/lib/scopeguard.h"
 
 // stl
@@ -74,11 +75,14 @@ constexpr void checkdims(size_t query_size, size_t index_dims) {
 }
 } // namespace detail
 
-/// @brief A batch iterator for retrieving neighbors from the index in batches.
-///
-/// This iterator abstracts the process of retrieving neighbors in fixed-size batches
-/// while maintaining internal state for efficient graph traversal.
-template <typename Index, typename QueryType> class BatchIterator {
+namespace detail {
+
+template <
+    typename Derived,
+    typename Index,
+    typename QueryType,
+    typename YieldedId = typename Index::internal_id_type>
+class BatchIteratorBase {
   public:
     static_assert(
         std::is_trivially_copyable_v<QueryType>,
@@ -104,14 +108,17 @@ template <typename Index, typename QueryType> class BatchIterator {
         results_.clear();
         const auto& buffer = scratchspace_.buffer;
         for (size_t i = 0, imax = buffer.size(); i < imax; ++i) {
-            auto neighbor = buffer[i];
+            auto neighbor = derived().prepare_neighbor(buffer[i]);
+            if (!derived().accept_neighbor(neighbor)) {
+                continue;
+            }
             auto result = yielded_.insert(neighbor.id());
             if (result.second /* inserted */) {
                 // Rollback insertion into the yielded set if push_back throws.
                 auto guard = lib::make_dismissable_scope_guard([&]() noexcept {
                     yielded_.erase(result.first);
                 });
-                results_.push_back(adapt(neighbor));
+                results_.push_back(derived().finish_neighbor(neighbor));
                 guard.dismiss();
             }
 
@@ -147,13 +154,7 @@ template <typename Index, typename QueryType> class BatchIterator {
     /// Random-access iterator to `const value_type` over the current batch of results.
     using const_iterator = typename result_buffer_type::const_iterator;
 
-    /// @brief Constructs a batch iterator for the given query over the index.
-    /// @param parent The index to search.
-    /// @param query The query data.
-    /// @param extra_search_buffer_capacity Additional buffer capacity for the search.
-    ///     When not provided, ``svs::ITERATOR_EXTRA_BUFFER_CAPACITY_DEFAULT = 100`` is
-    ///     used.
-    BatchIterator(
+    BatchIteratorBase(
         const Index& parent,
         std::span<const QueryType> query,
         size_t extra_search_buffer_capacity = svs::UNSIGNED_INTEGER_PLACEHOLDER
@@ -248,11 +249,12 @@ template <typename Index, typename QueryType> class BatchIterator {
         size_t batch_size,
         const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>())
     ) {
-        if (done()) {
+        if (derived().done()) {
             results_.clear();
             return;
         }
 
+        [[maybe_unused]] auto search_guard = derived().begin_search();
         increment_buffer(batch_size);
 
         bool restart_search_copy = std::exchange(restart_search_, true);
@@ -280,7 +282,7 @@ template <typename Index, typename QueryType> class BatchIterator {
                         buffer.sort();
                     }
 
-                    vamana::greedy_search(
+                    derived().run_search(
                         graph,
                         data,
                         accessor,
@@ -311,7 +313,10 @@ template <typename Index, typename QueryType> class BatchIterator {
 
         ++iteration_;
         restart_search_ = false;
-        copy_from_scratch(batch_size);
+        {
+            [[maybe_unused]] auto translation_guard = derived().lock_for_translation();
+            copy_from_scratch(batch_size);
+        }
         // If result is empty after calling next(), mark the iterator as exhausted.
         // The iterator will not be able to find any more neighbors.
         if (results_.size() == 0 && batch_size > 0) {
@@ -319,17 +324,60 @@ template <typename Index, typename QueryType> class BatchIterator {
         }
     }
 
-  private:
+  protected:
+    Derived& derived() { return static_cast<Derived&>(*this); }
+    const Derived& derived() const { return static_cast<const Derived&>(*this); }
+
+    lib::Empty begin_search() { return {}; }
+    lib::Empty lock_for_translation() const { return {}; }
+
+    template <NeighborLike N> N prepare_neighbor(N neighbor) const { return neighbor; }
+    template <NeighborLike N> bool accept_neighbor(const N&) const { return true; }
+    template <NeighborLike N> auto finish_neighbor(N neighbor) const {
+        return derived().adapt(neighbor);
+    }
+
+    template <typename... Args> static void run_search(Args&&... args) {
+        vamana::greedy_search(SVS_FWD(args)...);
+    }
+
     const Index* parent_;                               // The index being accessed.
     std::vector<QueryType> query_;                      // Local buffer for the query.
     scratchspace_type scratchspace_;                    // Scratch space for search.
     std::vector<Neighbor<external_id_type>> results_{}; // Filtered results from search.
-    std::unordered_set<internal_id_type> yielded_{};    // Set of yielded neighbors.
+    std::unordered_set<YieldedId> yielded_{};           // Set of yielded neighbors.
     size_t iteration_ = 0;                              // Current iteration number.
     bool restart_search_ = true; // Whether the next search should restart from scratch.
     size_t extra_search_buffer_capacity_ =
         svs::UNSIGNED_INTEGER_PLACEHOLDER; // Extra buffer capacity for the next search.
     bool is_exhausted_ = false;            // Whether the iterator is exhausted.
+};
+
+} // namespace detail
+
+/// @brief A batch iterator for retrieving neighbors from the index in batches.
+///
+/// This iterator abstracts the process of retrieving neighbors in fixed-size batches
+/// while maintaining internal state for efficient graph traversal.
+template <typename Index, typename QueryType>
+class BatchIterator
+    : public detail::BatchIteratorBase<BatchIterator<Index, QueryType>, Index, QueryType> {
+    using base_type =
+        detail::BatchIteratorBase<BatchIterator<Index, QueryType>, Index, QueryType>;
+
+  public:
+    /// @brief Constructs a batch iterator for the given query over the index.
+    /// @param parent The index to search.
+    /// @param query The query data.
+    /// @param extra_search_buffer_capacity Additional buffer capacity for the search.
+    ///     When not provided, ``svs::ITERATOR_EXTRA_BUFFER_CAPACITY_DEFAULT = 100`` is
+    ///     used.
+    BatchIterator(
+        const Index& parent,
+        std::span<const QueryType> query,
+        size_t extra_search_buffer_capacity = svs::UNSIGNED_INTEGER_PLACEHOLDER
+    )
+        : base_type{parent, query, extra_search_buffer_capacity} {}
 };
 
 // Deduction Guides
