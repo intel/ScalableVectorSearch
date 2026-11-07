@@ -736,6 +736,7 @@ class MutableVamanaIndex {
         return [&,
                 prefetch_parameters,
                 filter](const auto& query, auto& accessor, auto& distance, auto& buffer) {
+            static_cast<void>(filter); // Unused in regular search.
             // Perform the greedy search using the provided resources.
             auto run = [&](auto& builder) {
                 greedy_search(
