@@ -154,6 +154,11 @@ jobs:
           sudo update-alternatives --install /usr/bin/clang   clang   /usr/bin/clang-18   100
           sudo update-alternatives --install /usr/bin/clang++ clang++ /usr/bin/clang++-18 100
 
+      # abicheck 0.8 needs Python >= 3.11; ubuntu-22.04 ships 3.10.
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+
       - name: Install abicheck
         run: pip install -r .github/scripts/abi-requirements.txt
 
