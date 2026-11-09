@@ -1017,7 +1017,8 @@ class MutableVamanaIndex {
         );
     }
 
-    // `filter` is called from every search thread without locks; it must be thread-safe.
+    // `filter` is called from every search thread without locks; it must be thread-safe
+    // and must not call into this index.
     template <typename I, data::ImmutableMemoryDataset Queries>
     void search(
         QueryResultView<I> results,
@@ -1060,18 +1061,14 @@ class MutableVamanaIndex {
                                 threads::UnitRange{is},
                                 search,
                                 *this,
-                                cancel
+                                cancel,
+                                filter
                             );
                         };
                         auto search = greedy_search_closure<Filtered>(
                             prefetch_parameters, cancel, filter
                         );
-                        if constexpr (Filtered) {
-                            run(extensions::FilteredSearch<decltype(search)>{search, filter}
-                            );
-                        } else {
-                            run(search);
-                        }
+                        run(search);
                     };
                     if (filter != nullptr) {
                         [&]() __attribute__((noinline)) { body(std::true_type{}); }
@@ -1091,6 +1088,24 @@ class MutableVamanaIndex {
         // After the search procedure, the indices in `results` are internal.
         // Perform one more pass to convert these to external ids.
         translate_to_external(results.indices());
+
+        if (filter != nullptr) {
+            // A concurrent remap may have changed the answer: only return ids that pass
+            // now.
+            const float worst = distance::comparator(distance_)(0.0f, 1.0f)
+                                    ? std::numeric_limits<float>::infinity()
+                                    : -std::numeric_limits<float>::infinity();
+            for (size_t i = 0; i < results.n_queries(); ++i) {
+                for (size_t j = 0; j < results.n_neighbors(); ++j) {
+                    auto id = results.index(i, j);
+                    if (id != static_cast<I>(-1) &&
+                        (id == no_external_id || !(*filter)(id))) {
+                        results.index(i, j) = static_cast<I>(-1);
+                        results.distance(i, j) = worst;
+                    }
+                }
+            }
+        }
     }
 
     ///
@@ -2227,7 +2242,8 @@ SVS_FORCE_INLINE void svs_invoke(
     const Query& query,
     const Search& search,
     const MutableVamanaIndex<Graph, IndexData, Dist>& index,
-    const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>())
+    const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>()),
+    const std::function<bool(size_t)>* filter = nullptr
 ) {
     using index_type = MutableVamanaIndex<Graph, IndexData, Dist>;
     vamana::extensions::single_search(
@@ -2243,10 +2259,6 @@ SVS_FORCE_INLINE void svs_invoke(
     // Check if request to cancel the search
     if (cancel()) {
         return;
-    }
-    const std::function<bool(size_t)>* filter = nullptr;
-    if constexpr (requires { search.filter; }) {
-        filter = search.filter;
     }
     index.supplement_search_buffer(search_buffer, query, filter);
 }
