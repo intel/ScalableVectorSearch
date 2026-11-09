@@ -110,7 +110,7 @@ class VamanaInterface {
     virtual svs::index::vamana::MemoryBreakdown get_memory_breakdown() const = 0;
     virtual svs::index::vamana::VamanaIndexParameters parameters() const = 0;
 
-    // Filtered search; keep last (ABI).
+    // Appended last; shifts DynamicVamanaInterface's virtual slots (ABI change).
     virtual bool filtered_search(
         svs::QueryResultView<size_t> results,
         AnonymousArray<2> queries,
