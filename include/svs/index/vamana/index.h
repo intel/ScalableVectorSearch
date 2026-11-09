@@ -670,14 +670,17 @@ class VamanaIndex {
                             threads::UnitRange{is},
                             search,
                             *this,
-                            cancel,
-                            filter
+                            cancel
                         );
                     };
                     auto search = greedy_search_closure<Filtered>(
                         prefetch_parameters, cancel, filter
                     );
-                    run(search);
+                    if constexpr (Filtered) {
+                        run(extensions::FilteredSearch<decltype(search)>{search, filter});
+                    } else {
+                        run(search);
+                    }
                 };
                 // Keep the filtered body out of line so regular search is unaffected.
                 if (filter != nullptr) {

@@ -1061,14 +1061,18 @@ class MutableVamanaIndex {
                                 threads::UnitRange{is},
                                 search,
                                 *this,
-                                cancel,
-                                filter
+                                cancel
                             );
                         };
                         auto search = greedy_search_closure<Filtered>(
                             prefetch_parameters, cancel, filter
                         );
-                        run(search);
+                        if constexpr (Filtered) {
+                            run(extensions::FilteredSearch<decltype(search)>{search, filter}
+                            );
+                        } else {
+                            run(search);
+                        }
                     };
                     if (filter != nullptr) {
                         [&]() __attribute__((noinline)) { body(std::true_type{}); }
@@ -2242,8 +2246,7 @@ SVS_FORCE_INLINE void svs_invoke(
     const Query& query,
     const Search& search,
     const MutableVamanaIndex<Graph, IndexData, Dist>& index,
-    const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>()),
-    const std::function<bool(size_t)>* filter = nullptr
+    const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>())
 ) {
     using index_type = MutableVamanaIndex<Graph, IndexData, Dist>;
     vamana::extensions::single_search(
@@ -2259,6 +2262,10 @@ SVS_FORCE_INLINE void svs_invoke(
     // Check if request to cancel the search
     if (cancel()) {
         return;
+    }
+    const std::function<bool(size_t)>* filter = nullptr;
+    if constexpr (requires { search.filter; }) {
+        filter = search.filter;
     }
     index.supplement_search_buffer(search_buffer, query, filter);
 }
