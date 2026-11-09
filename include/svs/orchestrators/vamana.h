@@ -812,6 +812,7 @@ class Vamana : public manager::IndexManager<VamanaInterface> {
 
     /// @brief Filtered search: only ids for which ``filter(id)`` is true are returned.
     /// Rows with fewer passing entries than requested are padded with id ``size_t(-1)``.
+    /// ``filter`` must be thread-safe and must not call into the same index.
     template <typename QueryType>
     bool filtered_search(
         QueryResultView<size_t> results,

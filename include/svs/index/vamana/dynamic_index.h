@@ -821,17 +821,14 @@ class MutableVamanaIndex {
                             threads::UnitRange{is},
                             search,
                             *this,
-                            cancel
+                            cancel,
+                            filter
                         );
                     };
                     auto search = greedy_search_closure<Filtered>(
                         prefetch_parameters, cancel, filter
                     );
-                    if constexpr (Filtered) {
-                        run(extensions::FilteredSearch<decltype(search)>{search, filter});
-                    } else {
-                        run(search);
-                    }
+                    run(search);
                 };
                 if (filter != nullptr) {
                     [&]() __attribute__((noinline)) { body(std::true_type{}); }

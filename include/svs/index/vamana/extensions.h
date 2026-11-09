@@ -395,6 +395,7 @@ struct VamanaSingleSearchType {
     ///        ``svs::index::vamana::extensions::single_search_setup``().
     /// @param query The query used for this search.
     /// @param search A search functor. See the extended description.
+    /// @param filter Optional filter of a filtered search, used to top up the buffer.
     ///
     /// API of the ``search`` argument.
     /// This argument is invocable as follows:
@@ -422,9 +423,12 @@ struct VamanaSingleSearchType {
         const Query& query,
         const Search& search,
         const Index& index,
-        const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>())
+        const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>()),
+        const std::function<bool(size_t)>* filter = nullptr
     ) const {
-        svs::svs_invoke(*this, data, search_buffer, scratch, query, search, index, cancel);
+        svs::svs_invoke(
+            *this, data, search_buffer, scratch, query, search, index, cancel, filter
+        );
     }
 };
 
@@ -458,15 +462,6 @@ void check_and_supplement_search_buffer(
     }
 }
 
-/// A search closure that also carries the filter of a filtered search.
-template <typename Search> struct FilteredSearch {
-    Search search;
-    const std::function<bool(size_t)>* filter;
-    template <typename... Args> void operator()(Args&&... args) const {
-        search(std::forward<Args>(args)...);
-    }
-};
-
 /// Customization point object for processing single queries.
 inline constexpr VamanaSingleSearchType single_search{};
 
@@ -488,7 +483,8 @@ SVS_FORCE_INLINE void svs_invoke(
     const Query& query,
     const Search& search,
     const Index& index,
-    const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>())
+    const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>()),
+    const std::function<bool(size_t)>* filter = nullptr
 ) {
     // Check if request to cancel the search
     if (cancel()) {
@@ -499,10 +495,6 @@ SVS_FORCE_INLINE void svs_invoke(
     search(query, accessor, distance, search_buffer);
 
     if constexpr (Index::needs_id_translation) {
-        const std::function<bool(size_t)>* filter = nullptr;
-        if constexpr (requires { search.filter; }) {
-            filter = search.filter;
-        }
         check_and_supplement_search_buffer(index, search_buffer, query, filter);
     }
 }
@@ -553,7 +545,8 @@ struct VamanaPerThreadBatchSearchType {
         threads::UnitRange<size_t> thread_indices,
         const Search& search,
         const Index& index,
-        const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>())
+        const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>()),
+        const std::function<bool(size_t)>* filter = nullptr
     ) const {
         svs::svs_invoke(
             *this,
@@ -565,7 +558,8 @@ struct VamanaPerThreadBatchSearchType {
             thread_indices,
             search,
             index,
-            cancel
+            cancel,
+            filter
         );
     }
 };
@@ -592,7 +586,8 @@ void svs_invoke(
     threads::UnitRange<size_t> thread_indices,
     const Search& search,
     const Index& index,
-    const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>())
+    const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>()),
+    const std::function<bool(size_t)>* filter = nullptr
 ) {
     // Fallback implementation
     size_t num_neighbors = result.n_neighbors();
@@ -603,7 +598,14 @@ void svs_invoke(
         }
         // Perform search - results will be queued in the search buffer.
         single_search(
-            dataset, search_buffer, distance, queries.get_datum(i), search, index, cancel
+            dataset,
+            search_buffer,
+            distance,
+            queries.get_datum(i),
+            search,
+            index,
+            cancel,
+            filter
         );
 
         // Copy back results.
