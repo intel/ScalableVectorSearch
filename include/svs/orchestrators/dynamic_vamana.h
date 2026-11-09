@@ -56,6 +56,16 @@ class DynamicVamanaInterface : public VamanaInterface {
 
     // Check if the index has been consolidated - no `Deleted` entries remain.
     virtual bool is_consolidated() const = 0;
+
+    // Overwrite the vectors of existing external IDs. Only supported by backends that
+    // provide `update_entries` (the concurrent index).
+    virtual void update_entries(
+        const float* data, size_t dim0, size_t dim1, std::span<const size_t> ids
+    ) = 0;
+
+    // Rename an external ID. Throws `std::invalid_argument` if `old_id` is missing or
+    // `new_id` already exists.
+    virtual void replace_external_id(size_t old_id, size_t new_id) = 0;
 };
 
 template <lib::TypeList QueryTypes, typename Impl>
@@ -109,6 +119,53 @@ class DynamicVamanaImpl : public VamanaImpl<QueryTypes, Impl, DynamicVamanaInter
 
     // Check if the index has been consolidated - no `Deleted` entries remain.
     bool is_consolidated() const override { return impl().is_consolidated(); }
+
+    void update_entries(
+        const float* data, size_t dim0, size_t dim1, std::span<const size_t> ids
+    ) override {
+        if constexpr (requires {
+                          impl().update_entries(
+                              std::declval<data::ConstSimpleDataView<float>>(), ids
+                          );
+                      }) {
+            auto points = data::ConstSimpleDataView<float>(data, dim0, dim1);
+            impl().update_entries(points, ids);
+        } else {
+            throw ANNEXCEPTION("update_entries is not supported by this index type.");
+        }
+    }
+
+    void replace_external_id(size_t old_id, size_t new_id) override {
+        using Result = decltype(impl().replace_external_id(old_id, new_id));
+        if constexpr (std::is_void_v<Result>) {
+            // Non-concurrent index: throws ANNException, so check up front to report
+            // invalid arguments uniformly.
+            if (!impl().has_id(old_id)) {
+                throw std::invalid_argument(
+                    fmt::format("Index does not contain external ID {}!", old_id)
+                );
+            }
+            if (impl().has_id(new_id)) {
+                throw std::invalid_argument(
+                    fmt::format("Index already contains external ID {}!", new_id)
+                );
+            }
+            impl().replace_external_id(old_id, new_id);
+        } else {
+            switch (impl().replace_external_id(old_id, new_id)) {
+                case Result::Ok:
+                    return;
+                case Result::OldIdMissing:
+                    throw std::invalid_argument(
+                        fmt::format("Index does not contain external ID {}!", old_id)
+                    );
+                case Result::NewIdExists:
+                    throw std::invalid_argument(
+                        fmt::format("Index already contains external ID {}!", new_id)
+                    );
+            }
+        }
+    }
 };
 
 // Forward Declaractions.
@@ -196,6 +253,26 @@ class DynamicVamana : public manager::IndexManager<DynamicVamanaInterface> {
 
     DynamicVamana& delete_points(std::span<const size_t> ids) {
         impl_->delete_points(ids);
+        return *this;
+    }
+
+    ///
+    /// @brief Overwrite the vectors of existing points. Only supported by the
+    /// concurrent index; throws otherwise.
+    ///
+    DynamicVamana&
+    update_entries(data::ConstSimpleDataView<float> points, std::span<const size_t> ids) {
+        impl_->update_entries(points.data(), points.size(), points.dimensions(), ids);
+        return *this;
+    }
+
+    ///
+    /// @brief Rename external ID `old_id` to `new_id`.
+    ///
+    /// Throws `std::invalid_argument` if `old_id` is missing or `new_id` already exists.
+    ///
+    DynamicVamana& replace_external_id(size_t old_id, size_t new_id) {
+        impl_->replace_external_id(old_id, new_id);
         return *this;
     }
 

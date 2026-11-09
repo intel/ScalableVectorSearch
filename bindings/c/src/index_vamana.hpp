@@ -132,6 +132,12 @@ struct DynamicIndexVamana : public DynamicIndex {
 
     void compact(size_t batchsize) override;
 
+    void update_points(
+        svs::data::ConstSimpleDataView<float> points, std::span<const size_t> ids
+    ) override;
+
+    void replace_id(size_t old_id, size_t new_id) override;
+
     size_t get_num_threads() const override {
         auto lock = read_lock();
         return index.get_num_threads();
@@ -194,6 +200,15 @@ struct ConcurrentIndexVamana : public DynamicIndexVamana {
     svs::index::vamana::MemoryBreakdown get_memory_breakdown() const override {
         auto lock = write_lock();
         return index.get_memory_breakdown();
+    }
+
+    void update_points(
+        svs::data::ConstSimpleDataView<float> points, std::span<const size_t> ids
+    ) override;
+
+    void replace_id(size_t old_id, size_t new_id) override {
+        auto lock = read_lock();
+        index.replace_external_id(old_id, new_id);
     }
 };
 } // namespace svs::c_runtime

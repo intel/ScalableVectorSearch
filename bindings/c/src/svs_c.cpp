@@ -1588,6 +1588,52 @@ extern "C" bool svs_index_dynamic_delete_points(
     );
 }
 
+extern "C" bool svs_index_dynamic_update_points(
+    svs_index_h index,
+    const float* points,
+    const size_t* ids,
+    size_t num_points,
+    svs_error_h out_err
+) {
+    using namespace svs::c_runtime;
+    return wrap_exceptions(
+        [&]() {
+            EXPECT_ARG_NOT_NULL(index);
+            EXPECT_ARG_NOT_NULL(points);
+            EXPECT_ARG_NOT_NULL(ids);
+            EXPECT_ARG_GT_THAN(num_points, 0);
+            auto dynamic_index_ptr = std::dynamic_pointer_cast<DynamicIndex>(index->impl);
+            INVALID_ARGUMENT_IF(
+                dynamic_index_ptr == nullptr, "Index does not support dynamic updates"
+            );
+            auto src_data = svs::data::ConstSimpleDataView<float>(
+                points, num_points, dynamic_index_ptr->dimensions()
+            );
+            dynamic_index_ptr->update_points(src_data, std::span(ids, num_points));
+            return true;
+        },
+        out_err
+    );
+}
+
+extern "C" bool svs_index_dynamic_replace_id(
+    svs_index_h index, size_t old_id, size_t new_id, svs_error_h out_err
+) {
+    using namespace svs::c_runtime;
+    return wrap_exceptions(
+        [&]() {
+            EXPECT_ARG_NOT_NULL(index);
+            auto dynamic_index_ptr = std::dynamic_pointer_cast<DynamicIndex>(index->impl);
+            INVALID_ARGUMENT_IF(
+                dynamic_index_ptr == nullptr, "Index does not support dynamic updates"
+            );
+            dynamic_index_ptr->replace_id(old_id, new_id);
+            return true;
+        },
+        out_err
+    );
+}
+
 extern "C" bool svs_index_dynamic_has_id(
     svs_index_h index, size_t id, bool* out_has_id, svs_error_h out_err
 ) {
