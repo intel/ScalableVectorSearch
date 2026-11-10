@@ -183,19 +183,8 @@ template <typename Filter> class FilteredValidBuilder {
         , translator_{&translator}
         , filter_{&filter} {}
 
-    // Once the window is full, only candidates closer than its worst entry are filtered.
-    template <typename Buffer> void skip_if_dropped_by(const Buffer& buffer) {
-        skip_buffer_ = &buffer;
-        skip_ = [](const void* b, float d) {
-            return static_cast<const Buffer*>(b)->can_skip(d);
-        };
-    }
-
     template <typename I>
     constexpr PredicatedSearchNeighbor<I> operator()(I i, float distance) const {
-        if (skip_ != nullptr && skip_(skip_buffer_, distance)) {
-            return PredicatedSearchNeighbor<I>(i, distance, false);
-        }
         bool invalid =
             std::atomic_ref<SlotMetadata>(const_cast<SlotMetadata&>(getindex(status_, i)))
                 .load(std::memory_order_acquire) != SlotMetadata::Valid;
@@ -211,8 +200,6 @@ template <typename Filter> class FilteredValidBuilder {
     const lib::SegmentedVector<SlotMetadata>& status_;
     const IDTranslator* translator_;
     const Filter* filter_;
-    const void* skip_buffer_ = nullptr;
-    bool (*skip_)(const void*, float) = nullptr;
 };
 
 template <graphs::MemoryGraph Graph, typename Data, typename Dist>
@@ -984,7 +971,6 @@ class MutableVamanaIndex {
             };
             if constexpr (Filtered) {
                 auto builder = internal_search_builder(*filter);
-                builder.skip_if_dropped_by(buffer);
                 run(builder);
             } else {
                 auto builder = internal_search_builder();
