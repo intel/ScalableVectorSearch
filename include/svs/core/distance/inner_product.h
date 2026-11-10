@@ -46,6 +46,11 @@ class IP {
   public:
     template <typename Ea, typename Eb>
     static constexpr float compute(const Ea* a, const Eb* b, size_t N) {
+        if (__builtin_expect(svs::detail::avx_runtime_flags.is_avx512fp16_supported(), 1)) {
+            return IPImpl<Dynamic, Ea, Eb, AVX_AVAILABILITY::AVX512_FP16>::compute(
+                a, b, lib::MaybeStatic(N)
+            );
+        }
         if (__builtin_expect(svs::detail::avx_runtime_flags.is_avx512f_supported(), 1)) {
             return IPImpl<Dynamic, Ea, Eb, AVX_AVAILABILITY::AVX512>::compute(
                 a, b, lib::MaybeStatic(N)
@@ -63,6 +68,17 @@ class IP {
 
     template <size_t N, typename Ea, typename Eb>
     static constexpr float compute(const Ea* a, const Eb* b) {
+        if (__builtin_expect(svs::detail::avx_runtime_flags.is_avx512fp16_supported(), 1)) {
+            if constexpr (is_dim_supported<N>()) {
+                return IPImpl<N, Ea, Eb, AVX_AVAILABILITY::AVX512_FP16>::compute(
+                    a, b, lib::MaybeStatic<N>()
+                );
+            } else {
+                return IPImpl<Dynamic, Ea, Eb, AVX_AVAILABILITY::AVX512_FP16>::compute(
+                    a, b, lib::MaybeStatic(N)
+                );
+            }
+        }
         if (__builtin_expect(svs::detail::avx_runtime_flags.is_avx512f_supported(), 1)) {
             if constexpr (is_dim_supported<N>()) {
                 return IPImpl<N, Ea, Eb, AVX_AVAILABILITY::AVX512>::compute(
@@ -312,6 +328,31 @@ template <size_t N> struct IPImpl<N, Float16, Float16, AVX_AVAILABILITY::AVX512>
 };
 #endif
 
+// Everything not natively overridden in avx512_fp16.cpp reuses the AVX512 implementation.
+template <size_t N, typename Ea, typename Eb>
+struct IPImpl<N, Ea, Eb, AVX_AVAILABILITY::AVX512_FP16>
+    : IPImpl<N, Ea, Eb, AVX_AVAILABILITY::AVX512> {};
+
+// Explicit partial specialization for Float16×Float16 under AVX512_FP16.
+// The struct is declared here; the member function is defined out-of-line in
+// avx512_fp16.cpp so the native vfmaddph kernel is linked into every consumer TU.
+template <size_t N>
+struct IPImpl<N, Float16, Float16, AVX_AVAILABILITY::AVX512_FP16> {
+    SVS_NOINLINE static float compute(
+        const Float16* a, const Float16* b, lib::MaybeStatic<N> length
+    );
+};
+
+// Explicit partial specialization for float (query) × Float16 (data) under AVX512_FP16.
+// Converts the float32 query to fp16 on the fly and uses the native vfmaddph path.
+// The member function is defined out-of-line in avx512_fp16.cpp.
+template <size_t N>
+struct IPImpl<N, float, Float16, AVX_AVAILABILITY::AVX512_FP16> {
+    SVS_NOINLINE static float compute(
+        const float* a, const Float16* b, lib::MaybeStatic<N> length
+    );
+};
+
 /////
 ///// Intel(R) AVX2 Implementations
 /////
@@ -408,6 +449,16 @@ DISTANCE_IP_EXTERN_TEMPLATE(200, AVX_AVAILABILITY::AVX2);
 DISTANCE_IP_EXTERN_TEMPLATE(512, AVX_AVAILABILITY::AVX2);
 DISTANCE_IP_EXTERN_TEMPLATE(768, AVX_AVAILABILITY::AVX2);
 DISTANCE_IP_EXTERN_TEMPLATE(Dynamic, AVX_AVAILABILITY::AVX2);
+
+DISTANCE_IP_EXTERN_TEMPLATE(64, AVX_AVAILABILITY::AVX512_FP16);
+DISTANCE_IP_EXTERN_TEMPLATE(96, AVX_AVAILABILITY::AVX512_FP16);
+DISTANCE_IP_EXTERN_TEMPLATE(100, AVX_AVAILABILITY::AVX512_FP16);
+DISTANCE_IP_EXTERN_TEMPLATE(128, AVX_AVAILABILITY::AVX512_FP16);
+DISTANCE_IP_EXTERN_TEMPLATE(160, AVX_AVAILABILITY::AVX512_FP16);
+DISTANCE_IP_EXTERN_TEMPLATE(200, AVX_AVAILABILITY::AVX512_FP16);
+DISTANCE_IP_EXTERN_TEMPLATE(512, AVX_AVAILABILITY::AVX512_FP16);
+DISTANCE_IP_EXTERN_TEMPLATE(768, AVX_AVAILABILITY::AVX512_FP16);
+DISTANCE_IP_EXTERN_TEMPLATE(Dynamic, AVX_AVAILABILITY::AVX512_FP16);
 #endif
 
 } // namespace svs::distance
