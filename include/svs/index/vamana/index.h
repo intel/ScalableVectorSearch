@@ -677,7 +677,7 @@ class VamanaIndex {
                         prefetch_parameters, cancel, filter
                     );
                     if constexpr (Filtered) {
-                        run(extensions::FilteredSearch<decltype(search)>{search, filter});
+                        run(search);
                     } else {
                         run(search);
                     }

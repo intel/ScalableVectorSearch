@@ -1068,8 +1068,7 @@ class MutableVamanaIndex {
                             prefetch_parameters, cancel, filter
                         );
                         if constexpr (Filtered) {
-                            run(extensions::FilteredSearch<decltype(search)>{search, filter}
-                            );
+                            run(search);
                         } else {
                             run(search);
                         }
@@ -2135,37 +2134,12 @@ class MutableVamanaIndex {
     /// Called from the ``extensions::single_search`` override below.
     ///
     template <typename SearchBuffer, typename Query>
-    void supplement_search_buffer(
-        SearchBuffer& search_buffer,
-        const Query& query,
-        const std::function<bool(size_t)>* filter = nullptr
-    ) const {
+    void supplement_search_buffer(SearchBuffer& search_buffer, const Query& query) const {
         if (search_buffer.valid() >= search_buffer.target_window() ||
             search_buffer.valid() >= size()) {
             return;
         }
         search_buffer.sort();
-
-        if (filter != nullptr) {
-            // compact_mutex_ shared (held by the caller) keeps the slots in place.
-            auto builder = internal_search_builder();
-            for (size_t i = 0, n = status_.size(); i < n; ++i) {
-                if (std::atomic_ref<SlotMetadata>(const_cast<SlotMetadata&>(status_[i]))
-                        .load(std::memory_order_acquire) != SlotMetadata::Valid) {
-                    continue;
-                }
-                auto external = unsafe_translate_internal_id(i);
-                if (external == no_external_id || !(*filter)(external)) {
-                    continue;
-                }
-                auto dist = extensions::get_distance_ext(data_, distance_, i, query);
-                search_buffer.insert(builder(static_cast<Idx>(i), dist));
-                if (search_buffer.valid() >= search_buffer.target_window()) {
-                    break;
-                }
-            }
-            return;
-        }
 
         // translator_mutex_ shared: guards both the traversal of ``translator_`` and the
         // internal IDs it yields against erasure by consolidate()/compact().
@@ -2263,11 +2237,7 @@ SVS_FORCE_INLINE void svs_invoke(
     if (cancel()) {
         return;
     }
-    const std::function<bool(size_t)>* filter = nullptr;
-    if constexpr (requires { search.filter; }) {
-        filter = search.filter;
-    }
-    index.supplement_search_buffer(search_buffer, query, filter);
+    index.supplement_search_buffer(search_buffer, query);
 }
 
 ///// Deduction Guides.
