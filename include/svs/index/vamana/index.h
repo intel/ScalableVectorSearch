@@ -58,25 +58,14 @@ template <typename Filter> class FilteredNeighborBuilder {
     explicit FilteredNeighborBuilder(const Filter& filter)
         : filter_{&filter} {}
 
-    // Once the window is full, only candidates closer than its worst entry are filtered.
-    template <typename Buffer> void skip_if_dropped_by(const Buffer& buffer) {
-        skip_buffer_ = &buffer;
-        skip_ = [](const void* b, float d) {
-            return static_cast<const Buffer*>(b)->can_skip(d);
-        };
-    }
-
     template <typename I>
     constexpr PredicatedSearchNeighbor<I> operator()(I i, float distance) const {
-        bool valid = !(skip_ != nullptr && skip_(skip_buffer_, distance)) &&
-                     (*filter_)(static_cast<size_t>(i));
+        bool valid = (*filter_)(static_cast<size_t>(i));
         return PredicatedSearchNeighbor<I>(i, distance, valid);
     }
 
   private:
     const Filter* filter_;
-    const void* skip_buffer_ = nullptr;
-    bool (*skip_)(const void*, float) = nullptr;
 };
 
 struct VamanaIndexParameters {
@@ -541,7 +530,6 @@ class VamanaIndex {
             if constexpr (Filtered) {
                 auto builder =
                     FilteredNeighborBuilder<std::function<bool(size_t)>>{*filter};
-                builder.skip_if_dropped_by(buffer);
                 run(builder);
                 // Remove the invalid entries that remain in the buffer.
                 buffer.cleanup();
