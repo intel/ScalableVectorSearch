@@ -22,7 +22,9 @@
 #include "svs/orchestrators/vamana.h"
 
 // stdlib
+#include <shared_mutex>
 #include <type_traits>
+#include <utility>
 
 namespace svs {
 
@@ -66,6 +68,17 @@ class DynamicVamanaInterface : public VamanaInterface {
     // Rename an external ID. Throws `std::invalid_argument` if `old_id` is missing or
     // `new_id` already exists.
     virtual void replace_external_id(size_t old_id, size_t new_id) = 0;
+
+    using ReadGuards =
+        std::pair<std::shared_lock<std::shared_mutex>, std::shared_lock<std::shared_mutex>>;
+
+    /// @brief Acquire shared storage and payload protection before submitting read work.
+    /// Follow the concurrent backend's get_threadpool_handle() execution contract.
+    /// Backends without these locks return empty guards. The default reports this
+    /// operation as unsupported.
+    virtual ReadGuards lock_read_guards() const {
+        throw ANNEXCEPTION("Guarded reads are not supported by this index adapter.");
+    }
 };
 
 template <lib::TypeList QueryTypes, typename Impl>
@@ -164,6 +177,23 @@ class DynamicVamanaImpl : public VamanaImpl<QueryTypes, Impl, DynamicVamanaInter
                         fmt::format("Index already contains external ID {}!", new_id)
                     );
             }
+        }
+    }
+
+    DynamicVamanaInterface::ReadGuards lock_read_guards() const override {
+        if constexpr (requires {
+                          impl().lock_storage_shared();
+                          impl().lock_payload_shared();
+                      }) {
+            return {impl().lock_storage_shared(), impl().lock_payload_shared()};
+        } else if constexpr (requires {
+                                 impl().get_parent_index().lock_storage_shared();
+                                 impl().get_parent_index().lock_payload_shared();
+                             }) {
+            const auto& parent = impl().get_parent_index();
+            return {parent.lock_storage_shared(), parent.lock_payload_shared()};
+        } else {
+            return {};
         }
     }
 };
@@ -275,6 +305,9 @@ class DynamicVamana : public manager::IndexManager<DynamicVamanaInterface> {
         impl_->replace_external_id(old_id, new_id);
         return *this;
     }
+
+    /// @copydoc DynamicVamanaInterface::lock_read_guards
+    [[nodiscard]] auto lock_read_guards() const { return impl_->lock_read_guards(); }
 
     // Accessors
     /// @copydoc svs::index::vamana::MutableVamanaIndex::get_alpha

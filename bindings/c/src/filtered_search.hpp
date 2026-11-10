@@ -202,7 +202,7 @@ std::vector<size_t> filtered_topk_search(
                 batch_size = estimate_batch_size(
                     total_checked, found, num_neighbors, batch_size, index_size
                 );
-                iterator.next(batch_size);
+                iterator.unsafe_next(batch_size);
                 total_checked += iterator.size();
                 for (auto& neighbor : iterator.results()) {
                     if (id_filter->is_member(neighbor.id())) {
@@ -228,6 +228,14 @@ std::vector<size_t> filtered_topk_search(
         }
     };
 
+    // Follow the concurrent backend's get_threadpool_handle() execution contract.
+    [[maybe_unused]] auto read_guards = [&] {
+        if constexpr (requires { index.lock_read_guards(); }) {
+            return index.lock_read_guards();
+        } else {
+            return svs::lib::Empty{};
+        }
+    }();
     svs::threads::parallel_for(
         index.get_threadpool_handle(),
         svs::threads::StaticPartition{queries.size()},

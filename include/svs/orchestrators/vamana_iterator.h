@@ -45,6 +45,9 @@ class VamanaIterator {
         virtual void update(svs::AnonymousArray<1> newquery) = 0;
 
         virtual ~Interface() = default;
+
+        virtual void
+        unsafe_next(size_t batch_size, const lib::DefaultPredicate& cancel) = 0;
     };
 
     template <typename Index, typename QueryType> struct Implementation : Interface {
@@ -80,6 +83,13 @@ class VamanaIterator {
             const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>())
         ) override {
             impl_.next(batch_size, cancel);
+        }
+        void unsafe_next(size_t batch_size, const lib::DefaultPredicate& cancel) override {
+            if constexpr (requires { impl_.unsafe_next(batch_size, cancel); }) {
+                impl_.unsafe_next(batch_size, cancel);
+            } else {
+                impl_.next(batch_size, cancel);
+            }
         }
         bool done() const override { return impl_.done(); }
 
@@ -150,6 +160,16 @@ class VamanaIterator {
         const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>())
     ) {
         impl_->next(batch_size, cancel);
+    }
+
+    /// @copydoc next
+    /// The caller must hold the index's shared storage and payload guards through
+    /// this call. Backends without guarded reads use their normal next().
+    void unsafe_next(
+        size_t batch_size,
+        const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>())
+    ) {
+        impl_->unsafe_next(batch_size, cancel);
     }
 
     /// @brief Signal that the next batch search should begin entirely from scratch.
