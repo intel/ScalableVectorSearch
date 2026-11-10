@@ -1068,8 +1068,7 @@ class MutableVamanaIndex {
                             prefetch_parameters, cancel, filter
                         );
                         if constexpr (Filtered) {
-                            run(extensions::FilteredSearch<decltype(search)>{search, filter}
-                            );
+                            run(search);
                         } else {
                             run(search);
                         }
@@ -2135,11 +2134,7 @@ class MutableVamanaIndex {
     /// Called from the ``extensions::single_search`` override below.
     ///
     template <typename SearchBuffer, typename Query>
-    void supplement_search_buffer(
-        SearchBuffer& search_buffer,
-        const Query& query,
-        const std::function<bool(size_t)>* filter = nullptr
-    ) const {
+    void supplement_search_buffer(SearchBuffer& search_buffer, const Query& query) const {
         if (search_buffer.valid() >= search_buffer.target_window() ||
             search_buffer.valid() >= size()) {
             return;
@@ -2250,11 +2245,7 @@ SVS_FORCE_INLINE void svs_invoke(
     if (cancel()) {
         return;
     }
-    const std::function<bool(size_t)>* filter = nullptr;
-    if constexpr (requires { search.filter; }) {
-        filter = search.filter;
-    }
-    index.supplement_search_buffer(search_buffer, query, filter);
+    index.supplement_search_buffer(search_buffer, query);
 }
 
 ///// Deduction Guides.
