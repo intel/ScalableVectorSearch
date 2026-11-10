@@ -813,14 +813,17 @@ class MutableVamanaIndex {
     ///
     /// (3) Exclude compaction from the production of these internal IDs through this call.
     ///
+    /// (4) Each worker partition uses one mapping snapshot; concurrent mapping changes
+    ///     may be observed between partitions.
+    ///
     template <class Dims, class Base>
         requires(std::tuple_size_v<Dims> == 2)
     void translate_to_external(DenseArray<size_t, Dims, Base>& ids) {
-        std::shared_lock lock{*translator_mutex_};
         threads::parallel_for(
             threadpool_,
             threads::StaticPartition{getsize<0>(ids)},
             [&](const auto is, uint64_t /*tid*/) {
+                std::shared_lock lock{*translator_mutex_};
                 for (auto i : is) {
                     for (size_t j = 0, jmax = getsize<1>(ids); j < jmax; ++j) {
                         auto internal = lib::narrow_cast<Idx>(ids.at(i, j));
@@ -910,6 +913,7 @@ class MutableVamanaIndex {
 
     /// @brief Hold shared payload protection for a complete read operation.
     /// Acquire compact_mutex_ first, then this guard, then translator/node locks.
+    /// Follow the pool execution contract in get_threadpool_handle().
     [[nodiscard]] std::shared_lock<std::shared_mutex> lock_payload_shared() const {
         std::shared_lock gatekeeper_lock{*payload_gatekeeper_};
         return std::shared_lock<std::shared_mutex>(*payload_mutex_);
@@ -1832,11 +1836,33 @@ class MutableVamanaIndex {
     ///
     /// @brief Return the current thread pool handle.
     ///
-    /// Do not call index methods that acquire storage/payload protection from tasks on
-    /// this index's underlying pool, including through another handle to that pool.
-    /// The submitting thread must acquire those guards before submitting work; tasks
-    /// use `unsafe_*` read paths under those guards. Otherwise a writer can close the
-    /// gate and wait for the pool while its tasks wait at that gate.
+    /// Thread pool lock rules:
+    /// A task is a function run by this pool, even on the caller's thread.
+    ///
+    /// 1. Outside tasks only:
+    ///    compact_mutex_, payload_mutex_, compact_gatekeeper_, payload_gatekeeper_.
+    ///    Take the needed locks before submitting work. Keep the storage/payload locks
+    ///    until that work finishes. Unlock them on the thread that locked them.
+    ///    A task must not call methods that take these locks.
+    ///    unsafe_next() uses the caller's storage and payload locks.
+    ///
+    /// 2. Other index locks may be taken inside or outside tasks.
+    ///    Before submitting or waiting for work, the caller must release locks that
+    ///    any task on this pool may take, including tasks of other callers.
+    ///    This includes translator_mutex_, node locks and reverse-edge locks.
+    ///    Shared locks follow this rule too.
+    ///    For unsafe_has_id(), unsafe_on_ids() and unsafe_translate_*(), the task
+    ///    must hold translator_mutex_ itself.
+    ///
+    /// 3. A task must not submit work to this pool and wait for it,
+    ///    unless the pool explicitly supports this.
+    ///
+    /// 4. A task must not wait for a Pending slot.
+    ///    The slot's owner may need this pool to finish.
+    ///
+    /// Another handle to this pool follows the same rules.
+    /// Follow the lock order listed beside the mutexes.
+    /// Update holds payload_mutex_ exclusive only while copying data.
     threads::ThreadPoolHandle& get_threadpool_handle() { return threadpool_; }
 
     ///// Window Interface
@@ -2078,8 +2104,10 @@ class MutableVamanaIndex {
     /// - ``svs::getsize<1>(dst) == dimensions()``: The space allocated for each vector in
     ///     ``dst`` is correct.
     ///
-    /// An exception will be thrown if any of these pre-conditions does not hold.
-    /// If such an exception is thrown, the argument ``dst`` will be left unmodified.
+    /// Initial validation checks these preconditions before writing to ``dst``; failure
+    /// leaves it unmodified. Each worker protects its ID mappings and accepts mapped
+    /// Valid or Deleted slots. A missing mapping or a Pending or Empty slot causes an
+    /// exception after the workers finish. ``dst`` may then contain partial results.
     template <std::unsigned_integral I, svs::Arithmetic T>
     void reconstruct_at(data::SimpleDataView<T> dst, std::span<const I> ids) {
         const size_t ids_size = ids.size();
@@ -2098,34 +2126,53 @@ class MutableVamanaIndex {
             );
         }
 
-        // Lock order: compact_mutex_ then translator_mutex_ (global order).
-        // compact_mutex_ shared guards data_/graph_ against compact()'s shrink;
-        // translator_mutex_ shared guards the ID translation reads below.
         auto compact_lock = lock_storage_shared();
         auto payload_lock = lock_payload_shared();
-        std::shared_lock lock{*translator_mutex_};
 
-        // Bounds checking.
-        for (size_t i = 0; i < ids_size; ++i) {
-            I id = ids[i]; // inbounds by loop bounds.
-            if (!unsafe_has_id(id)) {
-                throw ANNEXCEPTION("ID {} with value {} is out of bounds!", i, id);
+        {
+            std::shared_lock lock{*translator_mutex_};
+            for (size_t i = 0; i < ids_size; ++i) {
+                I id = ids[i]; // inbounds by loop bounds.
+                if (!unsafe_has_id(id)) {
+                    throw ANNEXCEPTION("ID {} with value {} is out of bounds!", i, id);
+                }
             }
         }
 
+        // Some pools do not propagate task exceptions. Report a concurrent ID failure
+        // on the caller after all workers have finished using the guarded storage.
+        std::atomic<size_t> unavailable_id{ids_size};
         // Prerequisites checked - proceed with the operation.
         // TODO: Communicate the requested decompression type to the backend dataset to
         // allow more fine-grained specialization?
         auto threaded_function = [&](auto is, uint64_t SVS_UNUSED(tid)) {
+            // Keep translation and reconstruction under one lock so consolidation cannot
+            // reclaim the resolved slot before its payload is read.
+            std::shared_lock lock{*translator_mutex_};
             auto accessor = extensions::reconstruct_accessor(data_);
             for (auto i : is) {
-                auto id = unsafe_translate_external_id(ids[i]);
-                dst.set_datum(i, accessor(data_, id));
+                if (translator_.has_external(ids[i])) {
+                    auto id = unsafe_translate_external_id(ids[i]);
+                    auto state = std::atomic_ref<SlotMetadata>(status_[id])
+                                     .load(std::memory_order_acquire);
+                    // Pending insertions can still write despite our shared payload lock.
+                    if (state == SlotMetadata::Valid || state == SlotMetadata::Deleted) {
+                        dst.set_datum(i, accessor(data_, id));
+                        continue;
+                    }
+                }
+                unavailable_id.store(i, std::memory_order_relaxed);
+                return;
             }
         };
         threads::parallel_for(
             threadpool_, threads::StaticPartition{ids_size}, threaded_function
         );
+        if (auto i = unavailable_id.load(std::memory_order_relaxed); i != ids_size) {
+            throw ANNEXCEPTION(
+                "ID {} with value {} became unavailable during reconstruction!", i, ids[i]
+            );
+        }
     }
 
     /// Invoke the provided callable with constant references to the contained graph, data,

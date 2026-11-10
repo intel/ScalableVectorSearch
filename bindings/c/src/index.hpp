@@ -95,5 +95,9 @@ struct DynamicIndex : public Index {
     virtual bool has_id(size_t id) const = 0;
     virtual void consolidate() = 0;
     virtual void compact(size_t batchsize) = 0;
+    virtual void update_points(
+        svs::data::ConstSimpleDataView<float> points, std::span<const size_t> ids
+    ) = 0;
+    virtual void replace_id(size_t old_id, size_t new_id) = 0;
 };
 } // namespace svs::c_runtime
