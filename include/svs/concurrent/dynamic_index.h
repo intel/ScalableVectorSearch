@@ -250,6 +250,8 @@ class MutableVamanaIndex {
     // compact() holds it exclusive.
     //
     // Lock acquisition order across the codebase:
+    //   writers_gatekeeper_ -> writers_mutex_ (never reversed)
+    //   writers_mutex_ -> compact_gatekeeper_ (never reversed)
     //   compact_gatekeeper_ -> compact_mutex_ (never reversed)
     //   compact_mutex_ -> slot_alloc_mutex_   (never reversed)
     //   compact_mutex_ -> translator_mutex_   (never reversed)
@@ -263,6 +265,14 @@ class MutableVamanaIndex {
         std::make_unique<std::shared_mutex>()};
     // Iterators check this under compact_mutex_ before reusing cached internal IDs.
     size_t compaction_epoch_ = 0;
+    // Outermost lock. Every writer (add_points, delete_entries, consolidate, compact,
+    // replace_external_id) holds it shared; save() holds it exclusive so the state it
+    // writes is stable. Searches and other readers never take it.
+    std::unique_ptr<std::shared_mutex> writers_mutex_{
+        std::make_unique<std::shared_mutex>()};
+    // Once save() owns this gate, new writers cannot keep it waiting on writers_mutex_.
+    std::unique_ptr<std::shared_mutex> writers_gatekeeper_{
+        std::make_unique<std::shared_mutex>()};
     // Writer-only mutex serializing slot allocation in add_points
     std::unique_ptr<std::mutex> slot_alloc_mutex_{std::make_unique<std::mutex>()};
 
@@ -826,6 +836,7 @@ class MutableVamanaIndex {
     /// @param new_id The external ID to assign. Must not be mapped at all.
     ///
     ReplaceExternalIdResult replace_external_id(size_t old_id, size_t new_id) {
+        auto writers_lock = lock_writers_shared();
         auto compact_lock = lock_storage_shared();
         std::lock_guard lock{*translator_mutex_};
 
@@ -881,6 +892,12 @@ class MutableVamanaIndex {
     // Return a `greedy_search` compatible builder for this index.
     // This is an internal method, mostly used to help implement the batch iterator.
     ValidBuilder internal_search_builder() const { return ValidBuilder{status_}; }
+
+    /// @brief Shared lock taken by every writer; waits behind a pending save().
+    [[nodiscard]] std::shared_lock<std::shared_mutex> lock_writers_shared() const {
+        std::shared_lock gatekeeper_lock{*writers_gatekeeper_};
+        return std::shared_lock<std::shared_mutex>(*writers_mutex_);
+    }
 
     /// @brief RAII shared lock guarding data_/graph_ against compact()'s shrink
     /// (which frees segments). Used by searches, iterators and mutations that
@@ -1108,6 +1125,8 @@ class MutableVamanaIndex {
             return {};
         }
 
+        auto writers_lock = lock_writers_shared();
+
         // Reserve slot ownership against compact(). Held for the entire call,
         // including the lock-free Phase 2-4 below; compact() takes this
         // exclusive and so will block until every in-flight add finishes.
@@ -1315,6 +1334,7 @@ class MutableVamanaIndex {
     ///   graph.
     ///
     template <typename T> size_t delete_entries(const T& ids) {
+        auto writers_lock = lock_writers_shared();
         auto compact_lock = lock_storage_shared();
         std::shared_lock lock{*translator_mutex_};
         size_t deleted = 0;
@@ -1400,6 +1420,7 @@ class MutableVamanaIndex {
     ///     improve performance but requires more working memory.
     ///
     void compact(Idx batch_size = 1'000) {
+        auto writers_lock = lock_writers_shared();
         std::lock_guard gatekeeper_lock{*compact_gatekeeper_};
         std::lock_guard compact_lock{*compact_mutex_};
 
@@ -1613,6 +1634,7 @@ class MutableVamanaIndex {
 
     ///// Mutation
     void consolidate() {
+        auto writers_lock = lock_writers_shared();
         auto compact_lock = lock_storage_shared();
         consolidate_locked();
     }
@@ -1702,6 +1724,7 @@ class MutableVamanaIndex {
     /// @returns The number of listed IDs that were consolidated.
     ///
     template <typename T> size_t consolidate(const T& ids) {
+        auto writers_lock = lock_writers_shared();
         auto compact_lock = lock_storage_shared();
 
         // Collect the internal slots of the listed, already-soft-deleted IDs.
@@ -1741,18 +1764,30 @@ class MutableVamanaIndex {
             get_search_parameters()};
     }
 
-    static constexpr lib::Version save_version = lib::Version(0, 0, 0);
+    // 0.0.1 also stores the per-slot status.
+    static constexpr lib::Version save_version = vamana::detail::dynamic_status_version;
+
+    // Saves the slots as they are (holes included); does not consolidate or compact.
+    // Blocks writers while saving; searches may continue.
     void save(
         const std::filesystem::path& config_directory,
         const std::filesystem::path& graph_directory,
         const std::filesystem::path& data_directory
     ) {
-        vamana::detail::save_dynamic_index(
-            *this, config_directory, graph_directory, data_directory
+        std::lock_guard gatekeeper_lock{*writers_gatekeeper_};
+        std::unique_lock writers_lock{*writers_mutex_};
+        auto [status, translator] = snapshot_for_save();
+        vamana::detail::write_dynamic_index(
+            *this, translator, &status, config_directory, graph_directory, data_directory
         );
     }
 
-    void save(std::ostream& os) { vamana::detail::save_dynamic_index(*this, os); }
+    void save(std::ostream& os) {
+        std::lock_guard gatekeeper_lock{*writers_gatekeeper_};
+        std::unique_lock writers_lock{*writers_mutex_};
+        auto [status, translator] = snapshot_for_save();
+        vamana::detail::write_dynamic_index(*this, translator, &status, os);
+    }
 
     /////
     ///// Calibrate
@@ -1872,6 +1907,27 @@ class MutableVamanaIndex {
 
     // Not synchronized: callers must exclude concurrent mutation.
     const IDTranslator& view_translator() const { return translator_; }
+
+    // Slot status bytes and a translator holding only the Valid slots. The caller holds
+    // writers_mutex_ exclusive.
+    std::pair<std::vector<uint8_t>, IDTranslator> snapshot_for_save() const {
+        auto status = std::vector<uint8_t>{};
+        auto translator = IDTranslator{};
+        auto slots = status_snapshot();
+        status.reserve(slots.size());
+        for (size_t i = 0, imax = slots.size(); i < imax; ++i) {
+            if (slots[i] == SlotMetadata::Pending) {
+                throw ANNEXCEPTION("Cannot save an index with pending slot {}", i);
+            }
+            status.push_back(static_cast<uint8_t>(slots[i]));
+        }
+        for (auto pair : translator_) {
+            if (slots.at(pair.second) == SlotMetadata::Valid) {
+                translator.insert_translation(pair.first, pair.second);
+            }
+        }
+        return {std::move(status), std::move(translator)};
+    }
 
     // Not synchronized: callers must exclude concurrent mutation.
     std::vector<SlotMetadata> status_snapshot() const {
@@ -2320,18 +2376,9 @@ auto auto_dynamic_assemble(
     bool SVS_UNUSED(debug_load_from_static) = false,
     svs::logging::logger_ptr logger = svs::logging::get()
 ) {
-    // Read the combined TOML (parameters + translation)
-    // and the translator binary data.
-    auto table = lib::detail::read_metadata(is);
-
-    auto parameters = lib::load<VamanaIndexParameters>(
-        table.template cast<toml::table>().at("parameters").template cast<toml::table>()
-    );
-
-    auto translation =
-        table.template cast<toml::table>().at("translation").template cast<toml::table>();
-
-    auto translator = IDTranslator::load(translation, is);
+    // Read the combined TOML (parameters + translation + status) and the binary data.
+    auto [parameters, translator, status] =
+        vamana::detail::load_stream_state<SlotMetadata>(is);
 
     auto data = data_loader();
     auto graph = graph_loader();
@@ -2344,11 +2391,8 @@ auto auto_dynamic_assemble(
         );
     }
 
-    auto translator_size = translator.size();
-    if (translator_size != datasize) {
-        throw ANNEXCEPTION(
-            "Translator has {} IDs but should have {}", translator_size, datasize
-        );
+    if (!status) {
+        status.emplace(datasize, SlotMetadata::Valid);
     }
 
     auto threadpool = threads::as_threadpool(std::move(threadpool_proto));
@@ -2357,7 +2401,7 @@ auto auto_dynamic_assemble(
         std::move(data),
         std::move(graph),
         std::move(distance),
-        std::vector<SlotMetadata>(datasize, SlotMetadata::Valid),
+        *status,
         std::move(translator),
         std::move(threadpool),
         std::move(logger)};

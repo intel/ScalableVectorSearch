@@ -99,6 +99,14 @@ schema_version = "v0.0.0"
     translation = "table"
 
 [[schemas]]
+    __schema__ = "vamana_dynamic_auxiliary_parameters"
+    __version__ = "v0.0.1"
+    name = "str"
+    parameters = "table"
+    translation = "table"
+    status = "table"
+
+[[schemas]]
     __schema__ = "vamana_build_parameters"
     __version__ = "v0.0.1"
     alpha = "float"

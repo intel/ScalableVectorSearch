@@ -277,7 +277,7 @@ Invalid parameters are rejected with `SVS_ERROR_INVALID_ARGUMENT`; unlike the le
 |-----------------|----------|
 | `SVS_SYNC_KIND_NONE` | No internal synchronization (default); the caller must serialize access |
 | `SVS_SYNC_KIND_GLOBAL` | Index-wide reader/writer lock: read-only operations (search, `has_id`, `get_distance`, reconstruct, `get_size`, `get_num_threads`, memory queries, use as a conversion source) run concurrently; mutating operations (add/delete points, consolidate, compact, save, `set_num_threads`) are exclusive |
-| `SVS_SYNC_KIND_FINE_GRAIN` | Backed by the concurrent Vamana index, which synchronizes updates itself: read-only operations and add/delete points, consolidate, compact all take a shared lock and run in parallel (compact still waits inside the index). Save, `set_num_threads`, memory queries and use as a conversion source are exclusive |
+| `SVS_SYNC_KIND_FINE_GRAIN` | Backed by the concurrent Vamana index, which synchronizes updates itself: read-only operations and add/delete points, consolidate, compact all take a shared lock and run in parallel (compact still waits inside the index). Save takes the shared lock too: it runs alongside searches, waits for running writers, and does not consolidate or compact. `set_num_threads`, memory queries and use as a conversion source are exclusive |
 
 Synchronization limits:
 - `svs_index_free()` must not run concurrently with any other call on the same handle.

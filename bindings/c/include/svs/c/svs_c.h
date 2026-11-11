@@ -597,7 +597,9 @@ struct svs_memory_breakdown {
 /// With SVS_SYNC_KIND_FINE_GRAIN, the handle is backed by a concurrent index that
 /// synchronizes updates itself: add_points, delete_points, consolidate and compact take a
 /// shared lock and run alongside searches and each other (compact still waits for
-/// in-flight operations inside the index). Only save, set_num_threads, memory queries
+/// in-flight operations inside the index). save takes a shared lock and runs alongside
+/// searches; the index blocks its own writers while saving and keeps deleted and empty
+/// slots as they are (no consolidate or compact). Only set_num_threads, memory queries
 /// and use as a conversion source take an exclusive lock.
 ///
 /// @remarks Synchronization covers operations on the index only:

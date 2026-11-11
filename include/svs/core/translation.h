@@ -492,6 +492,10 @@ class IDTranslator {
 
     static IDTranslator load(const lib::LoadTable& table) {
         IDTranslator::validate(table);
+        // An empty translator is saved as an empty file, which open_read rejects.
+        if (lib::load_at<size_t>(table, "num_points") == 0) {
+            return IDTranslator{};
+        }
 
         // Now that we've more-or-less validated the metadata, time to start loading
         // the points.
