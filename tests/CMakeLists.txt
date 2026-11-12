@@ -138,6 +138,7 @@ set(TEST_SOURCES
     ${TEST_DIR}/svs/index/vamana/consolidate.cpp
     ${TEST_DIR}/svs/index/vamana/filter.cpp
     ${TEST_DIR}/svs/index/vamana/index.cpp
+    ${TEST_DIR}/svs/index/vamana/maxsim_rerank.cpp
     ${TEST_DIR}/svs/index/vamana/prune.cpp
     ${TEST_DIR}/svs/index/vamana/search_buffer.cpp
     ${TEST_DIR}/svs/index/vamana/search_parameters.cpp
