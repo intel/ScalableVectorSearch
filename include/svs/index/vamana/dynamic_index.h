@@ -112,26 +112,19 @@ class ValidBuilder {
 // Separate template so the regular search compiles without any filter check.
 template <typename Filter> class FilteredValidBuilder {
   public:
-    FilteredValidBuilder(
-        const std::vector<SlotMetadata>& status,
-        const IDTranslator& translator,
-        const Filter& filter
-    )
-        : status_{status}
-        , translator_{&translator}
+    FilteredValidBuilder(const IDTranslator& translator, const Filter& filter)
+        : translator_{&translator}
         , filter_{&filter} {}
 
     template <typename I>
     constexpr PredicatedSearchNeighbor<I> operator()(I i, float distance) const {
-        bool invalid = getindex(status_, i) == SlotMetadata::Deleted;
-        if (!invalid) {
-            invalid = !(*filter_)(translator_->get_external(i));
-        }
+        // delete_entries clears the translator entry, so a missing id means deleted.
+        auto id = translator_->get_external_or(i, IDTranslator::invalid_external_id);
+        bool invalid = id == IDTranslator::invalid_external_id || !(*filter_)(id);
         return PredicatedSearchNeighbor<I>(i, distance, !invalid);
     }
 
   private:
-    const std::vector<SlotMetadata>& status_;
     const IDTranslator* translator_;
     const Filter* filter_;
 };
@@ -711,7 +704,7 @@ class MutableVamanaIndex {
 
     template <typename Filter>
     FilteredValidBuilder<Filter> internal_search_builder(const Filter& filter) const {
-        return FilteredValidBuilder<Filter>{status_, translator_, filter};
+        return FilteredValidBuilder<Filter>{translator_, filter};
     }
 
     template <bool Filtered = false>
@@ -1047,12 +1040,14 @@ class MutableVamanaIndex {
         return ids.size();
     }
 
+  private:
     void delete_entry(size_t i) {
         SlotMetadata& meta = getindex(status_, i);
         assert(meta == SlotMetadata::Valid);
         meta = SlotMetadata::Deleted;
     }
 
+  public:
     bool is_deleted(size_t i) const { return status_[i] != SlotMetadata::Valid; }
 
     Idx entry_point() const {
