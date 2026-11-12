@@ -93,6 +93,16 @@ concept ImmutableVectorSetDataset = requires(const D& d, size_t i) {
     { d.get_datum(i) } -> std::convertible_to<typename D::const_value_type>;
     d.prefetch(i);
 };
+
+///
+/// @ingroup vector_set_concept_entry
+/// @brief A ``VectorSet`` whose tokens are stored row-major and contiguous, reachable
+/// from ``data()``.
+///
+template <typename S>
+concept ContiguousVectorSet = VectorSet<S> && requires(const S& s) {
+    { s.data() } -> std::convertible_to<const typename S::element_type*>;
+};
 // clang-format on
 
 } // namespace data

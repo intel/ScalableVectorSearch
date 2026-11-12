@@ -26,6 +26,7 @@
 #include "svs/third-party/pot/network_simplex_simple.h"
 #pragma GCC diagnostic pop
 
+#include "svs/concepts/vector_set.h"
 #include "svs/core/distance/distance_core.h"
 #include "svs/lib/avx_detection.h"
 #include "svs/lib/preprocessor.h"
@@ -33,6 +34,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <concepts>
 #include <cstddef>
 #include <cstdint>
 #include <filesystem>
@@ -43,6 +45,7 @@
 #include <stdexcept>
 #include <string>
 #include <string_view>
+#include <type_traits>
 #include <vector>
 
 #if defined(__x86_64__)
@@ -235,31 +238,6 @@ struct MergeScratch {
     std::vector<double> weights;
 };
 
-// Per-token mass is 1/n (GEM Eq. 12); tokens sharing a centroid merge into one weighted
-// point.
-inline size_t merge_duplicates(const float* ids_f, size_t n, MergeScratch& scratch) {
-    scratch.ids.resize(n);
-    for (size_t i = 0; i < n; ++i) {
-        scratch.ids[i] = static_cast<uint32_t>(ids_f[i]);
-    }
-    std::sort(scratch.ids.begin(), scratch.ids.end());
-    scratch.weights.clear();
-    size_t unique_count = 0;
-    size_t i = 0;
-    while (i < n) {
-        size_t j = i;
-        while (j < n && scratch.ids[j] == scratch.ids[i]) {
-            ++j;
-        }
-        scratch.ids[unique_count] = scratch.ids[i];
-        scratch.weights.push_back(static_cast<double>(j - i) / static_cast<double>(n));
-        ++unique_count;
-        i = j;
-    }
-    scratch.ids.resize(unique_count);
-    return unique_count;
-}
-
 // Shared by QChamferExactImpl's generic and per-ISA compute_decoded specializations
 // (GEM's code_distance, src/distance/maxsim.cpp:9-45) so the reduction is written once.
 inline float qchamfer_exact_reduce(
@@ -280,11 +258,38 @@ inline float qchamfer_exact_reduce(
     return static_cast<float>(total / static_cast<double>(n_query));
 }
 
-// Casts a token-set's float centroid ids to uint32_t with no merge; qCH counts duplicates.
-inline void decode_ids(const float* ids_f, size_t n, std::vector<uint32_t>& out) {
+// Casts a token-set's centroid ids to uint32_t with no merge; qCH counts duplicates. `ids`
+// is float-encoded (padded row) or already uint32_t (vector set).
+template <typename T>
+inline void decode_ids(const T* ids, size_t n, std::vector<uint32_t>& out) {
     out.resize(n);
     for (size_t i = 0; i < n; ++i) {
-        out[i] = static_cast<uint32_t>(ids_f[i]);
+        out[i] = static_cast<uint32_t>(ids[i]);
+    }
+}
+
+// Returns a contiguous uint32_t id span for a 1-D id vector set with element type T: its
+// own storage when T is already uint32_t (no copy), else a cast copy into `scratch`.
+template <typename T>
+inline const uint32_t* id_span(const T* ids, size_t n, std::vector<uint32_t>& scratch) {
+    if constexpr (std::is_same_v<T, uint32_t>) {
+        return ids;
+    } else {
+        decode_ids(ids, n, scratch);
+        return scratch.data();
+    }
+}
+
+// An id vector set stores one centroid id per token, so dimensions() must be 1. A
+// concept-constrained vector set has no static Extent to check at compile time, so this
+// is the vector-set path's only dimension check.
+inline void require_id_dimensions(size_t dims) {
+    if (dims != 1) {
+        throw std::invalid_argument(
+            "id vector set must have dimensions() == 1 (one centroid id per "
+            "token), got " +
+            std::to_string(dims)
+        );
     }
 }
 
@@ -355,12 +360,10 @@ template <AVX_AVAILABILITY Avx> struct QEmdImpl {
     ) {
         thread_local gem_detail::MergeScratch scratch_a;
         thread_local gem_detail::MergeScratch scratch_b;
-        size_t ua = gem_detail::merge_duplicates(
-            gem_detail::set_ids(a), gem_detail::set_size(a), scratch_a
-        );
-        size_t ub = gem_detail::merge_duplicates(
-            gem_detail::set_ids(b), gem_detail::set_size(b), scratch_b
-        );
+        size_t ua =
+            merge_duplicates(gem_detail::set_ids(a), gem_detail::set_size(a), scratch_a);
+        size_t ub =
+            merge_duplicates(gem_detail::set_ids(b), gem_detail::set_size(b), scratch_b);
         return compute_decoded(
             table,
             scratch_a.ids.data(),
@@ -370,6 +373,68 @@ template <AVX_AVAILABILITY Avx> struct QEmdImpl {
             scratch_b.weights.data(),
             ub
         );
+    }
+
+    // Same decode-merge-solve as the span overload above, for ids that are already
+    // uint32_t (a vector set's own storage) rather than float-encoded in a padded row.
+    SVS_NOINLINE static float compute(
+        const CentroidTable& table,
+        const uint32_t* ids_a,
+        size_t na,
+        const uint32_t* ids_b,
+        size_t nb
+    ) {
+        thread_local gem_detail::MergeScratch scratch_a;
+        thread_local gem_detail::MergeScratch scratch_b;
+        size_t ua = merge_duplicates(ids_a, na, scratch_a);
+        size_t ub = merge_duplicates(ids_b, nb, scratch_b);
+        return compute_decoded(
+            table,
+            scratch_a.ids.data(),
+            scratch_a.weights.data(),
+            ua,
+            scratch_b.ids.data(),
+            scratch_b.weights.data(),
+            ub
+        );
+    }
+
+  private:
+    // Overloads, not a free function template: QEmdImpl<Avx> is explicitly instantiated
+    // per ISA in avx2.cpp/avx512.cpp, and a free template's inline symbol is shared
+    // (and ODR-violated under different -m flags) across those translation units.
+    static size_t merge_sorted_duplicates(size_t n, gem_detail::MergeScratch& scratch) {
+        std::sort(scratch.ids.begin(), scratch.ids.end());
+        scratch.weights.clear();
+        size_t unique_count = 0;
+        size_t i = 0;
+        while (i < n) {
+            size_t j = i;
+            while (j < n && scratch.ids[j] == scratch.ids[i]) {
+                ++j;
+            }
+            scratch.ids[unique_count] = scratch.ids[i];
+            scratch.weights.push_back(static_cast<double>(j - i) / static_cast<double>(n));
+            ++unique_count;
+            i = j;
+        }
+        scratch.ids.resize(unique_count);
+        return unique_count;
+    }
+
+    static size_t
+    merge_duplicates(const float* ids, size_t n, gem_detail::MergeScratch& scratch) {
+        scratch.ids.resize(n);
+        for (size_t i = 0; i < n; ++i) {
+            scratch.ids[i] = static_cast<uint32_t>(ids[i]);
+        }
+        return merge_sorted_duplicates(n, scratch);
+    }
+
+    static size_t
+    merge_duplicates(const uint32_t* ids, size_t n, gem_detail::MergeScratch& scratch) {
+        scratch.ids.assign(ids, ids + n);
+        return merge_sorted_duplicates(n, scratch);
     }
 };
 
@@ -399,11 +464,20 @@ template <AVX_AVAILABILITY Avx> struct QChamferImpl {
     ) {
         thread_local std::vector<uint32_t> qbuf;
         thread_local std::vector<uint32_t> dbuf;
-        gem_detail::decode_ids(
-            gem_detail::set_ids(query), gem_detail::set_size(query), qbuf
-        );
-        gem_detail::decode_ids(gem_detail::set_ids(doc), gem_detail::set_size(doc), dbuf);
+        decode_ids(gem_detail::set_ids(query), gem_detail::set_size(query), qbuf);
+        decode_ids(gem_detail::set_ids(doc), gem_detail::set_size(doc), dbuf);
         return compute_decoded(table, qbuf.data(), qbuf.size(), dbuf.data(), dbuf.size());
+    }
+
+  private:
+    // Not gem_detail::decode_ids: QChamferImpl<Avx> is explicitly instantiated per ISA
+    // in avx2.cpp/avx512.cpp, so this call site needs its own ISA-unique symbol rather
+    // than the untagged free function (shared, correctly, with baseline-only callers).
+    static void decode_ids(const float* ids, size_t n, std::vector<uint32_t>& out) {
+        out.resize(n);
+        for (size_t i = 0; i < n; ++i) {
+            out[i] = static_cast<uint32_t>(ids[i]);
+        }
     }
 };
 
@@ -546,6 +620,31 @@ class QEmd {
         return QEmdImpl<AVX_AVAILABILITY::NONE>::compute(*table_, da, db);
     }
 
+    // Vector-set path: ids come straight from a contiguous vector set's own storage; T ==
+    // uint32_t skips the cast copy (gem_detail::id_span), any other unsigned type costs it.
+    template <svs::data::ContiguousVectorSet Sa, svs::data::ContiguousVectorSet Sb>
+        requires std::unsigned_integral<typename Sa::element_type> &&
+                 std::unsigned_integral<typename Sb::element_type>
+    float compute(const Sa& a, const Sb& b) const {
+        gem_detail::require_id_dimensions(a.dimensions());
+        gem_detail::require_id_dimensions(b.dimensions());
+        thread_local std::vector<uint32_t> buf_a;
+        thread_local std::vector<uint32_t> buf_b;
+        const uint32_t* ids_a = gem_detail::id_span(a.data(), a.cardinality(), buf_a);
+        const uint32_t* ids_b = gem_detail::id_span(b.data(), b.cardinality(), buf_b);
+        size_t na = a.cardinality();
+        size_t nb = b.cardinality();
+        if (__builtin_expect(svs::detail::avx_runtime_flags.is_avx512f_supported(), 1)) {
+            return QEmdImpl<AVX_AVAILABILITY::AVX512>::compute(
+                *table_, ids_a, na, ids_b, nb
+            );
+        }
+        if (__builtin_expect(svs::detail::avx_runtime_flags.is_avx2_supported(), 1)) {
+            return QEmdImpl<AVX_AVAILABILITY::AVX2>::compute(*table_, ids_a, na, ids_b, nb);
+        }
+        return QEmdImpl<AVX_AVAILABILITY::NONE>::compute(*table_, ids_a, na, ids_b, nb);
+    }
+
   private:
     std::shared_ptr<const CentroidTable> table_;
 };
@@ -575,6 +674,36 @@ class QChamfer {
             return QChamferImpl<AVX_AVAILABILITY::AVX2>::compute(*table_, dq, dd);
         }
         return QChamferImpl<AVX_AVAILABILITY::NONE>::compute(*table_, dq, dd);
+    }
+
+    // Vector-set path: compute_decoded's signature already matches an id vector set's
+    // own (ids pointer, cardinality) storage, so T == uint32_t needs no decode copy.
+    template <svs::data::ContiguousVectorSet Sq, svs::data::ContiguousVectorSet Sd>
+        requires std::unsigned_integral<typename Sq::element_type> &&
+                 std::unsigned_integral<typename Sd::element_type>
+    float compute(const Sq& query, const Sd& doc) const {
+        gem_detail::require_id_dimensions(query.dimensions());
+        gem_detail::require_id_dimensions(doc.dimensions());
+        thread_local std::vector<uint32_t> buf_q;
+        thread_local std::vector<uint32_t> buf_d;
+        const uint32_t* q_ids =
+            gem_detail::id_span(query.data(), query.cardinality(), buf_q);
+        const uint32_t* d_ids = gem_detail::id_span(doc.data(), doc.cardinality(), buf_d);
+        size_t nq = query.cardinality();
+        size_t nd = doc.cardinality();
+        if (__builtin_expect(svs::detail::avx_runtime_flags.is_avx512f_supported(), 1)) {
+            return QChamferImpl<AVX_AVAILABILITY::AVX512>::compute_decoded(
+                *table_, q_ids, nq, d_ids, nd
+            );
+        }
+        if (__builtin_expect(svs::detail::avx_runtime_flags.is_avx2_supported(), 1)) {
+            return QChamferImpl<AVX_AVAILABILITY::AVX2>::compute_decoded(
+                *table_, q_ids, nq, d_ids, nd
+            );
+        }
+        return QChamferImpl<AVX_AVAILABILITY::NONE>::compute_decoded(
+            *table_, q_ids, nq, d_ids, nd
+        );
     }
 
   private:
@@ -607,8 +736,53 @@ class QChamferExactQuery {
     // count n, [1..1+n*dim) = n raw fp32 tokens row-major, rest padding.
     template <size_t E> void fix_argument(std::span<const float, E> query) {
         std::span<const float> dq{query.data(), query.size()};
-        n_query_ = gem_detail::vector_set_size(dq);
-        const float* tokens = gem_detail::vector_set_tokens(dq);
+        fix_argument_decoded(
+            gem_detail::vector_set_tokens(dq), gem_detail::vector_set_size(dq)
+        );
+    }
+
+    // Vector-set path: a query set of raw (unquantized) fp32 token vectors, contiguous
+    // in the set's own storage, with dimensions() equal to the centroid dimension.
+    template <svs::data::ContiguousVectorSet S>
+        requires std::same_as<typename S::element_type, float>
+    void fix_argument(const S& query) {
+        if (query.dimensions() != centroids_->dim) {
+            throw std::invalid_argument(
+                "QChamferExactQuery::fix_argument: query dimension " +
+                std::to_string(query.dimensions()) + " does not match centroid dimension " +
+                std::to_string(centroids_->dim)
+            );
+        }
+        fix_argument_decoded(query.data(), query.cardinality());
+    }
+
+    // `query` is unused: fix_argument() already consumed it into table_/n_query_, and
+    // every compute() call in a search shares that one query's table.
+    template <size_t Eq, size_t Ed>
+    float
+    compute(std::span<const float, Eq> /*query*/, std::span<const float, Ed> doc) const {
+        std::span<const float> dd{doc.data(), doc.size()};
+        thread_local std::vector<uint32_t> dbuf;
+        gem_detail::decode_ids(gem_detail::set_ids(dd), gem_detail::set_size(dd), dbuf);
+        return compute_decoded(dbuf.data(), dbuf.size());
+    }
+
+    // Vector-set path: `query` is unused for the same reason as the span overload above;
+    // `doc` is an id vector set, decoded with no copy when its element type is uint32_t.
+    template <typename Query, svs::data::ContiguousVectorSet Sd>
+        requires std::unsigned_integral<typename Sd::element_type>
+    float compute(const Query& /*query*/, const Sd& doc) const {
+        gem_detail::require_id_dimensions(doc.dimensions());
+        thread_local std::vector<uint32_t> buf_d;
+        const uint32_t* doc_ids = gem_detail::id_span(doc.data(), doc.cardinality(), buf_d);
+        return compute_decoded(doc_ids, doc.cardinality());
+    }
+
+  private:
+    // Shared by both fix_argument() overloads: builds the (K x n_query) dot table once
+    // per query, dispatched to the ISA the per-ISA compiled build_table was built for.
+    void fix_argument_decoded(const float* tokens, size_t n_query) {
+        n_query_ = n_query;
         table_.resize(centroids_->K * n_query_);
         if (__builtin_expect(svs::detail::avx_runtime_flags.is_avx512f_supported(), 1)) {
             QChamferExactImpl<AVX_AVAILABILITY::AVX512>::build_table(
@@ -642,30 +816,24 @@ class QChamferExactQuery {
         }
     }
 
-    // `query` is unused: fix_argument() already consumed it into table_/n_query_, and
-    // every compute() call in a search shares that one query's table.
-    template <size_t Eq, size_t Ed>
-    float
-    compute(std::span<const float, Eq> /*query*/, std::span<const float, Ed> doc) const {
-        std::span<const float> dd{doc.data(), doc.size()};
-        thread_local std::vector<uint32_t> dbuf;
-        gem_detail::decode_ids(gem_detail::set_ids(dd), gem_detail::set_size(dd), dbuf);
+    // Shared by both compute() overloads: reduces the per-query table against a doc's
+    // decoded ids, dispatched to the ISA the per-ISA compute_decoded was built for.
+    float compute_decoded(const uint32_t* doc_ids, size_t n_doc) const {
         if (__builtin_expect(svs::detail::avx_runtime_flags.is_avx512f_supported(), 1)) {
             return QChamferExactImpl<AVX_AVAILABILITY::AVX512>::compute_decoded(
-                table_.data(), n_query_, dbuf.data(), dbuf.size()
+                table_.data(), n_query_, doc_ids, n_doc
             );
         }
         if (__builtin_expect(svs::detail::avx_runtime_flags.is_avx2_supported(), 1)) {
             return QChamferExactImpl<AVX_AVAILABILITY::AVX2>::compute_decoded(
-                table_.data(), n_query_, dbuf.data(), dbuf.size()
+                table_.data(), n_query_, doc_ids, n_doc
             );
         }
         return QChamferExactImpl<AVX_AVAILABILITY::NONE>::compute_decoded(
-            table_.data(), n_query_, dbuf.data(), dbuf.size()
+            table_.data(), n_query_, doc_ids, n_doc
         );
     }
 
-  private:
     std::shared_ptr<const FineCentroids> centroids_;
     std::vector<float> table_;
     size_t n_query_ = 0;

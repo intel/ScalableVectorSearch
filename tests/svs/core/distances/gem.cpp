@@ -20,6 +20,7 @@
 
 // svs
 #include "svs/concepts/distance.h"
+#include "svs/core/data/vector_set_view.h"
 #include "svs/index/vamana/prune.h"
 
 // catch2
@@ -65,6 +66,33 @@ std::vector<float> make_set(std::vector<float> ids, size_t width, float pad = -9
     }
     return s;
 }
+
+// Vector-set equivalent of make_set(): owns the ids contiguously with no padding and no
+// float encoding, for exercising the new ConstVectorSet compute() overloads.
+struct IdSet {
+    std::vector<uint32_t> ids;
+
+    svs::data::ConstVectorSet<uint32_t, 1> view() const {
+        return svs::data::ConstVectorSet<uint32_t, 1>(
+            std::span<const uint32_t>(ids), ids.size(), 1
+        );
+    }
+};
+
+IdSet make_id_set(std::vector<uint32_t> ids) { return IdSet{std::move(ids)}; }
+
+// Vector-set equivalent of a raw-query padded row for QChamferExactQuery: owns `n` raw
+// fp32 tokens of width `dim`, row-major, contiguously.
+struct RawQuerySet {
+    std::vector<float> tokens;
+    size_t dim;
+
+    svs::data::ConstVectorSet<float> view() const {
+        return svs::data::ConstVectorSet<float>(
+            std::span<const float>(tokens), tokens.size() / dim, dim
+        );
+    }
+};
 
 } // namespace
 
@@ -135,6 +163,49 @@ CATCH_TEST_CASE("QChamfer", "[distance][gem]") {
         float s2 = dist.compute(std::span<const float>(q2), std::span<const float>(d));
         CATCH_REQUIRE(s1 == Catch::Approx(s2));
     }
+
+    CATCH_SECTION("Vector-set path matches the padded-row path") {
+        auto q_padded = make_set({0.0F, 1.0F}, 6);
+        auto d_padded = make_set({2.0F, 3.0F}, 6);
+        float expected = dist.compute(
+            std::span<const float>(q_padded), std::span<const float>(d_padded)
+        );
+
+        auto q_set = make_id_set({0, 1});
+        auto d_set = make_id_set({2, 3});
+        float actual = dist.compute(q_set.view(), d_set.view());
+        CATCH_REQUIRE(actual == Catch::Approx(expected));
+    }
+
+    CATCH_SECTION("Vector-set path: duplicates, cardinality 1, different cardinalities") {
+        auto q_set = make_id_set({0, 0, 1});
+        auto d_set = make_id_set({2});
+        float actual = dist.compute(q_set.view(), d_set.view());
+
+        auto q_padded = make_set({0.0F, 0.0F, 1.0F}, 8);
+        auto d_padded = make_set({2.0F}, 8);
+        float expected = dist.compute(
+            std::span<const float>(q_padded), std::span<const float>(d_padded)
+        );
+        CATCH_REQUIRE(actual == Catch::Approx(expected));
+    }
+
+    CATCH_SECTION("Vector-set path: dimensions() != 1 throws") {
+        std::vector<uint32_t> raw{0, 1, 2, 3};
+        auto bad =
+            svs::data::ConstVectorSet<uint32_t>(std::span<const uint32_t>(raw), 2, 2);
+        auto good = make_id_set({0});
+        CATCH_REQUIRE_THROWS_AS(dist.compute(bad, good.view()), std::invalid_argument);
+        CATCH_REQUIRE_THROWS_AS(dist.compute(good.view(), bad), std::invalid_argument);
+    }
+
+    CATCH_SECTION("Generic svs::distance::compute dispatches to the vector-set overload") {
+        auto q_set = make_id_set({0, 1});
+        auto d_set = make_id_set({2, 3});
+        float via_generic = svs::distance::compute(dist, q_set.view(), d_set.view());
+        float direct = dist.compute(q_set.view(), d_set.view());
+        CATCH_REQUIRE(via_generic == Catch::Approx(direct));
+    }
 }
 
 CATCH_TEST_CASE("QEmd", "[distance][gem]") {
@@ -196,6 +267,65 @@ CATCH_TEST_CASE("QEmd", "[distance][gem]") {
         float s2 = dist.compute(std::span<const float>(a2), std::span<const float>(b));
         CATCH_REQUIRE(s1 == Catch::Approx(s2));
     }
+
+    CATCH_SECTION("Vector-set path matches the padded-row path") {
+        auto a_padded = make_set({0.0F, 1.0F}, 4);
+        auto b_padded = make_set({2.0F, 3.0F}, 4);
+        float expected = dist.compute(
+            std::span<const float>(a_padded), std::span<const float>(b_padded)
+        );
+
+        auto a_set = make_id_set({0, 1});
+        auto b_set = make_id_set({2, 3});
+        float actual = dist.compute(a_set.view(), b_set.view());
+        CATCH_REQUIRE(actual == Catch::Approx(expected));
+    }
+
+    CATCH_SECTION(
+        "Vector-set path: duplicates merge, cardinality 1, different cardinalities"
+    ) {
+        auto a_set = make_id_set({0, 0});
+        auto b_set = make_id_set({1});
+        float actual = dist.compute(a_set.view(), b_set.view());
+
+        auto a_padded = make_set({0.0F, 0.0F}, 4);
+        auto b_padded = make_set({1.0F}, 4);
+        float expected = dist.compute(
+            std::span<const float>(a_padded), std::span<const float>(b_padded)
+        );
+        CATCH_REQUIRE(actual == Catch::Approx(expected));
+
+        // One source of mass 1 at id 0 split 0.5/0.5 to sinks 1 and 2 (table(0,1)=1,
+        // table(0,2)=2): 0.5*1 + 0.5*2 = 1.5, same derivation as the "1 vs 2" case above.
+        auto c_set = make_id_set({0});
+        auto d_set = make_id_set({1, 2});
+        float cardinality_mismatch = dist.compute(c_set.view(), d_set.view());
+        CATCH_REQUIRE(cardinality_mismatch == Catch::Approx(1.5F));
+
+        auto c_padded = make_set({0.0F}, 4);
+        auto d_padded = make_set({1.0F, 2.0F}, 4);
+        float cardinality_mismatch_expected = dist.compute(
+            std::span<const float>(c_padded), std::span<const float>(d_padded)
+        );
+        CATCH_REQUIRE(cardinality_mismatch == Catch::Approx(cardinality_mismatch_expected));
+    }
+
+    CATCH_SECTION("Vector-set path: dimensions() != 1 throws") {
+        std::vector<uint32_t> raw{0, 1, 2, 3};
+        auto bad =
+            svs::data::ConstVectorSet<uint32_t>(std::span<const uint32_t>(raw), 2, 2);
+        auto good = make_id_set({0});
+        CATCH_REQUIRE_THROWS_AS(dist.compute(bad, good.view()), std::invalid_argument);
+        CATCH_REQUIRE_THROWS_AS(dist.compute(good.view(), bad), std::invalid_argument);
+    }
+
+    CATCH_SECTION("Generic svs::distance::compute dispatches to the vector-set overload") {
+        auto a_set = make_id_set({0});
+        auto b_set = make_id_set({1, 2});
+        float via_generic = svs::distance::compute(dist, a_set.view(), b_set.view());
+        float direct = dist.compute(a_set.view(), b_set.view());
+        CATCH_REQUIRE(via_generic == Catch::Approx(direct));
+    }
 }
 
 CATCH_TEST_CASE("QChamferExactQuery", "[distance][gem]") {
@@ -230,6 +360,61 @@ CATCH_TEST_CASE("QChamferExactQuery", "[distance][gem]") {
 
     CATCH_REQUIRE(score == Catch::Approx(expected));
     CATCH_REQUIRE(score == Catch::Approx(0.5F));
+}
+
+CATCH_TEST_CASE("QChamferExactQuery vector-set path", "[distance][gem]") {
+    std::vector<float> flat{1.0F, 0.0F, 0.0F, 1.0F, -1.0F, 0.0F};
+    auto centroids = std::make_shared<const FineCentroids>(3, 2, flat.data());
+
+    // Same raw query and doc ids as the padded-row "QChamferExactQuery" case above,
+    // reused as owning vector sets instead of a padded span.
+    RawQuerySet query_set{{1.0F, 0.0F, 0.0F, 1.0F}, 2};
+    auto doc_set = make_id_set({0, 2});
+
+    CATCH_SECTION("Matches the padded-row path") {
+        QChamferExactQuery padded_dist{centroids};
+        std::vector<float> raw_query{2.0F, 1.0F, 0.0F, 0.0F, 1.0F};
+        auto doc_padded = make_set({0.0F, 2.0F}, 4);
+        svs::distance::maybe_fix_argument(padded_dist, std::span<const float>(raw_query));
+        float expected = padded_dist.compute(
+            std::span<const float>(raw_query), std::span<const float>(doc_padded)
+        );
+
+        QChamferExactQuery set_dist{centroids};
+        svs::distance::maybe_fix_argument(set_dist, query_set.view());
+        float actual = set_dist.compute(query_set.view(), doc_set.view());
+        CATCH_REQUIRE(actual == Catch::Approx(expected));
+    }
+
+    CATCH_SECTION("Generic maybe_fix_argument/compute dispatch to the vector-set overload"
+    ) {
+        QChamferExactQuery set_dist{centroids};
+        svs::distance::maybe_fix_argument(set_dist, query_set.view());
+        float direct = set_dist.compute(query_set.view(), doc_set.view());
+        float via_generic =
+            svs::distance::compute(set_dist, query_set.view(), doc_set.view());
+        CATCH_REQUIRE(via_generic == Catch::Approx(direct));
+    }
+
+    CATCH_SECTION("fix_argument: query dimension mismatch throws") {
+        QChamferExactQuery set_dist{centroids};
+        RawQuerySet wrong_dim{{1.0F, 0.0F, 0.0F}, 3};
+        CATCH_REQUIRE_THROWS_AS(
+            svs::distance::maybe_fix_argument(set_dist, wrong_dim.view()),
+            std::invalid_argument
+        );
+    }
+
+    CATCH_SECTION("compute: doc dimensions() != 1 throws") {
+        QChamferExactQuery set_dist{centroids};
+        svs::distance::maybe_fix_argument(set_dist, query_set.view());
+        std::vector<uint32_t> raw{0, 1, 2, 3};
+        auto bad_doc =
+            svs::data::ConstVectorSet<uint32_t>(std::span<const uint32_t>(raw), 2, 2);
+        CATCH_REQUIRE_THROWS_AS(
+            set_dist.compute(query_set.view(), bad_doc), std::invalid_argument
+        );
+    }
 }
 
 CATCH_TEST_CASE("GEM distance traits", "[distance][gem]") {

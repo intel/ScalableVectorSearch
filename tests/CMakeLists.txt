@@ -137,6 +137,7 @@ set(TEST_SOURCES
     ${TEST_DIR}/svs/index/vamana/build_parameters.cpp
     ${TEST_DIR}/svs/index/vamana/consolidate.cpp
     ${TEST_DIR}/svs/index/vamana/filter.cpp
+    ${TEST_DIR}/svs/index/vamana/gem_vector_set.cpp
     ${TEST_DIR}/svs/index/vamana/index.cpp
     ${TEST_DIR}/svs/index/vamana/maxsim_rerank.cpp
     ${TEST_DIR}/svs/index/vamana/prune.cpp

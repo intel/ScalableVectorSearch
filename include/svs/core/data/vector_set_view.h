@@ -17,6 +17,7 @@
 #pragma once
 
 // svs
+#include "svs/concepts/data.h"
 #include "svs/concepts/vector_set.h"
 #include "svs/lib/exception.h"
 #include "svs/lib/misc.h"
@@ -74,6 +75,7 @@ template <typename T, size_t Extent = Dynamic> class ConstVectorSet {
 };
 
 static_assert(VectorSet<ConstVectorSet<float>>);
+static_assert(ContiguousVectorSet<ConstVectorSet<float>>);
 
 ///
 /// @brief Non-owning CSR-style view of a dataset whose elements are vector sets.
@@ -87,6 +89,9 @@ template <typename T, size_t Extent = Dynamic> class ConstVectorSetView {
     using element_type = T;
     using value_type = ConstVectorSet<T, Extent>;
     using const_value_type = ConstVectorSet<T, Extent>;
+    // VamanaIndex reads Data::extent in its class body (index/vamana/index.h); without
+    // it this view cannot be used as an index's dataset.
+    static constexpr size_t extent = Extent;
 
     ConstVectorSetView(
         std::span<const T> tokens, std::span<const uint64_t> offsets, size_t dimensions
@@ -179,6 +184,9 @@ template <typename T, size_t Extent = Dynamic> class ConstVectorSetView {
 };
 
 static_assert(ImmutableVectorSetDataset<ConstVectorSetView<float>>);
+// Vamana build and batch search take the view as dataset and as query set through this
+// concept.
+static_assert(ImmutableMemoryDataset<ConstVectorSetView<float>>);
 
 } // namespace data
 } // namespace svs
