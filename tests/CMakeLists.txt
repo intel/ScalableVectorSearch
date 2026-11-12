@@ -109,11 +109,14 @@ set(TEST_SOURCES
     ${TEST_DIR}/svs/core/data/simple.cpp
     ${TEST_DIR}/svs/core/data/serialization.cpp
     ${TEST_DIR}/svs/core/data/view.cpp
+    ${TEST_DIR}/svs/core/data/vector_set_view.cpp
     ${TEST_DIR}/svs/core/distance.cpp
     ${TEST_DIR}/svs/core/distances/simd_utils.cpp
     ${TEST_DIR}/svs/core/distances/distance_euclidean.cpp
     ${TEST_DIR}/svs/core/distances/inner_product.cpp
     ${TEST_DIR}/svs/core/distances/cosine.cpp
+    ${TEST_DIR}/svs/core/distances/gem.cpp
+    ${TEST_DIR}/svs/core/distances/maxsim.cpp
     ${TEST_DIR}/svs/core/graph.cpp
     ${TEST_DIR}/svs/core/io/vecs.cpp
     ${TEST_DIR}/svs/core/io/binary.cpp
