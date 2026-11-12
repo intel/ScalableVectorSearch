@@ -538,8 +538,7 @@ class IDTranslator {
     }
 
     tsl::robin_map<external_id_type, internal_id_type> external_to_internal_{};
-    // TODO: moves to #447 (same vector-based internal-to-external table); not in this PR.
-    // Segments never move when it grows, so `load_external` needs no lock.
+    // Vector for lock-free reads; TODO: moves to #447 (same table), not in this PR.
     lib::SegmentedVector<external_id_type> internal_to_external_{};
 
     external_id_type load_external(internal_id_type i) const {

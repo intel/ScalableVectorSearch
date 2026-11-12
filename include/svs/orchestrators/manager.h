@@ -146,7 +146,7 @@ class ManagerImpl : public ManagerInterface<IFace> {
         const search_parameters_type& search_parameters,
         const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>())
     ) override {
-        dispatch_queries(result, data, [&](const auto& view) {
+        dispatch_queries(data, [&](const auto& view) {
             svs::index::search_batch_into_with(
                 implementation_, result, view, search_parameters, cancel
             );
@@ -179,17 +179,12 @@ class ManagerImpl : public ManagerInterface<IFace> {
 
     // Invoke `f` with the query view of the matching supported type, otherwise throw.
     template <typename F>
-    void dispatch_queries(
-        [[maybe_unused]] QueryResultView<size_t> result,
-        const AnonymousArray<2>& data,
-        F&& f
-    ) const {
+    void dispatch_queries(const AnonymousArray<2>& data, F&& f) const {
         lib::match(
             QueryTypes{},
             data.type(),
             [&]<typename T>(lib::Type<T> SVS_UNUSED(type)) {
                 const auto view = data::ConstSimpleDataView<T>(data);
-                assert(result.n_queries() == view.size());
                 f(view);
             },
             [&](svs::DataType data_type) {

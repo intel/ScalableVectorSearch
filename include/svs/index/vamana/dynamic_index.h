@@ -537,9 +537,7 @@ class MutableVamanaIndex {
         size_t metadata_bytes = status_.capacity() * sizeof(SlotMetadata);
         metadata_bytes +=
             entry_point_.capacity() * sizeof(typename entry_point_type::value_type);
-        // Estimate: the id pair per entry, counted twice (external->internal hash map and
-        // internal->external vector); ignores hash-map load-factor slack and vector spare
-        // capacity.
+        // Estimate: one id pair per entry for each translation direction.
         metadata_bytes += 2 * translator_.size() *
                           (sizeof(IDTranslator::external_id_type) +
                            sizeof(IDTranslator::internal_id_type));
@@ -715,28 +713,26 @@ class MutableVamanaIndex {
                 prefetch_parameters,
                 filter](const auto& query, auto& accessor, auto& distance, auto& buffer) {
             static_cast<void>(filter); // Unused in regular search.
+            auto builder = [&] {
+                if constexpr (Filtered) {
+                    return internal_search_builder(*filter);
+                } else {
+                    return internal_search_builder();
+                }
+            }();
             // Perform the greedy search using the provided resources.
-            auto run = [&](auto& builder) {
-                greedy_search(
-                    graph_,
-                    data_,
-                    accessor,
-                    query,
-                    distance,
-                    buffer,
-                    vamana::EntryPointInitializer<Idx>{lib::as_const_span(entry_point_)},
-                    builder,
-                    prefetch_parameters,
-                    cancel
-                );
-            };
-            if constexpr (Filtered) {
-                auto builder = internal_search_builder(*filter);
-                run(builder);
-            } else {
-                auto builder = internal_search_builder();
-                run(builder);
-            }
+            greedy_search(
+                graph_,
+                data_,
+                accessor,
+                query,
+                distance,
+                buffer,
+                vamana::EntryPointInitializer<Idx>{lib::as_const_span(entry_point_)},
+                builder,
+                prefetch_parameters,
+                cancel
+            );
             // Take a pass over the search buffer to remove any deleted elements that
             // might remain.
             buffer.cleanup();
@@ -772,43 +768,50 @@ class MutableVamanaIndex {
             threadpool_,
             threads::StaticPartition{queries.size()},
             [&](const auto is, uint64_t SVS_UNUSED(tid)) {
-                auto body = [&]<bool Filtered>(std::bool_constant<Filtered>) {
-                    size_t num_neighbors = results.n_neighbors();
-                    auto buffer = search_buffer_type{
-                        // Legalize search buffer for this search.
-                        sp.buffer_config_.get_total_capacity() < num_neighbors
-                            ? SearchBufferConfig{num_neighbors}
-                            : sp.buffer_config_,
-                        distance::comparator(distance_),
-                        sp.search_buffer_visited_set_};
+                size_t num_neighbors = results.n_neighbors();
+                auto buffer = search_buffer_type{
+                    // Legalize search buffer for this search.
+                    sp.buffer_config_.get_total_capacity() < num_neighbors
+                        ? SearchBufferConfig{num_neighbors}
+                        : sp.buffer_config_,
+                    distance::comparator(distance_),
+                    sp.search_buffer_visited_set_};
 
-                    auto prefetch_parameters = GreedySearchPrefetchParameters{
-                        sp.prefetch_lookahead_, sp.prefetch_step_};
+                auto prefetch_parameters = GreedySearchPrefetchParameters{
+                    sp.prefetch_lookahead_, sp.prefetch_step_};
 
-                    auto scratch =
-                        extensions::per_thread_batch_search_setup(data_, distance_);
+                auto scratch = extensions::per_thread_batch_search_setup(data_, distance_);
 
-                    auto search = greedy_search_closure<Filtered>(
-                        prefetch_parameters, cancel, filter
-                    );
-                    extensions::per_thread_batch_search(
-                        data_,
-                        buffer,
-                        scratch,
-                        queries,
-                        results,
-                        threads::UnitRange{is},
-                        search,
-                        *this,
-                        cancel
-                    );
-                };
                 if (filter != nullptr) {
-                    [&]() __attribute__((noinline)) { body(std::true_type{}); }
+                    [&]() __attribute__((noinline)) {
+                        extensions::per_thread_batch_search(
+                            data_,
+                            buffer,
+                            scratch,
+                            queries,
+                            results,
+                            threads::UnitRange{is},
+                            greedy_search_closure<true>(
+                                prefetch_parameters, cancel, filter
+                            ),
+                            *this,
+                            cancel
+                        );
+                    }
                     ();
-                } else {
-                    body(std::false_type{});
+                    return;
                 }
+                extensions::per_thread_batch_search(
+                    data_,
+                    buffer,
+                    scratch,
+                    queries,
+                    results,
+                    threads::UnitRange{is},
+                    greedy_search_closure(prefetch_parameters, cancel),
+                    *this,
+                    cancel
+                );
             }
         );
 

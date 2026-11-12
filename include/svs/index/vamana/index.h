@@ -513,29 +513,28 @@ class VamanaIndex {
                 prefetch_parameters,
                 filter](const auto& query, auto& accessor, auto& distance, auto& buffer) {
             static_cast<void>(filter); // Unused in regular search.
-            auto run = [&](auto& builder) {
-                greedy_search(
-                    graph_,
-                    data_,
-                    accessor,
-                    query,
-                    distance,
-                    buffer,
-                    vamana::EntryPointInitializer<Idx>{lib::as_const_span(entry_point_)},
-                    builder,
-                    prefetch_parameters,
-                    cancel
-                );
-            };
+            auto builder = [&] {
+                if constexpr (Filtered) {
+                    return FilteredNeighborBuilder<std::function<bool(size_t)>>{*filter};
+                } else {
+                    return internal_search_builder();
+                }
+            }();
+            greedy_search(
+                graph_,
+                data_,
+                accessor,
+                query,
+                distance,
+                buffer,
+                vamana::EntryPointInitializer<Idx>{lib::as_const_span(entry_point_)},
+                builder,
+                prefetch_parameters,
+                cancel
+            );
             if constexpr (Filtered) {
-                auto builder =
-                    FilteredNeighborBuilder<std::function<bool(size_t)>>{*filter};
-                run(builder);
                 // Remove the invalid entries that remain in the buffer.
                 buffer.cleanup();
-            } else {
-                auto builder = internal_search_builder();
-                run(builder);
             }
         };
     }
@@ -618,58 +617,71 @@ class VamanaIndex {
             threadpool_,
             threads::StaticPartition{queries.size()},
             [&](const auto is, uint64_t SVS_UNUSED(tid)) {
-                auto body = [&]<bool Filtered>(std::bool_constant<Filtered>) {
-                    // Filtered search needs a buffer that can hold invalid entries.
-                    using buffer_type = std::conditional_t<
-                        Filtered,
-                        MutableBuffer<Idx, distance::compare_t<Dist>>,
-                        search_buffer_type>;
-
-                    // The number of neighbors to store in the result.
-                    size_t num_neighbors = result.n_neighbors();
-
-                    // Allocate scratchspace according to the provided search parameters.
-                    auto search_buffer = buffer_type{
-                        // Increase the search window size if the defaults are not
-                        // suitable for the requested number of neighbors.
-                        search_parameters.buffer_config_.get_total_capacity() <
-                                num_neighbors
-                            ? SearchBufferConfig{num_neighbors}
-                            : search_parameters.buffer_config_,
-                        distance::comparator(distance_),
-                        search_parameters.search_buffer_visited_set_};
-
-                    auto prefetch_parameters = GreedySearchPrefetchParameters{
-                        search_parameters.prefetch_lookahead_,
-                        search_parameters.prefetch_step_};
-
-                    // Pre-allocate scratch space needed by the dataset implementation.
-                    auto scratch =
-                        extensions::per_thread_batch_search_setup(data_, distance_);
-
-                    auto search = greedy_search_closure<Filtered>(
-                        prefetch_parameters, cancel, filter
-                    );
-                    // Perform a search over the batch of queries.
-                    extensions::per_thread_batch_search(
-                        data_,
-                        search_buffer,
-                        scratch,
-                        queries,
-                        result,
-                        threads::UnitRange{is},
-                        search,
-                        *this,
-                        cancel
-                    );
-                };
-                // Keep the filtered body out of line so regular search is unaffected.
                 if (filter != nullptr) {
-                    [&]() __attribute__((noinline)) { body(std::true_type{}); }
+                    [&]() __attribute__((noinline)) {
+                        // The filtered search buffer must hold invalid entries.
+                        auto search_buffer = MutableBuffer<Idx, distance::compare_t<Dist>>{
+                            search_parameters.buffer_config_.get_total_capacity() <
+                                    result.n_neighbors()
+                                ? SearchBufferConfig{result.n_neighbors()}
+                                : search_parameters.buffer_config_,
+                            distance::comparator(distance_),
+                            search_parameters.search_buffer_visited_set_};
+                        auto prefetch_parameters = GreedySearchPrefetchParameters{
+                            search_parameters.prefetch_lookahead_,
+                            search_parameters.prefetch_step_};
+                        auto scratch =
+                            extensions::per_thread_batch_search_setup(data_, distance_);
+                        extensions::per_thread_batch_search(
+                            data_,
+                            search_buffer,
+                            scratch,
+                            queries,
+                            result,
+                            threads::UnitRange{is},
+                            greedy_search_closure<true>(
+                                prefetch_parameters, cancel, filter
+                            ),
+                            *this,
+                            cancel
+                        );
+                    }
                     ();
-                } else {
-                    body(std::false_type{});
+                    return;
                 }
+
+                // The number of neighbors to store in the result.
+                size_t num_neighbors = result.n_neighbors();
+
+                // Allocate scratchspace according to the provided search parameters.
+                auto search_buffer = search_buffer_type{
+                    // Increase the search window size if the defaults are not suitable for
+                    // the requested number of neighbors.
+                    search_parameters.buffer_config_.get_total_capacity() < num_neighbors
+                        ? SearchBufferConfig{num_neighbors}
+                        : search_parameters.buffer_config_,
+                    distance::comparator(distance_),
+                    search_parameters.search_buffer_visited_set_};
+
+                auto prefetch_parameters = GreedySearchPrefetchParameters{
+                    search_parameters.prefetch_lookahead_,
+                    search_parameters.prefetch_step_};
+
+                // Pre-allocate scratch space needed by the dataset implementation.
+                auto scratch = extensions::per_thread_batch_search_setup(data_, distance_);
+
+                // Perform a search over the batch of queries.
+                extensions::per_thread_batch_search(
+                    data_,
+                    search_buffer,
+                    scratch,
+                    queries,
+                    result,
+                    threads::UnitRange{is},
+                    greedy_search_closure(prefetch_parameters, cancel),
+                    *this,
+                    cancel
+                );
             }
         );
     }
