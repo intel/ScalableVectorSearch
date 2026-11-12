@@ -1413,6 +1413,27 @@ SVS_API svs_index_h svs_index_load_stream_dynamic(
     svs_error_h out_err /*=NULL*/
 );
 
+/// @brief Load a dynamic index from a caller-supplied stream with explicit parameters
+/// @param builder The index builder handle (used for configuration)
+/// @param stream The stream interface to read the index from
+/// @param params Pointer to the dynamic index parameters structure, or NULL for defaults
+/// @param out_err An optional error handle to capture errors
+/// @return A handle to the loaded dynamic index
+/// @remarks The block parameters only affect the in-memory layout, not the on-disk
+/// format. The sync kind is not persisted with the index and must be passed on every load.
+/// @remarks The operations table is copied, but @p stream->self is retained as-is. It only
+///   needs to remain valid until this function returns.
+/// @remarks Accepts both the native stream encoding and a packed directory archive. The
+///   native encoding carries no total length, so a load may read up to 64 KiB past the end
+///   of the index; frame the payload if embedding it in a larger stream.
+/// @error SVS_ERROR_INVALID_ARGUMENT if @p params is invalid (see svs_dynamic_index_params)
+SVS_API svs_index_h svs_index_load_stream_dynamic_ex(
+    svs_index_builder_h builder,
+    svs_stream_i stream,
+    const svs_dynamic_index_params_t* params /*=NULL*/,
+    svs_error_h out_err /*=NULL*/
+);
+
 /// @brief Convert an index using new builder configuration
 /// @param builder The index builder handle (used for configuration)
 /// @param src_index The source index handle to convert from

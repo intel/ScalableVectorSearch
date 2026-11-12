@@ -346,23 +346,29 @@ std::shared_ptr<DynamicIndex> IndexBuilder::load_stream_dynamic(
 ) {
     if (algorithm->type == SVS_ALGORITHM_TYPE_VAMANA) {
         auto vamana_algorithm = static_cast<AlgorithmVamana*>(algorithm.get());
-
-        auto index = std::make_shared<DynamicIndexVamana>(
-            *this,
-            dispatch_dynamic_vamana_index_load_stream(
-                vamana_algorithm->build_parameters(),
-                std::move(stream),
-                storage.get(),
-                to_distance_type(distance_metric),
-                pool_builder.build(sync_kind),
-                allocator_builder,
-                block_params,
-                get_logger()
-            ),
-            sync_kind
-        );
-
-        return index;
+        const auto& build_params = vamana_algorithm->build_parameters();
+        auto index = uses_concurrent_index(sync_kind)
+                         ? dispatch_concurrent_vamana_index_load_stream(
+                               build_params,
+                               std::move(stream),
+                               storage.get(),
+                               to_distance_type(distance_metric),
+                               pool_builder.build(sync_kind),
+                               allocator_builder,
+                               block_params,
+                               get_logger()
+                           )
+                         : dispatch_dynamic_vamana_index_load_stream(
+                               build_params,
+                               std::move(stream),
+                               storage.get(),
+                               to_distance_type(distance_metric),
+                               pool_builder.build(sync_kind),
+                               allocator_builder,
+                               block_params,
+                               get_logger()
+                           );
+        return make_dynamic_index(*this, std::move(index), sync_kind);
     }
     return nullptr;
 }
