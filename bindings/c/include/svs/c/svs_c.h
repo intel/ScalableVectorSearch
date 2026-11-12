@@ -1621,6 +1621,37 @@ SVS_API bool svs_index_dynamic_delete_points(
     svs_error_h out_err /*=NULL*/
 );
 
+/// @brief Update the vectors of existing points in a dynamic index
+/// @param index The dynamic index handle
+/// @param points Pointer to the new vector data (float array)
+/// @param ids Pointer to the IDs of the points to update (size_t array); every ID must
+/// already exist in the index
+/// @param num_points The number of points to update
+/// @param out_err An optional error handle to capture errors
+/// @return true on success, false on failure
+/// @error SVS_ERROR_NOT_IMPLEMENTED if @p index uses SVS_SYNC_KIND_NONE or
+/// SVS_SYNC_KIND_GLOBAL, or if @p index uses SVS_SYNC_KIND_FINE_GRAIN and @p num_points
+/// is greater than 1
+SVS_API bool svs_index_dynamic_update_points(
+    svs_index_h index,
+    const float* points,
+    const size_t* ids,
+    size_t num_points,
+    svs_error_h out_err /*=NULL*/
+);
+
+/// @brief Rename the ID of a point in a dynamic index, keeping its vector data
+/// @param index The dynamic index handle
+/// @param old_id The existing vector ID to rename
+/// @param new_id The new vector ID; must not already exist in the index
+/// @param out_err An optional error handle to capture errors
+/// @return true on success, false on failure
+/// @error SVS_ERROR_INVALID_ARGUMENT if @p old_id does not exist in the index or
+/// @p new_id already exists
+SVS_API bool svs_index_dynamic_replace_id(
+    svs_index_h index, size_t old_id, size_t new_id, svs_error_h out_err /*=NULL*/
+);
+
 /// @brief Check if a dynamic index has a specific ID
 /// @param index The dynamic index handle
 /// @param id The vector ID to check for

@@ -236,6 +236,18 @@ size_t DynamicIndexVamana::delete_points_unlocked(std::span<const size_t> ids) {
     return ids_to_delete.size();
 }
 
+void DynamicIndexVamana::update_points(
+    svs::data::ConstSimpleDataView<float> /*points*/, std::span<const size_t> /*ids*/
+) {
+    throw not_implemented("Updating points is only supported by FINE GRAIN dynamic indices."
+    );
+}
+
+void DynamicIndexVamana::replace_id(size_t old_id, size_t new_id) {
+    auto lock = write_lock();
+    index.replace_external_id(old_id, new_id);
+}
+
 void DynamicIndexVamana::save(const std::filesystem::path& directory) {
     // Saving consolidates and compacts the index, so it requires exclusive access.
     auto lock = write_lock();
@@ -307,6 +319,19 @@ size_t ConcurrentIndexVamana::add_points(
     // throws instead.
     index.add_points(new_points, ids);
     return ids.size();
+}
+
+void ConcurrentIndexVamana::update_points(
+    svs::data::ConstSimpleDataView<float> points, std::span<const size_t> ids
+) {
+    assert(sync_kind == SVS_SYNC_KIND_FINE_GRAIN);
+    if (points.size() > 1) {
+        throw not_implemented(
+            "FINE GRAIN dynamic index only supports updating one point at a time."
+        );
+    }
+    auto lock = read_lock();
+    index.update_entries(points, ids);
 }
 
 size_t ConcurrentIndexVamana::delete_points(std::span<const size_t> ids) {
