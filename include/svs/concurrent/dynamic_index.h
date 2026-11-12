@@ -1764,7 +1764,6 @@ class MutableVamanaIndex {
             get_search_parameters()};
     }
 
-    // 0.0.1 also stores the per-slot status.
     static constexpr lib::Version save_version = vamana::detail::dynamic_status_version;
 
     // Saves the slots as they are (holes included); does not consolidate or compact.

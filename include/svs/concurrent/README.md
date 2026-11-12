@@ -163,10 +163,6 @@ section 3. Only shrinking is not. So `add_points`, `delete_entries`, and
 `consolidate` take this lock *shared*. Only `compact()` takes it exclusive, and
 so it waits for all of them.
 
-**Why writers take `writers_mutex_` shared.** `add_points`, `delete_entries`,
-`consolidate`, `compact` and `replace_external_id` take it first, once, and never
-while holding another index lock. Searches do not take it.
-
 **Lock order.** Always take locks in the same order. Then threads cannot
 deadlock.
 

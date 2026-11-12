@@ -180,7 +180,6 @@ struct ConcurrentIndexVamana : public DynamicIndexVamana {
 
     size_t delete_points(std::span<const size_t> ids) override;
 
-    // Does not consolidate or compact; the index blocks its own writers while saving.
     void save(const std::filesystem::path& directory) override {
         auto lock = read_lock();
         index.save(directory / "config", directory / "graph", directory / "data");
