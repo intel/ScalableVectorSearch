@@ -457,7 +457,7 @@ class MutableVamanaIndex {
     ///
     /// * data.size() == graph.n_nodes() == status.size().
     /// * ``status`` contains no ``Pending`` slots.
-    /// * ``translator`` maps exactly the ``Valid`` slots of ``status``.
+    /// * ``translator`` maps every ``Valid`` slot and no ``Empty`` slot of ``status``.
     template <threads::ThreadPool Pool>
     MutableVamanaIndex(
         const VamanaIndexParameters& config,
@@ -523,17 +523,12 @@ class MutableVamanaIndex {
             status_[i] = s;
         }
 
-        if (translator_.size() != num_valid) {
-            throw ANNEXCEPTION(
-                "Translator has {} IDs but status has {} valid slots",
-                translator_.size(),
-                num_valid
-            );
-        }
         for (auto pair : translator_) {
-            if (pair.second >= n || status[pair.second] != SlotMetadata::Valid) {
+            if (pair.second >= n || (status[pair.second] != SlotMetadata::Valid &&
+                                     status[pair.second] != SlotMetadata::Deleted)) {
                 throw ANNEXCEPTION(
-                    "Translator maps external id {} to non-valid slot {}",
+                    "Translator maps external id {} to slot {} that is not valid or "
+                    "deleted",
                     pair.first,
                     pair.second
                 );
@@ -1775,17 +1770,17 @@ class MutableVamanaIndex {
     ) {
         std::lock_guard gatekeeper_lock{*writers_gatekeeper_};
         std::unique_lock writers_lock{*writers_mutex_};
-        auto [status, translator] = snapshot_for_save();
+        auto status = status_bytes_for_save();
         vamana::detail::write_dynamic_index(
-            *this, translator, &status, config_directory, graph_directory, data_directory
+            *this, translator_, &status, config_directory, graph_directory, data_directory
         );
     }
 
     void save(std::ostream& os) {
         std::lock_guard gatekeeper_lock{*writers_gatekeeper_};
         std::unique_lock writers_lock{*writers_mutex_};
-        auto [status, translator] = snapshot_for_save();
-        vamana::detail::write_dynamic_index(*this, translator, &status, os);
+        auto status = status_bytes_for_save();
+        vamana::detail::write_dynamic_index(*this, translator_, &status, os);
     }
 
     /////
@@ -1907,11 +1902,9 @@ class MutableVamanaIndex {
     // Not synchronized: callers must exclude concurrent mutation.
     const IDTranslator& view_translator() const { return translator_; }
 
-    // Slot status bytes and a translator holding only the Valid slots. The caller holds
-    // writers_mutex_ exclusive.
-    std::pair<std::vector<uint8_t>, IDTranslator> snapshot_for_save() const {
+    // Slot status bytes. The caller holds writers_mutex_ exclusive.
+    std::vector<uint8_t> status_bytes_for_save() const {
         auto status = std::vector<uint8_t>{};
-        auto translator = IDTranslator{};
         auto slots = status_snapshot();
         status.reserve(slots.size());
         for (size_t i = 0, imax = slots.size(); i < imax; ++i) {
@@ -1920,12 +1913,7 @@ class MutableVamanaIndex {
             }
             status.push_back(static_cast<uint8_t>(slots[i]));
         }
-        for (auto pair : translator_) {
-            if (slots.at(pair.second) == SlotMetadata::Valid) {
-                translator.insert_translation(pair.first, pair.second);
-            }
-        }
-        return {std::move(status), std::move(translator)};
+        return status;
     }
 
     // Not synchronized: callers must exclude concurrent mutation.

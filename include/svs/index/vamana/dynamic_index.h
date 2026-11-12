@@ -1559,6 +1559,20 @@ std::vector<Metadata> decode_slot_status(const std::vector<uint8_t>& raw) {
     return result;
 }
 
+// Saved concurrent indexes keep soft-deleted IDs mapped; this index erases them on delete.
+template <typename Metadata>
+void drop_non_valid_translations(
+    IDTranslator& translator, const std::vector<Metadata>& status
+) {
+    auto to_drop = std::vector<size_t>();
+    for (auto pair : translator) {
+        if (pair.second < status.size() && status[pair.second] != Metadata::Valid) {
+            to_drop.push_back(pair.second);
+        }
+    }
+    translator.delete_internal(to_drop, false);
+}
+
 // The translator must cover exactly the `Valid` slots.
 template <typename Metadata>
 void check_translator_matches_status(
@@ -1788,6 +1802,7 @@ auto auto_dynamic_assemble(
     }
 
     // Copied state may contain deleted or empty slots.
+    detail::drop_non_valid_translations(translator, status);
     detail::check_translator_matches_status(translator, status);
 
     // At this point, we should be completely validated.
@@ -1839,6 +1854,7 @@ auto auto_dynamic_assemble(
             "Status has {} entries but should have {}", status.size(), datasize
         );
     }
+    detail::drop_non_valid_translations(translator, status);
     detail::check_translator_matches_status(translator, status);
 
     auto threadpool = threads::as_threadpool(std::move(threadpool_proto));
