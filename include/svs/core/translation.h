@@ -41,6 +41,7 @@
 #include <iterator>
 #include <limits>
 #include <string_view>
+#include <utility>
 
 namespace svs {
 
@@ -121,6 +122,7 @@ class IDTranslator {
             if (!lib::all_unique(int_begin, int_end)) {
                 throw ANNEXCEPTION("Internal IDs contain repeat elements!");
             }
+            check_external_not_reserved(ext_begin, ext_end);
             check_external_free(ext_begin, ext_end);
             check_internal_free(int_begin, int_end);
         }
@@ -179,6 +181,8 @@ class IDTranslator {
         if (!lib::all_unique(int_begin, int_end)) {
             throw ANNEXCEPTION("Internal IDs contain repeat elements!");
         }
+
+        check_external_not_reserved(ext_begin, ext_end);
 
         // Validation pass
         for (auto e = ext_begin; e != ext_end; ++e) {
@@ -374,6 +378,16 @@ class IDTranslator {
     /// @param begin Start forward iterator to the external IDs to check.
     /// @param end End forward iterator to the external IDs to check.
     ///
+    template <class Begin, class End>
+    void check_external_not_reserved(const Begin& begin, const End& end) const {
+        check(
+            begin,
+            end,
+            [](auto e) { return std::cmp_equal(e, invalid_external_id); },
+            "Reserved external"
+        );
+    }
+
     template <class Begin, class End>
     void check_external_free(const Begin& begin, const End& end) const {
         check(

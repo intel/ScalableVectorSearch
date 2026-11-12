@@ -537,11 +537,9 @@ class MutableVamanaIndex {
         size_t metadata_bytes = status_.capacity() * sizeof(SlotMetadata);
         metadata_bytes +=
             entry_point_.capacity() * sizeof(typename entry_point_type::value_type);
-        // The IDTranslator holds two tsl::robin_map instances (external->internal and
-        // internal->external), neither of which exposes its allocated byte count. We
-        // approximate the storage as the id pair held in each of the two directions. This
-        // ignores the maps' load-factor slack and control bytes, so it is an estimate of
-        // the hash-map overhead that is accurate to within a few percent.
+        // Estimate: the id pair per entry, counted twice (external->internal hash map and
+        // internal->external vector); ignores hash-map load-factor slack and vector spare
+        // capacity.
         metadata_bytes += 2 * translator_.size() *
                           (sizeof(IDTranslator::external_id_type) +
                            sizeof(IDTranslator::internal_id_type));
@@ -790,27 +788,20 @@ class MutableVamanaIndex {
                     auto scratch =
                         extensions::per_thread_batch_search_setup(data_, distance_);
 
-                    auto run = [&](const auto& search) {
-                        extensions::per_thread_batch_search(
-                            data_,
-                            buffer,
-                            scratch,
-                            queries,
-                            results,
-                            threads::UnitRange{is},
-                            search,
-                            *this,
-                            cancel
-                        );
-                    };
                     auto search = greedy_search_closure<Filtered>(
                         prefetch_parameters, cancel, filter
                     );
-                    if constexpr (Filtered) {
-                        run(search);
-                    } else {
-                        run(search);
-                    }
+                    extensions::per_thread_batch_search(
+                        data_,
+                        buffer,
+                        scratch,
+                        queries,
+                        results,
+                        threads::UnitRange{is},
+                        search,
+                        *this,
+                        cancel
+                    );
                 };
                 if (filter != nullptr) {
                     [&]() __attribute__((noinline)) { body(std::true_type{}); }

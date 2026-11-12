@@ -111,7 +111,7 @@ class VamanaInterface {
     virtual svs::index::vamana::VamanaIndexParameters parameters() const = 0;
 
     // Filtered search; keep last (ABI).
-    virtual bool filtered_search(
+    virtual void filtered_search(
         svs::QueryResultView<size_t> results,
         AnonymousArray<2> queries,
         const index::vamana::VamanaSearchParameters& search_parameters,
@@ -293,29 +293,17 @@ class VamanaImpl : public manager::ManagerImpl<QueryTypes, Impl, IFace> {
         return impl().parameters();
     }
 
-    bool filtered_search(
+    void filtered_search(
         svs::QueryResultView<size_t> results,
         AnonymousArray<2> queries,
         const index::vamana::VamanaSearchParameters& search_parameters,
         const std::function<bool(size_t)>& filter
     ) override {
-        lib::match(
-            QueryTypes{},
-            queries.type(),
-            [&]<typename T>(lib::Type<T> SVS_UNUSED(type)) {
-                impl().search(
-                    results,
-                    data::ConstSimpleDataView<T>(queries),
-                    search_parameters,
-                    lib::Returns(lib::Const<false>()),
-                    &filter
-                );
-            },
-            [&](svs::DataType data_type) {
-                throw ANNEXCEPTION("Unsupported query datatype! Got: {}.", data_type);
-            }
-        );
-        return true;
+        this->dispatch_queries(results, queries, [&](const auto& view) {
+            impl().search(
+                results, view, search_parameters, lib::Returns(lib::Const<false>()), &filter
+            );
+        });
     }
 };
 
@@ -814,13 +802,13 @@ class Vamana : public manager::IndexManager<VamanaInterface> {
     /// Rows with fewer passing entries than requested are padded with id ``size_t(-1)``.
     /// ``filter`` must be thread-safe and must not call into the same index.
     template <typename QueryType>
-    bool filtered_search(
+    void filtered_search(
         QueryResultView<size_t> results,
         data::ConstSimpleDataView<QueryType> queries,
         const VamanaSearchParameters& search_parameters,
         const std::function<bool(size_t)>& filter
     ) {
-        return impl_->filtered_search(
+        impl_->filtered_search(
             results, AnonymousArray<2>(queries), search_parameters, filter
         );
     }

@@ -647,28 +647,21 @@ class VamanaIndex {
                     auto scratch =
                         extensions::per_thread_batch_search_setup(data_, distance_);
 
-                    auto run = [&](const auto& search) {
-                        // Perform a search over the batch of queries.
-                        extensions::per_thread_batch_search(
-                            data_,
-                            search_buffer,
-                            scratch,
-                            queries,
-                            result,
-                            threads::UnitRange{is},
-                            search,
-                            *this,
-                            cancel
-                        );
-                    };
                     auto search = greedy_search_closure<Filtered>(
                         prefetch_parameters, cancel, filter
                     );
-                    if constexpr (Filtered) {
-                        run(search);
-                    } else {
-                        run(search);
-                    }
+                    // Perform a search over the batch of queries.
+                    extensions::per_thread_batch_search(
+                        data_,
+                        search_buffer,
+                        scratch,
+                        queries,
+                        result,
+                        threads::UnitRange{is},
+                        search,
+                        *this,
+                        cancel
+                    );
                 };
                 // Keep the filtered body out of line so regular search is unaffected.
                 if (filter != nullptr) {

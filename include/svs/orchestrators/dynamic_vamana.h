@@ -614,13 +614,13 @@ class DynamicVamana : public manager::IndexManager<DynamicVamanaInterface> {
     /// Rows with fewer passing entries than requested are padded with id ``size_t(-1)``.
     /// ``filter`` must be thread-safe and must not call into the same index.
     template <typename QueryType>
-    bool filtered_search(
+    void filtered_search(
         QueryResultView<size_t> results,
         data::ConstSimpleDataView<QueryType> queries,
         const VamanaSearchParameters& search_parameters,
         const std::function<bool(size_t)>& filter
     ) {
-        return impl_->filtered_search(
+        impl_->filtered_search(
             results, AnonymousArray<2>(queries), search_parameters, filter
         );
     }

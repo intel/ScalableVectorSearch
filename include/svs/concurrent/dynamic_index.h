@@ -171,16 +171,20 @@ class ValidBuilder {
     const lib::SegmentedVector<SlotMetadata>& status_;
 };
 
-// Set while the user's filter runs on this thread, so re-entering the index fails fast.
-inline thread_local bool in_user_filter = false;
+// The index whose user filter runs on this thread, so re-entering it fails fast.
+inline thread_local const void* filtering_index = nullptr;
 
 struct FilterScope {
-    FilterScope() { in_user_filter = true; }
-    ~FilterScope() { in_user_filter = false; }
+    explicit FilterScope(const void* index)
+        : previous_{filtering_index} {
+        filtering_index = index;
+    }
+    ~FilterScope() { filtering_index = previous_; }
+    const void* previous_;
 };
 
-inline void check_not_in_filter() {
-    if (in_user_filter) {
+inline void check_not_in_filter(const void* index) {
+    if (filtering_index == index) {
         throw ANNEXCEPTION("filter must not call into the same index");
     }
 }
@@ -191,11 +195,13 @@ template <typename Filter> class FilteredValidBuilder {
     FilteredValidBuilder(
         const lib::SegmentedVector<SlotMetadata>& status,
         const IDTranslator& translator,
-        const Filter& filter
+        const Filter& filter,
+        const void* owner
     )
         : status_{status}
         , translator_{&translator}
-        , filter_{&filter} {}
+        , filter_{&filter}
+        , owner_{owner} {}
 
     template <typename I>
     PredicatedSearchNeighbor<I> operator()(I i, float distance) const {
@@ -205,7 +211,7 @@ template <typename Filter> class FilteredValidBuilder {
         if (!invalid) {
             // Lock-free read; an erased slot has no external id and fails.
             size_t external = translator_->get_external_or(i, no_external_id);
-            FilterScope scope;
+            FilterScope scope{owner_};
             invalid = external == no_external_id || !(*filter_)(external);
         }
         return PredicatedSearchNeighbor<I>(i, distance, !invalid);
@@ -215,6 +221,7 @@ template <typename Filter> class FilteredValidBuilder {
     const lib::SegmentedVector<SlotMetadata>& status_;
     const IDTranslator* translator_;
     const Filter* filter_;
+    const void* owner_;
 };
 
 template <graphs::MemoryGraph Graph, typename Data, typename Dist>
@@ -652,11 +659,9 @@ class MutableVamanaIndex {
         size_t metadata_bytes = status_.capacity() * sizeof(SlotMetadata);
         metadata_bytes +=
             entry_point_.capacity() * sizeof(typename entry_point_type::value_type);
-        // The IDTranslator holds two tsl::robin_map instances (external->internal and
-        // internal->external), neither of which exposes its allocated byte count. We
-        // approximate the storage as the id pair held in each of the two directions. This
-        // ignores the maps' load-factor slack and control bytes, so it is an estimate of
-        // the hash-map overhead that is accurate to within a few percent.
+        // Estimate: the id pair per entry, counted twice (external->internal hash map and
+        // internal->external vector); ignores hash-map load-factor slack and vector spare
+        // capacity.
         metadata_bytes += 2 * translator_.size() *
                           (sizeof(IDTranslator::external_id_type) +
                            sizeof(IDTranslator::internal_id_type));
@@ -933,7 +938,7 @@ class MutableVamanaIndex {
 
     template <typename Filter>
     FilteredValidBuilder<Filter> internal_search_builder(const Filter& filter) const {
-        return FilteredValidBuilder<Filter>{status_, translator_, filter};
+        return FilteredValidBuilder<Filter>{status_, translator_, filter, this};
     }
 
     /// @brief RAII shared lock guarding data_/graph_ against compact()'s shrink
@@ -943,7 +948,7 @@ class MutableVamanaIndex {
     /// Hold this through internal-to-external ID translation. Acquire the translation
     /// lock inside this guard, preserving the compact -> translator lock order.
     [[nodiscard]] std::shared_lock<std::shared_mutex> lock_storage_shared() const {
-        check_not_in_filter();
+        check_not_in_filter(this);
         std::shared_lock gatekeeper_lock{*compact_gatekeeper_};
         return std::shared_lock<std::shared_mutex>(*compact_mutex_);
     }
@@ -1053,27 +1058,20 @@ class MutableVamanaIndex {
                         auto scratch =
                             extensions::per_thread_batch_search_setup(data_, distance_);
 
-                        auto run = [&](const auto& search) {
-                            extensions::per_thread_batch_search(
-                                data_,
-                                buffer,
-                                scratch,
-                                queries,
-                                results,
-                                threads::UnitRange{is},
-                                search,
-                                *this,
-                                cancel
-                            );
-                        };
                         auto search = greedy_search_closure<Filtered>(
                             prefetch_parameters, cancel, filter
                         );
-                        if constexpr (Filtered) {
-                            run(search);
-                        } else {
-                            run(search);
-                        }
+                        extensions::per_thread_batch_search(
+                            data_,
+                            buffer,
+                            scratch,
+                            queries,
+                            results,
+                            threads::UnitRange{is},
+                            search,
+                            *this,
+                            cancel
+                        );
                     };
                     if (filter != nullptr) {
                         [&]() __attribute__((noinline)) { body(std::true_type{}); }
@@ -1103,10 +1101,14 @@ class MutableVamanaIndex {
             for (size_t i = 0; i < results.n_queries(); ++i) {
                 for (size_t j = 0; j < results.n_neighbors(); ++j) {
                     auto id = results.index(i, j);
-                    FilterScope scope;
-                    if (id != static_cast<I>(-1) &&
-                        (id == no_external_id || !(*filter)(id))) {
-                        results.index(i, j) = static_cast<I>(-1);
+                    if (id != static_cast<I>(-1)) {
+                        FilterScope scope{this};
+                        if (!(*filter)(id)) {
+                            results.index(i, j) = static_cast<I>(-1);
+                        }
+                    }
+                    // Also covers ids a concurrent erase left without a translation.
+                    if (results.index(i, j) == static_cast<I>(-1)) {
                         results.distance(i, j) = worst;
                     }
                 }
@@ -1507,7 +1509,7 @@ class MutableVamanaIndex {
     ///     improve performance but requires more working memory.
     ///
     void compact(Idx batch_size = 1'000) {
-        check_not_in_filter();
+        check_not_in_filter(this);
         std::lock_guard gatekeeper_lock{*compact_gatekeeper_};
         std::lock_guard compact_lock{*compact_mutex_};
 
