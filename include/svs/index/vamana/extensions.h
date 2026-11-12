@@ -27,8 +27,6 @@
 #include "svs/lib/preprocessor.h"
 #include "svs/lib/threads.h"
 
-#include <limits>
-
 namespace svs::index::vamana::extensions {
 
 /////
@@ -594,9 +592,7 @@ void svs_invoke(
         // Fewer than k results (e.g. a selective filter): pad with invalid ids.
         for (size_t j = num_results; j < num_neighbors; ++j) {
             result.index(i, j) = static_cast<I>(-1);
-            result.distance(i, j) = distance::comparator(distance)(0.0f, 1.0f)
-                                        ? std::numeric_limits<float>::infinity()
-                                        : -std::numeric_limits<float>::infinity();
+            result.distance(i, j) = distance::worst_distance(distance);
         }
     }
 }

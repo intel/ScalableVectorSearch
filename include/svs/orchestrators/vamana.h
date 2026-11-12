@@ -299,7 +299,7 @@ class VamanaImpl : public manager::ManagerImpl<QueryTypes, Impl, IFace> {
         const index::vamana::VamanaSearchParameters& search_parameters,
         const std::function<bool(size_t)>& filter
     ) override {
-        this->dispatch_queries(results, queries, [&](const auto& view) {
+        this->dispatch_queries(queries, [&](const auto& view) {
             impl().search(
                 results, view, search_parameters, lib::Returns(lib::Const<false>()), &filter
             );

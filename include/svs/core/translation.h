@@ -531,7 +531,27 @@ class IDTranslator {
     }
 
     tsl::robin_map<external_id_type, internal_id_type> external_to_internal_{};
-    tsl::robin_map<internal_id_type, external_id_type> internal_to_external_{};
+    // Vector for lock-free reads; TODO: moves to #447 (same table), not in this PR.
+    lib::SegmentedVector<external_id_type> internal_to_external_{};
+
+    external_id_type load_external(internal_id_type i) const {
+        if (i >= internal_to_external_.size()) {
+            return invalid_external_id;
+        }
+        return std::atomic_ref<external_id_type>(
+                   const_cast<external_id_type&>(internal_to_external_[i])
+        )
+            .load(std::memory_order_acquire);
+    }
+
+    // Writers only; grows the table first when `i` is beyond it.
+    void store_external(size_t i, external_id_type e) {
+        if (i >= internal_to_external_.size()) {
+            internal_to_external_.resize(i + 1, invalid_external_id);
+        }
+        std::atomic_ref<external_id_type>(internal_to_external_[i])
+            .store(e, std::memory_order_release);
+    }
 };
 
 } // namespace svs

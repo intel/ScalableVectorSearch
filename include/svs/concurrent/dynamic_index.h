@@ -659,9 +659,7 @@ class MutableVamanaIndex {
         size_t metadata_bytes = status_.capacity() * sizeof(SlotMetadata);
         metadata_bytes +=
             entry_point_.capacity() * sizeof(typename entry_point_type::value_type);
-        // Estimate: the id pair per entry, counted twice (external->internal hash map and
-        // internal->external vector); ignores hash-map load-factor slack and vector spare
-        // capacity.
+        // Estimate: one id pair per entry for each translation direction.
         metadata_bytes += 2 * translator_.size() *
                           (sizeof(IDTranslator::external_id_type) +
                            sizeof(IDTranslator::internal_id_type));
@@ -975,28 +973,26 @@ class MutableVamanaIndex {
                 buffer.clear();
                 return;
             }
+            auto builder = [&] {
+                if constexpr (Filtered) {
+                    return internal_search_builder(*filter);
+                } else {
+                    return internal_search_builder();
+                }
+            }();
             // Perform the greedy search using the provided resources.
-            auto run = [&](auto& builder) {
-                concurrent::greedy_search(
-                    graph_,
-                    data_,
-                    accessor,
-                    query,
-                    distance,
-                    buffer,
-                    vamana::EntryPointInitializer<Idx>{std::span<const Idx>{&seed, 1}},
-                    builder,
-                    prefetch_parameters,
-                    cancel
-                );
-            };
-            if constexpr (Filtered) {
-                auto builder = internal_search_builder(*filter);
-                run(builder);
-            } else {
-                auto builder = internal_search_builder();
-                run(builder);
-            }
+            concurrent::greedy_search(
+                graph_,
+                data_,
+                accessor,
+                query,
+                distance,
+                buffer,
+                vamana::EntryPointInitializer<Idx>{std::span<const Idx>{&seed, 1}},
+                builder,
+                prefetch_parameters,
+                cancel
+            );
             // Take a pass over the search buffer to remove any deleted elements that
             // might remain.
             buffer.cleanup();
@@ -1024,8 +1020,6 @@ class MutableVamanaIndex {
         );
     }
 
-    // `filter` is called from every search thread without locks; it must be thread-safe
-    // and must not call into this index.
     template <typename I, data::ImmutableMemoryDataset Queries>
     void search(
         QueryResultView<I> results,
@@ -1041,44 +1035,52 @@ class MutableVamanaIndex {
                 threadpool_,
                 threads::StaticPartition{queries.size()},
                 [&](const auto is, uint64_t SVS_UNUSED(tid)) {
-                    auto body = [&]<bool Filtered>(std::bool_constant<Filtered>) {
-                        size_t num_neighbors = results.n_neighbors();
-                        auto buffer = search_buffer_type{
-                            sp.buffer_config_,
-                            distance::comparator(distance_),
-                            sp.search_buffer_visited_set_};
+                    size_t num_neighbors = results.n_neighbors();
+                    auto buffer = search_buffer_type{
+                        sp.buffer_config_,
+                        distance::comparator(distance_),
+                        sp.search_buffer_visited_set_};
 
-                        auto prefetch_parameters = GreedySearchPrefetchParameters{
-                            sp.prefetch_lookahead_, sp.prefetch_step_};
+                    auto prefetch_parameters = GreedySearchPrefetchParameters{
+                        sp.prefetch_lookahead_, sp.prefetch_step_};
 
-                        // Legalize search buffer for this search.
-                        if (buffer.target_capacity() < num_neighbors) {
-                            buffer.change_maxsize(num_neighbors);
-                        }
-                        auto scratch =
-                            extensions::per_thread_batch_search_setup(data_, distance_);
-
-                        auto search = greedy_search_closure<Filtered>(
-                            prefetch_parameters, cancel, filter
-                        );
-                        extensions::per_thread_batch_search(
-                            data_,
-                            buffer,
-                            scratch,
-                            queries,
-                            results,
-                            threads::UnitRange{is},
-                            search,
-                            *this,
-                            cancel
-                        );
-                    };
-                    if (filter != nullptr) {
-                        [&]() __attribute__((noinline)) { body(std::true_type{}); }
-                        ();
-                    } else {
-                        body(std::false_type{});
+                    // Legalize search buffer for this search.
+                    if (buffer.target_capacity() < num_neighbors) {
+                        buffer.change_maxsize(num_neighbors);
                     }
+                    auto scratch =
+                        extensions::per_thread_batch_search_setup(data_, distance_);
+
+                    if (filter != nullptr) {
+                        [&]() __attribute__((noinline)) {
+                            extensions::per_thread_batch_search(
+                                data_,
+                                buffer,
+                                scratch,
+                                queries,
+                                results,
+                                threads::UnitRange{is},
+                                greedy_search_closure<true>(
+                                    prefetch_parameters, cancel, filter
+                                ),
+                                *this,
+                                cancel
+                            );
+                        }
+                        ();
+                        return;
+                    }
+                    extensions::per_thread_batch_search(
+                        data_,
+                        buffer,
+                        scratch,
+                        queries,
+                        results,
+                        threads::UnitRange{is},
+                        greedy_search_closure(prefetch_parameters, cancel),
+                        *this,
+                        cancel
+                    );
                 }
             );
         }
@@ -1093,11 +1095,8 @@ class MutableVamanaIndex {
         translate_to_external(results.indices());
 
         if (filter != nullptr) {
-            // A concurrent remap may have changed the answer: only return ids that pass
-            // now.
-            const float worst = distance::comparator(distance_)(0.0f, 1.0f)
-                                    ? std::numeric_limits<float>::infinity()
-                                    : -std::numeric_limits<float>::infinity();
+            // A concurrent remap may have changed the answer: re-check the final ids.
+            const float worst = distance::worst_distance(distance_);
             for (size_t i = 0; i < results.n_queries(); ++i) {
                 for (size_t j = 0; j < results.n_neighbors(); ++j) {
                     auto id = results.index(i, j);
