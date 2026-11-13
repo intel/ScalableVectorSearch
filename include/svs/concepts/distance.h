@@ -25,6 +25,7 @@
 
 #include <concepts>
 #include <cstddef>
+#include <limits>
 #include <utility>
 #include <vector>
 
@@ -213,6 +214,12 @@ template <detail::HasComparator T> auto comparator(const T& x) -> compare_t<T> {
 // type alias
 template <typename T> auto comparator(const T& /*x*/) -> compare_t<T> {
     return typename T::compare{};
+}
+
+/// Distance reported for a missing neighbor: it sorts after every real distance.
+template <typename T> float worst_distance(const T& x) {
+    return comparator(x)(0.0f, 1.0f) ? std::numeric_limits<float>::infinity()
+                                     : -std::numeric_limits<float>::infinity();
 }
 
 /////

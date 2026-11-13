@@ -146,25 +146,11 @@ class ManagerImpl : public ManagerInterface<IFace> {
         const search_parameters_type& search_parameters,
         const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>())
     ) override {
-        // See if we have a specialization for this particular query type.
-        // If so, invoke that specialization, otherwise throw
-        lib::match(
-            QueryTypes{},
-            data.type(),
-            [&]<typename T>(lib::Type<T> SVS_UNUSED(type)) {
-                const auto view = data::ConstSimpleDataView<T>(data);
-                svs::index::search_batch_into_with(
-                    implementation_, result, view, search_parameters, cancel
-                );
-            },
-            [&](svs::DataType data_type) {
-                throw ANNEXCEPTION(
-                    "Unsupported datatype! Got: {}. Expected one of: {}.",
-                    data_type,
-                    fmt::join(QueryTypes::data_types(), ", ")
-                );
-            }
-        );
+        dispatch_queries(data, [&](const auto& view) {
+            svs::index::search_batch_into_with(
+                implementation_, result, view, search_parameters, cancel
+            );
+        });
     }
 
     // Data Interface
@@ -190,6 +176,26 @@ class ManagerImpl : public ManagerInterface<IFace> {
   protected:
     Impl& impl() { return implementation_; }
     const Impl& impl() const { return implementation_; }
+
+    // Invoke `f` with the query view of the matching supported type, otherwise throw.
+    template <typename F>
+    void dispatch_queries(const AnonymousArray<2>& data, F&& f) const {
+        lib::match(
+            QueryTypes{},
+            data.type(),
+            [&]<typename T>(lib::Type<T> SVS_UNUSED(type)) {
+                const auto view = data::ConstSimpleDataView<T>(data);
+                f(view);
+            },
+            [&](svs::DataType data_type) {
+                throw ANNEXCEPTION(
+                    "Unsupported datatype! Got: {}. Expected one of: {}.",
+                    data_type,
+                    fmt::join(QueryTypes::data_types(), ", ")
+                );
+            }
+        );
+    }
 
   private:
     friend class IndexManager<IFace>;

@@ -109,6 +109,26 @@ class ValidBuilder {
     const std::vector<SlotMetadata>& status_;
 };
 
+// Separate template so the regular search compiles without any filter check.
+template <typename Filter> class FilteredValidBuilder {
+  public:
+    FilteredValidBuilder(const IDTranslator& translator, const Filter& filter)
+        : translator_{&translator}
+        , filter_{&filter} {}
+
+    template <typename I>
+    constexpr PredicatedSearchNeighbor<I> operator()(I i, float distance) const {
+        // delete_entries clears the translator entry, so a missing id means deleted.
+        auto id = translator_->get_external_or(i, IDTranslator::invalid_external_id);
+        bool invalid = id == IDTranslator::invalid_external_id || !(*filter_)(id);
+        return PredicatedSearchNeighbor<I>(i, distance, !invalid);
+    }
+
+  private:
+    const IDTranslator* translator_;
+    const Filter* filter_;
+};
+
 namespace detail {
 
 template <typename Index>
@@ -517,11 +537,7 @@ class MutableVamanaIndex {
         size_t metadata_bytes = status_.capacity() * sizeof(SlotMetadata);
         metadata_bytes +=
             entry_point_.capacity() * sizeof(typename entry_point_type::value_type);
-        // The IDTranslator holds two tsl::robin_map instances (external->internal and
-        // internal->external), neither of which exposes its allocated byte count. We
-        // approximate the storage as the id pair held in each of the two directions. This
-        // ignores the maps' load-factor slack and control bytes, so it is an estimate of
-        // the hash-map overhead that is accurate to within a few percent.
+        // Estimate: one id pair per entry for each translation direction.
         metadata_bytes += 2 * translator_.size() *
                           (sizeof(IDTranslator::external_id_type) +
                            sizeof(IDTranslator::internal_id_type));
@@ -636,6 +652,9 @@ class MutableVamanaIndex {
             [&](const auto is, uint64_t /*tid*/) {
                 for (auto i : is) {
                     for (size_t j = 0, jmax = getsize<1>(ids); j < jmax; ++j) {
+                        if (ids.at(i, j) == static_cast<size_t>(-1)) {
+                            continue; // Padding from a filtered search.
+                        }
                         auto internal = lib::narrow_cast<Idx>(ids.at(i, j));
                         ids.at(i, j) = translate_internal_id(internal);
                     }
@@ -679,13 +698,28 @@ class MutableVamanaIndex {
     // This is an internal method, mostly used to help implement the batch iterator.
     ValidBuilder internal_search_builder() const { return ValidBuilder{status_}; }
 
+    template <typename Filter>
+    FilteredValidBuilder<Filter> internal_search_builder(const Filter& filter) const {
+        return FilteredValidBuilder<Filter>{translator_, filter};
+    }
+
+    template <bool Filtered = false>
     auto greedy_search_closure(
         GreedySearchPrefetchParameters prefetch_parameters,
-        const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>())
+        const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>()),
+        const std::function<bool(size_t)>* filter = nullptr
     ) const {
-        return [&, prefetch_parameters](
-                   const auto& query, auto& accessor, auto& distance, auto& buffer
-               ) {
+        return [&,
+                prefetch_parameters,
+                filter](const auto& query, auto& accessor, auto& distance, auto& buffer) {
+            static_cast<void>(filter); // Unused in regular search.
+            auto builder = [&] {
+                if constexpr (Filtered) {
+                    return internal_search_builder(*filter);
+                } else {
+                    return internal_search_builder();
+                }
+            }();
             // Perform the greedy search using the provided resources.
             greedy_search(
                 graph_,
@@ -695,7 +729,7 @@ class MutableVamanaIndex {
                 distance,
                 buffer,
                 vamana::EntryPointInitializer<Idx>{lib::as_const_span(entry_point_)},
-                internal_search_builder(),
+                builder,
                 prefetch_parameters,
                 cancel
             );
@@ -727,7 +761,8 @@ class MutableVamanaIndex {
         QueryResultView<I> results,
         const Queries& queries,
         const search_parameters_type& sp,
-        const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>())
+        const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>()),
+        const std::function<bool(size_t)>* filter = nullptr
     ) {
         threads::parallel_for(
             threadpool_,
@@ -747,6 +782,25 @@ class MutableVamanaIndex {
 
                 auto scratch = extensions::per_thread_batch_search_setup(data_, distance_);
 
+                if (filter != nullptr) {
+                    [&]() __attribute__((noinline)) {
+                        extensions::per_thread_batch_search(
+                            data_,
+                            buffer,
+                            scratch,
+                            queries,
+                            results,
+                            threads::UnitRange{is},
+                            greedy_search_closure<true>(
+                                prefetch_parameters, cancel, filter
+                            ),
+                            *this,
+                            cancel
+                        );
+                    }
+                    ();
+                    return;
+                }
                 extensions::per_thread_batch_search(
                     data_,
                     buffer,
@@ -980,12 +1034,14 @@ class MutableVamanaIndex {
         return ids.size();
     }
 
+  private:
     void delete_entry(size_t i) {
         SlotMetadata& meta = getindex(status_, i);
         assert(meta == SlotMetadata::Valid);
         meta = SlotMetadata::Deleted;
     }
 
+  public:
     bool is_deleted(size_t i) const { return status_[i] != SlotMetadata::Valid; }
 
     Idx entry_point() const {

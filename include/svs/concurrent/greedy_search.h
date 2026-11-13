@@ -146,7 +146,9 @@ void greedy_search(
                 // Compute distance and update search buffer.
                 auto dist =
                     distance::compute(distance_function, query, accessor(dataset, id));
-                search_buffer.insert(builder(id, dist));
+                if (!search_buffer.can_skip(dist)) {
+                    search_buffer.insert(builder(id, dist));
+                }
             }
 
             // Validate that no concurrent write occurred during the read.
