@@ -120,7 +120,8 @@ template <
     typename Buffer,
     typename Initializer,
     typename Builder,
-    GreedySearchTracker<typename Graph::index_type> Tracker>
+    GreedySearchTracker<typename Graph::index_type> Tracker,
+    typename Cancel = lib::Returns<lib::Const<false>>>
 void greedy_search(
     const Graph& graph,
     const Dataset& dataset,
@@ -132,7 +133,7 @@ void greedy_search(
     const Builder& builder,
     Tracker& search_tracker,
     GreedySearchPrefetchParameters prefetch_parameters = {},
-    const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>())
+    const Cancel& cancel = Cancel{}
 ) {
     using I = typename Graph::index_type;
 
@@ -212,7 +213,8 @@ template <
     distance::Distance<QueryType, typename Dataset::const_value_type> Dist,
     typename Buffer,
     typename Initializer,
-    typename Builder = NeighborBuilder>
+    typename Builder = NeighborBuilder,
+    typename Cancel = lib::Returns<lib::Const<false>>>
 void greedy_search(
     const Graph& graph,
     const Dataset& dataset,
@@ -223,7 +225,7 @@ void greedy_search(
     const Initializer& initializer,
     const Builder& builder = NeighborBuilder(),
     GreedySearchPrefetchParameters prefetch_parameters = {},
-    const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>())
+    const Cancel& cancel = Cancel{}
 ) {
     auto null_tracker = NullTracker{};
     greedy_search(

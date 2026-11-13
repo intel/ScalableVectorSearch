@@ -19,6 +19,7 @@
 #include "svs/index/vamana/search_buffer.h"
 #include "svs/lib/boundscheck.h"
 #include "svs/lib/datatype.h"
+#include "svs/lib/misc.h"
 #include "svs/lib/neighbor.h"
 #include "svs/lib/threads/threadlocal.h"
 
@@ -77,6 +78,20 @@ template <typename Cmp = std::less<>> struct RangeStop {
     constexpr bool operator()(const MutableBufferState& state) const {
         return state.valid_visited >= state.search_window &&
                !compare(state.best_unvisited_distance, radius);
+    }
+};
+
+/// @brief Stop predicate that also stops when the search is cancelled (e.g. on timeout).
+///
+/// The search then ends gracefully: the buffer keeps the best candidates found so far.
+template <typename Stop> struct CancelableStop {
+    static constexpr bool counts_total_candidates = counts_total_candidates_v<Stop>;
+
+    [[no_unique_address]] Stop stop;
+    const lib::DefaultPredicate* cancel;
+
+    bool operator()(const MutableBufferState& state) const {
+        return stop(state) || (*cancel)();
     }
 };
 

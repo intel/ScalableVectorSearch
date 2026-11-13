@@ -37,6 +37,7 @@
 
 // stl
 #include <algorithm>
+#include <atomic>
 #include <cmath>
 #include <limits>
 #include <numeric>
@@ -860,6 +861,90 @@ CATCH_TEST_CASE("Dynamic Vamana Index Predicated And Range Search", "[dynamic_in
             num_full += result.size() == 20;
         }
         CATCH_REQUIRE(num_full > 0);
+    }
+
+    CATCH_SECTION("Cancel predicated search") {
+        sp.buffer_config({20, 40});
+        constexpr auto sentinel =
+            svs::type_traits::sentinel_v<svs::Neighbor<size_t>, std::less<>>;
+
+        // Cancellation is checked once per hop and once per query, two fewer per query
+        // (and one fewer per batch) than in the regular search.
+        std::atomic<size_t> regular_calls{0};
+        auto expected = svs::QueryResult<size_t>(num_queries, NUM_NEIGHBORS);
+        index.search(expected.view(), queries, sp, [&]() {
+            ++regular_calls;
+            return false;
+        });
+        std::atomic<size_t> calls{0};
+        auto actual = svs::QueryResult<size_t>(num_queries, NUM_NEIGHBORS);
+        index.predicated_search(
+            actual.view(),
+            queries,
+            sp,
+            svs::index::vamana::DefaultStop{},
+            [&]() {
+                ++calls;
+                return false;
+            }
+        );
+        CATCH_REQUIRE(calls + num_queries + 1 == regular_calls);
+        for (size_t q = 0; q < num_queries; ++q) {
+            for (size_t j = 0; j < NUM_NEIGHBORS; ++j) {
+                CATCH_REQUIRE(actual.index(q, j) == expected.index(q, j));
+            }
+        }
+
+        // Cancel midway: started queries keep sorted partial results, the rest are
+        // sentinels.
+        calls = 0;
+        auto partial = svs::QueryResult<size_t>(num_queries, NUM_NEIGHBORS);
+        index.predicated_search(
+            partial.view(),
+            queries,
+            sp,
+            svs::index::vamana::DefaultStop{},
+            [&]() { return ++calls > 50; }
+        );
+        size_t num_empty = 0;
+        for (size_t q = 0; q < num_queries; ++q) {
+            bool padding = false;
+            float last = 0;
+            for (size_t j = 0; j < NUM_NEIGHBORS; ++j) {
+                auto id = partial.index(q, j);
+                if (id == sentinel.id()) {
+                    CATCH_REQUIRE(partial.distance(q, j) == sentinel.distance());
+                    padding = true;
+                    continue;
+                }
+                CATCH_REQUIRE(!padding);
+                CATCH_REQUIRE(index.has_id(id));
+                CATCH_REQUIRE(partial.distance(q, j) >= last);
+                last = partial.distance(q, j);
+            }
+            num_empty += partial.index(q, 0) == sentinel.id();
+        }
+        CATCH_REQUIRE(num_empty > 0);
+        CATCH_REQUIRE(num_empty < num_queries);
+    }
+
+    CATCH_SECTION("Cancel range search") {
+        sp.buffer_config({10, buffer_type::unbounded_capacity});
+        auto none = index.range_search(queries, radius, sp, []() { return true; });
+        for (const auto& result : none) {
+            CATCH_REQUIRE(result.empty());
+        }
+
+        std::atomic<size_t> calls{0};
+        auto partial =
+            index.range_search(queries, radius, sp, [&]() { return ++calls > 50; });
+        check_range_results(partial, num_points);
+        size_t num_empty = 0;
+        for (const auto& result : partial) {
+            num_empty += result.empty();
+        }
+        CATCH_REQUIRE(num_empty > 0);
+        CATCH_REQUIRE(num_empty < num_queries);
     }
 
     CATCH_SECTION("Range search skips deleted points") {

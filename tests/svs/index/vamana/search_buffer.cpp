@@ -1058,6 +1058,40 @@ CATCH_TEST_CASE("MutableBuffer Stop Predicate", "[core][search_buffer]") {
         CATCH_REQUIRE(patient.shallow_copy().stop_predicate().min_samples == 30);
     }
 
+    CATCH_SECTION("Cancelable Predicate") {
+        using svs::index::vamana::CancelableStop;
+        using svs::index::vamana::counts_total_candidates_v;
+        static_assert(counts_total_candidates_v<CancelableStop<FilterRateStop>>);
+        static_assert(!counts_total_candidates_v<
+                      CancelableStop<svs::index::vamana::DefaultStop>>);
+
+        bool cancelled = false;
+        size_t calls = 0;
+        auto cancel = svs::lib::DefaultPredicate{[&]() {
+            ++calls;
+            return cancelled;
+        }};
+        using stop_type = CancelableStop<svs::index::vamana::DefaultStop>;
+        auto buffer = MutableBuffer<uint32_t, std::less<>, stop_type>{
+            SearchBufferConfig{2, 2}, std::less<>(), false, stop_type{{}, &cancel}};
+        for (uint32_t i = 0; i < 4; ++i) {
+            buffer.insert({i, static_cast<float>(i), i != 0});
+        }
+        CATCH_REQUIRE(!buffer.done());
+        CATCH_REQUIRE(calls == 1);
+        buffer.next();
+        cancelled = true;
+        CATCH_REQUIRE(buffer.done());
+
+        // The wrapped predicate takes precedence without consulting `cancel`.
+        cancelled = false;
+        buffer.next();
+        buffer.next();
+        calls = 0;
+        CATCH_REQUIRE(buffer.done());
+        CATCH_REQUIRE(calls == 0);
+    }
+
     CATCH_SECTION("Range Predicate") {
         // Window of 2: visit at least the 2 best valid, then while within the radius.
         using stop_type = svs::index::vamana::RangeStop<std::less<>>;

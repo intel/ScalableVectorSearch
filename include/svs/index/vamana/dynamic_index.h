@@ -789,7 +789,8 @@ class MutableVamanaIndex {
     ///     buffer unbounded, otherwise the capacity bounds the number of results.
     /// @param stop The stop predicate invoked by the search buffer with a
     ///     ``MutableBufferState``. The search terminates when it returns ``true`` or when
-    ///     no unvisited candidate is left.
+    ///     no unvisited candidate is left. Wrap it in ``CancelableStop`` to support
+    ///     cancellation, e.g. on timeout.
     ///
     template <typename Stop>
     predicated_scratchspace_type<Stop>
@@ -808,22 +809,19 @@ class MutableVamanaIndex {
     /// @brief Search for a single query, terminating with the scratchspace stop predicate.
     ///
     /// After the call, ``scratch.buffer`` holds the valid results with internal IDs, sorted
-    /// from best to worst.
+    /// from best to worst. Cancellation is up to the stop predicate (see
+    /// ``CancelableStop``); a cancelled search keeps the best results found so far.
     ///
     template <typename Query, typename Stop>
-    void predicated_search(
-        const Query& query,
-        predicated_scratchspace_type<Stop>& scratch,
-        const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>())
-    ) const {
+    void predicated_search(const Query& query, predicated_scratchspace_type<Stop>& scratch)
+        const {
         extensions::single_search(
             data_,
             scratch.buffer,
             scratch.scratch,
             query,
-            greedy_search_closure(scratch.prefetch_parameters, cancel),
-            *this,
-            cancel
+            stop_search_closure(scratch.prefetch_parameters),
+            *this
         );
     }
 
@@ -832,6 +830,9 @@ class MutableVamanaIndex {
     ///
     /// Up to ``results.n_neighbors()`` results with external IDs are stored per query.
     /// Missing results are padded with sentinel neighbors.
+    ///
+    /// Once ``cancel`` returns ``true``, searches in flight stop at their next hop and keep
+    /// the best results found so far, and queries not yet started get only sentinels.
     ///
     template <typename I, data::ImmutableMemoryDataset Queries, typename Stop>
     void predicated_search(
@@ -848,20 +849,26 @@ class MutableVamanaIndex {
             threadpool_,
             threads::StaticPartition{queries.size()},
             [&](const auto is, uint64_t SVS_UNUSED(tid)) {
-                auto scratch = predicated_scratchspace_type<Stop>{
-                    predicated_buffer_type<Stop>{
+                using stop_type = CancelableStop<Stop>;
+                auto scratch = predicated_scratchspace_type<stop_type>{
+                    predicated_buffer_type<stop_type>{
                         predicated_buffer_config(sp.buffer_config_, num_neighbors),
                         distance::comparator(distance_),
                         sp.search_buffer_visited_set_,
-                        stop},
+                        stop_type{stop, &cancel}},
                     extensions::single_search_setup(data_, distance_),
                     {sp.prefetch_lookahead_, sp.prefetch_step_}};
 
+                bool cancelled = false;
                 for (auto i : is) {
-                    if (cancel()) {
-                        return;
+                    cancelled = cancelled || cancel();
+                    if (cancelled) {
+                        for (size_t j = 0; j < num_neighbors; ++j) {
+                            results.set(sentinel, i, j);
+                        }
+                        continue;
                     }
-                    predicated_search(queries.get_datum(i), scratch, cancel);
+                    predicated_search(queries.get_datum(i), scratch);
 
                     const auto& buffer = scratch.buffer;
                     const size_t found = std::min(buffer.size(), num_neighbors);
@@ -895,7 +902,9 @@ class MutableVamanaIndex {
     /// @param radius The search radius.
     /// @param sp The search parameters. A zero total buffer capacity makes the number of
     ///     results per query unbounded, otherwise the capacity bounds it.
-    /// @param cancel Cancellation predicate.
+    /// @param cancel Cancellation predicate. Once it returns ``true``, searches in flight
+    ///     stop at their next hop and keep the in-radius results found so far, and queries
+    ///     not yet started return no results.
     ///
     /// @returns The neighbors with external IDs for each query, sorted from best to worst.
     ///
@@ -906,19 +915,20 @@ class MutableVamanaIndex {
         const search_parameters_type& sp,
         const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>())
     ) {
-        using stop_type = RangeStop<distance::compare_t<Dist>>;
+        using stop_type = CancelableStop<RangeStop<distance::compare_t<Dist>>>;
         const auto compare = distance::comparator(distance_);
         auto results = std::vector<std::vector<Neighbor<size_t>>>(queries.size());
         threads::parallel_for(
             threadpool_,
             threads::StaticPartition{queries.size()},
             [&](const auto is, uint64_t SVS_UNUSED(tid)) {
-                auto scratch = predicated_scratchspace(sp, stop_type{radius, compare});
+                auto scratch =
+                    predicated_scratchspace(sp, stop_type{{radius, compare}, &cancel});
                 for (auto i : is) {
                     if (cancel()) {
                         return;
                     }
-                    predicated_search(queries.get_datum(i), scratch, cancel);
+                    predicated_search(queries.get_datum(i), scratch);
 
                     auto& result = results[i];
                     for (const auto& neighbor : scratch.buffer) {
@@ -936,6 +946,26 @@ class MutableVamanaIndex {
     }
 
   private:
+    // Closure for searches cancelled through the search buffer stop predicate.
+    auto stop_search_closure(GreedySearchPrefetchParameters prefetch_parameters) const {
+        return [&, prefetch_parameters](
+                   const auto& query, auto& accessor, auto& distance, auto& buffer
+               ) {
+            greedy_search(
+                graph_,
+                data_,
+                accessor,
+                query,
+                distance,
+                buffer,
+                vamana::EntryPointInitializer<Idx>{lib::as_const_span(entry_point_)},
+                internal_search_builder(),
+                prefetch_parameters
+            );
+            buffer.cleanup();
+        };
+    }
+
     // Map search parameters to a buffer configuration for predicated search.
     static SearchBufferConfig
     predicated_buffer_config(const SearchBufferConfig& config, size_t min_capacity) {
