@@ -422,6 +422,9 @@ template <AVX_AVAILABILITY Avx> struct QEmdImpl {
         return unique_count;
     }
 
+  public:
+    // Public so gem_time (external timing harness) can benchmark decode-merge separately
+    // from compute; otherwise only called from compute()/compute_decoded() above.
     static size_t
     merge_duplicates(const float* ids, size_t n, gem_detail::MergeScratch& scratch) {
         scratch.ids.resize(n);
