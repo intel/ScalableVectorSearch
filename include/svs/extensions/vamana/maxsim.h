@@ -21,6 +21,7 @@
 #include "svs/core/distance/maxsim.h"
 #include "svs/index/vamana/extensions.h"
 #include "svs/lib/exception.h"
+#include "svs/lib/preprocessor.h"
 
 // stl
 #include <algorithm>
@@ -82,7 +83,7 @@ template <
         Distance& distance,
         const Query& query,
         const Search& search,
-        const Index& index,
+        const Index& SVS_UNUSED(index),
         const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>())
     ) {
     // `check_and_supplement_search_buffer` inserts candidates scored with the primary

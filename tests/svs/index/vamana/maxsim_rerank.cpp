@@ -93,6 +93,18 @@ struct MeanNegativeInnerProduct {
     }
 };
 
+} // namespace
+
+// MeanNegativeInnerProduct is IP-flavored (no triangle inequality), so pruning needs the
+// same strategy vamana_build.h picks for DistanceIP, not the default L2 one.
+namespace svs::index::vamana {
+template <> struct PruneStrategy<::MeanNegativeInnerProduct> {
+    using type = IterativePruneStrategy;
+};
+} // namespace svs::index::vamana
+
+namespace {
+
 void normalize(std::span<float> token) {
     double norm = 0.0;
     for (float v : token) {

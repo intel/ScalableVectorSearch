@@ -112,7 +112,9 @@ CATCH_TEST_CASE("MaxSim distance", "[distance][maxsim]") {
     }
 
     CATCH_SECTION("Asymmetry") {
-        TestVectorSet<float> a{{{1.0F, 0.0F}, {0.0F, 1.0F}, {0.0F, 1.0F}}};
+        // `a` has two tokens that each max out against `b`'s lone token, so swapping
+        // query/document sums over a different number of maxima (2 vs. 1).
+        TestVectorSet<float> a{{{1.0F, 0.0F}, {1.0F, 0.0F}}};
         TestVectorSet<float> b{{{1.0F, 0.0F}}};
         float score_ab = svs::distance::compute(svs::distance::MaxSim{}, a, b);
         float score_ba = svs::distance::compute(svs::distance::MaxSim{}, b, a);
