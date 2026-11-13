@@ -24,6 +24,7 @@
 
 #include <algorithm>
 #include <cstddef>
+#include <cstdint>
 #include <limits>
 #include <type_traits>
 #include <vector>
@@ -78,16 +79,81 @@ class PackedOperand {
                 buffer_[k * n + j] = static_cast<float>(svs::round_to_bfloat16(bj[k]));
             }
         }
+#if SVS_AMX_COMPILED_IN
+        // Only worth building when some TU in this binary can consume it (amx.cpp
+        // exists, SVS_AMX_COMPILED_IN) and the CPU/OS actually grant tile use; otherwise
+        // this would cost a few KiB and a scalar pass on every call for nothing.
+        if (svs::detail::amx_tile_bf16_available()) {
+            fill_tile_layout(b, n, d);
+        } else {
+            has_tile_layout_ = false;
+        }
+#endif
     }
 
     size_t n() const { return n_; }
     size_t d() const { return d_; }
     const float* data() const { return buffer_.data(); }
 
+    /// True only right after `pack_rounded_to_bf16` filled the AMX tile layout below;
+    /// `pack` never sets this, since its values are not rounded and the AMX kernel only
+    /// ever computes <bf16(a), bf16(b)>.
+    bool has_tile_layout() const { return has_tile_layout_; }
+
+    /// Pair-interleaved, transposed bf16 tile block for query-lane tile `nt` (16 lanes,
+    /// zero-padded past `n`) and d/2-pair tile `kt` (16 pairs, zero-padded past
+    /// ceil(d/2)): row `r`'s dword at lane `c` packs
+    /// (bf16(b[nt*16+c][2*(kt*16+r)]), bf16(b[nt*16+c][2*(kt*16+r)+1])) low/high, i.e.
+    /// exactly the `b` tile operand _tile_dpbf16ps expects (see maxsim.h's contract).
+    /// Valid only when `has_tile_layout()`; caller (amx.cpp) owns interpreting it.
+    const uint32_t* tile_block(size_t nt, size_t kt) const {
+        return tile_buffer_.data() + (nt * kp_tiles_ + kt) * kTileElements;
+    }
+    size_t n_tiles() const { return n_tiles_; }
+    size_t kp_tiles() const { return kp_tiles_; }
+
   private:
+    static constexpr size_t kTileElements = 16 * 16;
+
+    // Builds the tile-layout buffer described by tile_block() above. Zero-padding both
+    // the lane tail (n not a multiple of 16) and the pair tail (d odd, or not a multiple
+    // of 32) is safe here because B's padding only ever multiplies against A's real
+    // values and contributes 0; A's own out-of-bounds tail is handled separately, by the
+    // AMX kernel copying A's last partial k-chunk through a zero-padded stack buffer
+    // rather than reading past A's allocation.
+    void fill_tile_layout(const float* b, size_t n, size_t d) {
+        size_t kp = (d + 1) / 2;
+        n_tiles_ = (n + 15) / 16;
+        kp_tiles_ = (kp + 15) / 16;
+        tile_buffer_.assign(n_tiles_ * kp_tiles_ * kTileElements, uint32_t{0});
+        for (size_t j = 0; j < n; ++j) {
+            const float* bj = b + j * d;
+            size_t nt = j / 16;
+            size_t lane = j % 16;
+            for (size_t k = 0; k < d; ++k) {
+                size_t kp_idx = k / 2;
+                size_t kt = kp_idx / 16;
+                size_t row = kp_idx % 16;
+                uint32_t bits = static_cast<uint32_t>(svs::round_to_bfloat16(bj[k]).raw());
+                uint32_t* dword =
+                    &tile_buffer_[(nt * kp_tiles_ + kt) * kTileElements + row * 16 + lane];
+                if (k % 2 == 0) {
+                    *dword = (*dword & 0xFFFF0000u) | bits;
+                } else {
+                    *dword = (*dword & 0x0000FFFFu) | (bits << 16);
+                }
+            }
+        }
+        has_tile_layout_ = true;
+    }
+
     std::vector<float> buffer_;
     size_t n_ = 0;
     size_t d_ = 0;
+    std::vector<uint32_t> tile_buffer_;
+    size_t n_tiles_ = 0;
+    size_t kp_tiles_ = 0;
+    bool has_tile_layout_ = false;
 };
 
 /// Per-ISA kernel family for a large row-major A (m x d) against B, packed once into a
@@ -236,11 +302,46 @@ template <> struct InnerProductMatrixImpl<AVX_AVAILABILITY::AVX2> {
 };
 #endif
 
+// Declared (full member set, matching every other level) only inside amx.cpp, the one
+// TU compiled with -mamx-tile -mamx-bf16: SVS_AMX_TILE_BF16 reads *this TU's* compiler
+// macros, same per-TU pattern as SVS_AVX512_F/SVS_AVX2 above, not the build-wide
+// SVS_AMX_COMPILED_IN that PackedOperand reads. build_packed/column_max for float32 and
+// Float16 A, and for a BFloat16 A whose B was not packed with the tile layout, forward
+// to the AVX512 implementation (explicit forwarding in amx.cpp, one source of truth);
+// only a BFloat16 A against a tile-packed B runs the real tile kernel.
+SVS_VALIDATE_BOOL_ENV(SVS_AMX_TILE_BF16)
+#if SVS_AMX_TILE_BF16
+template <> struct InnerProductMatrixImpl<AVX_AVAILABILITY::AMX> {
+    SVS_NOINLINE static void
+    build_packed(const float* a, size_t m, const PackedOperand& b, float* out);
+    SVS_NOINLINE static void
+    build_packed(const svs::Float16* a, size_t m, const PackedOperand& b, float* out);
+    SVS_NOINLINE static void
+    build_packed(const svs::BFloat16* a, size_t m, const PackedOperand& b, float* out);
+    SVS_NOINLINE static void
+    build(const float* a, size_t m, const float* b, size_t n, size_t d, float* out);
+    SVS_NOINLINE static void
+    column_max(const float* a, size_t m, const PackedOperand& b, float* out);
+    SVS_NOINLINE static void
+    column_max(const svs::Float16* a, size_t m, const PackedOperand& b, float* out);
+    SVS_NOINLINE static void
+    column_max(const svs::BFloat16* a, size_t m, const PackedOperand& b, float* out);
+};
+#endif
+
 #endif // defined(__x86_64__)
 
 #if defined(__x86_64__)
 extern template struct InnerProductMatrixImpl<AVX_AVAILABILITY::AVX512>;
 extern template struct InnerProductMatrixImpl<AVX_AVAILABILITY::AVX2>;
+#endif
+// Gated on the build-wide SVS_AMX_COMPILED_IN, not __x86_64__ alone: when the compiler
+// lacks -march=sapphirerapids, amx.cpp is never built (cmake/multi-arch.cmake), so no TU
+// anywhere provides `template struct InnerProductMatrixImpl<AVX_AVAILABILITY::AMX>;`'s
+// definition; an unconditional `extern template` here would then be an unresolved symbol
+// at link time the moment anything calls InnerProductMatrix, not just when AMX runs.
+#if SVS_AMX_COMPILED_IN
+extern template struct InnerProductMatrixImpl<AVX_AVAILABILITY::AMX>;
 #endif
 
 /// Public entry points for the InnerProductMatrixImpl kernel family: the only place that
@@ -347,6 +448,19 @@ class InnerProductMatrix {
     // writes this exhaustive switch zero times of its own.
     template <typename F> static void dispatch(F&& f) {
         switch (select_isa()) {
+            case AVX_AVAILABILITY::AMX:
+                // select_isa() only returns AMX when SVS_AMX_COMPILED_IN (amx.cpp was
+                // built), so the symbol this case names exists only then; this case
+                // itself must stay unconditional so -Wswitch under -Werror still catches
+                // a 5th enumerator added later. Without SVS_AMX_COMPILED_IN this case is
+                // unreachable (select_isa() never returns it) and falls back to AVX512,
+                // never naming a specialization that cannot exist in this build.
+#if SVS_AMX_COMPILED_IN
+                f(std::integral_constant<AVX_AVAILABILITY, AVX_AVAILABILITY::AMX>{});
+#else
+                f(std::integral_constant<AVX_AVAILABILITY, AVX_AVAILABILITY::AVX512>{});
+#endif
+                return;
             case AVX_AVAILABILITY::AVX512:
                 f(std::integral_constant<AVX_AVAILABILITY, AVX_AVAILABILITY::AVX512>{});
                 return;
@@ -358,12 +472,22 @@ class InnerProductMatrix {
                 return;
         }
         // Exhaustive switch over AVX_AVAILABILITY's enumerators, no default: -Wswitch
-        // under -Werror turns a 4th enumerator added later into a compile error here,
+        // under -Werror turns a 5th enumerator added later into a compile error here,
         // rather than this call silently keeping today's dispatch.
         __builtin_unreachable();
     }
 
+    // AMX is checked first regardless of A's element type or B's packing: every
+    // InnerProductMatrixImpl<AMX> member handles "not actually usable for this call"
+    // itself (forwarding to AVX512), so this one-branch-per-call choice never needs to
+    // know the call's operand types. Gated on SVS_AMX_COMPILED_IN so a build that never
+    // compiled amx.cpp never returns an enumerator dispatch() cannot safely name.
     static AVX_AVAILABILITY select_isa() {
+#if SVS_AMX_COMPILED_IN
+        if (svs::detail::amx_tile_bf16_available()) {
+            return AVX_AVAILABILITY::AMX;
+        }
+#endif
         if (svs::detail::avx_runtime_flags.is_avx512f_supported()) {
             return AVX_AVAILABILITY::AVX512;
         }
