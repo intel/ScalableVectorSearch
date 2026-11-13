@@ -33,6 +33,7 @@
 #include <cstdint>
 #include <limits>
 #include <memory>
+#include <random>
 #include <type_traits>
 #include <utility>
 #include <vector>
@@ -53,6 +54,49 @@ std::shared_ptr<const CentroidTable> make_table(Ground ground) {
     return std::make_shared<const CentroidTable>(
         CentroidTable::from_centroids(centroids.data(), 4, 2, ground, 1)
     );
+}
+
+// K unit vectors of width dim, row-major: deterministic per (k, dim, seed) so the
+// from_centroids tiling test below is reproducible across runs.
+std::vector<float> random_unit_centroids(size_t k, size_t dim, uint32_t seed) {
+    std::mt19937 rng(seed);
+    std::normal_distribution<float> gauss(0.0F, 1.0F);
+    std::vector<float> flat(k * dim);
+    for (size_t i = 0; i < k; ++i) {
+        float* row = flat.data() + i * dim;
+        double norm2 = 0.0;
+        for (size_t d = 0; d < dim; ++d) {
+            row[d] = gauss(rng);
+            norm2 += static_cast<double>(row[d]) * row[d];
+        }
+        double norm = std::sqrt(norm2);
+        for (size_t d = 0; d < dim; ++d) {
+            row[d] = static_cast<float>(row[d] / norm);
+        }
+    }
+    return flat;
+}
+
+// Reference ground-cost table computed with double-precision dot products and the same
+// formula from_centroids applies, independent of InnerProductMatrix/tiling.
+std::vector<double>
+naive_ground_table(const std::vector<float>& flat, size_t k, size_t dim, Ground ground) {
+    std::vector<double> t(k * k, 0.0);
+    for (size_t i = 0; i < k; ++i) {
+        for (size_t j = 0; j < k; ++j) {
+            if (i == j) {
+                continue;
+            }
+            double dot = 0.0;
+            for (size_t d = 0; d < dim; ++d) {
+                dot += static_cast<double>(flat[i * dim + d]) * flat[j * dim + d];
+            }
+            t[i * k + j] = ground == Ground::Cos
+                               ? std::max(0.0, 1.0 - dot)
+                               : std::sqrt(std::max(0.0, 2.0 - 2.0 * dot));
+        }
+    }
+    return t;
 }
 
 // Owns a 1-D id vector set contiguously, for exercising QEmd/QChamfer/QChamferExactQuery's
@@ -117,6 +161,59 @@ CATCH_TEST_CASE("CentroidTable / FineCentroids", "[distance][gem]") {
         CATCH_REQUIRE(fc.dim == 2);
         CATCH_REQUIRE(fc.data[0] == 1.0F);
         CATCH_REQUIRE(fc.data[3] == 1.0F);
+    }
+}
+
+CATCH_TEST_CASE("CentroidTable::from_centroids tiling", "[distance][gem]") {
+    // K values exercising a single partial tile (1, 2, 7), a single full tile (255 off
+    // by one, 256 exact, 257 off by one), and several tiles (600); at a small (3) and a
+    // production (128) dimension, both ground distances, built with 1 and 4 threads.
+    for (size_t k :
+         {size_t{1},
+          size_t{2},
+          size_t{7},
+          size_t{255},
+          size_t{256},
+          size_t{257},
+          size_t{600}}) {
+        for (size_t dim : {size_t{3}, size_t{128}}) {
+            for (Ground ground : {Ground::Cos, Ground::L2}) {
+                auto flat = random_unit_centroids(
+                    k,
+                    dim,
+                    static_cast<uint32_t>(
+                        k * 1009 + dim * 31 + (ground == Ground::Cos ? 1 : 2)
+                    )
+                );
+                auto reference = naive_ground_table(flat, k, dim, ground);
+
+                auto one_thread =
+                    CentroidTable::from_centroids(flat.data(), k, dim, ground, 1);
+                auto four_threads =
+                    CentroidTable::from_centroids(flat.data(), k, dim, ground, 4);
+
+                for (size_t i = 0; i < k; ++i) {
+                    CATCH_REQUIRE(
+                        one_thread(static_cast<uint32_t>(i), static_cast<uint32_t>(i)) ==
+                        0.0F
+                    );
+                    for (size_t j = 0; j < k; ++j) {
+                        auto ui = static_cast<uint32_t>(i);
+                        auto uj = static_cast<uint32_t>(j);
+                        // Thread-count independence: bit for bit, not approximate.
+                        CATCH_REQUIRE(one_thread(ui, uj) == four_threads(ui, uj));
+                        // Exact symmetry by construction: bit for bit.
+                        CATCH_REQUIRE(one_thread(ui, uj) == one_thread(uj, ui));
+                        // Against a double-precision reference: summation order differs,
+                        // so only approximate agreement is expected.
+                        CATCH_REQUIRE(
+                            static_cast<double>(one_thread(ui, uj)) ==
+                            Catch::Approx(reference[i * k + j]).margin(1e-4)
+                        );
+                    }
+                }
+            }
+        }
     }
 }
 

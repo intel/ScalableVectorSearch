@@ -30,6 +30,7 @@
 #include "svs/core/distance/distance_core.h"
 #include "svs/core/distance/inner_product_matrix.h"
 #include "svs/lib/avx_detection.h"
+#include "svs/lib/misc.h"
 #include "svs/lib/preprocessor.h"
 #include "svs/lib/threads.h"
 
@@ -120,8 +121,14 @@ struct CentroidTable {
     }
 
     /// Computes T[i][j] = ground(c_i, c_j) from K row-major `dim`-wide centroids,
-    /// T[i][i] = 0. Parallelized over row blocks on `num_threads` threads; each thread's
-    /// first write to its row range is also its NUMA first-touch.
+    /// T[i][i] = 0. Symmetric by construction: each unordered pair {i, j} is computed
+    /// once, by the tile that owns it, and the same float is stored at T[i][j] and
+    /// T[j][i] (never two independently-computed dot products). Parallelized over tiles
+    /// on `num_threads` threads, dynamically scheduled so no two tiles ever write the
+    /// same cell; the result is bit-for-bit identical regardless of `num_threads`. Uses
+    /// an uninitialized allocation (see the private constructor below) and writes every
+    /// cell exactly once (off-diagonal tiles) or twice with the same value (diagonal
+    /// tiles' upper/lower halves), so no thread does a sequential full-matrix pass.
     static CentroidTable from_centroids(
         const float* centroids, size_t k, size_t dim, Ground ground, size_t num_threads
     ) {
@@ -129,32 +136,76 @@ struct CentroidTable {
         float* out = result.data.get();
         svs::threads::DefaultThreadPool pool(num_threads);
 
-        // Column block width: a block's centroid rows (col_block * dim * 4 bytes, 128 KiB
-        // at dim=128) stay resident in L2 while every row a thread owns sweeps over it.
-        constexpr size_t col_block = 256;
+        // Tile edge: an operand block (tile * dim * 4 bytes, 128 KiB at dim=128) and the
+        // tile buffer (tile * tile * 4 bytes, 256 KiB) together stay well inside a
+        // typical >=1 MiB per-core L2.
+        constexpr size_t tile = 256;
+        // Tiles per dynamic-partition steal: a few tiles amortize the atomic-counter
+        // fetch_add without starving the small tiles near the far column blocks.
+        constexpr size_t grain = 4;
+
+        size_t num_blocks = svs::lib::div_round_up(k, tile);
+
+        // Upper triangle of blocks, diagonal included: tile (bi, bj), bi <= bj, owns
+        // every unordered pair whose row falls in block bi and column in block bj. Built
+        // once so the uneven per-row-block tile count (row block 0 has num_blocks tiles,
+        // the last has one) can be load-balanced by a dynamic partition over this list
+        // rather than a static partition over rows.
+        struct BlockPair {
+            uint32_t bi;
+            uint32_t bj;
+        };
+        std::vector<BlockPair> tiles;
+        tiles.reserve(num_blocks * (num_blocks + 1) / 2);
+        for (uint32_t bi = 0; bi < num_blocks; ++bi) {
+            for (uint32_t bj = bi; bj < num_blocks; ++bj) {
+                tiles.push_back({bi, bj});
+            }
+        }
+
+        auto ground_cost = [ground](float dot) {
+            return ground == Ground::Cos ? std::max(0.0F, 1.0F - dot)
+                                         : std::sqrt(std::max(0.0F, 2.0F - 2.0F * dot));
+        };
 
         svs::threads::parallel_for(
             pool,
-            svs::threads::StaticPartition(k),
-            [&](const auto& row_ids, uint64_t /*tid*/) {
-                for (size_t i : row_ids) {
-                    const float* ci = centroids + i * dim;
-                    for (size_t jb = 0; jb < k; jb += col_block) {
-                        size_t jmax = std::min(jb + col_block, k);
-                        for (size_t j = jb; j < jmax; ++j) {
-                            if (i == j) {
+            svs::threads::DynamicPartition{tiles.size(), grain},
+            [&](const auto& tile_ids, uint64_t /*tid*/) {
+                // Reused across this thread's tiles: InnerProductMatrix::compute packs
+                // its own operand internally, so this buffer only holds the tile output.
+                thread_local std::vector<float> buf;
+                buf.resize(tile * tile);
+                for (size_t t : tile_ids) {
+                    auto [bi, bj] = tiles[t];
+                    size_t row0 = static_cast<size_t>(bi) * tile;
+                    size_t col0 = static_cast<size_t>(bj) * tile;
+                    size_t rows = std::min(tile, k - row0);
+                    size_t cols = std::min(tile, k - col0);
+                    InnerProductMatrix::compute(
+                        centroids + row0 * dim,
+                        rows,
+                        centroids + col0 * dim,
+                        cols,
+                        dim,
+                        buf.data()
+                    );
+                    bool diag = (bi == bj);
+                    for (size_t r = 0; r < rows; ++r) {
+                        size_t i = row0 + r;
+                        // Off-diagonal tiles (row and column blocks disjoint) own every
+                        // (r, c); diagonal tiles start at c == r to skip the lower half,
+                        // already owned by this same tile's (r, c) with roles swapped.
+                        size_t c_start = diag ? r : 0;
+                        for (size_t c = c_start; c < cols; ++c) {
+                            size_t j = col0 + c;
+                            if (diag && c == r) {
                                 out[i * k + j] = 0.0F;
                                 continue;
                             }
-                            const float* cj = centroids + j * dim;
-                            float dot = 0.0F;
-                            for (size_t d = 0; d < dim; ++d) {
-                                dot += ci[d] * cj[d];
-                            }
-                            out[i * k + j] =
-                                ground == Ground::Cos
-                                    ? std::max(0.0F, 1.0F - dot)
-                                    : std::sqrt(std::max(0.0F, 2.0F - 2.0F * dot));
+                            float value = ground_cost(buf[r * cols + c]);
+                            out[i * k + j] = value;
+                            out[j * k + i] = value;
                         }
                     }
                 }
