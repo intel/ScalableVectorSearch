@@ -19,6 +19,7 @@
 
 // svs
 #include "svs/lib/avx_detection.h"
+#include "svs/lib/bfloat16.h"
 #include "svs/lib/float16.h"
 
 // catch2
@@ -27,7 +28,9 @@
 
 // stdlib
 #include <algorithm>
+#include <bit>
 #include <cstddef>
+#include <cstdint>
 #include <limits>
 #include <random>
 #include <vector>
@@ -269,6 +272,45 @@ std::vector<double> promote_float(const std::vector<float>& a) {
     return out;
 }
 
+// Rounds to nearest, ties to even (svs::round_to_bfloat16), not BFloat16's own truncating
+// constructor: this is what every bf16 row-overload test below checks the kernel against.
+std::vector<svs::BFloat16> to_bfloat16(const std::vector<float>& a) {
+    std::vector<svs::BFloat16> out(a.size());
+    for (size_t i = 0; i < a.size(); ++i) {
+        out[i] = svs::round_to_bfloat16(a[i]);
+    }
+    return out;
+}
+
+// Promotes a BFloat16 row-major matrix to double, so the reference is computed from the
+// values the kernel actually sees (post-rounding), not the pre-rounding floats.
+std::vector<double> promote_bfloat16(const std::vector<svs::BFloat16>& a) {
+    std::vector<double> out(a.size());
+    for (size_t i = 0; i < a.size(); ++i) {
+        out[i] = static_cast<double>(static_cast<float>(a[i]));
+    }
+    return out;
+}
+
+// Naive double-precision reference for the table form, out[i * n + j] = <a_i, b_j>, over
+// an already-promoted `a` so a narrow-type A's post-conversion values are what the
+// reference uses (shares `reference`'s role above, generalized to a non-float32 `a`).
+std::vector<double> reference_from_values(
+    const std::vector<double>& a, size_t m, const std::vector<float>& b, size_t n, size_t d
+) {
+    std::vector<double> out(m * n, 0.0);
+    for (size_t i = 0; i < m; ++i) {
+        for (size_t j = 0; j < n; ++j) {
+            double acc = 0.0;
+            for (size_t k = 0; k < d; ++k) {
+                acc += a[i * d + k] * static_cast<double>(b[j * d + k]);
+            }
+            out[i * n + j] = acc;
+        }
+    }
+    return out;
+}
+
 template <AVX_AVAILABILITY Avx> void check_column_max_float32_against_reference() {
     unsigned seed = 2000;
     for (size_t d : column_max_ds) {
@@ -300,6 +342,28 @@ template <AVX_AVAILABILITY Avx> void check_column_max_float16_against_reference(
                 InnerProductMatrixImpl<Avx>::column_max(a16.data(), m, packed, out.data());
                 require_close_vec(
                     out, reference_column_max(promote_float16(a16), m, b, n, d)
+                );
+            }
+        }
+    }
+}
+
+template <AVX_AVAILABILITY Avx> void check_column_max_bf16_against_reference() {
+    unsigned seed = 3500;
+    for (size_t d : column_max_ds) {
+        for (size_t m : column_max_ms) {
+            for (size_t n : column_max_ns) {
+                auto a = random_matrix(m, d, seed++);
+                auto a_bf16 = to_bfloat16(a);
+                auto b = random_matrix(n, d, seed++);
+                PackedOperand packed;
+                packed.pack(b.data(), n, d);
+                std::vector<float> out(n, -3.0F);
+                InnerProductMatrixImpl<Avx>::column_max(
+                    a_bf16.data(), m, packed, out.data()
+                );
+                require_close_vec(
+                    out, reference_column_max(promote_bfloat16(a_bf16), m, b, n, d)
                 );
             }
         }
@@ -356,6 +420,87 @@ template <AVX_AVAILABILITY Avx> void check_column_max_against_generic() {
                             .margin(1e-4)
                     );
                 }
+
+                auto a_bf16 = to_bfloat16(a);
+                std::vector<float> generic_out_bf16(n, -1.0F);
+                std::vector<float> isa_out_bf16(n, -2.0F);
+                InnerProductMatrixImpl<AVX_AVAILABILITY::NONE>::column_max(
+                    a_bf16.data(), m, packed, generic_out_bf16.data()
+                );
+                InnerProductMatrixImpl<Avx>::column_max(
+                    a_bf16.data(), m, packed, isa_out_bf16.data()
+                );
+                // Same reordering-only tolerance as the Float16 case above: BFloat16's
+                // widening is exact, so any difference here is summation order, not
+                // decode.
+                for (size_t j = 0; j < n; ++j) {
+                    CATCH_REQUIRE(
+                        static_cast<double>(isa_out_bf16[j]) ==
+                        Catch::Approx(static_cast<double>(generic_out_bf16[j]))
+                            .epsilon(2e-4)
+                            .margin(1e-4)
+                    );
+                }
+            }
+        }
+    }
+}
+
+template <AVX_AVAILABILITY Avx> void check_build_packed_narrow_against_reference() {
+    // Smaller shape set than column_max's: the table form's output scales as m * n, and
+    // this already exercises the row-block (8) and both SIMD lane-width (8, 16) tails.
+    unsigned seed = 6000;
+    for (size_t d : {1UL, 7UL, 128UL}) {
+        for (size_t m : {0UL, 1UL, 7UL, 9UL, 17UL}) {
+            for (size_t n : {1UL, 15UL, 17UL, 32UL}) {
+                auto a = random_matrix(m, d, seed++);
+                auto b = random_matrix(n, d, seed++);
+                PackedOperand packed;
+                packed.pack(b.data(), n, d);
+
+                auto a16 = to_float16(a);
+                std::vector<float> out16(m * n, -1.0F);
+                InnerProductMatrixImpl<Avx>::build_packed(
+                    a16.data(), m, packed, out16.data()
+                );
+                require_close(
+                    out16, reference_from_values(promote_float16(a16), m, b, n, d)
+                );
+
+                auto a_bf16 = to_bfloat16(a);
+                std::vector<float> out_bf16(m * n, -1.0F);
+                InnerProductMatrixImpl<Avx>::build_packed(
+                    a_bf16.data(), m, packed, out_bf16.data()
+                );
+                require_close(
+                    out_bf16, reference_from_values(promote_bfloat16(a_bf16), m, b, n, d)
+                );
+
+                // Against the generic (NONE) level, same tail shapes.
+                std::vector<float> generic16(m * n, -1.0F);
+                InnerProductMatrixImpl<AVX_AVAILABILITY::NONE>::build_packed(
+                    a16.data(), m, packed, generic16.data()
+                );
+                for (size_t idx = 0; idx < generic16.size(); ++idx) {
+                    CATCH_REQUIRE(
+                        static_cast<double>(out16[idx]) ==
+                        Catch::Approx(static_cast<double>(generic16[idx]))
+                            .epsilon(2e-4)
+                            .margin(1e-4)
+                    );
+                }
+                std::vector<float> generic_bf16(m * n, -1.0F);
+                InnerProductMatrixImpl<AVX_AVAILABILITY::NONE>::build_packed(
+                    a_bf16.data(), m, packed, generic_bf16.data()
+                );
+                for (size_t idx = 0; idx < generic_bf16.size(); ++idx) {
+                    CATCH_REQUIRE(
+                        static_cast<double>(out_bf16[idx]) ==
+                        Catch::Approx(static_cast<double>(generic_bf16[idx]))
+                            .epsilon(2e-4)
+                            .margin(1e-4)
+                    );
+                }
             }
         }
     }
@@ -369,6 +514,7 @@ CATCH_TEST_CASE(
 ) {
     check_column_max_float32_against_reference<AVX_AVAILABILITY::NONE>();
     check_column_max_float16_against_reference<AVX_AVAILABILITY::NONE>();
+    check_column_max_bf16_against_reference<AVX_AVAILABILITY::NONE>();
 }
 
 CATCH_TEST_CASE(
@@ -380,6 +526,7 @@ CATCH_TEST_CASE(
     }
     check_column_max_float32_against_reference<AVX_AVAILABILITY::AVX2>();
     check_column_max_float16_against_reference<AVX_AVAILABILITY::AVX2>();
+    check_column_max_bf16_against_reference<AVX_AVAILABILITY::AVX2>();
     check_column_max_against_generic<AVX_AVAILABILITY::AVX2>();
 }
 
@@ -392,7 +539,22 @@ CATCH_TEST_CASE(
     }
     check_column_max_float32_against_reference<AVX_AVAILABILITY::AVX512>();
     check_column_max_float16_against_reference<AVX_AVAILABILITY::AVX512>();
+    check_column_max_bf16_against_reference<AVX_AVAILABILITY::AVX512>();
     check_column_max_against_generic<AVX_AVAILABILITY::AVX512>();
+}
+
+CATCH_TEST_CASE(
+    "InnerProductMatrixImpl build_packed matches a naive reference for Float16 and "
+    "BFloat16 rows, every available level",
+    "[distance][inner_product_matrix]"
+) {
+    check_build_packed_narrow_against_reference<AVX_AVAILABILITY::NONE>();
+    if (svs::detail::avx_runtime_flags.is_avx2_supported()) {
+        check_build_packed_narrow_against_reference<AVX_AVAILABILITY::AVX2>();
+    }
+    if (svs::detail::avx_runtime_flags.is_avx512f_supported()) {
+        check_build_packed_narrow_against_reference<AVX_AVAILABILITY::AVX512>();
+    }
 }
 
 CATCH_TEST_CASE(
@@ -434,5 +596,124 @@ CATCH_TEST_CASE(
                 CATCH_REQUIRE(via_build == via_packed);
             }
         }
+    }
+}
+
+CATCH_TEST_CASE(
+    "InnerProductMatrix::compute_packed picks the same ISA result as "
+    "InnerProductMatrixImpl "
+    "for BFloat16 and Float16 rows",
+    "[distance][inner_product_matrix]"
+) {
+    unsigned seed = 7000;
+    for (size_t d : {1UL, 7UL, 128UL}) {
+        for (size_t m : {0UL, 1UL, 9UL, 17UL}) {
+            for (size_t n : {1UL, 17UL, 33UL}) {
+                auto a = random_matrix(m, d, seed++);
+                auto b = random_matrix(n, d, seed++);
+                PackedOperand packed;
+                packed.pack(b.data(), n, d);
+
+                // Same ISA-priority repetition as the float32 build_packed test above:
+                // InnerProductMatrix::select_isa() is private by design.
+                auto direct_bf16 = [&](const auto& av, std::vector<float>& out) {
+                    auto a_bf16 = to_bfloat16(a);
+                    if (svs::detail::avx_runtime_flags.is_avx512f_supported()) {
+                        InnerProductMatrixImpl<AVX_AVAILABILITY::AVX512>::build_packed(
+                            a_bf16.data(), m, packed, out.data()
+                        );
+                    } else if (svs::detail::avx_runtime_flags.is_avx2_supported()) {
+                        InnerProductMatrixImpl<AVX_AVAILABILITY::AVX2>::build_packed(
+                            a_bf16.data(), m, packed, out.data()
+                        );
+                    } else {
+                        InnerProductMatrixImpl<AVX_AVAILABILITY::NONE>::build_packed(
+                            a_bf16.data(), m, packed, out.data()
+                        );
+                    }
+                    (void)av;
+                };
+
+                auto a_bf16 = to_bfloat16(a);
+                std::vector<float> via_public(m * n, -1.0F);
+                InnerProductMatrix::compute_packed(
+                    a_bf16.data(), m, packed, via_public.data()
+                );
+                std::vector<float> via_direct(m * n, -2.0F);
+                direct_bf16(0, via_direct);
+                CATCH_REQUIRE(via_public == via_direct);
+
+                auto a16 = to_float16(a);
+                std::vector<float> via_public16(m * n, -1.0F);
+                InnerProductMatrix::compute_packed(
+                    a16.data(), m, packed, via_public16.data()
+                );
+                std::vector<float> via_direct16(m * n, -2.0F);
+                if (svs::detail::avx_runtime_flags.is_avx512f_supported()) {
+                    InnerProductMatrixImpl<AVX_AVAILABILITY::AVX512>::build_packed(
+                        a16.data(), m, packed, via_direct16.data()
+                    );
+                } else if (svs::detail::avx_runtime_flags.is_avx2_supported()) {
+                    InnerProductMatrixImpl<AVX_AVAILABILITY::AVX2>::build_packed(
+                        a16.data(), m, packed, via_direct16.data()
+                    );
+                } else {
+                    InnerProductMatrixImpl<AVX_AVAILABILITY::NONE>::build_packed(
+                        a16.data(), m, packed, via_direct16.data()
+                    );
+                }
+                CATCH_REQUIRE(via_public16 == via_direct16);
+            }
+        }
+    }
+}
+
+CATCH_TEST_CASE(
+    "PackedOperand::pack_rounded_to_bf16 rounds to nearest, ties to even",
+    "[distance][inner_product_matrix]"
+) {
+    CATCH_SECTION("Matches svs::round_to_bfloat16 over representative values") {
+        // Exact bf16 value, round-down, round-up, zeros of both signs, and the largest
+        // finite float32 (whose rounding overflows to bf16 infinity, exercised below).
+        std::vector<float> values{
+            1.0F,
+            0.1F,
+            -0.1F,
+            0.0F,
+            -0.0F,
+            100.25F,
+            -100.25F,
+            std::numeric_limits<float>::max(),
+            -std::numeric_limits<float>::max(),
+        };
+        PackedOperand packed;
+        packed.pack_rounded_to_bf16(values.data(), values.size(), 1);
+        for (size_t i = 0; i < values.size(); ++i) {
+            float expected = static_cast<float>(svs::round_to_bfloat16(values[i]));
+            CATCH_REQUIRE(packed.data()[i] == expected);
+        }
+    }
+
+    CATCH_SECTION("Exact halfway cases round to the even neighbor, checked bit for bit") {
+        // Both inputs discard exactly 0x8000 (the bf16 ULP's halfway point) below bit 16:
+        // the first's kept 16 bits are already even and must stay; the second's are odd
+        // and must round up to the next even value. This checks the rounding algorithm's
+        // bit pattern directly, not just self-consistency with svs::round_to_bfloat16.
+        float tie_even_stays = std::bit_cast<float>(uint32_t{0x3F808000});
+        float tie_odd_rounds_up = std::bit_cast<float>(uint32_t{0x3F818000});
+        std::vector<float> values{tie_even_stays, tie_odd_rounds_up};
+        PackedOperand packed;
+        packed.pack_rounded_to_bf16(values.data(), values.size(), 1);
+        CATCH_REQUIRE(std::bit_cast<uint32_t>(packed.data()[0]) == uint32_t{0x3F800000});
+        CATCH_REQUIRE(std::bit_cast<uint32_t>(packed.data()[1]) == uint32_t{0x3F820000});
+    }
+
+    CATCH_SECTION("Rounding float32's max overflows to signed infinity") {
+        std::vector<float> values{
+            std::numeric_limits<float>::max(), -std::numeric_limits<float>::max()};
+        PackedOperand packed;
+        packed.pack_rounded_to_bf16(values.data(), values.size(), 1);
+        CATCH_REQUIRE(packed.data()[0] == std::numeric_limits<float>::infinity());
+        CATCH_REQUIRE(packed.data()[1] == -std::numeric_limits<float>::infinity());
     }
 }

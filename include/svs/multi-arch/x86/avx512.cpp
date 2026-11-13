@@ -107,6 +107,158 @@ SVS_FORCE_INLINE __m512 reduce_max(const __m512* acc) {
     return _mm512_max_ps(_mm512_max_ps(m01, m23), _mm512_max_ps(m45, m67));
 }
 
+// Widens one 16-lane block of Float16 to float32 with AVX-512F's native half->single.
+SVS_FORCE_INLINE __m512 widen16(const svs::Float16* p) {
+    return _mm512_cvtph_ps(_mm256_loadu_epi16(p));
+}
+
+// Widens one 16-lane block of BFloat16 to float32: bfloat16 is already float32's high 16
+// bits, so this is a lossless zero-extend (cvtepu16_epi32, AVX-512F) into the top half of
+// each 32-bit lane (slli by 16), not a rounding conversion.
+SVS_FORCE_INLINE __m512 widen16(const svs::BFloat16* p) {
+    __m256i halfwords = _mm256_loadu_si256(reinterpret_cast<const __m256i*>(p));
+    return _mm512_castsi512_ps(_mm512_slli_epi32(_mm512_cvtepu16_epi32(halfwords), 16));
+}
+
+// Tail (< 16 lanes) widening for either 16-bit type: zero-pads through a stack buffer
+// sized by sizeof(T) (2 bytes for both Float16 and BFloat16), then reuses widen16. Uses a
+// plain memcpy rather than a masked load so BFloat16's tail needs nothing beyond
+// AVX-512F (Float16's masked load above already relies on AVX-512BW+VL for
+// _mm256_loadu_epi16, a preexisting requirement this does not widen).
+template <typename T> SVS_FORCE_INLINE __m512 widen16_tail(const T* p, size_t count) {
+    __m256i buffer = _mm256_setzero_si256();
+    std::memcpy(&buffer, p, count * sizeof(T));
+    return widen16(reinterpret_cast<const T*>(&buffer));
+}
+
+// Converts kRowBlock rows of `a` (T is Float16 or BFloat16) starting at row `i` into a
+// contiguous float32 scratch, 16 lanes at a time; shared by the table and column-max
+// forms below so either narrow type is widened in exactly one place.
+template <typename T>
+SVS_FORCE_INLINE void
+convert_row_block(const T* a, size_t i, size_t rows, size_t d, float* scratch) {
+    for (size_t r = 0; r < rows; ++r) {
+        const T* src = a + (i + r) * d;
+        float* dst = scratch + r * d;
+        size_t k = 0;
+        for (; k + 16 <= d; k += 16) {
+            _mm512_storeu_ps(dst + k, widen16(src + k));
+        }
+        if (k < d) {
+            size_t tail = d - k;
+            __mmask16 dmask = svs::create_mask<16>(svs::lib::MaybeStatic(tail));
+            _mm512_mask_storeu_ps(dst + k, dmask, widen16_tail(src + k, tail));
+        }
+    }
+}
+
+// Table form for a narrow-element A (Float16 or BFloat16): identical register-blocked
+// loop to the float32 build_packed above, sourced from a row-block converted to float32
+// by convert_row_block instead of `a` directly.
+template <typename T>
+void build_packed_narrow(const T* a, size_t m, const PackedOperand& b, float* out) {
+    size_t n = b.n();
+    size_t d = b.d();
+    if (m == 0 || n == 0) {
+        return;
+    }
+    constexpr size_t vl = 16;
+    const float* bt = b.data();
+    size_t full_lanes = n - n % vl;
+    __mmask16 tail_mask = svs::create_mask<vl>(svs::lib::MaybeStatic(n));
+
+    thread_local std::vector<float> scratch;
+    scratch.resize(kRowBlock * d);
+
+    for (size_t i = 0; i < m; i += kRowBlock) {
+        size_t rows = std::min(kRowBlock, m - i);
+        convert_row_block(a, i, rows, d, scratch.data());
+        const float* arow[kRowBlock];
+        float* orow[kRowBlock];
+        for (size_t r = 0; r < kRowBlock; ++r) {
+            arow[r] = scratch.data() + std::min(r, rows - 1) * d;
+        }
+        for (size_t r = 0; r < rows; ++r) {
+            orow[r] = out + (i + r) * n;
+        }
+
+        size_t j = 0;
+        for (; j < full_lanes; j += vl) {
+            __m512 acc[kRowBlock];
+            for (size_t r = 0; r < kRowBlock; ++r) {
+                acc[r] = _mm512_setzero_ps();
+            }
+            accumulate_full(arow, bt, n, d, j, acc);
+            for (size_t r = 0; r < rows; ++r) {
+                _mm512_storeu_ps(orow[r] + j, acc[r]);
+            }
+        }
+        if (j < n) {
+            __m512 acc[kRowBlock];
+            for (size_t r = 0; r < kRowBlock; ++r) {
+                acc[r] = _mm512_setzero_ps();
+            }
+            accumulate_tail(arow, bt, n, d, j, tail_mask, acc);
+            for (size_t r = 0; r < rows; ++r) {
+                _mm512_mask_storeu_ps(orow[r] + j, tail_mask, acc[r]);
+            }
+        }
+    }
+}
+
+// Column-max form for a narrow-element A (Float16 or BFloat16): same structure as
+// build_packed_narrow above, reduced through reduce_max instead of stored per row.
+template <typename T>
+void column_max_narrow(const T* a, size_t m, const PackedOperand& b, float* out) {
+    size_t n = b.n();
+    size_t d = b.d();
+    if (n == 0) {
+        return;
+    }
+    std::fill(out, out + n, -std::numeric_limits<float>::infinity());
+    if (m == 0) {
+        return;
+    }
+    constexpr size_t vl = 16;
+    const float* bt = b.data();
+    size_t full_lanes = n - n % vl;
+    __mmask16 tail_mask = svs::create_mask<vl>(svs::lib::MaybeStatic(n));
+
+    thread_local std::vector<float> scratch;
+    scratch.resize(kRowBlock * d);
+
+    for (size_t i = 0; i < m; i += kRowBlock) {
+        size_t rows = std::min(kRowBlock, m - i);
+        convert_row_block(a, i, rows, d, scratch.data());
+        const float* arow[kRowBlock];
+        for (size_t r = 0; r < kRowBlock; ++r) {
+            arow[r] = scratch.data() + std::min(r, rows - 1) * d;
+        }
+
+        size_t j = 0;
+        for (; j < full_lanes; j += vl) {
+            __m512 acc[kRowBlock];
+            for (size_t r = 0; r < kRowBlock; ++r) {
+                acc[r] = _mm512_setzero_ps();
+            }
+            accumulate_full(arow, bt, n, d, j, acc);
+            __m512 current = _mm512_loadu_ps(out + j);
+            _mm512_storeu_ps(out + j, _mm512_max_ps(reduce_max(acc), current));
+        }
+        if (j < n) {
+            __m512 acc[kRowBlock];
+            for (size_t r = 0; r < kRowBlock; ++r) {
+                acc[r] = _mm512_setzero_ps();
+            }
+            accumulate_tail(arow, bt, n, d, j, tail_mask, acc);
+            __m512 current = _mm512_maskz_loadu_ps(tail_mask, out + j);
+            _mm512_mask_storeu_ps(
+                out + j, tail_mask, _mm512_max_ps(reduce_max(acc), current)
+            );
+        }
+    }
+}
+
 } // namespace
 
 // Register-blocked micro-kernel: inner_product_matrix_row_block rows of A share one pass
@@ -159,6 +311,20 @@ void InnerProductMatrixImpl<AVX_AVAILABILITY::AVX512>::build_packed(
             }
         }
     }
+}
+
+// Table form for a Float16 A: see convert_row_block above for the shared widening.
+void InnerProductMatrixImpl<AVX_AVAILABILITY::AVX512>::build_packed(
+    const svs::Float16* a, size_t m, const PackedOperand& b, float* out
+) {
+    build_packed_narrow(a, m, b, out);
+}
+
+// Table form for a BFloat16 A: see convert_row_block above for the shared widening.
+void InnerProductMatrixImpl<AVX_AVAILABILITY::AVX512>::build_packed(
+    const svs::BFloat16* a, size_t m, const PackedOperand& b, float* out
+) {
+    build_packed_narrow(a, m, b, out);
 }
 
 // Packs B into a reused thread_local buffer: the table form repacks on every call (one
@@ -227,75 +393,19 @@ void InnerProductMatrixImpl<AVX_AVAILABILITY::AVX512>::column_max(
     }
 }
 
-// Float16 overload: converts one row-block (kRowBlock rows) of the document at a time
-// into a float32 scratch with the widest conversion AVX-512 offers (_mm512_cvtph_ps over
-// 16 halfs), then runs the identical float32 path above. Never branches on element type
-// per row: the scratch, not a per-row check, is what makes the two types the same kernel.
+// Float16 overload: see convert_row_block above for the shared widening (AVX-512F's
+// native 16-wide _mm512_cvtph_ps).
 void InnerProductMatrixImpl<AVX_AVAILABILITY::AVX512>::column_max(
     const svs::Float16* a, size_t m, const PackedOperand& b, float* out
 ) {
-    size_t n = b.n();
-    size_t d = b.d();
-    if (n == 0) {
-        return;
-    }
-    std::fill(out, out + n, -std::numeric_limits<float>::infinity());
-    if (m == 0) {
-        return;
-    }
-    constexpr size_t vl = 16;
-    const float* bt = b.data();
-    size_t full_lanes = n - n % vl;
-    __mmask16 tail_mask = svs::create_mask<vl>(svs::lib::MaybeStatic(n));
+    column_max_narrow(a, m, b, out);
+}
 
-    thread_local std::vector<float> scratch;
-    scratch.resize(kRowBlock * d);
-
-    for (size_t i = 0; i < m; i += kRowBlock) {
-        size_t rows = std::min(kRowBlock, m - i);
-        for (size_t r = 0; r < rows; ++r) {
-            const svs::Float16* src = a + (i + r) * d;
-            float* dst = scratch.data() + r * d;
-            size_t k = 0;
-            for (; k + 16 <= d; k += 16) {
-                _mm512_storeu_ps(dst + k, _mm512_cvtph_ps(_mm256_loadu_epi16(src + k)));
-            }
-            if (k < d) {
-                __mmask16 dmask = svs::create_mask<16>(svs::lib::MaybeStatic(d - k));
-                _mm512_mask_storeu_ps(
-                    dst + k,
-                    dmask,
-                    _mm512_cvtph_ps(_mm256_maskz_loadu_epi16(dmask, src + k))
-                );
-            }
-        }
-        const float* arow[kRowBlock];
-        for (size_t r = 0; r < kRowBlock; ++r) {
-            arow[r] = scratch.data() + std::min(r, rows - 1) * d;
-        }
-
-        size_t j = 0;
-        for (; j < full_lanes; j += vl) {
-            __m512 acc[kRowBlock];
-            for (size_t r = 0; r < kRowBlock; ++r) {
-                acc[r] = _mm512_setzero_ps();
-            }
-            accumulate_full(arow, bt, n, d, j, acc);
-            __m512 current = _mm512_loadu_ps(out + j);
-            _mm512_storeu_ps(out + j, _mm512_max_ps(reduce_max(acc), current));
-        }
-        if (j < n) {
-            __m512 acc[kRowBlock];
-            for (size_t r = 0; r < kRowBlock; ++r) {
-                acc[r] = _mm512_setzero_ps();
-            }
-            accumulate_tail(arow, bt, n, d, j, tail_mask, acc);
-            __m512 current = _mm512_maskz_loadu_ps(tail_mask, out + j);
-            _mm512_mask_storeu_ps(
-                out + j, tail_mask, _mm512_max_ps(reduce_max(acc), current)
-            );
-        }
-    }
+// BFloat16 overload: see convert_row_block above for the shared (exact) widening.
+void InnerProductMatrixImpl<AVX_AVAILABILITY::AVX512>::column_max(
+    const svs::BFloat16* a, size_t m, const PackedOperand& b, float* out
+) {
+    column_max_narrow(a, m, b, out);
 }
 
 } // namespace svs::distance

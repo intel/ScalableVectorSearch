@@ -105,6 +105,157 @@ SVS_FORCE_INLINE __m256 reduce_max(const __m256* acc) {
     return _mm256_max_ps(_mm256_max_ps(m01, m23), _mm256_max_ps(m45, m67));
 }
 
+// Widens one 8-lane block of Float16 to float32 with F16C's native half->single.
+SVS_FORCE_INLINE __m256 widen8(const svs::Float16* p) {
+    return _mm256_cvtph_ps(_mm_loadu_si128(reinterpret_cast<const __m128i*>(p)));
+}
+
+// Widens one 8-lane block of BFloat16 to float32: bfloat16 is already float32's high 16
+// bits, so this is a lossless zero-extend (cvtepu16_epi32) into the top half of each
+// 32-bit lane (slli by 16), not a rounding conversion.
+SVS_FORCE_INLINE __m256 widen8(const svs::BFloat16* p) {
+    __m128i halfwords = _mm_loadu_si128(reinterpret_cast<const __m128i*>(p));
+    return _mm256_castsi256_ps(_mm256_slli_epi32(_mm256_cvtepu16_epi32(halfwords), 16));
+}
+
+// Tail (< 8 lanes) widening for either 16-bit type: zero-pads through a stack buffer
+// sized by sizeof(T) (2 bytes for both Float16 and BFloat16), then reuses widen8.
+template <typename T> SVS_FORCE_INLINE __m256 widen8_tail(const T* p, uint8_t mask_bits) {
+    __m128i buffer = _mm_setzero_si128();
+    std::memcpy(&buffer, p, __builtin_popcount(mask_bits) * sizeof(T));
+    return widen8(reinterpret_cast<const T*>(&buffer));
+}
+
+// Converts kRowBlock rows of `a` (T is Float16 or BFloat16) starting at row `i` into a
+// contiguous float32 scratch, 8 lanes at a time; shared by the table and column-max forms
+// below so either narrow type is widened in exactly one place.
+template <typename T>
+SVS_FORCE_INLINE void
+convert_row_block(const T* a, size_t i, size_t rows, size_t d, float* scratch) {
+    for (size_t r = 0; r < rows; ++r) {
+        const T* src = a + (i + r) * d;
+        float* dst = scratch + r * d;
+        size_t k = 0;
+        for (; k + 8 <= d; k += 8) {
+            _mm256_storeu_ps(dst + k, widen8(src + k));
+        }
+        if (k < d) {
+            uint8_t dbits = svs::create_mask<8>(svs::lib::MaybeStatic(d - k));
+            __m256i dmask = _mm256_castps_si256(svs::simd::create_blend_mask_avx2(dbits));
+            _mm256_maskstore_ps(dst + k, dmask, widen8_tail(src + k, dbits));
+        }
+    }
+}
+
+// Table form for a narrow-element A (Float16 or BFloat16): identical register-blocked
+// loop to the float32 build_packed above, sourced from a row-block converted to float32
+// by convert_row_block instead of `a` directly.
+template <typename T>
+void build_packed_narrow(const T* a, size_t m, const PackedOperand& b, float* out) {
+    size_t n = b.n();
+    size_t d = b.d();
+    if (m == 0 || n == 0) {
+        return;
+    }
+    constexpr size_t vl = 8;
+    const float* bt = b.data();
+    size_t full_lanes = n - n % vl;
+    uint8_t tail_bits = svs::create_mask<vl>(svs::lib::MaybeStatic(n));
+    __m256i tail_mask = _mm256_castps_si256(svs::simd::create_blend_mask_avx2(tail_bits));
+
+    thread_local std::vector<float> scratch;
+    scratch.resize(kRowBlock * d);
+
+    for (size_t i = 0; i < m; i += kRowBlock) {
+        size_t rows = std::min(kRowBlock, m - i);
+        convert_row_block(a, i, rows, d, scratch.data());
+        const float* arow[kRowBlock];
+        float* orow[kRowBlock];
+        for (size_t r = 0; r < kRowBlock; ++r) {
+            arow[r] = scratch.data() + std::min(r, rows - 1) * d;
+        }
+        for (size_t r = 0; r < rows; ++r) {
+            orow[r] = out + (i + r) * n;
+        }
+
+        size_t j = 0;
+        for (; j < full_lanes; j += vl) {
+            __m256 acc[kRowBlock];
+            for (size_t r = 0; r < kRowBlock; ++r) {
+                acc[r] = _mm256_setzero_ps();
+            }
+            accumulate_full(arow, bt, n, d, j, acc);
+            for (size_t r = 0; r < rows; ++r) {
+                _mm256_storeu_ps(orow[r] + j, acc[r]);
+            }
+        }
+        if (j < n) {
+            __m256 acc[kRowBlock];
+            for (size_t r = 0; r < kRowBlock; ++r) {
+                acc[r] = _mm256_setzero_ps();
+            }
+            accumulate_tail(arow, bt, n, d, j, tail_mask, acc);
+            for (size_t r = 0; r < rows; ++r) {
+                _mm256_maskstore_ps(orow[r] + j, tail_mask, acc[r]);
+            }
+        }
+    }
+}
+
+// Column-max form for a narrow-element A (Float16 or BFloat16): same structure as
+// build_packed_narrow above, reduced through reduce_max instead of stored per row.
+template <typename T>
+void column_max_narrow(const T* a, size_t m, const PackedOperand& b, float* out) {
+    size_t n = b.n();
+    size_t d = b.d();
+    if (n == 0) {
+        return;
+    }
+    std::fill(out, out + n, -std::numeric_limits<float>::infinity());
+    if (m == 0) {
+        return;
+    }
+    constexpr size_t vl = 8;
+    const float* bt = b.data();
+    size_t full_lanes = n - n % vl;
+    uint8_t tail_bits = svs::create_mask<vl>(svs::lib::MaybeStatic(n));
+    __m256i tail_mask = _mm256_castps_si256(svs::simd::create_blend_mask_avx2(tail_bits));
+
+    thread_local std::vector<float> scratch;
+    scratch.resize(kRowBlock * d);
+
+    for (size_t i = 0; i < m; i += kRowBlock) {
+        size_t rows = std::min(kRowBlock, m - i);
+        convert_row_block(a, i, rows, d, scratch.data());
+        const float* arow[kRowBlock];
+        for (size_t r = 0; r < kRowBlock; ++r) {
+            arow[r] = scratch.data() + std::min(r, rows - 1) * d;
+        }
+
+        size_t j = 0;
+        for (; j < full_lanes; j += vl) {
+            __m256 acc[kRowBlock];
+            for (size_t r = 0; r < kRowBlock; ++r) {
+                acc[r] = _mm256_setzero_ps();
+            }
+            accumulate_full(arow, bt, n, d, j, acc);
+            __m256 current = _mm256_loadu_ps(out + j);
+            _mm256_storeu_ps(out + j, _mm256_max_ps(reduce_max(acc), current));
+        }
+        if (j < n) {
+            __m256 acc[kRowBlock];
+            for (size_t r = 0; r < kRowBlock; ++r) {
+                acc[r] = _mm256_setzero_ps();
+            }
+            accumulate_tail(arow, bt, n, d, j, tail_mask, acc);
+            __m256 current = _mm256_maskload_ps(out + j, tail_mask);
+            _mm256_maskstore_ps(
+                out + j, tail_mask, _mm256_max_ps(reduce_max(acc), current)
+            );
+        }
+    }
+}
+
 } // namespace
 
 // Same register-blocking as avx512.cpp's InnerProductMatrixImpl<AVX512>::build_packed, at
@@ -156,6 +307,20 @@ void InnerProductMatrixImpl<AVX_AVAILABILITY::AVX2>::build_packed(
             }
         }
     }
+}
+
+// Table form for a Float16 A: see convert_row_block above for the shared widening.
+void InnerProductMatrixImpl<AVX_AVAILABILITY::AVX2>::build_packed(
+    const svs::Float16* a, size_t m, const PackedOperand& b, float* out
+) {
+    build_packed_narrow(a, m, b, out);
+}
+
+// Table form for a BFloat16 A: see convert_row_block above for the shared widening.
+void InnerProductMatrixImpl<AVX_AVAILABILITY::AVX2>::build_packed(
+    const svs::BFloat16* a, size_t m, const PackedOperand& b, float* out
+) {
+    build_packed_narrow(a, m, b, out);
 }
 
 // See avx512.cpp's InnerProductMatrixImpl<AVX512>::build for why this packs into a
@@ -222,85 +387,20 @@ void InnerProductMatrixImpl<AVX_AVAILABILITY::AVX2>::column_max(
     }
 }
 
-// Float16 overload: converts one row-block of the document at a time into a float32
-// scratch using F16C's 8-wide _mm256_cvtph_ps (available because avx2.cpp is compiled
-// for the "haswell" arch in cmake/multi-arch.cmake, and Haswell carries F16C alongside
-// AVX2), then runs the identical float32 path above.
+// Float16 overload: see convert_row_block above for the shared widening (F16C's 8-wide
+// _mm256_cvtph_ps, available because avx2.cpp is compiled for the "haswell" arch in
+// cmake/multi-arch.cmake, and Haswell carries F16C alongside AVX2).
 void InnerProductMatrixImpl<AVX_AVAILABILITY::AVX2>::column_max(
     const svs::Float16* a, size_t m, const PackedOperand& b, float* out
 ) {
-    size_t n = b.n();
-    size_t d = b.d();
-    if (n == 0) {
-        return;
-    }
-    std::fill(out, out + n, -std::numeric_limits<float>::infinity());
-    if (m == 0) {
-        return;
-    }
-    constexpr size_t vl = 8;
-    const float* bt = b.data();
-    size_t full_lanes = n - n % vl;
-    uint8_t tail_bits = svs::create_mask<vl>(svs::lib::MaybeStatic(n));
-    __m256i tail_mask = _mm256_castps_si256(svs::simd::create_blend_mask_avx2(tail_bits));
+    column_max_narrow(a, m, b, out);
+}
 
-    thread_local std::vector<float> scratch;
-    scratch.resize(kRowBlock * d);
-
-    for (size_t i = 0; i < m; i += kRowBlock) {
-        size_t rows = std::min(kRowBlock, m - i);
-        for (size_t r = 0; r < rows; ++r) {
-            const svs::Float16* src = a + (i + r) * d;
-            float* dst = scratch.data() + r * d;
-            size_t k = 0;
-            for (; k + 8 <= d; k += 8) {
-                __m256 fv = _mm256_cvtph_ps(
-                    _mm_loadu_si128(reinterpret_cast<const __m128i*>(src + k))
-                );
-                _mm256_storeu_ps(dst + k, fv);
-            }
-            if (k < d) {
-                // Safe masked load: a full-width load could read past the row's last
-                // element, so only popcount(mask) halfs are copied into a zeroed buffer
-                // before conversion, mirroring simd_utils.h's ConvertToFloat<8> tail path.
-                uint8_t dbits = svs::create_mask<8>(svs::lib::MaybeStatic(d - k));
-                __m128i buffer = _mm_setzero_si128();
-                std::memcpy(
-                    &buffer, src + k, __builtin_popcount(dbits) * sizeof(svs::Float16)
-                );
-                __m256 fv = _mm256_cvtph_ps(buffer);
-                __m256i dmask =
-                    _mm256_castps_si256(svs::simd::create_blend_mask_avx2(dbits));
-                _mm256_maskstore_ps(dst + k, dmask, fv);
-            }
-        }
-        const float* arow[kRowBlock];
-        for (size_t r = 0; r < kRowBlock; ++r) {
-            arow[r] = scratch.data() + std::min(r, rows - 1) * d;
-        }
-
-        size_t j = 0;
-        for (; j < full_lanes; j += vl) {
-            __m256 acc[kRowBlock];
-            for (size_t r = 0; r < kRowBlock; ++r) {
-                acc[r] = _mm256_setzero_ps();
-            }
-            accumulate_full(arow, bt, n, d, j, acc);
-            __m256 current = _mm256_loadu_ps(out + j);
-            _mm256_storeu_ps(out + j, _mm256_max_ps(reduce_max(acc), current));
-        }
-        if (j < n) {
-            __m256 acc[kRowBlock];
-            for (size_t r = 0; r < kRowBlock; ++r) {
-                acc[r] = _mm256_setzero_ps();
-            }
-            accumulate_tail(arow, bt, n, d, j, tail_mask, acc);
-            __m256 current = _mm256_maskload_ps(out + j, tail_mask);
-            _mm256_maskstore_ps(
-                out + j, tail_mask, _mm256_max_ps(reduce_max(acc), current)
-            );
-        }
-    }
+// BFloat16 overload: see convert_row_block above for the shared (exact) widening.
+void InnerProductMatrixImpl<AVX_AVAILABILITY::AVX2>::column_max(
+    const svs::BFloat16* a, size_t m, const PackedOperand& b, float* out
+) {
+    column_max_narrow(a, m, b, out);
 }
 
 } // namespace svs::distance

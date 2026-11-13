@@ -18,6 +18,7 @@
 
 #include "svs/core/distance/distance_core.h"
 #include "svs/lib/avx_detection.h"
+#include "svs/lib/bfloat16.h"
 #include "svs/lib/float16.h"
 #include "svs/lib/preprocessor.h"
 
@@ -59,6 +60,26 @@ class PackedOperand {
         }
     }
 
+    /// Same contract and layout as `pack`, except every value is first rounded to
+    /// bfloat16 precision (round to nearest, ties to even) and stored back as float32.
+    /// The kernel itself only ever computes <a_i, b_j> on the values it is given,
+    /// unrounded; rounding B to the precision A is held at (bf16, see FineCentroids) is
+    /// the caller's choice of precision, made here rather than inside the kernel, so a
+    /// future caller that wants a different precision for B is never blocked by this one.
+    /// A scalar loop (not vectorized): at GEM's production shape this rounds ~4096
+    /// values per query, negligible next to the O(K * d) table build that follows.
+    void pack_rounded_to_bf16(const float* b, size_t n, size_t d) {
+        n_ = n;
+        d_ = d;
+        buffer_.resize(n * d);
+        for (size_t j = 0; j < n; ++j) {
+            const float* bj = b + j * d;
+            for (size_t k = 0; k < d; ++k) {
+                buffer_[k * n + j] = static_cast<float>(svs::round_to_bfloat16(bj[k]));
+            }
+        }
+    }
+
     size_t n() const { return n_; }
     size_t d() const { return d_; }
     const float* data() const { return buffer_.data(); }
@@ -82,27 +103,49 @@ class PackedOperand {
 /// * `column_max`: out[j] = max over i of <a_i, b_j>, i.e. the column-wise maximum of
 ///   that same table, computed with no table ever materialized.
 ///
-/// `column_max` is additionally overloaded on A's element type (float32 and
-/// svs::Float16); the Float16 overload converts one row-block of A at a time into a
-/// float32 scratch and runs the identical float32 path, so the two element types are
-/// never branched on per row.
+/// Both forms are additionally overloaded on A's element type (float32, svs::Float16 and
+/// svs::BFloat16); the narrow-type overloads convert one row-block of A at a time into a
+/// float32 scratch and run the identical float32 path, so no element type is ever branched
+/// on per row. BFloat16's widening is exact (it is float32's high 16 bits, zero-extended),
+/// so unlike Float16 there is no rounding question on A's side; B's precision for a
+/// BFloat16 A is the caller's choice, made by packing with
+/// `PackedOperand::pack_rounded_to_bf16` instead of `pack`.
 template <AVX_AVAILABILITY Avx> struct InnerProductMatrixImpl {
-    SVS_NOINLINE static void
-    build_packed(const float* a, size_t m, const PackedOperand& b, float* out) {
+    // Shared by every element type A can hold: float32 needs no conversion (the
+    // static_cast below is a no-op then), Float16/BFloat16 each widen losslessly to
+    // float32 per element. One shape, never a per-row branch on T.
+    template <typename T>
+    static void
+    build_packed_generic(const T* a, size_t m, const PackedOperand& b, float* out) {
         size_t n = b.n();
         size_t d = b.d();
         const float* bt = b.data();
         for (size_t i = 0; i < m; ++i) {
-            const float* ai = a + i * d;
+            const T* ai = a + i * d;
             float* row = out + i * n;
             for (size_t j = 0; j < n; ++j) {
                 float dot = 0.0F;
                 for (size_t k = 0; k < d; ++k) {
-                    dot += ai[k] * bt[k * n + j];
+                    dot += static_cast<float>(ai[k]) * bt[k * n + j];
                 }
                 row[j] = dot;
             }
         }
+    }
+
+    SVS_NOINLINE static void
+    build_packed(const float* a, size_t m, const PackedOperand& b, float* out) {
+        build_packed_generic(a, m, b, out);
+    }
+
+    SVS_NOINLINE static void
+    build_packed(const svs::Float16* a, size_t m, const PackedOperand& b, float* out) {
+        build_packed_generic(a, m, b, out);
+    }
+
+    SVS_NOINLINE static void
+    build_packed(const svs::BFloat16* a, size_t m, const PackedOperand& b, float* out) {
+        build_packed_generic(a, m, b, out);
     }
 
     // Packs B into a reused thread_local buffer so this keeps its no-allocation-per-call
@@ -143,6 +186,11 @@ template <AVX_AVAILABILITY Avx> struct InnerProductMatrixImpl {
     column_max(const svs::Float16* a, size_t m, const PackedOperand& b, float* out) {
         column_max_generic(a, m, b, out);
     }
+
+    SVS_NOINLINE static void
+    column_max(const svs::BFloat16* a, size_t m, const PackedOperand& b, float* out) {
+        column_max_generic(a, m, b, out);
+    }
 };
 
 #if defined(__x86_64__)
@@ -153,11 +201,17 @@ template <> struct InnerProductMatrixImpl<AVX_AVAILABILITY::AVX512> {
     SVS_NOINLINE static void
     build_packed(const float* a, size_t m, const PackedOperand& b, float* out);
     SVS_NOINLINE static void
+    build_packed(const svs::Float16* a, size_t m, const PackedOperand& b, float* out);
+    SVS_NOINLINE static void
+    build_packed(const svs::BFloat16* a, size_t m, const PackedOperand& b, float* out);
+    SVS_NOINLINE static void
     build(const float* a, size_t m, const float* b, size_t n, size_t d, float* out);
     SVS_NOINLINE static void
     column_max(const float* a, size_t m, const PackedOperand& b, float* out);
     SVS_NOINLINE static void
     column_max(const svs::Float16* a, size_t m, const PackedOperand& b, float* out);
+    SVS_NOINLINE static void
+    column_max(const svs::BFloat16* a, size_t m, const PackedOperand& b, float* out);
 };
 #endif
 
@@ -168,11 +222,17 @@ template <> struct InnerProductMatrixImpl<AVX_AVAILABILITY::AVX2> {
     SVS_NOINLINE static void
     build_packed(const float* a, size_t m, const PackedOperand& b, float* out);
     SVS_NOINLINE static void
+    build_packed(const svs::Float16* a, size_t m, const PackedOperand& b, float* out);
+    SVS_NOINLINE static void
+    build_packed(const svs::BFloat16* a, size_t m, const PackedOperand& b, float* out);
+    SVS_NOINLINE static void
     build(const float* a, size_t m, const float* b, size_t n, size_t d, float* out);
     SVS_NOINLINE static void
     column_max(const float* a, size_t m, const PackedOperand& b, float* out);
     SVS_NOINLINE static void
     column_max(const svs::Float16* a, size_t m, const PackedOperand& b, float* out);
+    SVS_NOINLINE static void
+    column_max(const svs::BFloat16* a, size_t m, const PackedOperand& b, float* out);
 };
 #endif
 
@@ -238,6 +298,45 @@ class InnerProductMatrix {
     column_max(const svs::Float16* a, size_t m, const PackedOperand& b, float* out) {
         dispatch([&](auto avx) {
             InnerProductMatrixImpl<decltype(avx)::value>::column_max(a, m, b, out);
+        });
+    }
+
+    /// Same contract as the float32 `column_max` above, for a svs::BFloat16 A.
+    static void
+    column_max(const svs::BFloat16* a, size_t m, const PackedOperand& b, float* out) {
+        dispatch([&](auto avx) {
+            InnerProductMatrixImpl<decltype(avx)::value>::column_max(a, m, b, out);
+        });
+    }
+
+    /// Dense inner-product table (same layout as `compute`) between a large row-major A
+    /// and an already-packed B, for an A element type other than float32. Unlike
+    /// `compute`, this takes a `PackedOperand` the caller packed itself, so the caller
+    /// controls B's precision (e.g. `PackedOperand::pack_rounded_to_bf16` for a bf16 A, so
+    /// every ISA level sees the same rounded values on both operands).
+    ///
+    /// @param a Row-major "A" operand, m rows of `b.d()` elements each.
+    /// @param m Number of rows of `a`. 0 is valid and leaves `out` untouched.
+    /// @param b A `PackedOperand` already packed by the caller, read but not modified.
+    /// @param out Row-major output buffer, caller-owned, at least m * b.n() floats.
+    static void
+    compute_packed(const svs::BFloat16* a, size_t m, const PackedOperand& b, float* out) {
+        if (m == 0 || b.n() == 0) {
+            return;
+        }
+        dispatch([&](auto avx) {
+            InnerProductMatrixImpl<decltype(avx)::value>::build_packed(a, m, b, out);
+        });
+    }
+
+    /// Same contract as `compute_packed` above, for a svs::Float16 A.
+    static void
+    compute_packed(const svs::Float16* a, size_t m, const PackedOperand& b, float* out) {
+        if (m == 0 || b.n() == 0) {
+            return;
+        }
+        dispatch([&](auto avx) {
+            InnerProductMatrixImpl<decltype(avx)::value>::build_packed(a, m, b, out);
         });
     }
 

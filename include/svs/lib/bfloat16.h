@@ -58,6 +58,19 @@ inline uint16_t float_to_bfloat16_untyped(const float x) {
     return lib::narrow<uint16_t>(u >> 16);
 }
 
+// Round-to-nearest-even truncation to bfloat16, as a uint16_t of the result's high half.
+// NaN is kept as NaN (never promoted to infinity by the rounding add) with its quiet bit
+// forced on, since x86 NaN payloads are not required to survive this truncation anyway.
+inline uint16_t float_to_bfloat16_rne_untyped(const float x) {
+    uint32_t u = bitcast_float_to_uint32(x);
+    if ((u & 0x7fffffffU) > 0x7f800000U) {
+        return lib::narrow<uint16_t>((u | 0x00400000U) >> 16);
+    }
+    uint32_t lsb = (u >> 16) & 1U;
+    u += 0x7fffU + lsb;
+    return lib::narrow<uint16_t>(u >> 16);
+}
+
 } // namespace detail
 
 // On GCC, we need to add this attribute so that BFloat16 members can appear inside
@@ -107,6 +120,14 @@ static_assert(std::is_standard_layout_v<BFloat16>);
 // like signed zeros.
 inline bool operator==(BFloat16 x, BFloat16 y) { return float{x} == float{y}; }
 
+// BFloat16's own constructor (above) truncates: it keeps the high 16 bits of `x` and
+// discards the rest with no rounding. This rounds to nearest, ties to even, instead; use
+// it wherever more than one caller needs the two to agree bit-for-bit (e.g. a kernel
+// operand rounded on one side and a centroid matrix rounded on the other).
+inline BFloat16 round_to_bfloat16(float x) {
+    return BFloat16::from_raw(detail::float_to_bfloat16_rne_untyped(x));
+}
+
 /////
 ///// Pretty Printing
 /////
@@ -114,6 +135,7 @@ inline bool operator==(BFloat16 x, BFloat16 y) { return float{x} == float{y}; }
 } // namespace bfloat16
 
 using BFloat16 = bfloat16::BFloat16;
+using bfloat16::round_to_bfloat16;
 
 // SVS local arithmetric trait.
 template <> inline constexpr bool is_arithmetic_v<BFloat16> = true;
