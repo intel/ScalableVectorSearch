@@ -227,26 +227,6 @@ struct MergeScratch {
     std::vector<double> weights;
 };
 
-// Shared by QChamferExactImpl's generic and per-ISA compute_decoded specializations
-// (GEM's code_distance, src/distance/maxsim.cpp:9-45) so the reduction is written once.
-inline float qchamfer_exact_reduce(
-    const float* table, size_t n_query, const uint32_t* doc_ids, size_t n_doc
-) {
-    thread_local std::vector<float> maxima;
-    maxima.assign(n_query, -std::numeric_limits<float>::infinity());
-    for (size_t j = 0; j < n_doc; ++j) {
-        const float* row = table + static_cast<size_t>(doc_ids[j]) * n_query;
-        for (size_t i = 0; i < n_query; ++i) {
-            maxima[i] = std::max(maxima[i], row[i]);
-        }
-    }
-    double total = 0.0;
-    for (size_t i = 0; i < n_query; ++i) {
-        total += 1.0 - static_cast<double>(maxima[i]);
-    }
-    return static_cast<float>(total / static_cast<double>(n_query));
-}
-
 // Casts a vector set's centroid ids to uint32_t with no merge; qCH counts duplicates.
 // Only instantiated for element types other than uint32_t (id_span's cast-copy branch).
 template <typename T>
@@ -420,11 +400,9 @@ template <AVX_AVAILABILITY Avx> struct QChamferImpl {
     }
 };
 
-// Dispatched like QChamferImpl. GEM never quantizes the query token side (src/search/
-// routing.cpp:55-61, src/distance/maxsim.cpp:9-45): QChamferExactQuery scores the raw
-// float query tokens against every fine centroid via InnerProductMatrix
-// (score_fine_centers), and compute_decoded reduces that table against the document's
-// quantized centroid ids (code_distance).
+// GEM never quantizes query tokens: QChamferExactQuery scores them via InnerProductMatrix.
+// compute_decoded reduces that table; no intrinsics, but still instantiated per ISA (not
+// specialized) like QEmdImpl, so no weak inline symbol is shared across -m flags.
 template <AVX_AVAILABILITY Avx> struct QChamferExactImpl {
     // GEM's code_distance (src/distance/maxsim.cpp:9-45): for each query token, the max
     // dot product to any of the document's (possibly repeated) centroid ids; final score
@@ -432,35 +410,21 @@ template <AVX_AVAILABILITY Avx> struct QChamferExactImpl {
     SVS_NOINLINE static float compute_decoded(
         const float* table, size_t n_query, const uint32_t* doc_ids, size_t n_doc
     ) {
-        return gem_detail::qchamfer_exact_reduce(table, n_query, doc_ids, n_doc);
+        thread_local std::vector<float> maxima;
+        maxima.assign(n_query, -std::numeric_limits<float>::infinity());
+        for (size_t j = 0; j < n_doc; ++j) {
+            const float* row = table + static_cast<size_t>(doc_ids[j]) * n_query;
+            for (size_t i = 0; i < n_query; ++i) {
+                maxima[i] = std::max(maxima[i], row[i]);
+            }
+        }
+        double total = 0.0;
+        for (size_t i = 0; i < n_query; ++i) {
+            total += 1.0 - static_cast<double>(maxima[i]);
+        }
+        return static_cast<float>(total / static_cast<double>(n_query));
     }
 };
-
-#if defined(__x86_64__)
-
-// Declared here, defined in avx512.cpp/avx2.cpp: without SVS_NOINLINE the caller would
-// inline the body at baseline flags; an explicit instantiation of an already-specialized
-// class is a no-op in GCC, so no other TU would get a symbol to link against otherwise.
-SVS_VALIDATE_BOOL_ENV(SVS_AVX512_F)
-#if SVS_AVX512_F
-template <> struct QChamferExactImpl<AVX_AVAILABILITY::AVX512> {
-    SVS_NOINLINE static float compute_decoded(
-        const float* table, size_t n_query, const uint32_t* doc_ids, size_t n_doc
-    );
-};
-#endif
-
-SVS_VALIDATE_BOOL_ENV(SVS_AVX512_F)
-SVS_VALIDATE_BOOL_ENV(SVS_AVX2)
-#if !SVS_AVX512_F && SVS_AVX2
-template <> struct QChamferExactImpl<AVX_AVAILABILITY::AVX2> {
-    SVS_NOINLINE static float compute_decoded(
-        const float* table, size_t n_query, const uint32_t* doc_ids, size_t n_doc
-    );
-};
-#endif
-
-#endif // defined(__x86_64__)
 
 #if defined(__x86_64__)
 extern template struct QEmdImpl<AVX_AVAILABILITY::AVX512>;

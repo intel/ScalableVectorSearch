@@ -60,12 +60,6 @@ template struct QChamferImpl<AVX_AVAILABILITY::AVX2>;
 template struct QChamferExactImpl<AVX_AVAILABILITY::AVX2>;
 template struct InnerProductMatrixImpl<AVX_AVAILABILITY::AVX2>;
 
-float QChamferExactImpl<AVX_AVAILABILITY::AVX2>::compute_decoded(
-    const float* table, size_t n_query, const uint32_t* doc_ids, size_t n_doc
-) {
-    return gem_detail::qchamfer_exact_reduce(table, n_query, doc_ids, n_doc);
-}
-
 // Same register-blocking as avx512.cpp's InnerProductMatrixImpl<AVX512>::build, at AVX2's
 // 8-wide registers; AVX2 has no masked load/store, so the tail lane-block uses
 // _mm256_maskload_ps/_mm256_maskstore_ps with an all-lanes blend mask built from the bit

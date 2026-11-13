@@ -60,12 +60,6 @@ template struct QChamferImpl<AVX_AVAILABILITY::AVX512>;
 template struct QChamferExactImpl<AVX_AVAILABILITY::AVX512>;
 template struct InnerProductMatrixImpl<AVX_AVAILABILITY::AVX512>;
 
-float QChamferExactImpl<AVX_AVAILABILITY::AVX512>::compute_decoded(
-    const float* table, size_t n_query, const uint32_t* doc_ids, size_t n_doc
-) {
-    return gem_detail::qchamfer_exact_reduce(table, n_query, doc_ids, n_doc);
-}
-
 // Register-blocked micro-kernel: inner_product_matrix_row_block rows of A share one pass
 // over a lane-block of B, giving that many independent FMA accumulator chains with no
 // horizontal reduction (each lane is one output), so the dependency-chain latency of a
