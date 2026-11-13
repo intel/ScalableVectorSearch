@@ -110,6 +110,7 @@ set(TEST_SOURCES
     ${TEST_DIR}/svs/core/data/serialization.cpp
     ${TEST_DIR}/svs/core/data/view.cpp
     ${TEST_DIR}/svs/core/data/vector_set_view.cpp
+    ${TEST_DIR}/svs/core/data/vector_set.cpp
     ${TEST_DIR}/svs/core/distance.cpp
     ${TEST_DIR}/svs/core/distances/simd_utils.cpp
     ${TEST_DIR}/svs/core/distances/distance_euclidean.cpp

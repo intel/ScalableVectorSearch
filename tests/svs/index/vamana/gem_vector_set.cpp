@@ -21,10 +21,14 @@
 #include "svs/extensions/vamana/gem.h"
 
 // svs
+#include "svs/core/data/vector_set.h"
 #include "svs/core/data/vector_set_view.h"
 #include "svs/core/graph.h"
 #include "svs/index/vamana/index.h"
 #include "svs/lib/threads.h"
+
+// tests
+#include "tests/utils/utils.h"
 
 // catch2
 #include "catch2/catch_approx.hpp"
@@ -35,6 +39,7 @@
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
+#include <filesystem>
 #include <limits>
 #include <memory>
 #include <random>
@@ -217,6 +222,92 @@ CATCH_TEST_CASE("Vamana build and search over a vector-set dataset", "[vamana][g
                            std::abs(entry.second - oracle[0].second) < 1e-5F;
                 });
             CATCH_REQUIRE(id_ties_for_best);
+        }
+    }
+}
+
+// Saves a VamanaIndex built over an owning VectorSetData<uint32_t, 1> and reassembles it
+// through `svs::index::vamana::auto_assemble` with `svs::VectorSetDataLoader`, the small
+// loader type that mirrors `svs::VectorDataLoader`. `auto_assemble` applies the saved
+// config via `VamanaIndex::apply` rather than `verify_and_set_default_index_parameters`
+// (index.h), so it never runs the L2/IP/Cosine distance-type check that forces the
+// build path above through `VamanaBuilder` directly: QChamfer hits no obstacle here.
+CATCH_TEST_CASE(
+    "Vamana save and reload over an owning vector-set dataset", "[vamana][gem]"
+) {
+    auto table = make_centroid_table(0xABCD);
+    svs::distance::QChamfer dist{table};
+
+    const size_t n_docs = 50;
+    auto corpus = make_corpus(n_docs, 0x1234);
+    auto queries = make_corpus(5, 0x5678);
+    auto query_view = queries.view();
+
+    // Owning takeover of the borrowed corpus, exactly the `copy_from` path a caller
+    // without its own ownable storage would use.
+    auto owning_sets = svs::data::VectorSetData<uint32_t, 1>::copy_from(corpus.view());
+
+    auto build_parameters =
+        svs::index::vamana::VamanaBuildParameters{1.2F, 16, 32, 64, 16, true};
+    const uint32_t entry_point = 0;
+
+    auto graph = svs::default_graph<uint32_t>(n_docs, build_parameters.graph_max_degree);
+    auto build_pool = svs::threads::DefaultThreadPool(1);
+    auto builder = svs::index::vamana::VamanaBuilder(
+        graph,
+        owning_sets,
+        dist,
+        build_parameters,
+        build_pool,
+        svs::index::vamana::extensions::estimate_prefetch_parameters(owning_sets)
+    );
+    builder.construct(build_parameters.alpha, entry_point);
+
+    auto pool = svs::threads::DefaultThreadPool(1);
+    auto index = svs::index::vamana::VamanaIndex(
+        std::move(graph), std::move(owning_sets), entry_point, dist, std::move(pool)
+    );
+
+    // The lower constructor above (required to dodge the L2/IP/Cosine check, as noted on
+    // the test case above) leaves `build_parameters_` at its default-constructed,
+    // placeholder-sentinel state; saving those sentinels overflows
+    // `VamanaBuildParameters::save`'s narrowing cast to a signed TOML integer. `apply`
+    // only assigns the fields below (it does not run the distance-type check), so it is
+    // the way to give the index real values to save.
+    index.apply(svs::index::vamana::VamanaIndexParameters{
+        entry_point, build_parameters, index.get_search_parameters()});
+
+    auto temp_directory = svs_test::prepare_temp_directory_v2();
+    auto config_dir = temp_directory / "config";
+    auto graph_dir = temp_directory / "graph";
+    auto data_dir = temp_directory / "data";
+    index.save(config_dir, graph_dir, data_dir);
+
+    auto reload_pool = svs::threads::DefaultThreadPool(1);
+    auto reloaded = svs::index::vamana::auto_assemble(
+        config_dir,
+        svs::GraphLoader<uint32_t>(graph_dir),
+        svs::VectorSetDataLoader<uint32_t, 1>(data_dir),
+        dist,
+        std::move(reload_pool)
+    );
+
+    const size_t capacity = n_docs;
+    auto sp = search_params(capacity, capacity);
+    auto scratch_before = index.scratchspace(sp);
+    auto scratch_after = reloaded.scratchspace(sp);
+
+    for (size_t q = 0; q < query_view.size(); ++q) {
+        auto query = query_view.get_datum(q);
+        index.search(query, scratch_before);
+        reloaded.search(query, scratch_after);
+
+        CATCH_REQUIRE(scratch_before.buffer.size() == scratch_after.buffer.size());
+        for (size_t j = 0; j < scratch_before.buffer.size(); ++j) {
+            CATCH_REQUIRE(scratch_before.buffer[j].id() == scratch_after.buffer[j].id());
+            CATCH_REQUIRE(
+                scratch_before.buffer[j].distance() == scratch_after.buffer[j].distance()
+            );
         }
     }
 }

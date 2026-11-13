@@ -34,6 +34,64 @@
 namespace svs {
 namespace data {
 
+namespace detail {
+
+///
+/// @brief Validate a CSR-style vector-set offsets array against the token storage it
+/// indexes into.
+///
+/// Shared by ``ConstVectorSetView`` and ``VectorSetData`` so the validation rules for the
+/// two cannot drift apart: ``offsets`` must be non-empty, start at 0, be non-decreasing,
+/// and its last entry (the total token count) must satisfy
+/// ``offsets.back() * dimensions == token_elements`` without overflowing ``size_t``. If
+/// ``Extent`` is static, ``dimensions`` must equal it.
+///
+template <size_t Extent>
+void validate_vector_set_layout(
+    std::span<const uint64_t> offsets, size_t token_elements, size_t dimensions
+) {
+    if (offsets.empty()) {
+        throw ANNEXCEPTION("Vector set offsets must be non-empty, got an empty span");
+    }
+    if (offsets.front() != 0) {
+        throw ANNEXCEPTION("Vector set offsets must start at 0, got {}", offsets.front());
+    }
+    for (size_t i = 1; i < offsets.size(); ++i) {
+        if (offsets[i] < offsets[i - 1]) {
+            throw ANNEXCEPTION(
+                "Vector set offsets must be non-decreasing, got {} after {}",
+                offsets[i],
+                offsets[i - 1]
+            );
+        }
+    }
+    size_t total_tokens = lib::narrow<size_t>(offsets.back());
+    if (dimensions != 0 && total_tokens > std::numeric_limits<size_t>::max() / dimensions) {
+        throw ANNEXCEPTION(
+            "Token count {} times dimensions {} overflows size_t!", total_tokens, dimensions
+        );
+    }
+    size_t expected_tokens = total_tokens * dimensions;
+    if (expected_tokens != token_elements) {
+        throw ANNEXCEPTION(
+            "Vector set offsets imply {} token elements but got {} token elements",
+            expected_tokens,
+            token_elements
+        );
+    }
+    if constexpr (Extent != Dynamic) {
+        if (dimensions != Extent) {
+            throw ANNEXCEPTION(
+                "Vector set view has static extent {} but got dimension {}",
+                Extent,
+                dimensions
+            );
+        }
+    }
+}
+
+} // namespace detail
+
 ///
 /// @brief Non-owning view of one vector set: a row-major, contiguous run of token
 /// vectors sharing a dimensionality.
@@ -99,49 +157,7 @@ template <typename T, size_t Extent = Dynamic> class ConstVectorSetView {
         : tokens_{tokens}
         , offsets_{offsets}
         , dimensions_{dimensions} {
-        if (offsets_.empty()) {
-            throw ANNEXCEPTION("Vector set offsets must be non-empty, got an empty span");
-        }
-        if (offsets_.front() != 0) {
-            throw ANNEXCEPTION(
-                "Vector set offsets must start at 0, got {}", offsets_.front()
-            );
-        }
-        for (size_t i = 1; i < offsets_.size(); ++i) {
-            if (offsets_[i] < offsets_[i - 1]) {
-                throw ANNEXCEPTION(
-                    "Vector set offsets must be non-decreasing, got {} after {}",
-                    offsets_[i],
-                    offsets_[i - 1]
-                );
-            }
-        }
-        size_t total_tokens = lib::narrow<size_t>(offsets_.back());
-        if (dimensions_ != 0 &&
-            total_tokens > std::numeric_limits<size_t>::max() / dimensions_) {
-            throw ANNEXCEPTION(
-                "Token count {} times dimensions {} overflows size_t!",
-                total_tokens,
-                dimensions_
-            );
-        }
-        size_t expected_tokens = total_tokens * dimensions_;
-        if (expected_tokens != tokens_.size()) {
-            throw ANNEXCEPTION(
-                "Vector set offsets imply {} token elements but got {} token elements",
-                expected_tokens,
-                tokens_.size()
-            );
-        }
-        if constexpr (Extent != Dynamic) {
-            if (dimensions_ != Extent) {
-                throw ANNEXCEPTION(
-                    "Vector set view has static extent {} but got dimension {}",
-                    Extent,
-                    dimensions_
-                );
-            }
-        }
+        detail::validate_vector_set_layout<Extent>(offsets_, tokens_.size(), dimensions_);
     }
 
     size_t size() const { return offsets_.size() - 1; }
