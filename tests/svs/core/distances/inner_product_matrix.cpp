@@ -24,15 +24,18 @@
 
 // catch2
 #include "catch2/catch_approx.hpp"
+#include "catch2/catch_message.hpp"
 #include "catch2/catch_test_macros.hpp"
 
 // stdlib
 #include <algorithm>
+#include <array>
 #include <bit>
 #include <cstddef>
 #include <cstdint>
 #include <limits>
 #include <random>
+#include <thread>
 #include <vector>
 
 namespace {
@@ -246,6 +249,43 @@ void require_close_vec(const std::vector<float>& got, const std::vector<double>&
     }
 }
 
+// AMX's tile grouping (16 pairs per k-chunk, two 16-lane tiles accumulated together)
+// reorders the sum differently from both the generic k-order loop and AVX-512's 8-row
+// register blocking; measured over every shape amx_ms/amx_ns/amx_ds below, that extra
+// reordering alone needs the same ~2x-of-observed tolerance already used for the
+// Float16/BFloat16 narrow-type comparisons above (check_column_max_against_generic),
+// not REL_EPS/ABS_EPS's tighter float32 bound.
+constexpr double AMX_REL_EPS = 2e-4;
+constexpr double AMX_ABS_EPS = 1e-4;
+
+void require_close_loose(
+    const std::vector<float>& got, const std::vector<double>& expected
+) {
+    CATCH_REQUIRE(got.size() == expected.size());
+    for (size_t i = 0; i < got.size(); ++i) {
+        CATCH_REQUIRE(
+            static_cast<double>(got[i]) ==
+            Catch::Approx(expected[i]).epsilon(AMX_REL_EPS).margin(AMX_ABS_EPS)
+        );
+    }
+}
+
+void require_close_vec_loose(
+    const std::vector<float>& got, const std::vector<double>& expected
+) {
+    CATCH_REQUIRE(got.size() == expected.size());
+    for (size_t i = 0; i < got.size(); ++i) {
+        if (expected[i] == -std::numeric_limits<double>::infinity()) {
+            CATCH_REQUIRE(got[i] == -std::numeric_limits<float>::infinity());
+        } else {
+            CATCH_REQUIRE(
+                static_cast<double>(got[i]) ==
+                Catch::Approx(expected[i]).epsilon(AMX_REL_EPS).margin(AMX_ABS_EPS)
+            );
+        }
+    }
+}
+
 std::vector<svs::Float16> to_float16(const std::vector<float>& a) {
     std::vector<svs::Float16> out(a.size());
     for (size_t i = 0; i < a.size(); ++i) {
@@ -288,6 +328,18 @@ std::vector<double> promote_bfloat16(const std::vector<svs::BFloat16>& a) {
     std::vector<double> out(a.size());
     for (size_t i = 0; i < a.size(); ++i) {
         out[i] = static_cast<double>(static_cast<float>(a[i]));
+    }
+    return out;
+}
+
+// Rounds to bf16 and back to float32, for building a reference against a B operand that
+// was packed with `pack_rounded_to_bf16`: that kernel sees bf16(b), not b, so a reference
+// comparing against the pre-rounding float would be wrong by bf16's own rounding error,
+// not by summation order.
+std::vector<float> to_bfloat16_as_float(const std::vector<float>& b) {
+    std::vector<float> out(b.size());
+    for (size_t i = 0; i < b.size(); ++i) {
+        out[i] = static_cast<float>(svs::round_to_bfloat16(b[i]));
     }
     return out;
 }
@@ -716,4 +768,269 @@ CATCH_TEST_CASE(
         CATCH_REQUIRE(packed.data()[0] == std::numeric_limits<float>::infinity());
         CATCH_REQUIRE(packed.data()[1] == -std::numeric_limits<float>::infinity());
     }
+}
+
+namespace {
+
+// Every tail an AMX tile hits: m crosses the 16-row tile boundary (0, 1, 15, 16, 17, 33,
+// 67, 180), n crosses the 16-lane tile boundary (1, 15, 16, 17, 32, 33), d crosses the
+// 32-element (16-pair) k-chunk boundary and parity (1, 2, 31, 32, 33, 64, 127, 128, 129).
+const std::vector<size_t> amx_ms{0, 1, 15, 16, 17, 33, 67, 180};
+const std::vector<size_t> amx_ns{1, 15, 16, 17, 32, 33};
+const std::vector<size_t> amx_ds{1, 2, 31, 32, 33, 64, 127, 128, 129};
+
+} // namespace
+
+CATCH_TEST_CASE(
+    "InnerProductMatrixImpl<AMX> build_packed matches a double-precision reference and "
+    "AVX-512, over every tail shape",
+    "[distance][inner_product_matrix][amx]"
+) {
+    if (!svs::detail::amx_tile_bf16_available()) {
+        return;
+    }
+    unsigned seed = 8000;
+    for (size_t d : amx_ds) {
+        for (size_t m : amx_ms) {
+            for (size_t n : amx_ns) {
+                auto a = random_matrix(m, d, seed++);
+                auto a_bf16 = to_bfloat16(a);
+                auto b = random_matrix(n, d, seed++);
+                // The kernel computes <bf16(a), bf16(b)>: the reference must round b too,
+                // not compare against the pre-rounding float values.
+                auto b_rounded = to_bfloat16_as_float(b);
+                PackedOperand packed;
+                packed.pack_rounded_to_bf16(b.data(), n, d);
+                CATCH_REQUIRE(packed.has_tile_layout());
+
+                CATCH_INFO("m=" << m << " n=" << n << " d=" << d);
+                std::vector<float> out_amx(m * n, -1.0F);
+                InnerProductMatrixImpl<AVX_AVAILABILITY::AMX>::build_packed(
+                    a_bf16.data(), m, packed, out_amx.data()
+                );
+                require_close_loose(
+                    out_amx,
+                    reference_from_values(promote_bfloat16(a_bf16), m, b_rounded, n, d)
+                );
+
+                std::vector<float> out_avx512(m * n, -2.0F);
+                InnerProductMatrixImpl<AVX_AVAILABILITY::AVX512>::build_packed(
+                    a_bf16.data(), m, packed, out_avx512.data()
+                );
+                for (size_t idx = 0; idx < out_amx.size(); ++idx) {
+                    CATCH_REQUIRE(
+                        static_cast<double>(out_amx[idx]) ==
+                        Catch::Approx(static_cast<double>(out_avx512[idx]))
+                            .epsilon(2e-4)
+                            .margin(1e-4)
+                    );
+                }
+            }
+        }
+    }
+}
+
+CATCH_TEST_CASE(
+    "InnerProductMatrixImpl<AMX> column_max matches a double-precision reference and "
+    "AVX-512, over every tail shape",
+    "[distance][inner_product_matrix][amx]"
+) {
+    if (!svs::detail::amx_tile_bf16_available()) {
+        return;
+    }
+    unsigned seed = 9000;
+    for (size_t d : amx_ds) {
+        for (size_t m : amx_ms) {
+            for (size_t n : amx_ns) {
+                auto a = random_matrix(m, d, seed++);
+                auto a_bf16 = to_bfloat16(a);
+                auto b = random_matrix(n, d, seed++);
+                auto b_rounded = to_bfloat16_as_float(b);
+                PackedOperand packed;
+                packed.pack_rounded_to_bf16(b.data(), n, d);
+                CATCH_REQUIRE(packed.has_tile_layout());
+
+                std::vector<float> out_amx(n, -3.0F);
+                InnerProductMatrixImpl<AVX_AVAILABILITY::AMX>::column_max(
+                    a_bf16.data(), m, packed, out_amx.data()
+                );
+                require_close_vec_loose(
+                    out_amx,
+                    reference_column_max(promote_bfloat16(a_bf16), m, b_rounded, n, d)
+                );
+
+                std::vector<float> out_avx512(n, -4.0F);
+                InnerProductMatrixImpl<AVX_AVAILABILITY::AVX512>::column_max(
+                    a_bf16.data(), m, packed, out_avx512.data()
+                );
+                for (size_t j = 0; j < n; ++j) {
+                    if (out_avx512[j] == -std::numeric_limits<float>::infinity()) {
+                        CATCH_REQUIRE(
+                            out_amx[j] == -std::numeric_limits<float>::infinity()
+                        );
+                    } else {
+                        CATCH_REQUIRE(
+                            static_cast<double>(out_amx[j]) ==
+                            Catch::Approx(static_cast<double>(out_avx512[j]))
+                                .epsilon(2e-4)
+                                .margin(1e-4)
+                        );
+                    }
+                }
+            }
+        }
+    }
+}
+
+CATCH_TEST_CASE(
+    "InnerProductMatrixImpl<AMX> forwards float32 and Float16 A to AVX-512 bit for bit",
+    "[distance][inner_product_matrix][amx]"
+) {
+    unsigned seed = 10000;
+    for (size_t d : {1UL, 7UL, 128UL, 129UL}) {
+        for (size_t m : {0UL, 1UL, 17UL, 33UL}) {
+            for (size_t n : {1UL, 17UL, 33UL}) {
+                auto a = random_matrix(m, d, seed++);
+                auto a16 = to_float16(a);
+                auto b = random_matrix(n, d, seed++);
+                PackedOperand packed;
+                packed.pack(b.data(), n, d);
+
+                std::vector<float> amx_f32(m * n, -1.0F), avx512_f32(m * n, -2.0F);
+                InnerProductMatrixImpl<AVX_AVAILABILITY::AMX>::build_packed(
+                    a.data(), m, packed, amx_f32.data()
+                );
+                InnerProductMatrixImpl<AVX_AVAILABILITY::AVX512>::build_packed(
+                    a.data(), m, packed, avx512_f32.data()
+                );
+                CATCH_REQUIRE(amx_f32 == avx512_f32);
+
+                std::vector<float> amx_f16(m * n, -1.0F), avx512_f16(m * n, -2.0F);
+                InnerProductMatrixImpl<AVX_AVAILABILITY::AMX>::build_packed(
+                    a16.data(), m, packed, amx_f16.data()
+                );
+                InnerProductMatrixImpl<AVX_AVAILABILITY::AVX512>::build_packed(
+                    a16.data(), m, packed, avx512_f16.data()
+                );
+                CATCH_REQUIRE(amx_f16 == avx512_f16);
+
+                std::vector<float> amx_cm(n, -1.0F), avx512_cm(n, -2.0F);
+                InnerProductMatrixImpl<AVX_AVAILABILITY::AMX>::column_max(
+                    a.data(), m, packed, amx_cm.data()
+                );
+                InnerProductMatrixImpl<AVX_AVAILABILITY::AVX512>::column_max(
+                    a.data(), m, packed, avx512_cm.data()
+                );
+                CATCH_REQUIRE(amx_cm == avx512_cm);
+
+                std::vector<float> via_build_amx(m * n, -1.0F),
+                    via_build_avx512(m * n, -2.0F);
+                InnerProductMatrixImpl<AVX_AVAILABILITY::AMX>::build(
+                    a.data(), m, b.data(), n, d, via_build_amx.data()
+                );
+                InnerProductMatrixImpl<AVX_AVAILABILITY::AVX512>::build(
+                    a.data(), m, b.data(), n, d, via_build_avx512.data()
+                );
+                CATCH_REQUIRE(via_build_amx == via_build_avx512);
+            }
+        }
+    }
+}
+
+CATCH_TEST_CASE(
+    "InnerProductMatrixImpl<AMX> falls back to AVX-512 bit for bit when B was not "
+    "packed with the tile layout",
+    "[distance][inner_product_matrix][amx]"
+) {
+    // PackedOperand::pack (not pack_rounded_to_bf16) never fills the tile layout, even
+    // when AMX is compiled in and available: it is the caller's signal "B is not
+    // rounded to bf16," and the AMX kernel only ever computes <bf16(a), bf16(b)>.
+    unsigned seed = 11000;
+    for (size_t d : {1UL, 7UL, 128UL, 129UL}) {
+        for (size_t m : {0UL, 1UL, 17UL, 33UL}) {
+            for (size_t n : {1UL, 17UL, 33UL}) {
+                auto a = random_matrix(m, d, seed++);
+                auto a_bf16 = to_bfloat16(a);
+                auto b = random_matrix(n, d, seed++);
+                PackedOperand packed;
+                packed.pack(b.data(), n, d);
+                CATCH_REQUIRE(!packed.has_tile_layout());
+
+                std::vector<float> amx_out(m * n, -1.0F), avx512_out(m * n, -2.0F);
+                InnerProductMatrixImpl<AVX_AVAILABILITY::AMX>::build_packed(
+                    a_bf16.data(), m, packed, amx_out.data()
+                );
+                InnerProductMatrixImpl<AVX_AVAILABILITY::AVX512>::build_packed(
+                    a_bf16.data(), m, packed, avx512_out.data()
+                );
+                CATCH_REQUIRE(amx_out == avx512_out);
+
+                std::vector<float> amx_cm(n, -1.0F), avx512_cm(n, -2.0F);
+                InnerProductMatrixImpl<AVX_AVAILABILITY::AMX>::column_max(
+                    a_bf16.data(), m, packed, amx_cm.data()
+                );
+                InnerProductMatrixImpl<AVX_AVAILABILITY::AVX512>::column_max(
+                    a_bf16.data(), m, packed, avx512_cm.data()
+                );
+                CATCH_REQUIRE(amx_cm == avx512_cm);
+            }
+        }
+    }
+}
+
+CATCH_TEST_CASE(
+    "svs::detail::amx_tile_bf16_available is consistent across concurrent threads",
+    "[distance][inner_product_matrix][amx]"
+) {
+    constexpr size_t num_threads = 8;
+    std::vector<std::thread> threads;
+    std::array<bool, num_threads> results{};
+    for (size_t t = 0; t < num_threads; ++t) {
+        threads.emplace_back([&results, t] {
+            results[t] = svs::detail::amx_tile_bf16_available();
+        });
+    }
+    for (auto& th : threads) {
+        th.join();
+    }
+    bool first = results[0];
+    for (bool r : results) {
+        CATCH_REQUIRE(r == first);
+    }
+    CATCH_REQUIRE(first == svs::detail::amx_tile_bf16_available());
+}
+
+CATCH_TEST_CASE(
+    "A thread started before AMX permission is ever requested can still run the AMX "
+    "kernel",
+    "[distance][inner_product_matrix][amx]"
+) {
+    if (!svs::detail::amx_tile_bf16_available()) {
+        return;
+    }
+    // This test only demonstrates the property if it runs before any other test case in
+    // this binary has already cached svs::detail::amx_tile_bf16_available()'s answer;
+    // Catch2 runs test cases in a fixed but unspecified order, so instead this spawns a
+    // thread that calls straight into the AMX kernel without itself calling
+    // amx_tile_bf16_available() first, which is the actual shape of the hazard: a worker
+    // thread in SVS's thread pool that never calls the detection function at all, relying
+    // only on whichever thread called it first (see fix_argument_decoded in gem.h).
+    size_t m = 17, n = 17, d = 70;
+    auto a = random_matrix(m, d, 12000);
+    auto a_bf16 = to_bfloat16(a);
+    auto b = random_matrix(n, d, 12001);
+    auto b_rounded = to_bfloat16_as_float(b);
+    PackedOperand packed;
+    packed.pack_rounded_to_bf16(b.data(), n, d);
+
+    std::vector<float> out(m * n, -1.0F);
+    std::thread worker([&] {
+        InnerProductMatrixImpl<AVX_AVAILABILITY::AMX>::build_packed(
+            a_bf16.data(), m, packed, out.data()
+        );
+    });
+    worker.join();
+    require_close_loose(
+        out, reference_from_values(promote_bfloat16(a_bf16), m, b_rounded, n, d)
+    );
 }
