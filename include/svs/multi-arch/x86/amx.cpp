@@ -67,6 +67,85 @@ struct TileGuard {
 // stringify to its identifier text, not a digit, and fail to assemble.
 enum Tmm : int { kTmmA = 0, kTmmB0 = 1, kTmmB1 = 2, kTmmAcc0 = 3, kTmmAcc1 = 4 };
 
+// gcc 11's _tile_loadd/_tile_stored/_tile_loadconfig macros expand to inline asm with no
+// memory operand and no clobber, so the optimizer believes they neither read nor write
+// memory: a plain C++ store just before a load, or a plain C++ read just after a store,
+// through the same address has no ordering guarantee and can be reordered around the
+// tile instruction (sunk store -> stale/garbage read; hoisted read -> stale/garbage
+// value), independent of any `volatile` on the asm itself (that only orders the asm
+// relative to *other* volatile operations, not to ordinary memory accesses). Every tile
+// memory access in this file goes through one of the wrappers below instead of the bare
+// intrinsic, so the dependency is a real operand or clobber the compiler understands
+// rather than an accident of how today's code generation happens to schedule things.
+// `_tile_zero`/`_tile_dpbf16ps`/`_tile_release` touch only tile *registers*, never
+// memory, so they keep using the compiler's intrinsics unwrapped.
+
+// Loads the 64-byte tile configuration from `cfg`, naming the whole struct as the
+// input memory this reads (not just a pointer-sized slice of it, which is what gcc's own
+// _tile_loadconfig macro's cast effectively does): every `cfg.rows[]`/`cfg.colsb[]` store
+// before this call is now visibly a dependency, not an accident of scheduling.
+inline void tile_loadconfig_safe(const TileConfig& cfg) {
+    __asm__ volatile("ldtilecfg\t%0" ::"m"(cfg));
+}
+
+// One generated function per literal tile number actually used: the mnemonic's register
+// is spelled into the asm text (`#tmm`), which gcc's own tile intrinsics require to be a
+// literal token, so a runtime tile-number parameter is not an option. Kept local to this
+// file: the macro only generates definitions used a few lines below it, nothing external
+// depends on it (include/svs/multi-arch/AGENTS.md's rule is about a macro whose defining
+// header is absent from a TU that uses it, which does not apply to a macro defined and
+// consumed in the same file).
+//
+// _strided takes a runtime stride (A's row pitch, which varies with `d`) and so cannot
+// name a compile-time memory extent; its "memory" clobber is a full barrier instead,
+// forcing every pending store to complete before the load and every cached value to be
+// re-read after it.
+#define SVS_AMX_DEFINE_TILE_LOADD_STRIDED(tmm)                                        \
+    inline void tile_loadd_tmm##tmm##_strided(const void* base, long stride) {        \
+        __asm__ volatile("{tileloadd\t(%0,%1,1), %%tmm" #tmm "|tileloadd\t%%tmm" #tmm \
+                         ", [%0+%1*1]}" ::"r"(base),                                  \
+                         "r"(stride)                                                  \
+                         : "memory");                                                 \
+    }
+
+// _fixed is for a source whose extent is a compile-time constant 1024 bytes (B's tile
+// blocks, always a full 16x64-byte tile; the local zero-padded tail buffer, likewise
+// 16x64 bytes): the dummy "m" operand (unused in the asm text) names that exact memory as
+// read, so the compiler orders this correctly against its last write without needing a
+// blanket barrier.
+#define SVS_AMX_DEFINE_TILE_LOADD_FIXED(tmm)                             \
+    inline void tile_loadd_tmm##tmm##_fixed(const void* base) {          \
+        __asm__ volatile(                                                \
+            "{tileloadd\t(%0,%1,1), %%tmm" #tmm "|tileloadd\t%%tmm" #tmm \
+            ", [%0+%1*1]}" ::"r"(base),                                  \
+            "r"(64L),                                                    \
+            "m"(*reinterpret_cast<const char(*)[1024]>(base))            \
+        );                                                               \
+    }
+
+// Stores are always to a caller-owned 16x16 fp32 buffer (1024 bytes, compile-time
+// constant): the dummy "=m" output operand tells the compiler this asm writes that
+// memory, so a later plain read of the same buffer is ordered after the store instead of
+// possibly being hoisted before it.
+#define SVS_AMX_DEFINE_TILE_STORED_FIXED(tmm)                                \
+    inline void tile_stored_tmm##tmm##_fixed(void* base) {                   \
+        __asm__ volatile("{tilestored\t%%tmm" #tmm                           \
+                         ", (%1,%2,1)|tilestored\t[%1+%2*1], %%tmm" #tmm "}" \
+                         : "=m"(*reinterpret_cast<char(*)[1024]>(base))      \
+                         : "r"(base), "r"(64L));                             \
+    }
+
+SVS_AMX_DEFINE_TILE_LOADD_STRIDED(0)
+SVS_AMX_DEFINE_TILE_LOADD_FIXED(0)
+SVS_AMX_DEFINE_TILE_LOADD_FIXED(1)
+SVS_AMX_DEFINE_TILE_LOADD_FIXED(2)
+SVS_AMX_DEFINE_TILE_STORED_FIXED(3)
+SVS_AMX_DEFINE_TILE_STORED_FIXED(4)
+
+#undef SVS_AMX_DEFINE_TILE_LOADD_STRIDED
+#undef SVS_AMX_DEFINE_TILE_LOADD_FIXED
+#undef SVS_AMX_DEFINE_TILE_STORED_FIXED
+
 void configure_tiles(uint8_t a_acc_rows) {
     TileConfig cfg;
     cfg.palette_id = 1;
@@ -82,7 +161,7 @@ void configure_tiles(uint8_t a_acc_rows) {
     cfg.colsb[kTmmB0] = 64;
     cfg.rows[kTmmB1] = 16;
     cfg.colsb[kTmmB1] = 64;
-    _tile_loadconfig(&cfg);
+    tile_loadconfig_safe(cfg);
 }
 
 // Computes the dot products of up to 16 rows of A (starting at `a_row0`, already known
@@ -111,11 +190,11 @@ void accumulate_group(
     }
     const auto* base = reinterpret_cast<const char*>(a_row0);
     for (size_t kt = 0; kt < full_k_chunks; ++kt) {
-        _tile_loadd(0, base + kt * 64, stride_bytes);
-        _tile_loadd(1, b.tile_block(nt0, kt), 64);
+        tile_loadd_tmm0_strided(base + kt * 64, static_cast<long>(stride_bytes));
+        tile_loadd_tmm1_fixed(b.tile_block(nt0, kt));
         _tile_dpbf16ps(3, 0, 1);
         if (has_nt1) {
-            _tile_loadd(2, b.tile_block(nt1, kt), 64);
+            tile_loadd_tmm2_fixed(b.tile_block(nt1, kt));
             _tile_dpbf16ps(4, 0, 2);
         }
     }
@@ -124,16 +203,11 @@ void accumulate_group(
         for (size_t r = 0; r < rows; ++r) {
             std::memcpy(tail[r], base + r * stride_bytes + full_k_chunks * 64, k_tail * 2);
         }
-        // _tile_loadd's asm has no memory operand or clobber, so nothing otherwise tells
-        // the optimizer the memcpy above must finish before this reads `tail`: without
-        // this barrier the store can be sunk past the load, observed as a silent
-        // zero/garbage read on this compiler.
-        __asm__ volatile("" ::: "memory");
-        _tile_loadd(0, tail, 64);
-        _tile_loadd(1, b.tile_block(nt0, full_k_chunks), 64);
+        tile_loadd_tmm0_fixed(tail);
+        tile_loadd_tmm1_fixed(b.tile_block(nt0, full_k_chunks));
         _tile_dpbf16ps(3, 0, 1);
         if (has_nt1) {
-            _tile_loadd(2, b.tile_block(nt1, full_k_chunks), 64);
+            tile_loadd_tmm2_fixed(b.tile_block(nt1, full_k_chunks));
             _tile_dpbf16ps(4, 0, 2);
         }
     }
@@ -171,14 +245,10 @@ void for_each_block(
             accumulate_group(
                 row0, rows, stride_bytes, full_k_chunks, k_tail, b, nt0, has_nt1, nt1
             );
-            _tile_stored(3, c0, 64);
+            tile_stored_tmm3_fixed(c0);
             if (has_nt1) {
-                _tile_stored(4, c1, 64);
+                tile_stored_tmm4_fixed(c1);
             }
-            // Same hazard as accumulate_group's tail load: _tile_stored's asm has no
-            // output memory operand, so without this barrier the optimizer is free to
-            // read c0/c1 in `emit` before the store above has actually run.
-            __asm__ volatile("" ::: "memory");
             emit(i, rows, nt0, has_nt1, nt1, c0, c1);
         }
     }
