@@ -771,6 +771,183 @@ class MutableVamanaIndex {
         translate_to_external(results.indices());
     }
 
+    ///// Predicated Search
+
+    /// The search buffer type terminating with the stop predicate `Stop`.
+    template <typename Stop>
+    using predicated_buffer_type = MutableBuffer<Idx, distance::compare_t<Dist>, Stop>;
+
+    /// The scratchspace type for ``predicated_search`` with the stop predicate `Stop`.
+    template <typename Stop>
+    using predicated_scratchspace_type =
+        SearchScratchspace<predicated_buffer_type<Stop>, inner_scratch_type>;
+
+    ///
+    /// @brief Return a scratchspace for ``predicated_search``.
+    ///
+    /// @param sp The search parameters. A zero total buffer capacity makes the search
+    ///     buffer unbounded, otherwise the capacity bounds the number of results.
+    /// @param stop The stop predicate invoked by the search buffer with a
+    ///     ``MutableBufferState``. The search terminates when it returns ``true`` or when
+    ///     no unvisited candidate is left.
+    ///
+    template <typename Stop>
+    predicated_scratchspace_type<Stop>
+    predicated_scratchspace(const search_parameters_type& sp, Stop stop) const {
+        return predicated_scratchspace_type<Stop>{
+            predicated_buffer_type<Stop>{
+                predicated_buffer_config(sp.buffer_config_, 0),
+                distance::comparator(distance_),
+                sp.search_buffer_visited_set_,
+                std::move(stop)},
+            extensions::single_search_setup(data_, distance_),
+            {sp.prefetch_lookahead_, sp.prefetch_step_}};
+    }
+
+    ///
+    /// @brief Search for a single query, terminating with the scratchspace stop predicate.
+    ///
+    /// After the call, ``scratch.buffer`` holds the valid results with internal IDs, sorted
+    /// from best to worst.
+    ///
+    template <typename Query, typename Stop>
+    void predicated_search(
+        const Query& query,
+        predicated_scratchspace_type<Stop>& scratch,
+        const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>())
+    ) const {
+        extensions::single_search(
+            data_,
+            scratch.buffer,
+            scratch.scratch,
+            query,
+            greedy_search_closure(scratch.prefetch_parameters, cancel),
+            *this,
+            cancel
+        );
+    }
+
+    ///
+    /// @brief Batch search terminating with the stop predicate `stop`.
+    ///
+    /// Up to ``results.n_neighbors()`` results with external IDs are stored per query.
+    /// Missing results are padded with sentinel neighbors.
+    ///
+    template <typename I, data::ImmutableMemoryDataset Queries, typename Stop>
+    void predicated_search(
+        QueryResultView<I> results,
+        const Queries& queries,
+        const search_parameters_type& sp,
+        const Stop& stop,
+        const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>())
+    ) {
+        using compare_type = distance::compare_t<Dist>;
+        constexpr auto sentinel = type_traits::sentinel_v<Neighbor<I>, compare_type>;
+        const size_t num_neighbors = results.n_neighbors();
+        threads::parallel_for(
+            threadpool_,
+            threads::StaticPartition{queries.size()},
+            [&](const auto is, uint64_t SVS_UNUSED(tid)) {
+                auto scratch = predicated_scratchspace_type<Stop>{
+                    predicated_buffer_type<Stop>{
+                        predicated_buffer_config(sp.buffer_config_, num_neighbors),
+                        distance::comparator(distance_),
+                        sp.search_buffer_visited_set_,
+                        stop},
+                    extensions::single_search_setup(data_, distance_),
+                    {sp.prefetch_lookahead_, sp.prefetch_step_}};
+
+                for (auto i : is) {
+                    if (cancel()) {
+                        return;
+                    }
+                    predicated_search(queries.get_datum(i), scratch, cancel);
+
+                    const auto& buffer = scratch.buffer;
+                    const size_t found = std::min(buffer.size(), num_neighbors);
+                    for (size_t j = 0; j < found; ++j) {
+                        const auto& neighbor = buffer[j];
+                        results.set(
+                            Neighbor<I>{
+                                lib::narrow_cast<I>(translate_internal_id(neighbor.id())),
+                                neighbor.distance()},
+                            i,
+                            j
+                        );
+                    }
+                    for (size_t j = found; j < num_neighbors; ++j) {
+                        results.set(sentinel, i, j);
+                    }
+                }
+            }
+        );
+    }
+
+    ///
+    /// @brief Return all neighbors within ``radius`` of each query.
+    ///
+    /// A neighbor at distance ``d`` is within the radius if ``compare(d, radius)`` for the
+    /// index comparator (e.g., ``d < radius`` for L2, ``d > radius`` for inner product).
+    /// The search visits at least the search window, then continues while the best
+    /// unvisited candidate is within the radius.
+    ///
+    /// @param queries The queries.
+    /// @param radius The search radius.
+    /// @param sp The search parameters. A zero total buffer capacity makes the number of
+    ///     results per query unbounded, otherwise the capacity bounds it.
+    /// @param cancel Cancellation predicate.
+    ///
+    /// @returns The neighbors with external IDs for each query, sorted from best to worst.
+    ///
+    template <data::ImmutableMemoryDataset Queries>
+    std::vector<std::vector<Neighbor<size_t>>> range_search(
+        const Queries& queries,
+        float radius,
+        const search_parameters_type& sp,
+        const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>())
+    ) {
+        using stop_type = RangeStop<distance::compare_t<Dist>>;
+        const auto compare = distance::comparator(distance_);
+        auto results = std::vector<std::vector<Neighbor<size_t>>>(queries.size());
+        threads::parallel_for(
+            threadpool_,
+            threads::StaticPartition{queries.size()},
+            [&](const auto is, uint64_t SVS_UNUSED(tid)) {
+                auto scratch = predicated_scratchspace(sp, stop_type{radius, compare});
+                for (auto i : is) {
+                    if (cancel()) {
+                        return;
+                    }
+                    predicated_search(queries.get_datum(i), scratch, cancel);
+
+                    auto& result = results[i];
+                    for (const auto& neighbor : scratch.buffer) {
+                        if (!compare(neighbor.distance(), radius)) {
+                            break;
+                        }
+                        result.emplace_back(
+                            translate_internal_id(neighbor.id()), neighbor.distance()
+                        );
+                    }
+                }
+            }
+        );
+        return results;
+    }
+
+  private:
+    // Map search parameters to a buffer configuration for predicated search.
+    static SearchBufferConfig
+    predicated_buffer_config(const SearchBufferConfig& config, size_t min_capacity) {
+        const size_t window = config.get_search_window_size();
+        const size_t capacity = config.get_total_capacity();
+        if (capacity == 0) {
+            return SearchBufferConfig{window, search_buffer_type::unbounded_capacity};
+        }
+        return SearchBufferConfig{window, std::max(capacity, min_capacity)};
+    }
+
+  public:
     ///
     /// @brief Return a unique instance of the distance function.
     ///

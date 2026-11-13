@@ -26,6 +26,7 @@
 #include <cstring>
 #include <functional>
 #include <iostream>
+#include <limits>
 #include <optional>
 #include <type_traits>
 #include <unordered_set>
@@ -33,12 +34,62 @@
 
 namespace svs::index::vamana {
 
+/// @brief Snapshot of the `MutableBuffer` search state passed to its stop predicate.
+///
+/// Only constructed when an unvisited candidate exists, so `best_unvisited_distance` is
+/// always the distance of a real candidate.
+struct MutableBufferState {
+    /// Number of valid candidates in the buffer, i.e. the results available to the user.
+    size_t valid;
+    /// Number of candidates, valid or not, offered to the buffer by `push_back()` or
+    /// `insert()` since the last `clear()`, including dropped ones.
+    /// Counted only if the stop predicate declares `counts_total_candidates = true`.
+    size_t total_candidates;
+    /// Number of valid candidates preceding the best unvisited one, all of them visited.
+    size_t valid_visited;
+    /// Distance of the best unvisited candidate to the query.
+    float best_unvisited_distance;
+    /// Target number of valid candidates (search window size).
+    size_t search_window;
+};
+
+/// @brief Whether the buffer must count all candidates for the stop predicate.
+template <typename Stop>
+inline constexpr bool counts_total_candidates_v =
+    requires { requires Stop::counts_total_candidates; };
+
+/// @brief Default stop predicate: done once the best `search_window` valid candidates
+/// have all been visited.
+struct DefaultStop {
+    constexpr bool operator()(const MutableBufferState& state) const {
+        return state.valid_visited >= state.search_window;
+    }
+};
+
+/// @brief Stop predicate for range search.
+///
+/// Visits at least the search window, then continues while the best unvisited candidate
+/// is within `radius`. A distance `d` is within the radius if `compare(d, radius)`.
+template <typename Cmp = std::less<>> struct RangeStop {
+    float radius;
+    [[no_unique_address]] Cmp compare{};
+
+    constexpr bool operator()(const MutableBufferState& state) const {
+        return state.valid_visited >= state.search_window &&
+               !compare(state.best_unvisited_distance, radius);
+    }
+};
+
 ///
 /// A search buffer that allows entries to be predicated out.
 /// The search buffer will still navigate through those entries, but it won't include
 /// them in its final result.
 ///
-template <typename Idx, typename Cmp = std::less<>> class MutableBuffer {
+/// The search terminates when no unvisited candidate is left or when the `Stop` predicate,
+/// invoked with a `MutableBufferState`, returns `true`.
+///
+template <typename Idx, typename Cmp = std::less<>, typename Stop = DefaultStop>
+class MutableBuffer {
   public:
     // Type Aliases
     using index_type = Idx;
@@ -46,6 +97,7 @@ template <typename Idx, typename Cmp = std::less<>> class MutableBuffer {
     using reference = value_type&;
     using const_reference = const value_type&;
     using compare_type = Cmp;
+    using stop_type = Stop;
 
     using vector_type = std::vector<value_type, threads::CacheAlignedAllocator<value_type>>;
     using iterator = typename vector_type::iterator;
@@ -53,6 +105,9 @@ template <typename Idx, typename Cmp = std::less<>> class MutableBuffer {
 
     /// A visited filter with 65,536 entries with a memory footprint of 128 kiB.
     using set_type = VisitedFilter<Idx, 16>;
+
+    /// Total capacity value that lets the buffer grow without bound.
+    static constexpr size_t unbounded_capacity = std::numeric_limits<size_t>::max();
 
   protected:
     ///// Invariants:
@@ -63,14 +118,10 @@ template <typename Idx, typename Cmp = std::less<>> class MutableBuffer {
     //    TODO: Enforce the first in `BufferConfig` as well.
     //
     // 2. best_unvisited_ <= size().
-    // 3. roi_end_ <= size().
+    // 3. `best_unvisited_` is the first unvisited entry (or `size()` if there is none).
     // 4. valid_ <= valid_capacity_;
     //
-    // 5. WHEN (5A): `valid_ < target_valid_` (haven't yet found enough valid neighbors)
-    //    THEN: `roi_end_ == size()`: Region of interest points to the end of the buffer.
-    //    ELSE (5B): `valid_ >= target_valid_`
-    //    THEN: The number of valid between the start of the buffer and `roi_end_ - 1` is
-    //          exactly `valid_`.
+    // 5. `valid_visited_` is the number of valid elements in `[0, best_unvisited_)`.
     //
     // 6. WHEN: `valid_ == valid_capacity_`
     //    THEN: `back()` must be valid.
@@ -85,8 +136,10 @@ template <typename Idx, typename Cmp = std::less<>> class MutableBuffer {
     size_t valid_capacity_ = 0;
     // Index of the best unvisited candidate.
     size_t best_unvisited_ = 0;
-    // One past the "target_valid_"th entry.
-    size_t roi_end_ = 0;
+    // Number of valid neighbors before `best_unvisited_`.
+    size_t valid_visited_ = 0;
+    // Number of candidates offered to the buffer.
+    size_t total_candidates_ = 0;
     // number of valid neighbors.
     size_t valid_ = 0;
     // A buffer of candidates.
@@ -95,27 +148,39 @@ template <typename Idx, typename Cmp = std::less<>> class MutableBuffer {
     vector_type candidates_{};
     // An optional visited filter.
     std::optional<set_type> visited_{std::nullopt};
+    [[no_unique_address]] Stop stop_{};
 
   public:
     MutableBuffer() = default;
 
     /// Construct a new buffer with the given buffer configuration.
     explicit MutableBuffer(
-        SearchBufferConfig config, Cmp compare = Cmp{}, bool enable_visited = false
+        SearchBufferConfig config,
+        Cmp compare = Cmp{},
+        bool enable_visited = false,
+        Stop stop = Stop{}
     )
         : compare_{std::move(compare)}
         , target_valid_{config.get_search_window_size()}
         , valid_capacity_{config.get_total_capacity()}
-        , candidates_{valid_capacity_} {
-        candidates_.clear();
+        , stop_{std::move(stop)} {
+        candidates_.reserve(
+            valid_capacity_ == unbounded_capacity ? target_valid_ : valid_capacity_
+        );
         if (enable_visited) {
             enable_visited_set();
         }
     }
 
     /// Construct a new buffer with the given size and capacity.
-    explicit MutableBuffer(size_t size, Cmp compare = Cmp{}, bool enable_visited = false)
-        : MutableBuffer{SearchBufferConfig{size}, std::move(compare), enable_visited} {}
+    explicit MutableBuffer(
+        size_t size, Cmp compare = Cmp{}, bool enable_visited = false, Stop stop = Stop{}
+    )
+        : MutableBuffer{
+              SearchBufferConfig{size},
+              std::move(compare),
+              enable_visited,
+              std::move(stop)} {}
 
     /// Estimate heap memory footprint of a search buffer with the given configuration.
     static constexpr size_t estimate_memory_footprint(
@@ -156,7 +221,7 @@ template <typename Idx, typename Cmp = std::less<>> class MutableBuffer {
     MutableBuffer shallow_copy() const {
         // We don't care about the contents of the buffer - just its size.
         // Therefore, we can construct a new buffer from scratch.
-        return MutableBuffer{config(), compare_, visited_set_enabled()};
+        return MutableBuffer{config(), compare_, visited_set_enabled(), stop_};
     }
 
     // TODO: Allow this construction to be noexcept.
@@ -183,6 +248,7 @@ template <typename Idx, typename Cmp = std::less<>> class MutableBuffer {
         // If the new capacity is lower then the current size, shrink the buffer to fit.
         if (valid_capacity_temp < candidates_.size()) {
             candidates_.resize(valid_capacity_temp);
+            restore_best_unvisited();
         }
 
         // Commit the new sizes. Integer assignment is `noexcept`, so we don't need to worry
@@ -198,7 +264,8 @@ template <typename Idx, typename Cmp = std::less<>> class MutableBuffer {
     void clear() {
         candidates_.clear();
         best_unvisited_ = 0;
-        roi_end_ = 0;
+        valid_visited_ = 0;
+        total_candidates_ = 0;
         valid_ = 0;
         if (visited_set_enabled()) {
             visited_->reset();
@@ -219,6 +286,7 @@ template <typename Idx, typename Cmp = std::less<>> class MutableBuffer {
         }
 
         best_unvisited_ = 0;
+        valid_visited_ = 0;
     }
 
     size_t capacity() const { return candidates_.capacity(); }
@@ -262,14 +330,28 @@ template <typename Idx, typename Cmp = std::less<>> class MutableBuffer {
     /// @brief Return the index of the best unvisited candidate.
     size_t best_unvisited() const { return best_unvisited_; }
 
+    /// @brief Return the number of valid candidates preceding the best unvisited one.
+    size_t valid_visited() const { return valid_visited_; }
+
+    /// @brief Return the number of candidates offered to the buffer since `clear()`.
+    /// Only counted for stop predicates that opt in.
+    size_t total_candidates() const { return total_candidates_; }
+
+    /// @brief Return the stop predicate.
+    const Stop& stop_predicate() const { return stop_; }
+
     /// @brief Return `true` if the search buffer has reached its terminating condition.
     ///
     /// N.B.: If `done()` evaluates to `true`, do not try to extract further candidates
     /// from it using `next()`.
     bool done() const {
-        // Until we've reached the target number of valid elements, we have to ignore
-        // the state of `roi_end_`.
-        return best_unvisited_ == ((valid() < target_valid_) ? size() : roi_end_);
+        return best_unvisited_ == size() ||
+               stop_(MutableBufferState{
+                   .valid = valid_,
+                   .total_candidates = total_candidates_,
+                   .valid_visited = valid_visited_,
+                   .best_unvisited_distance = candidates_[best_unvisited_].distance(),
+                   .search_window = target_valid_});
     }
 
     /// @brief Return the best unvisited neighbor in the buffer.
@@ -285,10 +367,18 @@ template <typename Idx, typename Cmp = std::less<>> class MutableBuffer {
         // Get the best unvisited node
         reference node = getindex(candidates_, best_unvisited_);
         node.set_visited();
+        valid_visited_ += static_cast<size_t>(node.valid());
 
         // Increment `best_unvisited_` until it's equal to the size OR until we encounter
         // an unvisited node.
-        while (++best_unvisited_ != roi_end_ && candidates_[best_unvisited_].visited()) {}
+        const size_t end = size();
+        while (++best_unvisited_ != end) {
+            const auto& candidate = candidates_[best_unvisited_];
+            if (!candidate.visited()) {
+                break;
+            }
+            valid_visited_ += static_cast<size_t>(candidate.valid());
+        }
         return node;
     }
 
@@ -305,6 +395,7 @@ template <typename Idx, typename Cmp = std::less<>> class MutableBuffer {
         // Follow the contract of not appending more valid elements than the capacity
         // allows.
         bool valid = neighbor.valid();
+        count_candidate();
         if (full() && valid) {
             return;
         }
@@ -312,7 +403,6 @@ template <typename Idx, typename Cmp = std::less<>> class MutableBuffer {
         if (valid) {
             ++valid_;
         }
-        roi_end_ = candidates_.size();
     }
 
     // Define iterators.
@@ -327,121 +417,25 @@ template <typename Idx, typename Cmp = std::less<>> class MutableBuffer {
     ///
     /// May invalidate any iterators for `candidates_`.
     ///
-    void unsafe_insert(value_type neighbor, iterator pos, size_t offset) {
+    void unsafe_insert(value_type neighbor, iterator pos) {
         // Insert the neighbor into the buffer.
         // The rest of this function fixes the invariants that got broken as a result
         // of this operation.
         candidates_.insert(pos, neighbor);
 
-        // Enough candidates for ROI to kick in (5B instead of 5A).
-        bool at_threshold = valid() == target_valid_;
-        bool this_valid = neighbor.valid();
-        // Is this candidate begin inserted before the end of the ROI.
-        bool inserted_below = offset < roi_end_;
-        if (valid() < target_valid_) {
-            // Maintain invariant 5A
-            roi_end_ = size();
-        } else if (at_threshold) {
-            // Several options:
-            // (1) This is the entry that causes us to cross the valid threshold. If so,
-            //     then we need to move `roi_end_` to the last valid entry;
-            // (2) We've previously crossed the threshold and this entry is skipped.
-            //     If this is the case, then we must bump `roi_end_` if this neighbor
-            //     is inserted below.
-            if (this_valid) {
-                assert(roi_end_ == size() - 1);
-                // Case 1: This neighbor caused us to cross the threshold.
-                //
-                // In this case, the `roi_end_` USED to point to one past the end.
-                // After the insertion, it points to the end exactly.
-                //
-                // To maintain 5B, move `roi_end_` backwards until a valid neighbor is
-                // reached, then increment by 1 to point to one-past the end.
-                while (!svs::getindex(candidates_, roi_end_).valid()) {
-                    --roi_end_;
-                }
-                ++roi_end_;
-            } else if (inserted_below) {
-                // Case 2: We've previously crossed the threshold and this neighbor is
-                // skipped.
-                //
-                // In this case, `roi_end_` used to point to one-past the last valid element
-                // (according to 5B).
-                //
-                // Since we inserted below (moving everything above by 1), we can restore
-                // 5B by incrementing `roi_end_`.
-                ++roi_end_;
-            }
-        } else {
-            // At this point - we are in split-buffer territory.
-            // We can assume that before the insertion, invariante 5B held.
-            //
-            // Therefore, we only need to fix 5B if we inserted below the previous
-            // `roi_end_`.
-            if (inserted_below) {
-                // Assert that 5B held prior to this invocation of `unsafe_insert`.
-                assert(candidates_.at(roi_end_).valid());
-
-                // If this neighbor is not valid, then the number of valid neighbors in
-                // `[0, roi_end_]` (with right inclusion) has not changed.
-                // We can restore 5B by incrementing `roi_end_`.
-                if (!this_valid) {
-                    ++roi_end_;
-                } else {
-                    // In this case, the number of neighbors in `[0, roi_end_`] (with
-                    // right inclusion) has been incremented by 1.
-                    //
-                    // We restore 5B by walking back until the next previous valid neighbor
-                    // is found, then step forward by 1 to point to one-past the end.
-                    while (!svs::getindex(candidates_, --roi_end_).valid()) {}
-                    ++roi_end_;
-                }
-            }
-        }
-
-        // Restore Invariant 6.
-        bool no_split_buffer = target_valid_ == valid_capacity_;
-        if (no_split_buffer) {
-            // When using 5A: the ROI already points to the end - so resizing does nothing.
-            // Furthermore, when using 5A, `valid() > target_valid_` is always false, so
-            // the branch is never taken.
-            //
-            // When using 5B: `roi_end_` points to one-past the `target_valid_`th entry
-            // Shrinking `candidates_` to `roi_end_` is valid
-            //
-            // Prior to this call to, invariants 4 and 7 must have held.
-            // Therefore, the side-effect of adding this neighbor increased the number of
-            // valid elements by at most 1 (i.e., `slack() <= 1`).
-            //
-            // From this, we deduce that the extra valid neighbor used to be located at or
-            // above `roi_end_` and was therefore implicitly dropped when shrinking
-            // `candidates_`.
-            candidates_.resize(roi_end_);
-            if (slack() > 0) {
-                assert(slack() == 1);
-                valid_ -= 1;
-            }
-        } else if (slack() == 0) {
-            // From invariant 7, we know `candidates_` contains `valid_` number of elements.
-            // We can restore invariant 6 simply by finding the last valid neighbor and
-            // resizing appropriately.
-            candidates_.resize(walk_back(candidates_.size() - 1) + 1);
-        } else if (slack() >= 0) {
-            // We know that invariant 6 must have held prior to this invocation of
-            // `unsafe_insert`.
-            //
-            // Therefore the last neighbor in `candidates_` is valid and must be dropped.
-            // We can restore invariant 6 by starting at this neighbor and walking back
-            // until the previous valid neighbor is found.
-            assert(slack() == 1);
+        // Restore Invariants 4 and 6.
+        if (valid_ > valid_capacity_) {
+            // Invariant 6 held prior to the insertion, so the last element is valid and is
+            // the one that must be dropped. Then walk back to the previous valid element.
+            assert(valid_ == valid_capacity_ + 1);
             assert(back().valid());
             candidates_.resize(walk_back(candidates_.size() - 2) + 1);
             //                                                ^
             //                                                |
             //                                    Not a typo. It should be "two".
-
-            // We dropped a valid element off the back when shrinking.
             valid_ -= 1;
+        } else if (valid_ == valid_capacity_) {
+            candidates_.resize(walk_back(candidates_.size() - 1) + 1);
         }
     }
 
@@ -453,6 +447,7 @@ template <typename Idx, typename Cmp = std::less<>> class MutableBuffer {
 
     /// Insert the given neighbor into the search buffer.
     size_t insert(value_type neighbor) {
+        count_candidate();
         if (can_skip(neighbor.distance())) {
             return size();
         }
@@ -497,9 +492,16 @@ template <typename Idx, typename Cmp = std::less<>> class MutableBuffer {
         // Note: Iterators *may* be invalidated as a result of `unsafe_insert`.
         // Hoist out the insertion position as an index before inserting.
         size_t i = pos - start;
+        if (i < best_unvisited_) {
+            // Maintain Invariant 5: the elements in `[i, best_unvisited_)` will no longer
+            // precede the best unvisited candidate.
+            for (size_t j = i; j < best_unvisited_; ++j) {
+                valid_visited_ -= static_cast<size_t>(candidates_[j].valid());
+            }
+            best_unvisited_ = i;
+        }
         valid_ += static_cast<size_t>(neighbor.valid());
-        unsafe_insert(neighbor, pos, i);
-        best_unvisited_ = std::min(best_unvisited_, i);
+        unsafe_insert(neighbor, pos);
         return i;
     }
 
@@ -510,46 +512,18 @@ template <typename Idx, typename Cmp = std::less<>> class MutableBuffer {
         // Put the elements in ascending order.
         std::sort(begin(), end(), compare_);
 
-        // Now - fix our invariants.
-        if (valid_ < target_valid_) {
-            // Maintain 5A
-            // Invariant 6 has not activated.
-            roi_end_ = size();
-            return;
-        }
-
-        // Maintain 5B
-        size_t valid_count = 0;
-        for (size_t i = 0; i < size(); ++i) {
-            if (candidates_[i].valid()) {
-                ++valid_count;
-                if (valid_count == target_valid_) {
-                    // One past the last valid element.
-                    roi_end_ = i + 1;
-                    break;
-                }
-            }
-        }
-
-        // TODO: Switch over to using iterators for the return values to avoid this.
-        // Maintain best_unvisited_ invariant
-        // cleanup() and std::sort() may invalidate best_unvisited_.
-        // so, have to lookup the next unvisited from scratch.
-        for (best_unvisited_ = 0; best_unvisited_ < roi_end_; ++best_unvisited_) {
-            if (!candidates_[best_unvisited_].visited()) {
-                break;
-            }
-        }
-
         // Check if invariant 6 is active.
         // If so, drop invalid elements off the end until a valid element is found.
-        if (slack() == 0) {
+        if (valid_ == valid_capacity_) {
             assert(!candidates_.empty());
             while (!back().valid()) {
                 candidates_.pop_back();
                 assert(!candidates_.empty());
             }
         }
+
+        // Sorting may move visited candidates anywhere, so recompute Invariants 3 and 5.
+        restore_best_unvisited();
     }
 
     // TODO: Switch over to using iterators for the return values to avoid this.
@@ -619,15 +593,27 @@ template <typename Idx, typename Cmp = std::less<>> class MutableBuffer {
     }
 
   protected:
-    /// Return how many more valid candidates exist than required.
-    /// If the number of valid candidates is *less* than the target, a negative number
-    /// is returned.
-    int64_t slack() const {
-        return lib::narrow_cast<int64_t>(valid()) -
-               lib::narrow_cast<int64_t>(target_capacity());
+    /// Recompute `best_unvisited_` and `valid_visited_` from scratch.
+    void restore_best_unvisited() {
+        valid_visited_ = 0;
+        const size_t end = size();
+        for (best_unvisited_ = 0; best_unvisited_ < end; ++best_unvisited_) {
+            const auto& candidate = candidates_[best_unvisited_];
+            if (!candidate.visited()) {
+                break;
+            }
+            valid_visited_ += static_cast<size_t>(candidate.valid());
+        }
     }
 
   private:
+    // Opt-in: this update is measurable in the hot insertion path.
+    void count_candidate() {
+        if constexpr (counts_total_candidates_v<Stop>) {
+            ++total_candidates_;
+        }
+    }
+
     /// Return the index of the first preceding valid candidate beginning at the provided
     /// index.
     ///
@@ -642,8 +628,8 @@ template <typename Idx, typename Cmp = std::less<>> class MutableBuffer {
     }
 };
 
-template <typename Idx, typename Cmp>
-std::ostream& operator<<(std::ostream& io, const MutableBuffer<Idx, Cmp>& buffer) {
+template <typename Idx, typename Cmp, typename Stop>
+std::ostream& operator<<(std::ostream& io, const MutableBuffer<Idx, Cmp, Stop>& buffer) {
     return io << "MutableBuffer<" << datatype_v<Idx> << ">("
               << "target_valid = " << buffer.target_capacity()
               << ", best_unvisited = " << buffer.best_unvisited()

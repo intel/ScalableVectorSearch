@@ -44,65 +44,6 @@ class MutableBuffer : public vamana::MutableBuffer<Idx, Cmp> {
         return MutableBuffer{
             base_type::config(), this->compare_, base_type::visited_set_enabled()};
     }
-
-    // Sort all stored elements in the buffer.
-    void sort() {
-        assert(base_type::valid() <= this->valid_capacity_);
-
-        // Put the elements in ascending order.
-        std::sort(base_type::begin(), base_type::end(), this->compare_);
-
-        // Now - fix our invariants.
-        if (this->valid_ < this->target_valid_) {
-            // Maintain 5A
-            // Invariant 6 has not activated.
-            this->roi_end_ = base_type::size();
-
-            // Maintain best_unvisited_ invariant.
-            // Recompute it from scratch, mirroring the 5B branch below.
-            for (this->best_unvisited_ = 0; this->best_unvisited_ < this->roi_end_;
-                 ++this->best_unvisited_) {
-                if (!this->candidates_[this->best_unvisited_].visited()) {
-                    break;
-                }
-            }
-            return;
-        }
-
-        // Maintain 5B
-        size_t valid_count = 0;
-        for (size_t i = 0; i < base_type::size(); ++i) {
-            if (this->candidates_[i].valid()) {
-                ++valid_count;
-                if (valid_count == this->target_valid_) {
-                    // One past the last valid element.
-                    this->roi_end_ = i + 1;
-                    break;
-                }
-            }
-        }
-
-        // TODO: Switch over to using iterators for the return values to avoid this.
-        // Maintain best_unvisited_ invariant
-        // cleanup() and std::sort() may invalidate best_unvisited_.
-        // so, have to lookup the next unvisited from scratch.
-        for (this->best_unvisited_ = 0; this->best_unvisited_ < this->roi_end_;
-             ++this->best_unvisited_) {
-            if (!this->candidates_[this->best_unvisited_].visited()) {
-                break;
-            }
-        }
-
-        // Check if invariant 6 is active.
-        // If so, drop invalid elements off the end until a valid element is found.
-        if (base_type::slack() == 0) {
-            assert(!this->candidates_.empty());
-            while (!base_type::back().valid()) {
-                this->candidates_.pop_back();
-                assert(!this->candidates_.empty());
-            }
-        }
-    }
 };
 
 } // namespace svs::index::vamana::concurrent
