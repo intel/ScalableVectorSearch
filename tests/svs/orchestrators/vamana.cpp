@@ -25,6 +25,7 @@
 #include "svs/core/distance.h"
 
 // Test dataset utilities
+#include "tests/utils/range_search.h"
 #include "tests/utils/test_dataset.h"
 #include "tests/utils/utils.h"
 #include "tests/utils/vamana_reference.h"
@@ -279,4 +280,16 @@ CATCH_TEST_CASE("Vamana Per-Index Logger", "[managers][vamana][logging]") {
         CATCH_REQUIRE(global.messages->empty());
         CATCH_REQUIRE(custom.messages->empty());
     }
+}
+
+CATCH_TEST_CASE("Vamana Range Search", "[managers][vamana]") {
+    auto data = svs::data::SimpleData<float>::load(test_dataset::data_svs_file());
+    auto queries = svs::data::SimpleData<float>::load(test_dataset::query_file());
+    svs::Vamana index = svs::Vamana::build<float>(
+        svs::index::vamana::VamanaBuildParameters{1.2, 32, 64, 750, 28, true},
+        data,
+        svs::DistanceL2(),
+        2
+    );
+    svs_test::check_orchestrator_range_search(index, data, queries);
 }

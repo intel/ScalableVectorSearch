@@ -25,6 +25,7 @@
 #include "svs/core/distance.h"
 
 // Test dataset utilities
+#include "tests/utils/range_search.h"
 #include "tests/utils/test_dataset.h"
 #include "tests/utils/utils.h"
 #include "tests/utils/vamana_reference.h"
@@ -309,4 +310,19 @@ CATCH_TEST_CASE("DynamicVamana Per-Index Logger", "[managers][dynamic_vamana][lo
         CATCH_REQUIRE(global.contains("Vamana Build Parameters:"));
         CATCH_REQUIRE(custom.messages->empty());
     }
+}
+
+CATCH_TEST_CASE("DynamicVamana Range Search", "[managers][dynamic_vamana]") {
+    auto data = svs::data::SimpleData<float>::load(test_dataset::data_svs_file());
+    auto queries = svs::data::SimpleData<float>::load(test_dataset::query_file());
+    std::vector<size_t> ids(data.size());
+    std::iota(ids.begin(), ids.end(), 0);
+    svs::DynamicVamana index = svs::DynamicVamana::build<float>(
+        svs::index::vamana::VamanaBuildParameters{1.2, 32, 64, 750, 28, true},
+        data,
+        ids,
+        svs::DistanceL2(),
+        2
+    );
+    svs_test::check_orchestrator_range_search(index, data, queries);
 }
