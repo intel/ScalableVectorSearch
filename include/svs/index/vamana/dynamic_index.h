@@ -19,7 +19,6 @@
 // stdlib
 #include <algorithm>
 #include <memory>
-#include <optional>
 #include <stdexcept>
 
 // Include the flat index to spin-up exhaustive searches on demand.
@@ -112,20 +111,24 @@ class ValidBuilder {
 
 namespace detail {
 
-// Version of "vamana_dynamic_auxiliary_parameters" that also stores per-slot status.
-inline constexpr lib::Version dynamic_status_version = lib::Version(0, 0, 1);
-
-// Writes the index as-is. If `status` is given (one byte per slot), it is saved too and
-// `translator` may also map `Deleted` slots.
 template <typename Index>
-void write_dynamic_index(
+void save_dynamic_index(
     Index& index,
-    const IDTranslator& translator,
-    const std::vector<uint8_t>* status,
     const std::filesystem::path& config_directory,
     const std::filesystem::path& graph_directory,
     const std::filesystem::path& data_directory
 ) {
+    // Post-consolidation, all entries should be "valid".
+    // Therefore, we don't need to save the slot metadata.
+    if constexpr (!Index::saves_slot_status) {
+        index.consolidate();
+        index.compact();
+    }
+    std::vector<uint8_t> status;
+    if constexpr (Index::saves_slot_status) {
+        status = index.status_bytes_for_save();
+    }
+
     // Save auxiliary data structures.
     lib::save_to_disk(
         lib::SaveOverride([&](const lib::SaveContext& ctx) {
@@ -136,11 +139,11 @@ void write_dynamic_index(
                 {
                     {"name", lib::save(index.name())},
                     {"parameters", lib::save(index.parameters(), ctx)},
-                    {"translation", lib::save(translator, ctx)},
+                    {"translation", lib::save(index.view_translator(), ctx)},
                 }
             );
-            if (status != nullptr) {
-                table.insert("status", lib::save(lib::BinaryBlobSaver(*status), ctx));
+            if constexpr (Index::saves_slot_status) {
+                table.insert("status", lib::save(lib::BinaryBlobSaver(status), ctx));
             }
             return table;
         }),
@@ -153,13 +156,18 @@ void write_dynamic_index(
     lib::save_to_disk(index.view_graph(), graph_directory);
 }
 
-template <typename Index>
-void write_dynamic_index(
-    Index& index,
-    const IDTranslator& translator,
-    const std::vector<uint8_t>* status,
-    std::ostream& os
-) {
+template <typename Index> void save_dynamic_index(Index& index, std::ostream& os) {
+    // Post-consolidation, all entries should be "valid".
+    // Therefore, we don't need to save the slot metadata.
+    if constexpr (!Index::saves_slot_status) {
+        index.consolidate();
+        index.compact();
+    }
+    std::vector<uint8_t> status;
+    if constexpr (Index::saves_slot_status) {
+        status = index.status_bytes_for_save();
+    }
+
     lib::begin_serialization(os);
     auto save_table = lib::SaveTable(
         "vamana_dynamic_auxiliary_parameters",
@@ -167,51 +175,22 @@ void write_dynamic_index(
         {
             {"name", lib::save(index.name())},
             {"parameters", lib::save(index.parameters())},
-            {"translation", lib::detail::exit_hook(translator.metadata())},
+            {"translation", lib::detail::exit_hook(index.view_translator().metadata())},
         }
     );
-    if (status != nullptr) {
-        save_table.insert("num_status", lib::save(status->size()));
+    if constexpr (Index::saves_slot_status) {
+        save_table.insert("num_status", lib::save(status.size()));
     }
     lib::save_to_stream(save_table, os);
-    translator.save(os);
-    if (status != nullptr) {
-        lib::write_binary(os, *status);
+    index.view_translator().save(os);
+    if constexpr (Index::saves_slot_status) {
+        lib::write_binary(os, status);
     }
 
     // Save the dataset.
     lib::save_to_stream(index.view_data(), os);
     // Save the graph.
     lib::save_to_stream(index.view_graph(), os);
-}
-
-template <typename Index>
-void save_dynamic_index(
-    Index& index,
-    const std::filesystem::path& config_directory,
-    const std::filesystem::path& graph_directory,
-    const std::filesystem::path& data_directory
-) {
-    // Post-consolidation, all entries should be "valid".
-    // Therefore, we don't need to save the slot metadata.
-    index.consolidate();
-    index.compact();
-    write_dynamic_index(
-        index,
-        index.view_translator(),
-        nullptr,
-        config_directory,
-        graph_directory,
-        data_directory
-    );
-}
-
-template <typename Index> void save_dynamic_index(Index& index, std::ostream& os) {
-    // Post-consolidation, all entries should be "valid".
-    // Therefore, we don't need to save the slot metadata.
-    index.consolidate();
-    index.compact();
-    write_dynamic_index(index, index.view_translator(), nullptr, os);
 }
 
 template <
@@ -266,6 +245,7 @@ class MutableVamanaIndex {
     static constexpr bool supports_deletions = true;
     static constexpr bool supports_saving = true;
     static constexpr bool needs_id_translation = true;
+    static constexpr bool saves_slot_status = false;
 
     // Type Aliases
     using Idx = typename Graph::index_type;
@@ -1559,47 +1539,6 @@ std::vector<Metadata> decode_slot_status(const std::vector<uint8_t>& raw) {
     return result;
 }
 
-// Saved concurrent indexes keep soft-deleted IDs mapped; this index erases them on delete.
-template <typename Metadata>
-void drop_deleted_translations(
-    IDTranslator& translator, const std::vector<Metadata>& status
-) {
-    auto to_drop = std::vector<size_t>();
-    for (auto pair : translator) {
-        if (pair.second < status.size() && status[pair.second] == Metadata::Deleted) {
-            to_drop.push_back(pair.second);
-        }
-    }
-    translator.delete_internal(to_drop, false);
-}
-
-// The translator must cover exactly the `Valid` slots.
-template <typename Metadata>
-void check_translator_matches_status(
-    const IDTranslator& translator, const std::vector<Metadata>& status
-) {
-    size_t num_valid = 0;
-    for (size_t i = 0, imax = status.size(); i < imax; ++i) {
-        if (status[i] == Metadata::Valid) {
-            ++num_valid;
-            if (!translator.has_internal(i)) {
-                throw ANNEXCEPTION("Translator is missing internal id {}", i);
-            }
-        }
-    }
-
-    auto translator_size = translator.size();
-    if (translator_size != num_valid) {
-        throw ANNEXCEPTION(
-            "Translator has {} IDs but should have {}", translator_size, num_valid
-        );
-    }
-}
-
-inline bool is_supported_dynamic_version(const lib::Version& version) {
-    return version == lib::Version(0, 0, 0) || version == dynamic_status_version;
-}
-
 template <typename Metadata> struct VamanaStateLoader {
     ///// Loading
     static bool
@@ -1607,7 +1546,7 @@ template <typename Metadata> struct VamanaStateLoader {
         // We provide the option to load from a static index.
         return VamanaIndexParameters::check_load_compatibility(schema, version) ||
                (schema == "vamana_dynamic_auxiliary_parameters" &&
-                is_supported_dynamic_version(version));
+                (version == lib::Version(0, 0, 0) || version == lib::Version(0, 0, 1)));
     }
 
     // Provide a compatibility path for loading static datasets.
@@ -1621,7 +1560,7 @@ template <typename Metadata> struct VamanaStateLoader {
         }
 
         auto status = std::vector<Metadata>(assume_datasize, Metadata::Valid);
-        if (table.version() == dynamic_status_version) {
+        if (table.version() == lib::Version(0, 0, 1)) {
             std::vector<uint8_t> raw =
                 lib::load_at<lib::BinaryBlobLoader<uint8_t>>(table, "status");
             if (raw.size() != assume_datasize) {
@@ -1644,36 +1583,6 @@ template <typename Metadata> struct VamanaStateLoader {
     IDTranslator translator_;
     std::vector<Metadata> status_;
 };
-
-// Contents of a stream before the dataset: parameters, translator and (version 0.0.1)
-// slot status. `status` is empty for version 0.0.0, where every slot is `Valid`.
-template <typename Metadata> struct StreamState {
-    VamanaIndexParameters parameters;
-    IDTranslator translator;
-    std::optional<std::vector<Metadata>> status;
-};
-
-template <typename Metadata> StreamState<Metadata> load_stream_state(std::istream& is) {
-    auto table = lib::detail::read_metadata(is);
-    auto root = table.template cast<toml::table>();
-    if (!is_supported_dynamic_version(root.version())) {
-        throw ANNEXCEPTION("Unsupported dynamic index stream version {}", root.version());
-    }
-
-    auto parameters =
-        lib::load<VamanaIndexParameters>(root.at("parameters").template cast<toml::table>()
-        );
-    auto translator =
-        IDTranslator::load(root.at("translation").template cast<toml::table>(), is);
-
-    std::optional<std::vector<Metadata>> status{};
-    if (root.version() == dynamic_status_version) {
-        auto raw = std::vector<uint8_t>(lib::load_at<size_t>(root, "num_status"));
-        lib::read_binary(is, raw);
-        status = decode_slot_status<Metadata>(raw);
-    }
-    return {std::move(parameters), std::move(translator), std::move(status)};
-}
 
 template <typename Metadata, typename ConfigProto>
 VamanaStateLoader<Metadata> auto_load_state(
@@ -1801,9 +1710,33 @@ auto auto_dynamic_assemble(
         );
     }
 
-    // Copied state may contain deleted or empty slots.
-    detail::drop_deleted_translations(translator, status);
-    detail::check_translator_matches_status(translator, status);
+    // Saved concurrent indexes keep soft-deleted IDs mapped; this index erases them.
+    auto to_drop = std::vector<size_t>();
+    for (auto pair : translator) {
+        if (pair.second < datasize && status[pair.second] == SlotMetadata::Deleted) {
+            to_drop.push_back(pair.second);
+        }
+    }
+    translator.delete_internal(to_drop, false);
+
+    // The translator must cover exactly the valid slots; copied state may contain
+    // deleted or empty slots.
+    size_t num_valid = 0;
+    for (size_t i = 0; i < datasize; ++i) {
+        if (status[i] == SlotMetadata::Valid) {
+            ++num_valid;
+            if (!translator.has_internal(i)) {
+                throw ANNEXCEPTION("Translator is missing internal id {}", i);
+            }
+        }
+    }
+
+    auto translator_size = translator.size();
+    if (translator_size != num_valid) {
+        throw ANNEXCEPTION(
+            "Translator has {} IDs but should have {}", translator_size, num_valid
+        );
+    }
 
     // At this point, we should be completely validated.
     // Construct the index!
@@ -1832,9 +1765,31 @@ auto auto_dynamic_assemble(
     bool SVS_UNUSED(debug_load_from_static) = false,
     svs::logging::logger_ptr logger = svs::logging::get()
 ) {
-    // Read the combined TOML (parameters + translation + status) and the binary data.
-    auto [parameters, translator, loaded_status] =
-        detail::load_stream_state<SlotMetadata>(is);
+    // Read the combined TOML (parameters + translation + status)
+    // and the translator binary data.
+    auto table = lib::detail::read_metadata(is);
+    auto version = table.template cast<toml::table>().version();
+    if (version != lib::Version(0, 0, 0) && version != lib::Version(0, 0, 1)) {
+        throw ANNEXCEPTION("Unsupported dynamic index stream version {}", version);
+    }
+
+    auto parameters = lib::load<VamanaIndexParameters>(
+        table.template cast<toml::table>().at("parameters").template cast<toml::table>()
+    );
+
+    auto translation =
+        table.template cast<toml::table>().at("translation").template cast<toml::table>();
+
+    auto translator = IDTranslator::load(translation, is);
+
+    auto status = std::vector<SlotMetadata>();
+    if (version == lib::Version(0, 0, 1)) {
+        auto raw = std::vector<uint8_t>(
+            lib::load_at<size_t>(table.template cast<toml::table>(), "num_status")
+        );
+        lib::read_binary(is, raw);
+        status = detail::decode_slot_status<SlotMetadata>(raw);
+    }
 
     auto data = data_loader();
     auto graph = graph_loader();
@@ -1847,15 +1802,41 @@ auto auto_dynamic_assemble(
         );
     }
 
-    auto status =
-        loaded_status.value_or(std::vector<SlotMetadata>(datasize, SlotMetadata::Valid));
+    if (version == lib::Version(0, 0, 0)) {
+        status.assign(datasize, SlotMetadata::Valid);
+    }
     if (status.size() != datasize) {
         throw ANNEXCEPTION(
             "Status has {} entries but should have {}", status.size(), datasize
         );
     }
-    detail::drop_deleted_translations(translator, status);
-    detail::check_translator_matches_status(translator, status);
+
+    // Saved concurrent indexes keep soft-deleted IDs mapped; this index erases them.
+    auto to_drop = std::vector<size_t>();
+    for (auto pair : translator) {
+        if (pair.second < datasize && status[pair.second] == SlotMetadata::Deleted) {
+            to_drop.push_back(pair.second);
+        }
+    }
+    translator.delete_internal(to_drop, false);
+
+    // The translator must cover exactly the valid slots.
+    size_t num_valid = 0;
+    for (size_t i = 0; i < datasize; ++i) {
+        if (status[i] == SlotMetadata::Valid) {
+            ++num_valid;
+            if (!translator.has_internal(i)) {
+                throw ANNEXCEPTION("Translator is missing internal id {}", i);
+            }
+        }
+    }
+
+    auto translator_size = translator.size();
+    if (translator_size != num_valid) {
+        throw ANNEXCEPTION(
+            "Translator has {} IDs but should have {}", translator_size, num_valid
+        );
+    }
 
     auto threadpool = threads::as_threadpool(std::move(threadpool_proto));
     return MutableVamanaIndex{

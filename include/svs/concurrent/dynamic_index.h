@@ -182,6 +182,7 @@ class MutableVamanaIndex {
     static constexpr bool supports_deletions = true;
     static constexpr bool supports_saving = true;
     static constexpr bool needs_id_translation = true;
+    static constexpr bool saves_slot_status = true;
 
     // Type Aliases
     using Idx = typename Graph::index_type;
@@ -1759,9 +1760,14 @@ class MutableVamanaIndex {
             get_search_parameters()};
     }
 
-    static constexpr lib::Version save_version = vamana::detail::dynamic_status_version;
+    // Change notes:
+    //
+    // v0.0.0 - Initial version
+    // v0.0.1 - Save the status of every slot. The index is saved as it is, without
+    //   consolidating or compacting, and soft-deleted IDs stay mapped.
+    //   * Behavior if loading from v0.0.0: All slots are `Valid`.
+    static constexpr lib::Version save_version = lib::Version(0, 0, 1);
 
-    // Saves the slots as they are (holes included); does not consolidate or compact.
     // Blocks writers while saving; searches may continue.
     void save(
         const std::filesystem::path& config_directory,
@@ -1770,17 +1776,15 @@ class MutableVamanaIndex {
     ) {
         std::lock_guard gatekeeper_lock{*writers_gatekeeper_};
         std::unique_lock writers_lock{*writers_mutex_};
-        auto status = status_bytes_for_save();
-        vamana::detail::write_dynamic_index(
-            *this, translator_, &status, config_directory, graph_directory, data_directory
+        vamana::detail::save_dynamic_index(
+            *this, config_directory, graph_directory, data_directory
         );
     }
 
     void save(std::ostream& os) {
         std::lock_guard gatekeeper_lock{*writers_gatekeeper_};
         std::unique_lock writers_lock{*writers_mutex_};
-        auto status = status_bytes_for_save();
-        vamana::detail::write_dynamic_index(*this, translator_, &status, os);
+        vamana::detail::save_dynamic_index(*this, os);
     }
 
     /////
@@ -2363,9 +2367,31 @@ auto auto_dynamic_assemble(
     bool SVS_UNUSED(debug_load_from_static) = false,
     svs::logging::logger_ptr logger = svs::logging::get()
 ) {
-    // Read the combined TOML (parameters + translation + status) and the binary data.
-    auto [parameters, translator, status] =
-        vamana::detail::load_stream_state<SlotMetadata>(is);
+    // Read the combined TOML (parameters + translation + status)
+    // and the translator binary data.
+    auto table = lib::detail::read_metadata(is);
+    auto version = table.template cast<toml::table>().version();
+    if (version != lib::Version(0, 0, 0) && version != lib::Version(0, 0, 1)) {
+        throw ANNEXCEPTION("Unsupported dynamic index stream version {}", version);
+    }
+
+    auto parameters = lib::load<VamanaIndexParameters>(
+        table.template cast<toml::table>().at("parameters").template cast<toml::table>()
+    );
+
+    auto translation =
+        table.template cast<toml::table>().at("translation").template cast<toml::table>();
+
+    auto translator = IDTranslator::load(translation, is);
+
+    auto status = std::vector<SlotMetadata>();
+    if (version == lib::Version(0, 0, 1)) {
+        auto raw = std::vector<uint8_t>(
+            lib::load_at<size_t>(table.template cast<toml::table>(), "num_status")
+        );
+        lib::read_binary(is, raw);
+        status = vamana::detail::decode_slot_status<SlotMetadata>(raw);
+    }
 
     auto data = data_loader();
     auto graph = graph_loader();
@@ -2378,8 +2404,8 @@ auto auto_dynamic_assemble(
         );
     }
 
-    if (!status) {
-        status.emplace(datasize, SlotMetadata::Valid);
+    if (version == lib::Version(0, 0, 0)) {
+        status.assign(datasize, SlotMetadata::Valid);
     }
 
     auto threadpool = threads::as_threadpool(std::move(threadpool_proto));
@@ -2388,7 +2414,7 @@ auto auto_dynamic_assemble(
         std::move(data),
         std::move(graph),
         std::move(distance),
-        *status,
+        std::move(status),
         std::move(translator),
         std::move(threadpool),
         std::move(logger)};
