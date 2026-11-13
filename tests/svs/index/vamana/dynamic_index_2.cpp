@@ -21,6 +21,7 @@
 #include "svs/index/vamana/dynamic_index.h"
 #include "svs/lib/float16.h"
 #include "svs/lib/preprocessor.h"
+#include "svs/lib/scopeguard.h"
 #include "svs/lib/timing.h"
 
 #include "svs/misc/dynamic_helper.h"
@@ -36,9 +37,13 @@
 
 // stl
 #include <algorithm>
+#include <atomic>
 #include <cmath>
+#include <limits>
+#include <numeric>
 #include <random>
 #include <sstream>
+#include <unordered_set>
 
 using Idx = uint32_t;
 using Eltype = float;
@@ -283,6 +288,13 @@ CATCH_TEST_CASE("Testing Graph Index", "[graph_index][dynamic_index]") {
     global_callback_sink->set_level(spdlog::level::trace);
     auto original_logger = svs::logging::get();
     original_logger->sinks().push_back(global_callback_sink);
+    // The sink captures a local vector: remove it before the vector goes out of scope.
+    auto remove_sink = svs::lib::make_scope_guard([&]() noexcept {
+        auto& sinks = original_logger->sinks();
+        sinks.erase(
+            std::remove(sinks.begin(), sinks.end(), global_callback_sink), sinks.end()
+        );
+    });
 
     // Load the base dataset and queries.
     auto data = svs::data::SimpleData<Eltype, N>::load(test_dataset::data_svs_file());
@@ -495,6 +507,13 @@ CATCH_TEST_CASE("Dynamic MutableVamanaIndex Per-Index Logging Test", "[logging]"
 
     auto original_logger = svs::logging::get();
     original_logger->sinks().push_back(global_callback_sink);
+    // The sink captures a local vector: remove it before the vector goes out of scope.
+    auto remove_sink = svs::lib::make_scope_guard([&]() noexcept {
+        auto& sinks = original_logger->sinks();
+        sinks.erase(
+            std::remove(sinks.begin(), sinks.end(), global_callback_sink), sinks.end()
+        );
+    });
 
     // Setup index
     auto data = svs::data::SimpleData<Eltype, N>::load(test_dataset::data_svs_file());
@@ -718,4 +737,224 @@ CATCH_TEST_CASE(
     index.debug_check_invariants(false);
     CATCH_REQUIRE(index.size() == num_points + 1 - to_delete.size());
     CATCH_REQUIRE(index.has_id(num_points));
+}
+
+CATCH_TEST_CASE("Dynamic Vamana Index Predicated And Range Search", "[dynamic_index]") {
+    const size_t dims = 16;
+    const size_t num_points = 1000;
+    const size_t num_queries = 20;
+    std::mt19937 rng(4321);
+    std::uniform_real_distribution<float> uniform(0, 1);
+    auto make_data = [&](size_t n) {
+        auto data = svs::data::SimpleData<float>(n, dims);
+        std::vector<float> datum(dims);
+        for (size_t i = 0; i < n; ++i) {
+            std::generate(datum.begin(), datum.end(), [&]() { return uniform(rng); });
+            data.set_datum(i, datum);
+        }
+        return data;
+    };
+    auto points = make_data(num_points);
+    auto queries = make_data(num_queries);
+    auto data = svs::data::BlockedData<float>(num_points, dims);
+    for (size_t i = 0; i < num_points; ++i) {
+        data.set_datum(i, points.get_datum(i));
+    }
+    std::vector<size_t> ids(num_points);
+    std::iota(ids.begin(), ids.end(), 0);
+
+    svs::index::vamana::VamanaBuildParameters parameters{1.2, 32, 64, 1000, 28, true};
+    auto index = svs::index::vamana::MutableVamanaIndex(
+        parameters, std::move(data), ids, Distance(), 2
+    );
+
+    // Brute-force distances indexed by [query][external id].
+    auto distances = std::vector<std::vector<float>>(num_queries);
+    for (size_t q = 0; q < num_queries; ++q) {
+        auto& row = distances[q];
+        for (size_t i = 0; i < num_points; ++i) {
+            row.push_back(svs::distance::compute(
+                Distance(), queries.get_datum(q), points.get_datum(i)
+            ));
+        }
+    }
+
+    // A radius that holds about 30 neighbors per query.
+    float radius = 0;
+    for (const auto& row : distances) {
+        auto sorted = row;
+        std::nth_element(sorted.begin(), sorted.begin() + 30, sorted.end());
+        radius += sorted[30];
+    }
+    radius /= static_cast<float>(num_queries);
+
+    using buffer_type = typename decltype(index)::search_buffer_type;
+    auto sp = index.get_search_parameters();
+
+    CATCH_SECTION("Default stop matches search") {
+        sp.buffer_config({20, 40});
+        auto expected = svs::QueryResult<size_t>(num_queries, NUM_NEIGHBORS);
+        index.search(expected.view(), queries, sp);
+        auto actual = svs::QueryResult<size_t>(num_queries, NUM_NEIGHBORS);
+        index.predicated_search(
+            actual.view(), queries, sp, svs::index::vamana::DefaultStop{}
+        );
+        for (size_t q = 0; q < num_queries; ++q) {
+            for (size_t j = 0; j < NUM_NEIGHBORS; ++j) {
+                CATCH_REQUIRE(actual.index(q, j) == expected.index(q, j));
+                CATCH_REQUIRE(actual.distance(q, j) == expected.distance(q, j));
+            }
+        }
+    }
+
+    auto check_range_results = [&](const auto& results, size_t max_results) {
+        CATCH_REQUIRE(results.size() == num_queries);
+        size_t num_expected = 0;
+        size_t num_found = 0;
+        for (size_t q = 0; q < num_queries; ++q) {
+            const auto& result = results[q];
+            CATCH_REQUIRE(result.size() <= max_results);
+            auto seen = std::unordered_set<size_t>{};
+            float last = 0;
+            for (const auto& neighbor : result) {
+                CATCH_REQUIRE(neighbor.distance() < radius);
+                CATCH_REQUIRE(neighbor.distance() >= last);
+                CATCH_REQUIRE(index.has_id(neighbor.id()));
+                CATCH_REQUIRE(seen.insert(neighbor.id()).second);
+                last = neighbor.distance();
+            }
+            for (size_t i = 0; i < num_points; ++i) {
+                if (index.has_id(i) && distances[q][i] < radius) {
+                    ++num_expected;
+                    num_found += seen.contains(i);
+                }
+            }
+        }
+        return static_cast<double>(num_found) / static_cast<double>(num_expected);
+    };
+
+    CATCH_SECTION("Unbounded range search") {
+        sp.buffer_config({10, buffer_type::unbounded_capacity});
+        auto results = index.range_search(queries, radius, sp);
+        CATCH_REQUIRE(check_range_results(results, num_points) >= TARGET_RECALL);
+
+        // A zero capacity is unbounded as well. With a zero search window the search
+        // stops at the radius boundary, trading recall for fewer visits.
+        sp.buffer_config({});
+        auto zero_results = index.range_search(queries, radius, sp);
+        auto zero_recall = check_range_results(zero_results, num_points);
+        CATCH_REQUIRE(zero_recall > 0);
+
+        // A radius beyond all points returns everything reachable.
+        auto all = index.range_search(queries, std::numeric_limits<float>::max(), sp);
+        for (const auto& result : all) {
+            CATCH_REQUIRE(result.size() == num_points);
+        }
+    }
+
+    CATCH_SECTION("Bounded range search") {
+        sp.buffer_config({10, 20});
+        auto results = index.range_search(queries, radius, sp);
+        check_range_results(results, 20);
+        size_t num_full = 0;
+        for (const auto& result : results) {
+            num_full += result.size() == 20;
+        }
+        CATCH_REQUIRE(num_full > 0);
+    }
+
+    CATCH_SECTION("Cancel predicated search") {
+        sp.buffer_config({20, 40});
+        constexpr auto sentinel =
+            svs::type_traits::sentinel_v<svs::Neighbor<size_t>, std::less<>>;
+
+        // Cancellation is checked once per hop and once per query, two fewer per query
+        // (and one fewer per batch) than in the regular search.
+        std::atomic<size_t> regular_calls{0};
+        auto expected = svs::QueryResult<size_t>(num_queries, NUM_NEIGHBORS);
+        index.search(expected.view(), queries, sp, [&]() {
+            ++regular_calls;
+            return false;
+        });
+        std::atomic<size_t> calls{0};
+        auto actual = svs::QueryResult<size_t>(num_queries, NUM_NEIGHBORS);
+        index.predicated_search(
+            actual.view(),
+            queries,
+            sp,
+            svs::index::vamana::DefaultStop{},
+            [&]() {
+                ++calls;
+                return false;
+            }
+        );
+        CATCH_REQUIRE(calls + num_queries + 1 == regular_calls);
+        for (size_t q = 0; q < num_queries; ++q) {
+            for (size_t j = 0; j < NUM_NEIGHBORS; ++j) {
+                CATCH_REQUIRE(actual.index(q, j) == expected.index(q, j));
+            }
+        }
+
+        // Cancel midway: started queries keep sorted partial results, the rest are
+        // sentinels.
+        calls = 0;
+        auto partial = svs::QueryResult<size_t>(num_queries, NUM_NEIGHBORS);
+        index.predicated_search(
+            partial.view(),
+            queries,
+            sp,
+            svs::index::vamana::DefaultStop{},
+            [&]() { return ++calls > 50; }
+        );
+        size_t num_empty = 0;
+        for (size_t q = 0; q < num_queries; ++q) {
+            bool padding = false;
+            float last = 0;
+            for (size_t j = 0; j < NUM_NEIGHBORS; ++j) {
+                auto id = partial.index(q, j);
+                if (id == sentinel.id()) {
+                    CATCH_REQUIRE(partial.distance(q, j) == sentinel.distance());
+                    padding = true;
+                    continue;
+                }
+                CATCH_REQUIRE(!padding);
+                CATCH_REQUIRE(index.has_id(id));
+                CATCH_REQUIRE(partial.distance(q, j) >= last);
+                last = partial.distance(q, j);
+            }
+            num_empty += partial.index(q, 0) == sentinel.id();
+        }
+        CATCH_REQUIRE(num_empty > 0);
+        CATCH_REQUIRE(num_empty < num_queries);
+    }
+
+    CATCH_SECTION("Cancel range search") {
+        sp.buffer_config({10, buffer_type::unbounded_capacity});
+        auto none = index.range_search(queries, radius, sp, []() { return true; });
+        for (const auto& result : none) {
+            CATCH_REQUIRE(result.empty());
+        }
+
+        std::atomic<size_t> calls{0};
+        auto partial =
+            index.range_search(queries, radius, sp, [&]() { return ++calls > 50; });
+        check_range_results(partial, num_points);
+        size_t num_empty = 0;
+        for (const auto& result : partial) {
+            num_empty += result.empty();
+        }
+        CATCH_REQUIRE(num_empty > 0);
+        CATCH_REQUIRE(num_empty < num_queries);
+    }
+
+    CATCH_SECTION("Range search skips deleted points") {
+        std::vector<size_t> to_delete;
+        for (size_t i = 0; i < num_points; i += 3) {
+            to_delete.push_back(i);
+        }
+        index.delete_entries(to_delete);
+        sp.buffer_config({10, buffer_type::unbounded_capacity});
+        auto results = index.range_search(queries, radius, sp);
+        CATCH_REQUIRE(check_range_results(results, num_points) >= TARGET_RECALL);
+    }
 }

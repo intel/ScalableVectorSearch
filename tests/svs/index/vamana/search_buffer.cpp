@@ -30,6 +30,7 @@
 // stdlib
 #include <cstdint>
 #include <functional>
+#include <limits>
 #include <type_traits>
 
 namespace vamana = svs::index::vamana;
@@ -118,7 +119,7 @@ template <typename Cmp = std::less<>> struct SearchBufferReference {
             bool is_valid = neighbors_.back().valid_;
             if (!is_valid) {
                 neighbors_.pop_back();
-            } else if (num_valid >= valid_capacity_ + 1) {
+            } else if (num_valid > valid_capacity_) {
                 neighbors_.pop_back();
                 --num_valid;
             } else {
@@ -174,8 +175,23 @@ template <typename Cmp = std::less<>> struct SearchBufferReference {
         }
         auto eq = svs::NeighborEqual();
         CATCH_REQUIRE(valid_in_buffer.size() == valid());
-        if (last) {
+        if (last && valid_capacity_ != std::numeric_limits<size_t>::max()) {
             CATCH_REQUIRE(valid_in_buffer.size() == valid_capacity_);
+        }
+
+        // Check that the cached search state of mutable buffers is consistent.
+        if constexpr (requires { buffer.valid_visited(); }) {
+            size_t best = buffer.best_unvisited();
+            CATCH_REQUIRE(best <= buffer.size());
+            size_t valid_visited = 0;
+            for (size_t i = 0; i < best; ++i) {
+                CATCH_REQUIRE(buffer[i].visited());
+                valid_visited += static_cast<size_t>(detail::valid(buffer[i]));
+            }
+            CATCH_REQUIRE(buffer.valid_visited() == valid_visited);
+            if (best < buffer.size()) {
+                CATCH_REQUIRE(!buffer[best].visited());
+            }
         }
         CATCH_REQUIRE(valid_neighbors.size() == valid_in_buffer.size());
 
@@ -929,4 +945,213 @@ CATCH_TEST_CASE("Fuzzing Mutable", "[core][search_buffer]") {
 
     CATCH_SECTION("Less") { run_test(std::less<>()); }
     CATCH_SECTION("Greater") { run_test(std::greater<>()); }
+}
+
+CATCH_TEST_CASE("Fuzzing Mutable Unbounded", "[core][search_buffer]") {
+    size_t num_trials = 5;
+    size_t dataset_size = 1000;
+    size_t seed = 0xc0ffee;
+    bool allow_invalid = true;
+
+    auto run_test = [&]<typename Cmp>(Cmp SVS_UNUSED(cmp)) {
+        using buffer_type = svs::index::vamana::MutableBuffer<uint32_t, Cmp>;
+        auto setup = FuzzSetup{
+            num_trials,
+            dataset_size,
+            32,
+            buffer_type::unbounded_capacity,
+            seed,
+            allow_invalid};
+        auto buffer = buffer_type{
+            svs::index::vamana::SearchBufferConfig{32, buffer_type::unbounded_capacity}};
+        CATCH_REQUIRE(buffer.target_capacity() == buffer_type::unbounded_capacity);
+        fuzz_test(buffer, setup);
+        CATCH_REQUIRE(!buffer.full());
+    };
+
+    CATCH_SECTION("Less") { run_test(std::less<>()); }
+    CATCH_SECTION("Greater") { run_test(std::greater<>()); }
+}
+
+namespace {
+// Stop like the default, or early once too few candidates pass the filter:
+// `valid / total_candidates < min_rate`.
+struct FilterRateStop {
+    static constexpr bool counts_total_candidates = true;
+    size_t min_samples;
+    double min_rate;
+    bool operator()(const svs::index::vamana::MutableBufferState& state) const {
+        if (svs::index::vamana::DefaultStop{}(state)) {
+            return true;
+        }
+        return state.total_candidates >= min_samples &&
+               static_cast<double>(state.valid) <
+                   min_rate * static_cast<double>(state.total_candidates);
+    }
+};
+} // namespace
+
+CATCH_TEST_CASE("MutableBuffer Stop Predicate", "[core][search_buffer]") {
+    using svs::index::vamana::MutableBuffer;
+    using svs::index::vamana::SearchBufferConfig;
+
+    CATCH_SECTION("Total Candidates Counter") {
+        static_assert(!svs::index::vamana::counts_total_candidates_v<
+                      svs::index::vamana::DefaultStop>);
+        static_assert(svs::index::vamana::counts_total_candidates_v<FilterRateStop>);
+        auto buffer = MutableBuffer<uint32_t, std::less<>, FilterRateStop>{
+            SearchBufferConfig{2, 2}, std::less<>(), false, FilterRateStop{0, 0.0}};
+        buffer.push_back({0, 5, true});
+        buffer.push_back({1, 6, false});
+        buffer.sort();
+        CATCH_REQUIRE(buffer.total_candidates() == 2);
+
+        // Candidates dropped by a full buffer count as well.
+        buffer.insert({2, 1, true});
+        CATCH_REQUIRE(buffer.full());
+        buffer.insert({3, 100, true});
+        buffer.insert({4, 200, false});
+        CATCH_REQUIRE(buffer.size() == 2);
+        CATCH_REQUIRE(buffer.valid() == 2);
+        CATCH_REQUIRE(buffer.total_candidates() == 5);
+
+        // A soft clear restarts the search over the same candidates.
+        buffer.soft_clear();
+        CATCH_REQUIRE(buffer.total_candidates() == 5);
+        buffer.clear();
+        CATCH_REQUIRE(buffer.total_candidates() == 0);
+
+        // Predicates that do not opt in pay nothing for the counter.
+        auto plain = MutableBuffer<uint32_t>{SearchBufferConfig{2, 2}};
+        plain.insert({0, 5, false});
+        CATCH_REQUIRE(plain.total_candidates() == 0);
+    }
+
+    CATCH_SECTION("Filter Rate Predicate") {
+        using buffer_type = MutableBuffer<uint32_t, std::less<>, FilterRateStop>;
+        auto make_buffer = [](size_t min_samples) {
+            return buffer_type{
+                SearchBufferConfig{10, 10},
+                std::less<>(),
+                false,
+                FilterRateStop{min_samples, 0.5}};
+        };
+        // One in five candidates passes the filter.
+        auto fill = [](buffer_type& buffer) {
+            for (uint32_t i = 0; i < 20; ++i) {
+                buffer.insert({i, static_cast<float>(i), i % 5 == 0});
+            }
+        };
+
+        auto buffer = make_buffer(10);
+        fill(buffer);
+        CATCH_REQUIRE(buffer.valid() == 4);
+        CATCH_REQUIRE(buffer.total_candidates() == 20);
+        CATCH_REQUIRE(buffer.done());
+
+        // Not enough samples to judge the filter rate yet.
+        auto patient = make_buffer(30);
+        fill(patient);
+        CATCH_REQUIRE(!patient.done());
+
+        // The predicate is preserved by shallow copies.
+        CATCH_REQUIRE(patient.shallow_copy().stop_predicate().min_samples == 30);
+    }
+
+    CATCH_SECTION("Cancelable Predicate") {
+        using svs::index::vamana::CancelableStop;
+        using svs::index::vamana::counts_total_candidates_v;
+        static_assert(counts_total_candidates_v<CancelableStop<FilterRateStop>>);
+        static_assert(!counts_total_candidates_v<
+                      CancelableStop<svs::index::vamana::DefaultStop>>);
+
+        bool cancelled = false;
+        size_t calls = 0;
+        auto cancel = svs::lib::DefaultPredicate{[&]() {
+            ++calls;
+            return cancelled;
+        }};
+        using stop_type = CancelableStop<svs::index::vamana::DefaultStop>;
+        auto buffer = MutableBuffer<uint32_t, std::less<>, stop_type>{
+            SearchBufferConfig{2, 2}, std::less<>(), false, stop_type{{}, &cancel}};
+        for (uint32_t i = 0; i < 4; ++i) {
+            buffer.insert({i, static_cast<float>(i), i != 0});
+        }
+        CATCH_REQUIRE(!buffer.done());
+        CATCH_REQUIRE(calls == 1);
+        buffer.next();
+        cancelled = true;
+        CATCH_REQUIRE(buffer.done());
+
+        // The wrapped predicate takes precedence without consulting `cancel`.
+        cancelled = false;
+        buffer.next();
+        buffer.next();
+        calls = 0;
+        CATCH_REQUIRE(buffer.done());
+        CATCH_REQUIRE(calls == 0);
+    }
+
+    CATCH_SECTION("Range Predicate") {
+        // Window of 2: visit at least the 2 best valid, then while within the radius.
+        using stop_type = svs::index::vamana::RangeStop<std::less<>>;
+        using buffer_type = MutableBuffer<uint32_t, std::less<>, stop_type>;
+        auto buffer = buffer_type{
+            SearchBufferConfig{2, buffer_type::unbounded_capacity},
+            std::less<>(),
+            false,
+            stop_type{5.5f}};
+        for (uint32_t i = 0; i < 20; ++i) {
+            buffer.insert({i, static_cast<float>(i), i % 2 == 0});
+        }
+        CATCH_REQUIRE(buffer.size() == 20);
+
+        // Candidates 0 to 5 lie within the radius.
+        for (uint32_t i = 0; i < 6; ++i) {
+            CATCH_REQUIRE(!buffer.done());
+            CATCH_REQUIRE(buffer.next().id() == i);
+        }
+        CATCH_REQUIRE(buffer.done());
+        CATCH_REQUIRE(buffer.valid_visited() == 3);
+
+        // A new in-range candidate restarts the search.
+        buffer.insert({100, 0.5f, false});
+        CATCH_REQUIRE(buffer.best_unvisited() == 1);
+        CATCH_REQUIRE(buffer.valid_visited() == 1);
+        CATCH_REQUIRE(!buffer.done());
+        CATCH_REQUIRE(buffer.next().id() == 100);
+        CATCH_REQUIRE(buffer.valid_visited() == 3);
+        CATCH_REQUIRE(buffer.done());
+
+        // With a large radius, the window is not the limiting factor.
+        auto wide = buffer_type{
+            SearchBufferConfig{2, buffer_type::unbounded_capacity},
+            std::less<>(),
+            false,
+            stop_type{100.0f}};
+        for (uint32_t i = 0; i < 20; ++i) {
+            wide.insert({i, static_cast<float>(i), true});
+        }
+        size_t count = 0;
+        while (!wide.done()) {
+            wide.next();
+            ++count;
+        }
+        CATCH_REQUIRE(count == 20);
+    }
+
+    CATCH_SECTION("Range Predicate Greater") {
+        using stop_type = svs::index::vamana::RangeStop<std::greater<>>;
+        auto buffer = MutableBuffer<uint32_t, std::greater<>, stop_type>{
+            SearchBufferConfig{1, 10}, std::greater<>(), false, stop_type{16.5f}};
+        for (uint32_t i = 0; i < 10; ++i) {
+            buffer.insert({i, static_cast<float>(10 + i), true});
+        }
+        // Similarity in [17, 19] is within the radius.
+        for (uint32_t i = 9; i >= 7; --i) {
+            CATCH_REQUIRE(!buffer.done());
+            CATCH_REQUIRE(buffer.next().id() == i);
+        }
+        CATCH_REQUIRE(buffer.done());
+    }
 }

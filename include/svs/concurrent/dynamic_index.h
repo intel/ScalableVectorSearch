@@ -47,6 +47,7 @@
 #include "svs/core/translation.h"
 #include "svs/index/vamana/dynamic_index.h"
 #include "svs/index/vamana/index.h"
+#include "svs/index/vamana/predicated_search.h"
 #include "svs/lib/boundscheck.h"
 #include "svs/lib/neighbor.h"
 #include "svs/lib/preprocessor.h"
@@ -1007,6 +1008,199 @@ class MutableVamanaIndex {
         translate_to_external(results.indices());
     }
 
+    ///// Predicated Search
+
+    /// The search buffer type terminating with the stop predicate `Stop`.
+    template <typename Stop>
+    using predicated_buffer_type =
+        vamana::MutableBuffer<Idx, distance::compare_t<Dist>, Stop>;
+
+    /// The scratchspace type for ``predicated_search`` with the stop predicate `Stop`.
+    template <typename Stop>
+    using predicated_scratchspace_type =
+        SearchScratchspace<predicated_buffer_type<Stop>, inner_scratch_type>;
+
+    ///
+    /// @brief Return a scratchspace for ``predicated_search``.
+    ///
+    /// @param sp The search parameters. A zero total buffer capacity makes the search
+    ///     buffer unbounded, otherwise the capacity bounds the number of results.
+    /// @param stop The stop predicate invoked by the search buffer with a
+    ///     ``MutableBufferState``. The search terminates when it returns ``true`` or when
+    ///     no unvisited candidate is left. Wrap it in ``CancelableStop`` to support
+    ///     cancellation, e.g. on timeout.
+    ///
+    template <typename Stop>
+    predicated_scratchspace_type<Stop>
+    predicated_scratchspace(const search_parameters_type& sp, Stop stop) const {
+        return predicated_scratchspace_type<Stop>{
+            predicated_buffer_type<Stop>{
+                predicated_buffer_config(sp.buffer_config_),
+                distance::comparator(distance_),
+                sp.search_buffer_visited_set_,
+                std::move(stop)},
+            extensions::single_search_setup(data_, distance_),
+            {sp.prefetch_lookahead_, sp.prefetch_step_}};
+    }
+
+    ///
+    /// @brief Search for a single query, terminating with the scratchspace stop predicate.
+    ///
+    /// After the call, ``scratch.buffer`` holds the valid results with internal IDs, sorted
+    /// from best to worst. Consuming those IDs requires external exclusion of compaction,
+    /// as for the single-query ``search``. Cancellation is up to the stop predicate (see
+    /// ``CancelableStop``); a cancelled search keeps the best results found so far.
+    ///
+    template <typename Query, typename Stop>
+    void predicated_search(const Query& query, predicated_scratchspace_type<Stop>& scratch)
+        const {
+        auto compact_lock = lock_storage_shared();
+        unsafe_predicated_search(query, scratch);
+    }
+
+    ///
+    /// @brief Batch search terminating with the stop predicate `stop`.
+    ///
+    /// Up to ``results.n_neighbors()`` results with external IDs are stored per query.
+    /// Missing results are padded with sentinel neighbors. As for ``search``, a result
+    /// erased by a concurrent consolidation has the ID ``no_external_id``.
+    ///
+    /// Once ``cancel`` returns ``true``, searches in flight stop at their next hop and keep
+    /// the best results found so far, and queries not yet started get only sentinels.
+    ///
+    template <typename I, data::ImmutableMemoryDataset Queries, typename Stop>
+    void predicated_search(
+        QueryResultView<I> results,
+        const Queries& queries,
+        const search_parameters_type& sp,
+        const Stop& stop,
+        const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>())
+    ) {
+        // Internal IDs must retain their meaning until translation has completed.
+        auto compact_lock = lock_storage_shared();
+        vamana::detail::predicated_batch_search(
+            LockedSearch{*this},
+            threadpool_,
+            results,
+            queries,
+            sp,
+            stop,
+            cancel,
+            [&](Idx id) { return unsafe_translate_internal_id(id); },
+            [&]() { return lock_for_translation(); }
+        );
+    }
+
+    ///
+    /// @brief Return all neighbors within ``radius`` of each query.
+    ///
+    /// A neighbor at distance ``d`` is within the radius if ``compare(d, radius)`` for the
+    /// index comparator (e.g., ``d < radius`` for L2, ``d > radius`` for inner product).
+    /// The search visits at least the search window, then continues while the best
+    /// unvisited candidate is within the radius. Results erased by a concurrent
+    /// consolidation are left out.
+    ///
+    /// @param queries The queries.
+    /// @param radius The search radius.
+    /// @param sp The search parameters. A zero total buffer capacity makes the number of
+    ///     results per query unbounded, otherwise the capacity bounds it.
+    /// @param cancel Cancellation predicate. Once it returns ``true``, searches in flight
+    ///     stop at their next hop and keep the in-radius results found so far, and queries
+    ///     not yet started return no results.
+    ///
+    /// @returns The neighbors with external IDs for each query, sorted from best to worst.
+    ///
+    template <data::ImmutableMemoryDataset Queries>
+    std::vector<std::vector<Neighbor<size_t>>> range_search(
+        const Queries& queries,
+        float radius,
+        const search_parameters_type& sp,
+        const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>())
+    ) {
+        auto results = [&]() {
+            // Internal IDs must retain their meaning until translation has completed.
+            auto compact_lock = lock_storage_shared();
+            return vamana::detail::range_batch_search(
+                LockedSearch{*this},
+                threadpool_,
+                queries,
+                radius,
+                sp,
+                cancel,
+                distance::comparator(distance_),
+                [&](Idx id) { return unsafe_translate_internal_id(id); },
+                [&]() { return lock_for_translation(); }
+            );
+        }();
+        for (auto& result : results) {
+            std::erase_if(result, [](const auto& neighbor) {
+                return neighbor.id() == no_external_id;
+            });
+        }
+        return results;
+    }
+
+  private:
+    // Predicated search for callers already holding `lock_storage_shared()`.
+    template <typename Query, typename Stop>
+    void unsafe_predicated_search(
+        const Query& query, predicated_scratchspace_type<Stop>& scratch
+    ) const {
+        extensions::single_search(
+            data_,
+            scratch.buffer,
+            scratch.scratch,
+            query,
+            stop_search_closure(scratch.prefetch_parameters),
+            *this
+        );
+    }
+
+    // Closure for searches cancelled through the search buffer stop predicate.
+    auto stop_search_closure(GreedySearchPrefetchParameters prefetch_parameters) const {
+        return [&, prefetch_parameters](
+                   const auto& query, auto& accessor, auto& distance, auto& buffer
+               ) {
+            const Idx seed = entry_point();
+            if (seed == NO_ENTRY) {
+                buffer.clear();
+                return;
+            }
+            concurrent::greedy_search(
+                graph_,
+                data_,
+                accessor,
+                query,
+                distance,
+                buffer,
+                vamana::EntryPointInitializer<Idx>{std::span<const Idx>{&seed, 1}},
+                internal_search_builder(),
+                prefetch_parameters
+            );
+            buffer.cleanup();
+        };
+    }
+
+    // The index as seen by the shared batch helpers, which run under
+    // `lock_storage_shared()`: the per-query search must not take it again.
+    struct LockedSearch {
+        using distance_type = Dist;
+        const MutableVamanaIndex& index;
+
+        template <typename Stop>
+        auto predicated_scratchspace(const search_parameters_type& sp, Stop stop) const {
+            return index.predicated_scratchspace(sp, std::move(stop));
+        }
+
+        template <typename Query, typename Stop>
+        void predicated_search(
+            const Query& query, predicated_scratchspace_type<Stop>& scratch
+        ) const {
+            index.unsafe_predicated_search(query, scratch);
+        }
+    };
+
+  public:
     ///
     /// @brief Return a unique instance of the distance function.
     ///
