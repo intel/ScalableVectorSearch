@@ -39,6 +39,7 @@
 #include "svs/index/vamana/dynamic_search_buffer.h"
 #include "svs/index/vamana/greedy_search.h"
 #include "svs/index/vamana/index.h"
+#include "svs/index/vamana/predicated_search.h"
 #include "svs/index/vamana/vamana_build.h"
 #include "svs/lib/boundscheck.h"
 #include "svs/lib/preprocessor.h"
@@ -797,7 +798,7 @@ class MutableVamanaIndex {
     predicated_scratchspace(const search_parameters_type& sp, Stop stop) const {
         return predicated_scratchspace_type<Stop>{
             predicated_buffer_type<Stop>{
-                predicated_buffer_config(sp.buffer_config_, 0),
+                predicated_buffer_config(sp.buffer_config_),
                 distance::comparator(distance_),
                 sp.search_buffer_visited_set_,
                 std::move(stop)},
@@ -842,51 +843,15 @@ class MutableVamanaIndex {
         const Stop& stop,
         const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>())
     ) {
-        using compare_type = distance::compare_t<Dist>;
-        constexpr auto sentinel = type_traits::sentinel_v<Neighbor<I>, compare_type>;
-        const size_t num_neighbors = results.n_neighbors();
-        threads::parallel_for(
+        detail::predicated_batch_search(
+            *this,
             threadpool_,
-            threads::StaticPartition{queries.size()},
-            [&](const auto is, uint64_t SVS_UNUSED(tid)) {
-                using stop_type = CancelableStop<Stop>;
-                auto scratch = predicated_scratchspace_type<stop_type>{
-                    predicated_buffer_type<stop_type>{
-                        predicated_buffer_config(sp.buffer_config_, num_neighbors),
-                        distance::comparator(distance_),
-                        sp.search_buffer_visited_set_,
-                        stop_type{stop, &cancel}},
-                    extensions::single_search_setup(data_, distance_),
-                    {sp.prefetch_lookahead_, sp.prefetch_step_}};
-
-                bool cancelled = false;
-                for (auto i : is) {
-                    cancelled = cancelled || cancel();
-                    if (cancelled) {
-                        for (size_t j = 0; j < num_neighbors; ++j) {
-                            results.set(sentinel, i, j);
-                        }
-                        continue;
-                    }
-                    predicated_search(queries.get_datum(i), scratch);
-
-                    const auto& buffer = scratch.buffer;
-                    const size_t found = std::min(buffer.size(), num_neighbors);
-                    for (size_t j = 0; j < found; ++j) {
-                        const auto& neighbor = buffer[j];
-                        results.set(
-                            Neighbor<I>{
-                                lib::narrow_cast<I>(translate_internal_id(neighbor.id())),
-                                neighbor.distance()},
-                            i,
-                            j
-                        );
-                    }
-                    for (size_t j = found; j < num_neighbors; ++j) {
-                        results.set(sentinel, i, j);
-                    }
-                }
-            }
+            results,
+            queries,
+            sp,
+            stop,
+            cancel,
+            [&](Idx id) { return translate_internal_id(id); }
         );
     }
 
@@ -915,34 +880,16 @@ class MutableVamanaIndex {
         const search_parameters_type& sp,
         const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>())
     ) {
-        using stop_type = CancelableStop<RangeStop<distance::compare_t<Dist>>>;
-        const auto compare = distance::comparator(distance_);
-        auto results = std::vector<std::vector<Neighbor<size_t>>>(queries.size());
-        threads::parallel_for(
+        return detail::range_batch_search(
+            *this,
             threadpool_,
-            threads::StaticPartition{queries.size()},
-            [&](const auto is, uint64_t SVS_UNUSED(tid)) {
-                auto scratch =
-                    predicated_scratchspace(sp, stop_type{{radius, compare}, &cancel});
-                for (auto i : is) {
-                    if (cancel()) {
-                        return;
-                    }
-                    predicated_search(queries.get_datum(i), scratch);
-
-                    auto& result = results[i];
-                    for (const auto& neighbor : scratch.buffer) {
-                        if (!compare(neighbor.distance(), radius)) {
-                            break;
-                        }
-                        result.emplace_back(
-                            translate_internal_id(neighbor.id()), neighbor.distance()
-                        );
-                    }
-                }
-            }
+            queries,
+            radius,
+            sp,
+            cancel,
+            distance::comparator(distance_),
+            [&](Idx id) { return translate_internal_id(id); }
         );
-        return results;
     }
 
   private:
@@ -964,17 +911,6 @@ class MutableVamanaIndex {
             );
             buffer.cleanup();
         };
-    }
-
-    // Map search parameters to a buffer configuration for predicated search.
-    static SearchBufferConfig
-    predicated_buffer_config(const SearchBufferConfig& config, size_t min_capacity) {
-        const size_t window = config.get_search_window_size();
-        const size_t capacity = config.get_total_capacity();
-        if (capacity == 0) {
-            return SearchBufferConfig{window, search_buffer_type::unbounded_capacity};
-        }
-        return SearchBufferConfig{window, std::max(capacity, min_capacity)};
     }
 
   public:
