@@ -16,7 +16,14 @@
 
 #pragma once
 
+#include <cstdint>
 #include <dlfcn.h>
+
+#if defined(__x86_64__) && defined(__linux__)
+#include <asm/prctl.h>
+#include <sys/syscall.h>
+#include <unistd.h>
+#endif
 
 namespace svs::detail {
 
@@ -36,6 +43,8 @@ struct AVXRuntimeFlags {
         avx2 = extended_features && ((ebx & (1 << 5)) != 0);
         avx512f = extended_features && ((ebx & (1 << 16)) != 0);
         avx512vnni = extended_features && ((ecx & (1 << 11)) != 0);
+        amx_tile_bf16_cpu =
+            extended_features && ((edx & (1 << 24)) != 0) && ((edx & (1 << 22)) != 0);
     }
 
     bool is_avx2_supported() const noexcept { return avx2; }
@@ -45,15 +54,57 @@ struct AVXRuntimeFlags {
     bool avx2;
     bool avx512f;
     bool avx512vnni;
+    bool amx_tile_bf16_cpu;
 };
 #else
 struct AVXRuntimeFlags {
     bool is_avx2_supported() const noexcept { return false; }
     bool is_avx512f_supported() const noexcept { return false; }
     bool is_avx512vnni_supported() const noexcept { return false; }
+
+    bool amx_tile_bf16_cpu = false;
 };
 #endif
 
 inline const AVXRuntimeFlags avx_runtime_flags = {};
+
+#if defined(__x86_64__) && defined(__linux__)
+// Kernel XFEATURE_XTILEDATA index for ARCH_REQ_XCOMP_PERM. Not in any header on this
+// machine (glibc's asm/prctl.h stops at ARCH_REQ_XCOMP_PERM itself); taken from the
+// kernel's xstate ABI (Documentation/x86/xstate.rst) and confirmed by experiment
+// (/tmp/amx-study/t2c_detect.c) that requesting permission with this value is what lets
+// tile instructions run without SIGILL.
+inline constexpr unsigned long SVS_XFEATURE_XTILEDATA = 18;
+
+// Requests AMX tile-data OS permission exactly once per process, the first time any
+// thread asks whether the AMX level is usable. Requesting at library load would run in
+// whatever process SVS is linked into before that process has decided it wants AMX at
+// all; requesting per-call would repeat a syscall this function's caching exists to
+// avoid. The request must run unconditionally, every time: XCR0 (read via `xgetbv`)
+// reports which xstate components the CPU/OS architecturally support, not whether this
+// process has been granted permission to use tile data, so an "already looks enabled"
+// shortcut on XCR0 would skip the one call that actually grants it (confirmed by
+// experiment: a process that never calls ARCH_REQ_XCOMP_PERM still reads XCR0 bits
+// 17/18 as set, then SIGILLs on the first real tile instruction). Returns true only
+// when the CPU has AMX-TILE and AMX-BF16 and the kernel request succeeds; any "no" here
+// is silent, not an error: dispatch simply does not pick AMX.
+//
+// Thread-safety and the once-ness come from the function-local static's initializer
+// guarantee (C++ [stmt.dcl]): concurrent first callers block on the same guard variable
+// and only one of them runs the body; every call after that is the "one predictable
+// branch on a cached value" the dispatch call site needs.
+inline bool amx_tile_bf16_available() {
+    static const bool available = [] {
+        if (!avx_runtime_flags.amx_tile_bf16_cpu) {
+            return false;
+        }
+        long rc = syscall(SYS_arch_prctl, ARCH_REQ_XCOMP_PERM, SVS_XFEATURE_XTILEDATA);
+        return rc == 0;
+    }();
+    return available;
+}
+#else
+inline bool amx_tile_bf16_available() { return false; }
+#endif
 
 } // namespace svs::detail

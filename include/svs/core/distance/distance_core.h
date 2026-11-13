@@ -26,7 +26,12 @@
 
 namespace svs::distance {
 
-enum class AVX_AVAILABILITY { NONE, AVX2, AVX512 };
+// Explicit values, not contiguous: nothing in this codebase reads AVX_AVAILABILITY's
+// ordinal or compares it, only switches/templates on the enumerator itself (checked by
+// grep before adding AMX), so the gap between AVX512 and AMX is free to reserve for a
+// parallel split of AVX512 into two enumerators (e.g. AVX512F, AVX512VNNI) without
+// renumbering AMX.
+enum class AVX_AVAILABILITY { NONE = 0, AVX2 = 1, AVX512 = 2, AMX = 10 };
 
 constexpr std::array<size_t, 9> supported_dim_list{
     64, 96, 100, 128, 160, 200, 512, 768, svs::Dynamic};
