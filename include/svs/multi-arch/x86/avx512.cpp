@@ -19,6 +19,8 @@
 #include "svs/core/distance/euclidean.h"
 #include "svs/core/distance/gem.h"
 #include "svs/core/distance/inner_product.h"
+#include "svs/core/distance/inner_product_matrix.h"
+#include "svs/core/distance/simd_utils.h"
 
 namespace svs::distance {
 
@@ -56,62 +58,111 @@ DISTANCE_CS_INSTANTIATE_TEMPLATE(Dynamic, AVX_AVAILABILITY::AVX512);
 template struct QEmdImpl<AVX_AVAILABILITY::AVX512>;
 template struct QChamferImpl<AVX_AVAILABILITY::AVX512>;
 template struct QChamferExactImpl<AVX_AVAILABILITY::AVX512>;
-
-// build_table vectorizes over query tokens, not over `dim`: per output lane i, the
-// d=0..dim-1 FMA order matches the scalar version exactly, so only the single-rounding
-// FMA (vs. separate mul+add) can move the result off the scalar value, well under the
-// 1e-6 relative tolerance this table is checked against. Transposing query_tokens into
-// [dim][n_query] turns each centroid row into contiguous per-token accumulators with no
-// horizontal reduction, at the cost of a one-time O(dim * n_query) transpose (query is a
-// handful of KiB; centroids are tens to hundreds of MiB, so the transpose is noise
-// against the table build it replaces the scalar dot loop in).
-void QChamferExactImpl<AVX_AVAILABILITY::AVX512>::build_table(
-    const float* centroids,
-    size_t fine_centers,
-    size_t dim,
-    const float* query_tokens,
-    size_t n_query,
-    float* table
-) {
-    constexpr size_t vl = 16;
-    thread_local std::vector<float> qt;
-    qt.resize(dim * n_query);
-    for (size_t i = 0; i < n_query; ++i) {
-        const float* t = query_tokens + i * dim;
-        for (size_t d = 0; d < dim; ++d) {
-            qt[d * n_query + i] = t[d];
-        }
-    }
-
-    size_t vec_end = n_query - n_query % vl;
-    for (size_t f = 0; f < fine_centers; ++f) {
-        const float* c = centroids + f * dim;
-        float* row = table + f * n_query;
-        size_t ci = 0;
-        for (; ci < vec_end; ci += vl) {
-            __m512 acc = _mm512_setzero_ps();
-            for (size_t d = 0; d < dim; ++d) {
-                __m512 cval = _mm512_set1_ps(c[d]);
-                __m512 qv = _mm512_loadu_ps(qt.data() + d * n_query + ci);
-                acc = _mm512_fmadd_ps(cval, qv, acc);
-            }
-            _mm512_storeu_ps(row + ci, acc);
-        }
-        for (; ci < n_query; ++ci) {
-            const float* t = query_tokens + ci * dim;
-            float dot = 0.0F;
-            for (size_t d = 0; d < dim; ++d) {
-                dot += c[d] * t[d];
-            }
-            row[ci] = dot;
-        }
-    }
-}
+template struct InnerProductMatrixImpl<AVX_AVAILABILITY::AVX512>;
 
 float QChamferExactImpl<AVX_AVAILABILITY::AVX512>::compute_decoded(
     const float* table, size_t n_query, const uint32_t* doc_ids, size_t n_doc
 ) {
     return gem_detail::qchamfer_exact_reduce(table, n_query, doc_ids, n_doc);
+}
+
+// Register-blocked micro-kernel: inner_product_matrix_row_block rows of A share one pass
+// over a lane-block of B, giving that many independent FMA accumulator chains with no
+// horizontal reduction (each lane is one output), so the dependency-chain latency of a
+// single accumulator is hidden behind the others instead of serializing the loop over d.
+void InnerProductMatrixImpl<AVX_AVAILABILITY::AVX512>::build(
+    const float* a, size_t m, const float* b, size_t n, size_t d, float* out
+) {
+    if (m == 0 || n == 0) {
+        return;
+    }
+    constexpr size_t vl = 16;
+    constexpr size_t row_block = inner_product_matrix_row_block;
+
+    // Packs B transposed (bt[k * n + j] = b[j * d + k]) once per call: B is the small
+    // operand (e.g. one query's tokens, a handful of KiB), so this copy is noise next to
+    // the m x n table it lets every row below read with no horizontal reduction.
+    thread_local std::vector<float> bt;
+    bt.resize(d * n);
+    for (size_t j = 0; j < n; ++j) {
+        const float* bj = b + j * d;
+        for (size_t k = 0; k < d; ++k) {
+            bt[k * n + j] = bj[k];
+        }
+    }
+
+    size_t full_lanes = n - n % vl;
+    __mmask16 tail_mask = svs::create_mask<vl>(svs::lib::MaybeStatic(n));
+
+    size_t full_rows = m - m % row_block;
+    size_t i = 0;
+    for (; i < full_rows; i += row_block) {
+        const float* arow[row_block];
+        float* orow[row_block];
+        for (size_t r = 0; r < row_block; ++r) {
+            arow[r] = a + (i + r) * d;
+            orow[r] = out + (i + r) * n;
+        }
+
+        size_t j = 0;
+        for (; j < full_lanes; j += vl) {
+            __m512 acc[row_block];
+            for (size_t r = 0; r < row_block; ++r) {
+                acc[r] = _mm512_setzero_ps();
+            }
+            for (size_t k = 0; k < d; ++k) {
+                __m512 bv = _mm512_loadu_ps(bt.data() + k * n + j);
+                for (size_t r = 0; r < row_block; ++r) {
+                    acc[r] = _mm512_fmadd_ps(_mm512_set1_ps(arow[r][k]), bv, acc[r]);
+                }
+            }
+            for (size_t r = 0; r < row_block; ++r) {
+                _mm512_storeu_ps(orow[r] + j, acc[r]);
+            }
+        }
+        if (j < n) {
+            __m512 acc[row_block];
+            for (size_t r = 0; r < row_block; ++r) {
+                acc[r] = _mm512_setzero_ps();
+            }
+            for (size_t k = 0; k < d; ++k) {
+                __m512 bv = _mm512_maskz_loadu_ps(tail_mask, bt.data() + k * n + j);
+                for (size_t r = 0; r < row_block; ++r) {
+                    acc[r] = _mm512_fmadd_ps(_mm512_set1_ps(arow[r][k]), bv, acc[r]);
+                }
+            }
+            for (size_t r = 0; r < row_block; ++r) {
+                _mm512_mask_storeu_ps(orow[r] + j, tail_mask, acc[r]);
+            }
+        }
+    }
+
+    // Row remainder (m % row_block): same lane logic with a single accumulator per row.
+    for (; i < m; ++i) {
+        const float* ai = a + i * d;
+        float* row = out + i * n;
+        size_t j = 0;
+        for (; j < full_lanes; j += vl) {
+            __m512 acc = _mm512_setzero_ps();
+            for (size_t k = 0; k < d; ++k) {
+                acc = _mm512_fmadd_ps(
+                    _mm512_set1_ps(ai[k]), _mm512_loadu_ps(bt.data() + k * n + j), acc
+                );
+            }
+            _mm512_storeu_ps(row + j, acc);
+        }
+        if (j < n) {
+            __m512 acc = _mm512_setzero_ps();
+            for (size_t k = 0; k < d; ++k) {
+                acc = _mm512_fmadd_ps(
+                    _mm512_set1_ps(ai[k]),
+                    _mm512_maskz_loadu_ps(tail_mask, bt.data() + k * n + j),
+                    acc
+                );
+            }
+            _mm512_mask_storeu_ps(row + j, tail_mask, acc);
+        }
+    }
 }
 
 } // namespace svs::distance

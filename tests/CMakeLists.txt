@@ -115,6 +115,7 @@ set(TEST_SOURCES
     ${TEST_DIR}/svs/core/distances/simd_utils.cpp
     ${TEST_DIR}/svs/core/distances/distance_euclidean.cpp
     ${TEST_DIR}/svs/core/distances/inner_product.cpp
+    ${TEST_DIR}/svs/core/distances/inner_product_matrix.cpp
     ${TEST_DIR}/svs/core/distances/cosine.cpp
     ${TEST_DIR}/svs/core/distances/gem.cpp
     ${TEST_DIR}/svs/core/distances/maxsim.cpp

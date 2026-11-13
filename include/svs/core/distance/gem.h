@@ -28,6 +28,7 @@
 
 #include "svs/concepts/vector_set.h"
 #include "svs/core/distance/distance_core.h"
+#include "svs/core/distance/inner_product_matrix.h"
 #include "svs/lib/avx_detection.h"
 #include "svs/lib/preprocessor.h"
 #include "svs/lib/threads.h"
@@ -420,35 +421,11 @@ template <AVX_AVAILABILITY Avx> struct QChamferImpl {
 };
 
 // Dispatched like QChamferImpl. GEM never quantizes the query token side (src/search/
-// routing.cpp:55-61, src/distance/maxsim.cpp:9-45): build_table scores the raw float
-// query tokens against every fine centroid (score_fine_centers), and compute_decoded
-// reduces that table against the document's quantized centroid ids (code_distance).
+// routing.cpp:55-61, src/distance/maxsim.cpp:9-45): QChamferExactQuery scores the raw
+// float query tokens against every fine centroid via InnerProductMatrix
+// (score_fine_centers), and compute_decoded reduces that table against the document's
+// quantized centroid ids (code_distance).
 template <AVX_AVAILABILITY Avx> struct QChamferExactImpl {
-    // table[f * n_query + i] = dot(centroid_f, query_token_i), matching maxsim.cpp's
-    // Eigen::Map<MatrixXf>(table, query_tokens, fine_centers) column-major read of the
-    // same buffer (scores.col(f)[i] == table[f*n_query+i]).
-    SVS_NOINLINE static void build_table(
-        const float* centroids,
-        size_t fine_centers,
-        size_t dim,
-        const float* query_tokens,
-        size_t n_query,
-        float* table
-    ) {
-        for (size_t f = 0; f < fine_centers; ++f) {
-            const float* c = centroids + f * dim;
-            float* row = table + f * n_query;
-            for (size_t i = 0; i < n_query; ++i) {
-                const float* t = query_tokens + i * dim;
-                float dot = 0.0F;
-                for (size_t d = 0; d < dim; ++d) {
-                    dot += c[d] * t[d];
-                }
-                row[i] = dot;
-            }
-        }
-    }
-
     // GEM's code_distance (src/distance/maxsim.cpp:9-45): for each query token, the max
     // dot product to any of the document's (possibly repeated) centroid ids; final score
     // is `1 - mean_q max_doc dot`, i.e. 1 minus the mean of those per-token maxima.
@@ -461,31 +438,12 @@ template <AVX_AVAILABILITY Avx> struct QChamferExactImpl {
 
 #if defined(__x86_64__)
 
-// build_table vectorizes over query tokens, not over `dim`: per output lane i,
-// the d=0..dim-1 FMA order matches the scalar version exactly, so only the
-// single-rounding FMA (vs. separate mul+add) can move the result off the scalar
-// value, well under the 1e-6 relative tolerance this table is checked against.
-// Transposing query_tokens into [dim][n_query] turns each centroid row into
-// contiguous per-token accumulators with no horizontal reduction, at the cost of
-// a one-time O(dim * n_query) transpose (query is a handful of KiB; centroids
-// are tens to hundreds of MiB, so the transpose is noise against the table build
-// it replaces the scalar dot loop in).
-// Declared here, defined in avx512.cpp/avx2.cpp: the bodies use __m512/__m256 intrinsics,
-// so each must only be compiled under its own -march flags, not wherever gem.h is included
-// (e.g. gem_time.cpp, which carries neither). Defining them in-class would make them
-// implicitly inline, and an explicit instantiation of an already-specialized class is a
-// no-op in GCC, so no other TU would get a symbol to link against.
+// Declared here, defined in avx512.cpp/avx2.cpp: without SVS_NOINLINE the caller would
+// inline the body at baseline flags; an explicit instantiation of an already-specialized
+// class is a no-op in GCC, so no other TU would get a symbol to link against otherwise.
 SVS_VALIDATE_BOOL_ENV(SVS_AVX512_F)
 #if SVS_AVX512_F
 template <> struct QChamferExactImpl<AVX_AVAILABILITY::AVX512> {
-    SVS_NOINLINE static void build_table(
-        const float* centroids,
-        size_t fine_centers,
-        size_t dim,
-        const float* query_tokens,
-        size_t n_query,
-        float* table
-    );
     SVS_NOINLINE static float compute_decoded(
         const float* table, size_t n_query, const uint32_t* doc_ids, size_t n_doc
     );
@@ -496,14 +454,6 @@ SVS_VALIDATE_BOOL_ENV(SVS_AVX512_F)
 SVS_VALIDATE_BOOL_ENV(SVS_AVX2)
 #if !SVS_AVX512_F && SVS_AVX2
 template <> struct QChamferExactImpl<AVX_AVAILABILITY::AVX2> {
-    SVS_NOINLINE static void build_table(
-        const float* centroids,
-        size_t fine_centers,
-        size_t dim,
-        const float* query_tokens,
-        size_t n_query,
-        float* table
-    );
     SVS_NOINLINE static float compute_decoded(
         const float* table, size_t n_query, const uint32_t* doc_ids, size_t n_doc
     );
@@ -688,41 +638,23 @@ class QChamferExactQuery {
     }
 
   private:
-    // Builds the (K x n_query) dot table once per query, dispatched to the ISA the
-    // per-ISA compiled build_table was built for.
+    // Builds the (K x n_query) dot table once per query: table[f * n_query + i] =
+    // dot(centroid_f, query_token_i), matching maxsim.cpp's Eigen::Map<MatrixXf>(table,
+    // query_tokens, fine_centers) column-major read of the same buffer (scores.col(f)[i]
+    // == table[f*n_query+i]). That is exactly InnerProductMatrix::compute's A x B^T with
+    // A = centroids (K rows) and B = query tokens (n_query rows), which now owns both the
+    // ISA choice and the query-side packing.
     void fix_argument_decoded(const float* tokens, size_t n_query) {
         n_query_ = n_query;
         table_.resize(centroids_->K * n_query_);
-        if (__builtin_expect(svs::detail::avx_runtime_flags.is_avx512f_supported(), 1)) {
-            QChamferExactImpl<AVX_AVAILABILITY::AVX512>::build_table(
-                centroids_->data.get(),
-                centroids_->K,
-                centroids_->dim,
-                tokens,
-                n_query_,
-                table_.data()
-            );
-        } else if (__builtin_expect(
-                       svs::detail::avx_runtime_flags.is_avx2_supported(), 1
-                   )) {
-            QChamferExactImpl<AVX_AVAILABILITY::AVX2>::build_table(
-                centroids_->data.get(),
-                centroids_->K,
-                centroids_->dim,
-                tokens,
-                n_query_,
-                table_.data()
-            );
-        } else {
-            QChamferExactImpl<AVX_AVAILABILITY::NONE>::build_table(
-                centroids_->data.get(),
-                centroids_->K,
-                centroids_->dim,
-                tokens,
-                n_query_,
-                table_.data()
-            );
-        }
+        InnerProductMatrix::compute(
+            centroids_->data.get(),
+            centroids_->K,
+            tokens,
+            n_query_,
+            centroids_->dim,
+            table_.data()
+        );
     }
 
     // Reduces the per-query table against a doc's decoded ids, dispatched to the ISA the
