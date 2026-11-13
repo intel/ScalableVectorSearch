@@ -95,7 +95,14 @@ inline constexpr unsigned long SVS_XFEATURE_XTILEDATA = 18;
 // branch on a cached value" the dispatch call site needs.
 inline bool amx_tile_bf16_available() {
     static const bool available = [] {
-        if (!avx_runtime_flags.amx_tile_bf16_cpu) {
+        // amx.cpp is compiled at exactly the AVX-512 level's instruction set (plus the
+        // two AMX extensions, see cmake/multi-arch.cmake) and its non-tile code path
+        // forwards to that level's kernels directly, so AMX is only usable where AVX-512
+        // already is: a CPU could in principle expose the AMX bits without AVX-512F
+        // (e.g. a hypervisor masking features independently), and that combination is
+        // not one this file's code was built for.
+        if (!avx_runtime_flags.amx_tile_bf16_cpu ||
+            !avx_runtime_flags.is_avx512f_supported()) {
             return false;
         }
         long rc = syscall(SYS_arch_prctl, ARCH_REQ_XCOMP_PERM, SVS_XFEATURE_XTILEDATA);
