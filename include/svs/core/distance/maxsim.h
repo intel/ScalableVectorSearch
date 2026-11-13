@@ -19,7 +19,6 @@
 // svs
 #include "svs/concepts/vector_set.h"
 #include "svs/core/distance/inner_product_matrix.h"
-#include "svs/lib/avx_detection.h"
 #include "svs/lib/exception.h"
 #include "svs/lib/float16.h"
 
@@ -38,14 +37,16 @@ namespace svs::distance {
 /// larger is better; inputs are not normalised here.
 ///
 /// Per-query state, following the library's fix_argument protocol (like
-/// QChamferExactQuery in gem.h): `fix_argument(query)` packs the query's tokens once
-/// into a `PackedOperand`; every `compute(document)` call that follows scores one
-/// document against that packed query through `InnerProductMatrixImpl::column_max`, with
-/// no allocation beyond the per-query packing and a per-document maxima scratch that
-/// only grows. `must_fix_argument` is set because `compute` is meaningless without a
-/// prior `fix_argument`; `implicit_broadcast` is false because the packed query is
-/// ordinary (non-shared) state, so each search thread's shallow_copy of this functor
-/// must own its own `PackedOperand` rather than sharing one.
+/// QChamferExactQuery in gem.h): `fix_argument(query)` packs the query's tokens once into
+/// a `PackedOperand` and sizes a member maxima buffer to the query's cardinality; every
+/// `compute(document)` call that follows scores one document against that packed query
+/// through `InnerProductMatrix::column_max`, writing into the member buffer rather than a
+/// thread_local one, so compute performs no thread_local lookup per document. That is
+/// safe precisely because `implicit_broadcast` is false: the packed query and the maxima
+/// buffer are both ordinary (non-shared) state, so each search thread's shallow_copy of
+/// this functor owns its own copy of both rather than sharing either one.
+/// `must_fix_argument` is set because `compute` is meaningless without a prior
+/// `fix_argument`.
 ///
 /// The query (fix_argument's argument) is a `svs::data::ContiguousVectorSet` of float32
 /// tokens. The document (compute's second argument) is a `svs::data::ContiguousVectorSet`
@@ -69,16 +70,18 @@ class MaxSim {
     void fix_argument(const S& query) {
         assert(query.cardinality() > 0);
         packed_.pack(query.data(), query.cardinality(), query.dimensions());
+        maxima_.resize(packed_.n());
     }
 
     /// `query` is unused: `fix_argument` already consumed it into `packed_`, and every
     /// `compute` call in a search shares that one query's packing, matching the two-arg
     /// overload `distance::compute` dispatches to for a `must_fix_argument` functor
-    /// (see QChamferExactQuery::compute in gem.h for the same shape).
+    /// (see QChamferExactQuery::compute in gem.h for the same shape). Non-const: writes
+    /// into the member maxima buffer `fix_argument` sized.
     template <typename Query, svs::data::ContiguousVectorSet D>
         requires std::same_as<typename D::element_type, float> ||
                  std::same_as<typename D::element_type, svs::Float16>
-    float compute(const Query& /*query*/, const D& document) const {
+    float compute(const Query& /*query*/, const D& document) {
         if (document.dimensions() != packed_.d()) {
             throw ANNEXCEPTION(
                 "MaxSim::compute: document dimension {} does not match the fixed "
@@ -92,47 +95,18 @@ class MaxSim {
             return -std::numeric_limits<float>::infinity();
         }
 
-        thread_local std::vector<float> maxima;
-        maxima.resize(packed_.n());
-        column_max_dispatch(document.data(), n_doc, maxima.data());
+        InnerProductMatrix::column_max(document.data(), n_doc, packed_, maxima_.data());
 
         double total = 0.0;
-        for (float v : maxima) {
+        for (float v : maxima_) {
             total += static_cast<double>(v);
         }
         return static_cast<float>(total);
     }
 
   private:
-    // Dispatched once per document, mirroring InnerProductMatrix::select_isa(): the
-    // query-packing and document-scoring ISA choices are independent calls, so this is
-    // not shared with InnerProductMatrix itself (which has no document-shaped operand).
-    template <typename T>
-    void column_max_dispatch(const T* a, size_t n_doc, float* out) const {
-        switch (InnerProductMatrix::select_isa()) {
-            case AVX_AVAILABILITY::AVX512:
-                InnerProductMatrixImpl<AVX_AVAILABILITY::AVX512>::column_max(
-                    a, n_doc, packed_, out
-                );
-                return;
-            case AVX_AVAILABILITY::AVX2:
-                InnerProductMatrixImpl<AVX_AVAILABILITY::AVX2>::column_max(
-                    a, n_doc, packed_, out
-                );
-                return;
-            case AVX_AVAILABILITY::NONE:
-                InnerProductMatrixImpl<AVX_AVAILABILITY::NONE>::column_max(
-                    a, n_doc, packed_, out
-                );
-                return;
-        }
-        // Exhaustive switch over AVX_AVAILABILITY's enumerators, no default: see
-        // InnerProductMatrix::compute for why this stays a compile error, not a
-        // silent fallback, if a 4th enumerator is ever added.
-        __builtin_unreachable();
-    }
-
     PackedOperand packed_;
+    std::vector<float> maxima_;
 };
 
 inline constexpr bool operator==(const MaxSim&, const MaxSim&) { return true; }

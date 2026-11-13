@@ -24,6 +24,7 @@
 #include <algorithm>
 #include <cstddef>
 #include <limits>
+#include <type_traits>
 #include <vector>
 
 namespace svs::distance {
@@ -182,36 +183,79 @@ extern template struct InnerProductMatrixImpl<AVX_AVAILABILITY::AVX512>;
 extern template struct InnerProductMatrixImpl<AVX_AVAILABILITY::AVX2>;
 #endif
 
-/// Dense inner-product table between a large row-major matrix and a small row-major
-/// matrix, both float32: out[i * n + j] = <a_i, b_j> for i in [0, m), j in [0, n). Picks
-/// the ISA implementation once per call, outside every loop over rows or columns.
-///
-/// @param a Row-major "A" operand, m rows of d floats each; the large, streamed operand
-///     (e.g. all centroids).
-/// @param m Number of rows of `a`. 0 is valid and leaves `out` untouched.
-/// @param b Row-major "B" operand, n rows of d floats each; the small operand (e.g. one
-///     query's tokens). Packed once per call into a thread_local PackedOperand the
-///     implementation owns, so `b` itself is read once and not retained.
-/// @param n Number of rows of `b`. 0 is valid and leaves `out` untouched.
-/// @param d Row width shared by `a` and `b`.
-/// @param out Row-major output buffer, caller-owned, at least m * n floats: out[i * n + j]
-///     holds <a_i, b_j>.
+/// Public entry points for the InnerProductMatrixImpl kernel family: the only place that
+/// picks an ISA for this kernel. A caller that needs this kernel's output names the form
+/// it wants (`compute` for the table, `column_max` for the column-wise maximum) and never
+/// names `InnerProductMatrixImpl` or an `AVX_AVAILABILITY` enumerator itself; the layer
+/// that owns the ISA choice (this class) is the only one that repeats it.
 class InnerProductMatrix {
   public:
+    /// Dense inner-product table between a large row-major matrix and a small row-major
+    /// matrix, both float32: out[i * n + j] = <a_i, b_j> for i in [0, m), j in [0, n).
+    ///
+    /// @param a Row-major "A" operand, m rows of d floats each; the large, streamed
+    ///     operand (e.g. all centroids).
+    /// @param m Number of rows of `a`. 0 is valid and leaves `out` untouched.
+    /// @param b Row-major "B" operand, n rows of d floats each; the small operand (e.g.
+    ///     one query's tokens). Packed once per call into a thread_local PackedOperand
+    ///     this class owns, so `b` itself is read once and not retained.
+    /// @param n Number of rows of `b`. 0 is valid and leaves `out` untouched.
+    /// @param d Row width shared by `a` and `b`.
+    /// @param out Row-major output buffer, caller-owned, at least m * n floats:
+    ///     out[i * n + j] holds <a_i, b_j>. Untouched when m == 0 or n == 0.
     static void
     compute(const float* a, size_t m, const float* b, size_t n, size_t d, float* out) {
         if (m == 0 || n == 0) {
             return;
         }
+        dispatch([&](auto avx) {
+            InnerProductMatrixImpl<decltype(avx)::value>::build(a, m, b, n, d, out);
+        });
+    }
+
+    /// Column-wise maximum of the same table `compute` would produce, for a float32 A,
+    /// against an already-packed B: out[j] = max over i of <a_i, b_j>, for j in [0, n).
+    /// No table is ever materialized.
+    ///
+    /// @param a Row-major "A" operand, m rows of `b.d()` floats each; the large,
+    ///     streamed operand (e.g. one document's tokens).
+    /// @param m Number of rows of `a`. 0 is valid: every lane of `out` is set to
+    ///     -infinity, matching an empty A having no row to contribute a maximum.
+    /// @param b A `PackedOperand` already packed by the caller (e.g. once per query),
+    ///     read but not modified.
+    /// @param out Caller-owned output buffer of exactly `b.n()` floats, overwritten in
+    ///     full (every lane, including when m == 0): out[j] holds the column maximum
+    ///     for j in [0, b.n()).
+    static void column_max(const float* a, size_t m, const PackedOperand& b, float* out) {
+        dispatch([&](auto avx) {
+            InnerProductMatrixImpl<decltype(avx)::value>::column_max(a, m, b, out);
+        });
+    }
+
+    /// Same contract as the float32 `column_max` above, for a svs::Float16 A: converts
+    /// one row-block of `a` at a time into a float32 scratch and reduces identically.
+    static void
+    column_max(const svs::Float16* a, size_t m, const PackedOperand& b, float* out) {
+        dispatch([&](auto avx) {
+            InnerProductMatrixImpl<decltype(avx)::value>::column_max(a, m, b, out);
+        });
+    }
+
+  private:
+    // Picks the ISA once per call and invokes `f` with that choice as a compile-time
+    // constant (an std::integral_constant, so `InnerProductMatrixImpl<decltype(avx)::
+    // value>` below is a valid template argument), so every public entry point above
+    // writes this exhaustive switch zero times of its own.
+    template <typename F> static void dispatch(F&& f) {
         switch (select_isa()) {
             case AVX_AVAILABILITY::AVX512:
-                InnerProductMatrixImpl<AVX_AVAILABILITY::AVX512>::build(a, m, b, n, d, out);
+                f(std::integral_constant<AVX_AVAILABILITY, AVX_AVAILABILITY::AVX512>{});
                 return;
             case AVX_AVAILABILITY::AVX2:
-                InnerProductMatrixImpl<AVX_AVAILABILITY::AVX2>::build(a, m, b, n, d, out);
+                f(std::integral_constant<AVX_AVAILABILITY, AVX_AVAILABILITY::AVX2>{});
                 return;
             case AVX_AVAILABILITY::NONE:
-                InnerProductMatrixImpl<AVX_AVAILABILITY::NONE>::build(a, m, b, n, d, out);
+                f(std::integral_constant<AVX_AVAILABILITY, AVX_AVAILABILITY::NONE>{});
                 return;
         }
         // Exhaustive switch over AVX_AVAILABILITY's enumerators, no default: -Wswitch
