@@ -38,8 +38,10 @@ namespace svs {
 /// The wrapped index may be searched and mutated from several threads at once: search,
 /// batch iteration, ``add_points``, ``delete_points``, ``consolidate``, ``compact``, ID
 /// inspection, ``get_distance`` and ``reconstruct_at`` are safe to call concurrently.
-/// ``save``, ``set_threadpool`` and the build-parameter setters are not; call them only
-/// when no other thread uses the index. See ``include/svs/concurrent/README.md``.
+/// ``save`` writes the slots as they are, without consolidating or compacting; it blocks
+/// writers while it runs. ``set_threadpool`` and the build-parameter setters are not safe;
+/// call them only when no other thread uses the index. See
+/// ``include/svs/concurrent/README.md``.
 ///
 /// The dataset must use a ``svs::index::vamana::concurrent::SegmentedBlocked`` allocator so
 /// that growing it never relocates storage under concurrent readers.

@@ -158,8 +158,9 @@ struct DynamicIndexVamana : public DynamicIndex {
 /// Dynamic index backed by svs::ConcurrentDynamicVamana.
 ///
 /// The index synchronizes add/delete/consolidate/compact itself, so they take the shared
-/// lock alongside searches. Operations that are not thread-safe in the index (save,
-/// set_num_threads) and whole-index reads (memory breakdown, use as a conversion source)
+/// lock alongside searches. save() also takes the shared lock: the index excludes its own
+/// writers while saving. Operations that are not thread-safe in the index
+/// (set_num_threads) and whole-index reads (memory breakdown, use as a conversion source)
 /// take the exclusive lock.
 struct ConcurrentIndexVamana : public DynamicIndexVamana {
     ConcurrentIndexVamana(
@@ -178,6 +179,16 @@ struct ConcurrentIndexVamana : public DynamicIndexVamana {
     ) override;
 
     size_t delete_points(std::span<const size_t> ids) override;
+
+    void save(const std::filesystem::path& directory) override {
+        auto lock = read_lock();
+        index.save(directory / "config", directory / "graph", directory / "data");
+    }
+
+    void save(std::ostream& stream) override {
+        auto lock = read_lock();
+        index.save(stream);
+    }
 
     void consolidate() override {
         auto lock = read_lock();

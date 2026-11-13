@@ -597,7 +597,9 @@ struct svs_memory_breakdown {
 /// With SVS_SYNC_KIND_FINE_GRAIN, the handle is backed by a concurrent index that
 /// synchronizes updates itself: add_points, delete_points, consolidate and compact take a
 /// shared lock and run alongside searches and each other (compact still waits for
-/// in-flight operations inside the index). Only save, set_num_threads, memory queries
+/// in-flight operations inside the index). save takes a shared lock and runs alongside
+/// searches; the index blocks its own writers while saving and keeps deleted and empty
+/// slots as they are (no consolidate or compact). Only set_num_threads, memory queries
 /// and use as a conversion source take an exclusive lock.
 ///
 /// @remarks Synchronization covers operations on the index only:
@@ -1408,6 +1410,27 @@ SVS_API svs_index_h svs_index_load_stream_dynamic(
     svs_index_builder_h builder,
     svs_stream_i stream,
     size_t blocksize_bytes /*=0*/,
+    svs_error_h out_err /*=NULL*/
+);
+
+/// @brief Load a dynamic index from a caller-supplied stream with explicit parameters
+/// @param builder The index builder handle (used for configuration)
+/// @param stream The stream interface to read the index from
+/// @param params Pointer to the dynamic index parameters structure, or NULL for defaults
+/// @param out_err An optional error handle to capture errors
+/// @return A handle to the loaded dynamic index
+/// @remarks The block parameters only affect the in-memory layout, not the on-disk
+/// format. The sync kind is not persisted with the index and must be passed on every load.
+/// @remarks The operations table is copied, but @p stream->self is retained as-is. It only
+///   needs to remain valid until this function returns.
+/// @remarks Accepts both the native stream encoding and a packed directory archive. The
+///   native encoding carries no total length, so a load may read up to 64 KiB past the end
+///   of the index; frame the payload if embedding it in a larger stream.
+/// @error SVS_ERROR_INVALID_ARGUMENT if @p params is invalid (see svs_dynamic_index_params)
+SVS_API svs_index_h svs_index_load_stream_dynamic_ex(
+    svs_index_builder_h builder,
+    svs_stream_i stream,
+    const svs_dynamic_index_params_t* params /*=NULL*/,
     svs_error_h out_err /*=NULL*/
 );
 
