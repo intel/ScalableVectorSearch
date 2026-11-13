@@ -118,9 +118,9 @@ void save_dynamic_index(
     const std::filesystem::path& graph_directory,
     const std::filesystem::path& data_directory
 ) {
-    // Post-consolidation, all entries should be "valid".
-    // Therefore, we don't need to save the slot metadata.
     if constexpr (!Index::saves_slot_status) {
+        // Post-consolidation, all entries should be "valid".
+        // Therefore, we don't need to save the slot metadata.
         index.consolidate();
         index.compact();
     }
@@ -157,9 +157,9 @@ void save_dynamic_index(
 }
 
 template <typename Index> void save_dynamic_index(Index& index, std::ostream& os) {
-    // Post-consolidation, all entries should be "valid".
-    // Therefore, we don't need to save the slot metadata.
     if constexpr (!Index::saves_slot_status) {
+        // Post-consolidation, all entries should be "valid".
+        // Therefore, we don't need to save the slot metadata.
         index.consolidate();
         index.compact();
     }
