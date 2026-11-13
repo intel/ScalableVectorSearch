@@ -57,15 +57,22 @@ predicated_buffer_config(const SearchBufferConfig& config, size_t min_capacity =
 
 namespace detail {
 
+// Default for indexes whose ID translation needs no lock.
+struct NoTranslationLock {
+    constexpr int operator()() const { return 0; }
+};
+
 // Batch `predicated_search` shared by the Vamana indexes.
-// `translate` maps internal IDs of the search buffer to external IDs.
+// `translate` maps internal IDs of the search buffer to external IDs while the guard
+// returned by `lock_translation` is alive.
 template <
     typename Index,
     typename Pool,
     std::integral I,
     data::ImmutableMemoryDataset Queries,
     typename Stop,
-    typename Translate>
+    typename Translate,
+    typename TranslationLock = NoTranslationLock>
 void predicated_batch_search(
     const Index& index,
     Pool& threadpool,
@@ -74,7 +81,8 @@ void predicated_batch_search(
     VamanaSearchParameters sp,
     const Stop& stop,
     const lib::DefaultPredicate& cancel,
-    const Translate& translate
+    const Translate& translate,
+    const TranslationLock& lock_translation = {}
 ) {
     using compare_type = distance::compare_t<typename Index::distance_type>;
     constexpr auto sentinel = type_traits::sentinel_v<Neighbor<I>, compare_type>;
@@ -99,6 +107,7 @@ void predicated_batch_search(
 
                 const auto& buffer = scratch.buffer;
                 const size_t found = std::min(buffer.size(), num_neighbors);
+                [[maybe_unused]] auto guard = lock_translation();
                 for (size_t j = 0; j < found; ++j) {
                     const auto& neighbor = buffer[j];
                     results.set(
@@ -123,7 +132,8 @@ template <
     typename Pool,
     data::ImmutableMemoryDataset Queries,
     typename Cmp,
-    typename Translate>
+    typename Translate,
+    typename TranslationLock = NoTranslationLock>
 std::vector<std::vector<Neighbor<size_t>>> range_batch_search(
     const Index& index,
     Pool& threadpool,
@@ -132,7 +142,8 @@ std::vector<std::vector<Neighbor<size_t>>> range_batch_search(
     const VamanaSearchParameters& sp,
     const lib::DefaultPredicate& cancel,
     const Cmp& compare,
-    const Translate& translate
+    const Translate& translate,
+    const TranslationLock& lock_translation = {}
 ) {
     using stop_type = CancelableStop<RangeStop<Cmp>>;
     auto results = std::vector<std::vector<Neighbor<size_t>>>(queries.size());
@@ -149,6 +160,7 @@ std::vector<std::vector<Neighbor<size_t>>> range_batch_search(
                 index.predicated_search(queries.get_datum(i), scratch);
 
                 auto& result = results[i];
+                [[maybe_unused]] auto guard = lock_translation();
                 for (const auto& neighbor : scratch.buffer) {
                     if (!compare(neighbor.distance(), radius)) {
                         break;

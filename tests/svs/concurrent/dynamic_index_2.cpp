@@ -36,9 +36,13 @@
 
 // stl
 #include <algorithm>
+#include <atomic>
 #include <cmath>
+#include <numeric>
 #include <random>
 #include <sstream>
+#include <thread>
+#include <unordered_set>
 
 // The concurrent index is a separate type from `cc::MutableVamanaIndex`;
 // the pre-existing static and dynamic indexes are untouched by these tests.
@@ -722,6 +726,184 @@ CATCH_TEST_CASE(
         CATCH_REQUIRE(index.get_max_candidates() == 3 * svs::VAMANA_WINDOW_SIZE_DEFAULT);
         CATCH_REQUIRE(
             index.get_full_search_history() == svs::VAMANA_USE_FULL_SEARCH_HISTORY_DEFAULT
+        );
+    }
+}
+
+CATCH_TEST_CASE(
+    "Concurrent Vamana Index Predicated And Range Search", "[concurrent][vamana]"
+) {
+    const size_t dims = 16;
+    const size_t num_points = 1000;
+    const size_t num_queries = 20;
+    const size_t k = 10;
+    std::mt19937 rng(4321);
+    std::uniform_real_distribution<float> uniform(0, 1);
+    auto make_data = [&](size_t n) {
+        auto data = svs::data::SimpleData<float>(n, dims);
+        std::vector<float> datum(dims);
+        for (size_t i = 0; i < n; ++i) {
+            std::generate(datum.begin(), datum.end(), [&]() { return uniform(rng); });
+            data.set_datum(i, datum);
+        }
+        return data;
+    };
+    const auto points = make_data(num_points);
+    const auto queries = make_data(num_queries);
+    auto data = svs::data::BlockedData<float>(num_points, dims);
+    for (size_t i = 0; i < num_points; ++i) {
+        data.set_datum(i, points.get_datum(i));
+    }
+    std::vector<size_t> ids(num_points);
+    std::iota(ids.begin(), ids.end(), 0);
+
+    svs::index::vamana::VamanaBuildParameters parameters{1.2, 32, 64, 1000, 28, true};
+    auto index = cc::MutableVamanaIndex(
+        parameters, std::move(data), ids, svs::distance::DistanceL2(), 2
+    );
+    using buffer_type = svs::index::vamana::MutableBuffer<uint32_t>;
+
+    // Brute-force distances and a radius that holds about 30 neighbors per query.
+    auto distances = std::vector<std::vector<float>>(num_queries);
+    float radius = 0;
+    for (size_t q = 0; q < num_queries; ++q) {
+        for (size_t i = 0; i < num_points; ++i) {
+            distances[q].push_back(svs::distance::compute(
+                svs::distance::DistanceL2(), queries.get_datum(q), points.get_datum(i)
+            ));
+        }
+        auto sorted = distances[q];
+        std::nth_element(sorted.begin(), sorted.begin() + 30, sorted.end());
+        radius += sorted[30];
+    }
+    radius /= static_cast<float>(num_queries);
+
+    auto check_range_results = [&](const auto& results, size_t max_results) {
+        CATCH_REQUIRE(results.size() == num_queries);
+        size_t num_expected = 0;
+        size_t num_found = 0;
+        for (size_t q = 0; q < num_queries; ++q) {
+            const auto& result = results[q];
+            CATCH_REQUIRE(result.size() <= max_results);
+            auto seen = std::unordered_set<size_t>{};
+            float last = 0;
+            for (const auto& neighbor : result) {
+                CATCH_REQUIRE(neighbor.distance() < radius);
+                CATCH_REQUIRE(neighbor.distance() >= last);
+                CATCH_REQUIRE(neighbor.id() < num_points);
+                CATCH_REQUIRE(seen.insert(neighbor.id()).second);
+                last = neighbor.distance();
+            }
+            for (size_t i = 0; i < num_points; ++i) {
+                if (index.has_id(i) && distances[q][i] < radius) {
+                    ++num_expected;
+                    num_found += seen.contains(i);
+                }
+            }
+        }
+        return static_cast<double>(num_found) / static_cast<double>(num_expected);
+    };
+
+    auto sp = index.get_search_parameters();
+
+    CATCH_SECTION("Default stop matches search") {
+        sp.buffer_config({20, 40});
+        auto expected = svs::QueryResult<size_t>(num_queries, k);
+        index.search(expected.view(), queries, sp);
+        auto actual = svs::QueryResult<size_t>(num_queries, k);
+        index.predicated_search(
+            actual.view(), queries, sp, svs::index::vamana::DefaultStop{}
+        );
+        for (size_t q = 0; q < num_queries; ++q) {
+            for (size_t j = 0; j < k; ++j) {
+                CATCH_REQUIRE(actual.index(q, j) == expected.index(q, j));
+                CATCH_REQUIRE(actual.distance(q, j) == expected.distance(q, j));
+            }
+        }
+
+        // The single-query overload leaves internal IDs in the scratch buffer.
+        auto scratch = index.predicated_scratchspace(sp, svs::index::vamana::DefaultStop{});
+        index.predicated_search(queries.get_datum(0), scratch);
+        for (size_t j = 0; j < k; ++j) {
+            CATCH_REQUIRE(
+                index.translate_internal_id(scratch.buffer[j].id()) == expected.index(0, j)
+            );
+        }
+    }
+
+    CATCH_SECTION("Range search") {
+        sp.buffer_config({10, buffer_type::unbounded_capacity});
+        CATCH_REQUIRE(
+            check_range_results(index.range_search(queries, radius, sp), num_points) >= 0.95
+        );
+
+        sp.buffer_config({10, 20});
+        auto bounded = index.range_search(queries, radius, sp);
+        check_range_results(bounded, 20);
+        CATCH_REQUIRE(std::any_of(bounded.begin(), bounded.end(), [](const auto& r) {
+            return r.size() == 20;
+        }));
+
+        // Deleted points are never returned.
+        std::vector<size_t> to_delete;
+        for (size_t i = 0; i < num_points; i += 3) {
+            to_delete.push_back(i);
+        }
+        index.delete_entries(to_delete);
+        sp.buffer_config({10, buffer_type::unbounded_capacity});
+        auto results = index.range_search(queries, radius, sp);
+        CATCH_REQUIRE(check_range_results(results, num_points) >= 0.95);
+        for (const auto& result : results) {
+            for (const auto& neighbor : result) {
+                CATCH_REQUIRE(neighbor.id() % 3 != 0);
+            }
+        }
+    }
+
+    CATCH_SECTION("Cancel") {
+        sp.buffer_config({10, buffer_type::unbounded_capacity});
+        std::atomic<size_t> calls{0};
+        auto partial =
+            index.range_search(queries, radius, sp, [&]() { return ++calls > 50; });
+        check_range_results(partial, num_points);
+        CATCH_REQUIRE(std::any_of(partial.begin(), partial.end(), [](const auto& r) {
+            return r.empty();
+        }));
+    }
+
+    CATCH_SECTION("Concurrent with deletion and consolidation") {
+        sp.buffer_config({10, buffer_type::unbounded_capacity});
+        std::atomic<bool> done{false};
+        std::thread writer{[&] {
+            for (size_t i = 0; i < num_points / 2; i += 50) {
+                std::vector<size_t> batch(50);
+                std::iota(batch.begin(), batch.end(), i);
+                index.delete_entries(batch);
+                index.consolidate();
+                if (i % 200 == 0) {
+                    index.compact();
+                }
+            }
+            done = true;
+        }};
+        size_t rounds = 0;
+        while (!done || rounds < 2) {
+            auto results = index.range_search(queries, radius, sp);
+            for (const auto& result : results) {
+                for (const auto& neighbor : result) {
+                    CATCH_REQUIRE(neighbor.id() < num_points);
+                    CATCH_REQUIRE(neighbor.distance() < radius);
+                }
+            }
+            auto topk = svs::QueryResult<size_t>(num_queries, k);
+            index.predicated_search(
+                topk.view(), queries, sp, svs::index::vamana::DefaultStop{}
+            );
+            ++rounds;
+        }
+        writer.join();
+        CATCH_REQUIRE(
+            check_range_results(index.range_search(queries, radius, sp), num_points) >= 0.95
         );
     }
 }
