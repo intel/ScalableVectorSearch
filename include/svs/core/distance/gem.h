@@ -30,6 +30,7 @@
 #include "svs/core/distance/distance_core.h"
 #include "svs/core/distance/inner_product_matrix.h"
 #include "svs/lib/avx_detection.h"
+#include "svs/lib/bfloat16.h"
 #include "svs/lib/misc.h"
 #include "svs/lib/preprocessor.h"
 #include "svs/lib/threads.h"
@@ -120,15 +121,21 @@ struct CentroidTable {
         return result;
     }
 
-    /// Computes T[i][j] = ground(c_i, c_j) from K row-major `dim`-wide centroids,
-    /// T[i][i] = 0. Symmetric by construction: each unordered pair {i, j} is computed
-    /// once, by the tile that owns it, and the same float is stored at T[i][j] and
-    /// T[j][i] (never two independently-computed dot products). Parallelized over tiles
-    /// on `num_threads` threads, dynamically scheduled so no two tiles ever write the
-    /// same cell; the result is bit-for-bit identical regardless of `num_threads`. Uses
-    /// an uninitialized allocation (see the private constructor below) and writes every
-    /// cell exactly once (off-diagonal tiles) or twice with the same value (diagonal
-    /// tiles' upper/lower halves), so no thread does a sequential full-matrix pass.
+    /// Computes T[i][j] = ground(bf16(c_i), bf16(c_j)) from K row-major `dim`-wide
+    /// centroids, T[i][i] = 0. `centroids` is float32 (the on-disk/in-memory format is
+    /// unchanged); each tile rounds its own row and column block to bfloat16 (round to
+    /// nearest, ties to even, matching FineCentroids) before computing, so this table and
+    /// FineCentroids agree on the same rounded centroid values. Symmetric by
+    /// construction: each unordered pair {i, j} is computed once, by the tile that owns
+    /// it, and the same float is stored at T[i][j] and T[j][i] (never two
+    /// independently-computed dot products); that holds regardless of which operand role
+    /// bf16-rounding was applied to, since both row and column blocks are rounded
+    /// identically before either is used. Parallelized over tiles on `num_threads`
+    /// threads, dynamically scheduled so no two tiles ever write the same cell; the
+    /// result is bit-for-bit identical regardless of `num_threads`. Uses an uninitialized
+    /// allocation (see the private constructor below) and writes every cell exactly once
+    /// (off-diagonal tiles) or twice with the same value (diagonal tiles' upper/lower
+    /// halves), so no thread does a sequential full-matrix pass.
     static CentroidTable from_centroids(
         const float* centroids, size_t k, size_t dim, Ground ground, size_t num_threads
     ) {
@@ -172,9 +179,15 @@ struct CentroidTable {
             pool,
             svs::threads::DynamicPartition{tiles.size(), grain},
             [&](const auto& tile_ids, uint64_t /*tid*/) {
-                // Reused across this thread's tiles: InnerProductMatrix::compute packs
-                // its own operand internally, so this buffer only holds the tile output.
+                // Reused across this thread's tiles: `buf` holds the tile output,
+                // `rows_bf16` the row block rounded to bfloat16, `cols_packed` the column
+                // block packed and rounded by the same bfloat16 rounding. Both operands end
+                // up rounded to the same precision this table is meant to agree with
+                // FineCentroids on, so the whole method sees one (bf16-rounded) set of
+                // centroid values.
                 thread_local std::vector<float> buf;
+                thread_local std::vector<svs::BFloat16> rows_bf16;
+                thread_local PackedOperand cols_packed;
                 buf.resize(tile * tile);
                 for (size_t t : tile_ids) {
                     auto [bi, bj] = tiles[t];
@@ -182,13 +195,14 @@ struct CentroidTable {
                     size_t col0 = static_cast<size_t>(bj) * tile;
                     size_t rows = std::min(tile, k - row0);
                     size_t cols = std::min(tile, k - col0);
-                    InnerProductMatrix::compute(
-                        centroids + row0 * dim,
-                        rows,
-                        centroids + col0 * dim,
-                        cols,
-                        dim,
-                        buf.data()
+                    rows_bf16.resize(rows * dim);
+                    for (size_t idx = 0; idx < rows * dim; ++idx) {
+                        rows_bf16[idx] =
+                            svs::round_to_bfloat16(centroids[row0 * dim + idx]);
+                    }
+                    cols_packed.pack_rounded_to_bf16(centroids + col0 * dim, cols, dim);
+                    InnerProductMatrix::compute_packed(
+                        rows_bf16.data(), rows, cols_packed, buf.data()
                     );
                     bool diag = (bi == bj);
                     for (size_t r = 0; r < rows; ++r) {
@@ -228,24 +242,38 @@ struct CentroidTable {
         , data{std::make_unique_for_overwrite<float[]>(k * k)} {}
 };
 
-/// Owns the raw K x dim fine-centroid vectors (row-major, not a pairwise table). Used by
-/// QChamferExactQuery to build a per-query (K x query_tokens) dot table against the exact
-/// float query, mirroring GEM's score_fine_centers (src/search/routing.cpp:55-61), which
-/// never quantizes the query side.
+/// Owns the raw K x dim fine-centroid vectors (row-major, not a pairwise table), as
+/// bfloat16: every value is the float32 input rounded to nearest, ties to even (matching
+/// `svs::round_to_bfloat16`, not `BFloat16`'s own truncating conversion). One
+/// representation, no float32 copy kept once construction/`load` returns, so every ISA
+/// level (including a future one that multiplies bf16 natively) computes on identical
+/// values. Used by QChamferExactQuery to build a per-query (K x query_tokens) dot table
+/// against the exact float query, mirroring GEM's score_fine_centers
+/// (src/search/routing.cpp:55-61), which never quantizes the query side.
 struct FineCentroids {
     size_t K;
     size_t dim;
-    std::unique_ptr<float[]> data;
+    std::unique_ptr<svs::BFloat16[]> data;
 
-    FineCentroids(size_t k, size_t dim_, const float* flat)
+    /// Rounds `flat` (K rows of `dim_` float32 each, row-major; the on-disk/in-memory
+    /// input format is unchanged) to bfloat16, in parallel over row blocks on
+    /// `num_threads` threads. Peak memory is `flat`'s own K * dim_ * 4 bytes plus this
+    /// object's K * dim_ * 2 bytes: no second float32 buffer is allocated here.
+    FineCentroids(size_t k, size_t dim_, const float* flat, size_t num_threads = 1)
         : K{k}
         , dim{dim_}
-        , data{std::make_unique<float[]>(k * dim_)} {
-        std::copy(flat, flat + k * dim_, data.get());
+        , data{std::make_unique_for_overwrite<svs::BFloat16[]>(k * dim_)} {
+        round_rows(flat, data.get(), k * dim_, num_threads);
     }
 
     // Raw file of K rows of `dim` floats with no header, so K comes from the file size.
-    static FineCentroids load(const std::filesystem::path& path, size_t dim) {
+    // Reads and rounds in row-block chunks rather than slurping the whole file into a
+    // second float32 buffer: peak memory is this object's K * dim * 2 bytes (the bf16
+    // result, allocated once, uninitialized) plus one chunk's
+    // min(K, kLoadChunkRows) * dim * 4 bytes (4 MiB at dim=128), not the full K * dim
+    // float32 matrix held alongside the bf16 one.
+    static FineCentroids
+    load(const std::filesystem::path& path, size_t dim, size_t num_threads = 1) {
         std::ifstream in(path, std::ios::binary);
         if (!in) {
             throw std::runtime_error("FineCentroids::load: cannot open " + path.string());
@@ -260,13 +288,54 @@ struct FineCentroids {
             );
         }
         auto k = bytes / row_bytes;
-        std::vector<float> flat(k * dim);
         in.seekg(0, std::ios::beg);
-        in.read(reinterpret_cast<char*>(flat.data()), static_cast<std::streamsize>(bytes));
-        if (!in) {
-            throw std::runtime_error("FineCentroids::load: short read on " + path.string());
+
+        FineCentroids result{k, dim, uninitialized_tag{}};
+        constexpr size_t kLoadChunkRows = 8192;
+        std::vector<float> chunk(std::min(k, kLoadChunkRows) * dim);
+        for (size_t row0 = 0; row0 < k; row0 += kLoadChunkRows) {
+            size_t rows = std::min(kLoadChunkRows, k - row0);
+            size_t count = rows * dim;
+            in.read(
+                reinterpret_cast<char*>(chunk.data()),
+                static_cast<std::streamsize>(count * sizeof(float))
+            );
+            if (!in) {
+                throw std::runtime_error(
+                    "FineCentroids::load: short read on " + path.string()
+                );
+            }
+            round_rows(chunk.data(), result.data.get() + row0 * dim, count, num_threads);
         }
-        return FineCentroids{k, dim, flat.data()};
+        return result;
+    }
+
+  private:
+    struct uninitialized_tag {};
+
+    // new[] with no parens default-initializes BFloat16 (indeterminate value, matching
+    // CentroidTable's uninitialized constructor); every element is overwritten by
+    // round_rows before this object becomes visible to a caller.
+    FineCentroids(size_t k, size_t dim_, uninitialized_tag)
+        : K{k}
+        , dim{dim_}
+        , data{std::make_unique_for_overwrite<svs::BFloat16[]>(k * dim_)} {}
+
+    // Rounds `count` contiguous float32 values to bfloat16, statically partitioned
+    // across `num_threads` threads; shared by the constructor and the per-chunk path in
+    // `load` so there is exactly one place that performs this conversion.
+    static void
+    round_rows(const float* flat, svs::BFloat16* out, size_t count, size_t num_threads) {
+        svs::threads::DefaultThreadPool pool(num_threads);
+        svs::threads::parallel_for(
+            pool,
+            svs::threads::StaticPartition{count},
+            [&](const auto& ids, uint64_t /*tid*/) {
+                for (size_t i : ids) {
+                    out[i] = svs::round_to_bfloat16(flat[i]);
+                }
+            }
+        );
     }
 };
 
@@ -600,11 +669,13 @@ class QChamfer {
 inline constexpr bool operator==(const QChamfer&, const QChamfer&) { return true; }
 
 /// Search-time distance: GEM's actual in-graph qCH (GEM_REFERENCE.md "search-time distance:
-/// is the query quantized?" row). Unlike QChamfer, the query is never quantized: it stays
-/// as raw float tokens, and fix_argument() builds a dense (K x query_tokens) dot table
-/// against every fine centroid once per query (score_fine_centers, src/search/
-/// routing.cpp:55-61); compute() then reduces that table against the document's quantized
-/// centroid ids (code_distance, src/distance/maxsim.cpp:9-45). Smaller is better.
+/// is the query quantized?" row). Unlike QChamfer, the query is never id-quantized: it
+/// stays as raw float tokens, and fix_argument() builds a dense (K x query_tokens) dot
+/// table against every fine centroid once per query (score_fine_centers, src/search/
+/// routing.cpp:55-61), both sides rounded to bfloat16 so the table's values do not depend
+/// on which ISA level computed them (see FineCentroids); compute() then reduces that
+/// table against the document's quantized centroid ids (code_distance,
+/// src/distance/maxsim.cpp:9-45). Smaller is better.
 ///
 /// Holds a per-query table as ordinary (non-shared) state, so each search thread's
 /// shallow_copy of this functor gets its own table; implicit_broadcast is false and
@@ -654,21 +725,18 @@ class QChamferExactQuery {
 
   private:
     // Builds the (K x n_query) dot table once per query: table[f * n_query + i] =
-    // dot(centroid_f, query_token_i), matching maxsim.cpp's Eigen::Map<MatrixXf>(table,
-    // query_tokens, fine_centers) column-major read of the same buffer (scores.col(f)[i]
-    // == table[f*n_query+i]). That is exactly InnerProductMatrix::compute's A x B^T with
-    // A = centroids (K rows) and B = query tokens (n_query rows), which now owns both the
-    // ISA choice and the query-side packing.
+    // dot(bf16(centroid_f), bf16(query_token_i)), matching maxsim.cpp's
+    // Eigen::Map<MatrixXf>(table, query_tokens, fine_centers) column-major read of the
+    // same buffer (scores.col(f)[i] == table[f*n_query+i]). That is exactly
+    // InnerProductMatrix::compute_packed's A x B^T with A = the (already bf16) centroids
+    // (K rows) and B = query tokens (n_query rows), rounded to bf16 by this call rather
+    // than the kernel, so every ISA level sees the same rounded values on both operands.
     void fix_argument_decoded(const float* tokens, size_t n_query) {
         n_query_ = n_query;
         table_.resize(centroids_->K * n_query_);
-        InnerProductMatrix::compute(
-            centroids_->data.get(),
-            centroids_->K,
-            tokens,
-            n_query_,
-            centroids_->dim,
-            table_.data()
+        packed_query_.pack_rounded_to_bf16(tokens, n_query_, centroids_->dim);
+        InnerProductMatrix::compute_packed(
+            centroids_->data.get(), centroids_->K, packed_query_, table_.data()
         );
     }
 
@@ -691,6 +759,7 @@ class QChamferExactQuery {
     }
 
     std::shared_ptr<const FineCentroids> centroids_;
+    PackedOperand packed_query_;
     std::vector<float> table_;
     size_t n_query_ = 0;
 };

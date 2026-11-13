@@ -22,6 +22,7 @@
 #include "svs/concepts/distance.h"
 #include "svs/core/data/vector_set_view.h"
 #include "svs/index/vamana/prune.h"
+#include "svs/lib/bfloat16.h"
 
 // catch2
 #include "catch2/catch_approx.hpp"
@@ -31,6 +32,8 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
+#include <filesystem>
+#include <fstream>
 #include <limits>
 #include <memory>
 #include <random>
@@ -75,6 +78,18 @@ std::vector<float> random_unit_centroids(size_t k, size_t dim, uint32_t seed) {
         }
     }
     return flat;
+}
+
+// from_centroids now rounds every centroid component to bfloat16 (round to nearest, ties
+// to even) before computing, so a reference built from the unrounded input would differ
+// by bf16's ~0.4% rounding error, not just summation order; round here too so the
+// pre-existing 1e-4 margin still bounds only the latter.
+std::vector<float> round_to_bf16_vec(const std::vector<float>& flat) {
+    std::vector<float> out(flat.size());
+    for (size_t i = 0; i < flat.size(); ++i) {
+        out[i] = static_cast<float>(svs::round_to_bfloat16(flat[i]));
+    }
+    return out;
 }
 
 // Reference ground-cost table computed with double-precision dot products and the same
@@ -162,6 +177,41 @@ CATCH_TEST_CASE("CentroidTable / FineCentroids", "[distance][gem]") {
         CATCH_REQUIRE(fc.data[0] == 1.0F);
         CATCH_REQUIRE(fc.data[3] == 1.0F);
     }
+
+    CATCH_SECTION("FineCentroids rounds to bfloat16, round to nearest even") {
+        CATCH_STATIC_REQUIRE(std::is_same_v<
+                             std::decay_t<decltype(std::declval<FineCentroids&>().data[0])>,
+                             svs::BFloat16>);
+        // None of these are exactly representable in bfloat16: the test only holds if
+        // fc.data actually rounds (matching svs::round_to_bfloat16), not merely stores
+        // float32 unchanged or truncates like BFloat16's own constructor would.
+        std::vector<float> flat{0.1F, -0.1F, 1.0F / 3.0F, -2.0F / 3.0F};
+        FineCentroids fc{2, 2, flat.data()};
+        for (size_t i = 0; i < flat.size(); ++i) {
+            CATCH_REQUIRE(fc.data[i] == svs::round_to_bfloat16(flat[i]));
+        }
+    }
+
+    CATCH_SECTION("FineCentroids::load round-trips through the unchanged float32 file "
+                  "format") {
+        std::vector<float> flat{0.1F, 0.2F, 0.3F, -0.4F, 2.5F, -3.5F};
+        auto path =
+            std::filesystem::temp_directory_path() / "svs_gem_fine_centroids_test.bin";
+        {
+            std::ofstream out(path, std::ios::binary);
+            out.write(
+                reinterpret_cast<const char*>(flat.data()),
+                static_cast<std::streamsize>(flat.size() * sizeof(float))
+            );
+        }
+        auto fc = FineCentroids::load(path, 2);
+        std::filesystem::remove(path);
+        CATCH_REQUIRE(fc.K == 3);
+        CATCH_REQUIRE(fc.dim == 2);
+        for (size_t i = 0; i < flat.size(); ++i) {
+            CATCH_REQUIRE(fc.data[i] == svs::round_to_bfloat16(flat[i]));
+        }
+    }
 }
 
 CATCH_TEST_CASE("CentroidTable::from_centroids tiling", "[distance][gem]") {
@@ -185,7 +235,11 @@ CATCH_TEST_CASE("CentroidTable::from_centroids tiling", "[distance][gem]") {
                         k * 1009 + dim * 31 + (ground == Ground::Cos ? 1 : 2)
                     )
                 );
-                auto reference = naive_ground_table(flat, k, dim, ground);
+                // from_centroids rounds internally; round the reference's input the same
+                // way so the comparison below isolates summation-order error, not bf16
+                // rounding error.
+                auto reference =
+                    naive_ground_table(round_to_bf16_vec(flat), k, dim, ground);
 
                 auto one_thread =
                     CentroidTable::from_centroids(flat.data(), k, dim, ground, 1);
@@ -401,6 +455,61 @@ CATCH_TEST_CASE("QChamferExactQuery", "[distance][gem]") {
         CATCH_REQUIRE_THROWS_AS(
             dist.compute(query_set.view(), bad_doc), std::invalid_argument
         );
+    }
+}
+
+CATCH_TEST_CASE(
+    "GEM bf16 rounding: non-representable centroid and query values", "[distance][gem]"
+) {
+    // None of these are exactly representable in bfloat16: unlike every other fixture in
+    // this file (chosen to be bf16-exact so their hand-computed expectations hold
+    // unchanged), this case exists specifically to exercise rounding.
+    std::vector<float> flat{0.1F, 0.2F, -0.3F, 0.4F, 1.0F / 3.0F, -2.0F / 3.0F};
+    size_t k = 3;
+    size_t dim = 2;
+
+    CATCH_SECTION("CentroidTable::from_centroids matches a bf16-rounded naive reference") {
+        auto reference = naive_ground_table(round_to_bf16_vec(flat), k, dim, Ground::Cos);
+        auto table = CentroidTable::from_centroids(flat.data(), k, dim, Ground::Cos, 1);
+        for (size_t i = 0; i < k; ++i) {
+            for (size_t j = 0; j < k; ++j) {
+                auto ui = static_cast<uint32_t>(i);
+                auto uj = static_cast<uint32_t>(j);
+                CATCH_REQUIRE(
+                    static_cast<double>(table(ui, uj)) ==
+                    Catch::Approx(reference[i * k + j]).margin(1e-4)
+                );
+            }
+        }
+    }
+
+    CATCH_SECTION("QChamferExactQuery matches a naive reference over bf16-rounded values") {
+        auto centroids = std::make_shared<const FineCentroids>(k, dim, flat.data());
+        QChamferExactQuery dist{centroids};
+
+        std::vector<float> query{0.15F, -0.25F};
+        RawQuerySet query_set{query, dim};
+        auto doc_set = make_id_set({0, 2});
+
+        svs::distance::maybe_fix_argument(dist, query_set.view());
+        float score = dist.compute(query_set.view(), doc_set.view());
+
+        // Naive reference over the same bf16-rounded centroid and query values (round to
+        // nearest, ties to even on both sides), independent of fix_argument_decoded and
+        // the kernel.
+        auto rounded_centroids = round_to_bf16_vec(flat);
+        float qx = static_cast<float>(svs::round_to_bfloat16(query[0]));
+        float qy = static_cast<float>(svs::round_to_bfloat16(query[1]));
+        std::vector<uint32_t> doc_ids{0, 2};
+        float best = -std::numeric_limits<float>::infinity();
+        for (auto id : doc_ids) {
+            float cx = rounded_centroids[id * dim];
+            float cy = rounded_centroids[id * dim + 1];
+            best = std::max(best, cx * qx + cy * qy);
+        }
+        float expected = 1.0F - best; // One query token: the "mean" is just this term.
+
+        CATCH_REQUIRE(score == Catch::Approx(expected));
     }
 }
 
