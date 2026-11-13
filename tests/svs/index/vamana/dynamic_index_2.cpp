@@ -21,6 +21,7 @@
 #include "svs/index/vamana/dynamic_index.h"
 #include "svs/lib/float16.h"
 #include "svs/lib/preprocessor.h"
+#include "svs/lib/scopeguard.h"
 #include "svs/lib/timing.h"
 
 #include "svs/misc/dynamic_helper.h"
@@ -283,6 +284,13 @@ CATCH_TEST_CASE("Testing Graph Index", "[graph_index][dynamic_index]") {
     global_callback_sink->set_level(spdlog::level::trace);
     auto original_logger = svs::logging::get();
     original_logger->sinks().push_back(global_callback_sink);
+    // The sink captures a local vector: remove it before the vector goes out of scope.
+    auto remove_sink = svs::lib::make_scope_guard([&]() noexcept {
+        auto& sinks = original_logger->sinks();
+        sinks.erase(
+            std::remove(sinks.begin(), sinks.end(), global_callback_sink), sinks.end()
+        );
+    });
 
     // Load the base dataset and queries.
     auto data = svs::data::SimpleData<Eltype, N>::load(test_dataset::data_svs_file());
@@ -495,6 +503,13 @@ CATCH_TEST_CASE("Dynamic MutableVamanaIndex Per-Index Logging Test", "[logging]"
 
     auto original_logger = svs::logging::get();
     original_logger->sinks().push_back(global_callback_sink);
+    // The sink captures a local vector: remove it before the vector goes out of scope.
+    auto remove_sink = svs::lib::make_scope_guard([&]() noexcept {
+        auto& sinks = original_logger->sinks();
+        sinks.erase(
+            std::remove(sinks.begin(), sinks.end(), global_callback_sink), sinks.end()
+        );
+    });
 
     // Setup index
     auto data = svs::data::SimpleData<Eltype, N>::load(test_dataset::data_svs_file());
