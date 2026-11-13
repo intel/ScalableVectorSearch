@@ -55,20 +55,8 @@ std::shared_ptr<const CentroidTable> make_table(Ground ground) {
     );
 }
 
-// Token-set span layout (gem_detail::set_size/set_ids): [0] = n, [1..n] = centroid ids,
-// rest padding. `pad` lets a test fill the unused tail with garbage to prove it is
-// ignored.
-std::vector<float> make_set(std::vector<float> ids, size_t width, float pad = -999.0F) {
-    std::vector<float> s(width, pad);
-    s[0] = static_cast<float>(ids.size());
-    for (size_t i = 0; i < ids.size(); ++i) {
-        s[1 + i] = ids[i];
-    }
-    return s;
-}
-
-// Vector-set equivalent of make_set(): owns the ids contiguously with no padding and no
-// float encoding, for exercising the new ConstVectorSet compute() overloads.
+// Owns a 1-D id vector set contiguously, for exercising QEmd/QChamfer/QChamferExactQuery's
+// only (vector-set) compute() overloads.
 struct IdSet {
     std::vector<uint32_t> ids;
 
@@ -81,8 +69,8 @@ struct IdSet {
 
 IdSet make_id_set(std::vector<uint32_t> ids) { return IdSet{std::move(ids)}; }
 
-// Vector-set equivalent of a raw-query padded row for QChamferExactQuery: owns `n` raw
-// fp32 tokens of width `dim`, row-major, contiguously.
+// Owns a raw-query vector set for QChamferExactQuery: `n` raw fp32 tokens of width `dim`,
+// row-major, contiguously.
 struct RawQuerySet {
     std::vector<float> tokens;
     size_t dim;
@@ -93,6 +81,11 @@ struct RawQuerySet {
         );
     }
 };
+
+// Compile-time guard: the removed fixed-width padded-row layout must not come back.
+// QChamfer's only compute() overload requires ContiguousVectorSet, so a type that fails
+// that concept (a bare span, the old layout's carrier) cannot satisfy it either.
+static_assert(!svs::data::ContiguousVectorSet<std::span<const float>>);
 
 } // namespace
 
@@ -134,63 +127,37 @@ CATCH_TEST_CASE("QChamfer", "[distance][gem]") {
     CATCH_SECTION("Hand-computed: min over doc per query token") {
         // query ids {0,1}, doc ids {2,3}: table(0,2)=2,table(0,3)=1 -> min 1;
         // table(1,2)=1,table(1,3)=2 -> min 1. total = 1 + 1 = 2.
-        auto q = make_set({0.0F, 1.0F}, 6);
-        auto d = make_set({2.0F, 3.0F}, 6);
-        float score = dist.compute(std::span<const float>(q), std::span<const float>(d));
+        auto q = make_id_set({0, 1});
+        auto d = make_id_set({2, 3});
+        float score = dist.compute(q.view(), d.view());
         CATCH_REQUIRE(score == Catch::Approx(2.0F));
     }
 
     CATCH_SECTION("Duplicate ids are counted, not merged") {
         // query {0,0} against doc {1}: each of the two query tokens pays table(0,1)=1.
-        auto q = make_set({0.0F, 0.0F}, 6);
-        auto d = make_set({1.0F}, 6);
-        float score = dist.compute(std::span<const float>(q), std::span<const float>(d));
+        auto q = make_id_set({0, 0});
+        auto d = make_id_set({1});
+        float score = dist.compute(q.view(), d.view());
         CATCH_REQUIRE(score == Catch::Approx(2.0F));
     }
 
-    CATCH_SECTION("n = 1") {
-        auto q = make_set({0.0F}, 6);
-        auto d = make_set({2.0F}, 6);
-        float score = dist.compute(std::span<const float>(q), std::span<const float>(d));
+    CATCH_SECTION("Cardinality 1") {
+        auto q = make_id_set({0});
+        auto d = make_id_set({2});
+        float score = dist.compute(q.view(), d.view());
         CATCH_REQUIRE(score == Catch::Approx(2.0F));
     }
 
-    CATCH_SECTION("Padding beyond n is ignored") {
-        auto q1 = make_set({0.0F, 1.0F}, 8, -999.0F);
-        auto q2 = make_set({0.0F, 1.0F}, 8, 777.0F);
-        auto d = make_set({2.0F, 3.0F}, 8, 42.0F);
-        float s1 = dist.compute(std::span<const float>(q1), std::span<const float>(d));
-        float s2 = dist.compute(std::span<const float>(q2), std::span<const float>(d));
-        CATCH_REQUIRE(s1 == Catch::Approx(s2));
+    CATCH_SECTION("Different cardinalities") {
+        // query {0,0,1} vs doc {2}: table(0,2)=2 (twice, one per query token) +
+        // table(1,2)=1 = 5.
+        auto q = make_id_set({0, 0, 1});
+        auto d = make_id_set({2});
+        float score = dist.compute(q.view(), d.view());
+        CATCH_REQUIRE(score == Catch::Approx(5.0F));
     }
 
-    CATCH_SECTION("Vector-set path matches the padded-row path") {
-        auto q_padded = make_set({0.0F, 1.0F}, 6);
-        auto d_padded = make_set({2.0F, 3.0F}, 6);
-        float expected = dist.compute(
-            std::span<const float>(q_padded), std::span<const float>(d_padded)
-        );
-
-        auto q_set = make_id_set({0, 1});
-        auto d_set = make_id_set({2, 3});
-        float actual = dist.compute(q_set.view(), d_set.view());
-        CATCH_REQUIRE(actual == Catch::Approx(expected));
-    }
-
-    CATCH_SECTION("Vector-set path: duplicates, cardinality 1, different cardinalities") {
-        auto q_set = make_id_set({0, 0, 1});
-        auto d_set = make_id_set({2});
-        float actual = dist.compute(q_set.view(), d_set.view());
-
-        auto q_padded = make_set({0.0F, 0.0F, 1.0F}, 8);
-        auto d_padded = make_set({2.0F}, 8);
-        float expected = dist.compute(
-            std::span<const float>(q_padded), std::span<const float>(d_padded)
-        );
-        CATCH_REQUIRE(actual == Catch::Approx(expected));
-    }
-
-    CATCH_SECTION("Vector-set path: dimensions() != 1 throws") {
+    CATCH_SECTION("dimensions() != 1 throws") {
         std::vector<uint32_t> raw{0, 1, 2, 3};
         auto bad =
             svs::data::ConstVectorSet<uint32_t>(std::span<const uint32_t>(raw), 2, 2);
@@ -200,10 +167,10 @@ CATCH_TEST_CASE("QChamfer", "[distance][gem]") {
     }
 
     CATCH_SECTION("Generic svs::distance::compute dispatches to the vector-set overload") {
-        auto q_set = make_id_set({0, 1});
-        auto d_set = make_id_set({2, 3});
-        float via_generic = svs::distance::compute(dist, q_set.view(), d_set.view());
-        float direct = dist.compute(q_set.view(), d_set.view());
+        auto q = make_id_set({0, 1});
+        auto d = make_id_set({2, 3});
+        float via_generic = svs::distance::compute(dist, q.view(), d.view());
+        float direct = dist.compute(q.view(), d.view());
         CATCH_REQUIRE(via_generic == Catch::Approx(direct));
     }
 }
@@ -213,104 +180,53 @@ CATCH_TEST_CASE("QEmd", "[distance][gem]") {
     QEmd dist{table};
 
     CATCH_SECTION("1 vs 1") {
-        auto a = make_set({0.0F}, 4);
-        auto b = make_set({1.0F}, 4);
-        float score = dist.compute(std::span<const float>(a), std::span<const float>(b));
+        auto a = make_id_set({0});
+        auto b = make_id_set({1});
+        float score = dist.compute(a.view(), b.view());
         CATCH_REQUIRE(score == Catch::Approx(1.0F)); // table(0,1)
     }
 
     CATCH_SECTION("1 vs 2") {
         // One source of mass 1 split 0.5/0.5 to two distinct sinks: 0.5*table(0,1) +
         // 0.5*table(0,2) = 0.5*1 + 0.5*2 = 1.5.
-        auto a = make_set({0.0F}, 4);
-        auto b = make_set({1.0F, 2.0F}, 4);
-        float score = dist.compute(std::span<const float>(a), std::span<const float>(b));
+        auto a = make_id_set({0});
+        auto b = make_id_set({1, 2});
+        float score = dist.compute(a.view(), b.view());
         CATCH_REQUIRE(score == Catch::Approx(1.5F));
     }
 
     CATCH_SECTION("2 vs 2 with obvious optimal matching") {
         // Masses 0.5/0.5 on each side; matching 0->3, 1->2 costs 0.5*1+0.5*1=1, strictly
         // less than the cross matching 0->2, 1->3 (0.5*2+0.5*2=2).
-        auto a = make_set({0.0F, 1.0F}, 4);
-        auto b = make_set({2.0F, 3.0F}, 4);
-        float score = dist.compute(std::span<const float>(a), std::span<const float>(b));
+        auto a = make_id_set({0, 1});
+        auto b = make_id_set({2, 3});
+        float score = dist.compute(a.view(), b.view());
         CATCH_REQUIRE(score == Catch::Approx(1.0F));
     }
 
     CATCH_SECTION("Duplicates merge to a single point with full mass") {
         // {0,0} merges to one point of mass 1 at id 0, same as the plain "1 vs 1" case.
-        auto a = make_set({0.0F, 0.0F}, 4);
-        auto b = make_set({1.0F}, 4);
-        float score = dist.compute(std::span<const float>(a), std::span<const float>(b));
+        auto a = make_id_set({0, 0});
+        auto b = make_id_set({1});
+        float score = dist.compute(a.view(), b.view());
         CATCH_REQUIRE(score == Catch::Approx(1.0F));
     }
 
     CATCH_SECTION("Identical sets give 0") {
-        auto a = make_set({0.0F, 1.0F}, 4);
-        float score = dist.compute(std::span<const float>(a), std::span<const float>(a));
+        auto a = make_id_set({0, 1});
+        float score = dist.compute(a.view(), a.view());
         CATCH_REQUIRE(score == Catch::Approx(0.0F));
     }
 
     CATCH_SECTION("Symmetry") {
-        auto a = make_set({0.0F}, 4);
-        auto b = make_set({1.0F, 2.0F}, 4);
-        float ab = dist.compute(std::span<const float>(a), std::span<const float>(b));
-        float ba = dist.compute(std::span<const float>(b), std::span<const float>(a));
+        auto a = make_id_set({0});
+        auto b = make_id_set({1, 2});
+        float ab = dist.compute(a.view(), b.view());
+        float ba = dist.compute(b.view(), a.view());
         CATCH_REQUIRE(ab == Catch::Approx(ba));
     }
 
-    CATCH_SECTION("Padding beyond n is ignored") {
-        auto a1 = make_set({0.0F, 1.0F}, 8, -999.0F);
-        auto a2 = make_set({0.0F, 1.0F}, 8, 777.0F);
-        auto b = make_set({2.0F, 3.0F}, 8, 42.0F);
-        float s1 = dist.compute(std::span<const float>(a1), std::span<const float>(b));
-        float s2 = dist.compute(std::span<const float>(a2), std::span<const float>(b));
-        CATCH_REQUIRE(s1 == Catch::Approx(s2));
-    }
-
-    CATCH_SECTION("Vector-set path matches the padded-row path") {
-        auto a_padded = make_set({0.0F, 1.0F}, 4);
-        auto b_padded = make_set({2.0F, 3.0F}, 4);
-        float expected = dist.compute(
-            std::span<const float>(a_padded), std::span<const float>(b_padded)
-        );
-
-        auto a_set = make_id_set({0, 1});
-        auto b_set = make_id_set({2, 3});
-        float actual = dist.compute(a_set.view(), b_set.view());
-        CATCH_REQUIRE(actual == Catch::Approx(expected));
-    }
-
-    CATCH_SECTION(
-        "Vector-set path: duplicates merge, cardinality 1, different cardinalities"
-    ) {
-        auto a_set = make_id_set({0, 0});
-        auto b_set = make_id_set({1});
-        float actual = dist.compute(a_set.view(), b_set.view());
-
-        auto a_padded = make_set({0.0F, 0.0F}, 4);
-        auto b_padded = make_set({1.0F}, 4);
-        float expected = dist.compute(
-            std::span<const float>(a_padded), std::span<const float>(b_padded)
-        );
-        CATCH_REQUIRE(actual == Catch::Approx(expected));
-
-        // One source of mass 1 at id 0 split 0.5/0.5 to sinks 1 and 2 (table(0,1)=1,
-        // table(0,2)=2): 0.5*1 + 0.5*2 = 1.5, same derivation as the "1 vs 2" case above.
-        auto c_set = make_id_set({0});
-        auto d_set = make_id_set({1, 2});
-        float cardinality_mismatch = dist.compute(c_set.view(), d_set.view());
-        CATCH_REQUIRE(cardinality_mismatch == Catch::Approx(1.5F));
-
-        auto c_padded = make_set({0.0F}, 4);
-        auto d_padded = make_set({1.0F, 2.0F}, 4);
-        float cardinality_mismatch_expected = dist.compute(
-            std::span<const float>(c_padded), std::span<const float>(d_padded)
-        );
-        CATCH_REQUIRE(cardinality_mismatch == Catch::Approx(cardinality_mismatch_expected));
-    }
-
-    CATCH_SECTION("Vector-set path: dimensions() != 1 throws") {
+    CATCH_SECTION("dimensions() != 1 throws") {
         std::vector<uint32_t> raw{0, 1, 2, 3};
         auto bad =
             svs::data::ConstVectorSet<uint32_t>(std::span<const uint32_t>(raw), 2, 2);
@@ -320,10 +236,10 @@ CATCH_TEST_CASE("QEmd", "[distance][gem]") {
     }
 
     CATCH_SECTION("Generic svs::distance::compute dispatches to the vector-set overload") {
-        auto a_set = make_id_set({0});
-        auto b_set = make_id_set({1, 2});
-        float via_generic = svs::distance::compute(dist, a_set.view(), b_set.view());
-        float direct = dist.compute(a_set.view(), b_set.view());
+        auto a = make_id_set({0});
+        auto b = make_id_set({1, 2});
+        float via_generic = svs::distance::compute(dist, a.view(), b.view());
+        float direct = dist.compute(a.view(), b.view());
         CATCH_REQUIRE(via_generic == Catch::Approx(direct));
     }
 }
@@ -332,87 +248,61 @@ CATCH_TEST_CASE("QChamferExactQuery", "[distance][gem]") {
     // Raw (non-unit) centroids: c0=(1,0), c1=(0,1), c2=(-1,0).
     std::vector<float> flat{1.0F, 0.0F, 0.0F, 1.0F, -1.0F, 0.0F};
     auto centroids = std::make_shared<const FineCentroids>(3, 2, flat.data());
-    QChamferExactQuery dist{centroids};
 
     // Query tokens t0=(1,0), t1=(0,1); doc uses centroid ids {0,2}.
-    std::vector<float> raw_query{2.0F, 1.0F, 0.0F, 0.0F, 1.0F};
-    auto doc = make_set({0.0F, 2.0F}, 4);
-
-    svs::distance::maybe_fix_argument(dist, std::span<const float>(raw_query));
-    float score =
-        dist.compute(std::span<const float>(raw_query), std::span<const float>(doc));
-
-    // Naive reference built directly from the raw query tokens and centroid vectors,
-    // independent of build_table/compute_decoded.
-    std::vector<std::pair<float, float>> tokens{{1.0F, 0.0F}, {0.0F, 1.0F}};
-    std::vector<uint32_t> doc_ids{0, 2};
-    double total = 0.0;
-    for (auto [tx, ty] : tokens) {
-        float best = -std::numeric_limits<float>::infinity();
-        for (auto id : doc_ids) {
-            float cx = flat[id * 2];
-            float cy = flat[id * 2 + 1];
-            best = std::max(best, cx * tx + cy * ty);
-        }
-        total += 1.0 - static_cast<double>(best);
-    }
-    float expected = static_cast<float>(total / tokens.size());
-
-    CATCH_REQUIRE(score == Catch::Approx(expected));
-    CATCH_REQUIRE(score == Catch::Approx(0.5F));
-}
-
-CATCH_TEST_CASE("QChamferExactQuery vector-set path", "[distance][gem]") {
-    std::vector<float> flat{1.0F, 0.0F, 0.0F, 1.0F, -1.0F, 0.0F};
-    auto centroids = std::make_shared<const FineCentroids>(3, 2, flat.data());
-
-    // Same raw query and doc ids as the padded-row "QChamferExactQuery" case above,
-    // reused as owning vector sets instead of a padded span.
     RawQuerySet query_set{{1.0F, 0.0F, 0.0F, 1.0F}, 2};
     auto doc_set = make_id_set({0, 2});
 
-    CATCH_SECTION("Matches the padded-row path") {
-        QChamferExactQuery padded_dist{centroids};
-        std::vector<float> raw_query{2.0F, 1.0F, 0.0F, 0.0F, 1.0F};
-        auto doc_padded = make_set({0.0F, 2.0F}, 4);
-        svs::distance::maybe_fix_argument(padded_dist, std::span<const float>(raw_query));
-        float expected = padded_dist.compute(
-            std::span<const float>(raw_query), std::span<const float>(doc_padded)
-        );
+    CATCH_SECTION("Hand-computed: naive reference over raw query tokens") {
+        QChamferExactQuery dist{centroids};
+        svs::distance::maybe_fix_argument(dist, query_set.view());
+        float score = dist.compute(query_set.view(), doc_set.view());
 
-        QChamferExactQuery set_dist{centroids};
-        svs::distance::maybe_fix_argument(set_dist, query_set.view());
-        float actual = set_dist.compute(query_set.view(), doc_set.view());
-        CATCH_REQUIRE(actual == Catch::Approx(expected));
+        // Naive reference built directly from the raw query tokens and centroid vectors,
+        // independent of build_table/compute_decoded.
+        std::vector<std::pair<float, float>> tokens{{1.0F, 0.0F}, {0.0F, 1.0F}};
+        std::vector<uint32_t> doc_ids{0, 2};
+        double total = 0.0;
+        for (auto [tx, ty] : tokens) {
+            float best = -std::numeric_limits<float>::infinity();
+            for (auto id : doc_ids) {
+                float cx = flat[id * 2];
+                float cy = flat[id * 2 + 1];
+                best = std::max(best, cx * tx + cy * ty);
+            }
+            total += 1.0 - static_cast<double>(best);
+        }
+        float expected = static_cast<float>(total / tokens.size());
+
+        CATCH_REQUIRE(score == Catch::Approx(expected));
+        CATCH_REQUIRE(score == Catch::Approx(0.5F));
     }
 
     CATCH_SECTION("Generic maybe_fix_argument/compute dispatch to the vector-set overload"
     ) {
-        QChamferExactQuery set_dist{centroids};
-        svs::distance::maybe_fix_argument(set_dist, query_set.view());
-        float direct = set_dist.compute(query_set.view(), doc_set.view());
-        float via_generic =
-            svs::distance::compute(set_dist, query_set.view(), doc_set.view());
+        QChamferExactQuery dist{centroids};
+        svs::distance::maybe_fix_argument(dist, query_set.view());
+        float direct = dist.compute(query_set.view(), doc_set.view());
+        float via_generic = svs::distance::compute(dist, query_set.view(), doc_set.view());
         CATCH_REQUIRE(via_generic == Catch::Approx(direct));
     }
 
     CATCH_SECTION("fix_argument: query dimension mismatch throws") {
-        QChamferExactQuery set_dist{centroids};
+        QChamferExactQuery dist{centroids};
         RawQuerySet wrong_dim{{1.0F, 0.0F, 0.0F}, 3};
         CATCH_REQUIRE_THROWS_AS(
-            svs::distance::maybe_fix_argument(set_dist, wrong_dim.view()),
-            std::invalid_argument
+            svs::distance::maybe_fix_argument(dist, wrong_dim.view()), std::invalid_argument
         );
     }
 
     CATCH_SECTION("compute: doc dimensions() != 1 throws") {
-        QChamferExactQuery set_dist{centroids};
-        svs::distance::maybe_fix_argument(set_dist, query_set.view());
+        QChamferExactQuery dist{centroids};
+        svs::distance::maybe_fix_argument(dist, query_set.view());
         std::vector<uint32_t> raw{0, 1, 2, 3};
         auto bad_doc =
             svs::data::ConstVectorSet<uint32_t>(std::span<const uint32_t>(raw), 2, 2);
         CATCH_REQUIRE_THROWS_AS(
-            set_dist.compute(query_set.view(), bad_doc), std::invalid_argument
+            dist.compute(query_set.view(), bad_doc), std::invalid_argument
         );
     }
 }
@@ -458,20 +348,16 @@ CATCH_TEST_CASE("GEM Vamana extensions", "[distance][gem][vamana]") {
         QEmd qemd{table};
         int dummy_data = 0;
         auto adaptor = svs::index::vamana::extensions::build_adaptor(dummy_data, qemd);
-        auto a = make_set({0.0F}, 4);
-        auto b = make_set({1.0F}, 4);
-        float score = adaptor.general_distance().compute(
-            std::span<const float>(a), std::span<const float>(b)
-        );
+        auto a = make_id_set({0});
+        auto b = make_id_set({1});
+        float score = adaptor.general_distance().compute(a.view(), b.view());
         CATCH_REQUIRE(score == Catch::Approx(1.0F)); // table(0,1), same as the QEmd test.
 
         QChamfer qchamfer{table};
         auto adaptor2 = svs::index::vamana::extensions::build_adaptor(dummy_data, qchamfer);
-        auto q = make_set({0.0F, 1.0F}, 6);
-        auto d = make_set({2.0F, 3.0F}, 6);
-        float score2 = adaptor2.general_distance().compute(
-            std::span<const float>(q), std::span<const float>(d)
-        );
+        auto q = make_id_set({0, 1});
+        auto d = make_id_set({2, 3});
+        float score2 = adaptor2.general_distance().compute(q.view(), d.view());
         CATCH_REQUIRE(score2 == Catch::Approx(2.0F));
     }
 }
