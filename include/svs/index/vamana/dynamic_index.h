@@ -116,7 +116,7 @@ namespace detail {
 inline constexpr lib::Version dynamic_status_version = lib::Version(0, 0, 1);
 
 // Writes the index as-is. If `status` is given (one byte per slot), it is saved too and
-// `translator` must only map `Valid` slots.
+// `translator` may also map `Deleted` slots.
 template <typename Index>
 void write_dynamic_index(
     Index& index,
@@ -1561,12 +1561,12 @@ std::vector<Metadata> decode_slot_status(const std::vector<uint8_t>& raw) {
 
 // Saved concurrent indexes keep soft-deleted IDs mapped; this index erases them on delete.
 template <typename Metadata>
-void drop_non_valid_translations(
+void drop_deleted_translations(
     IDTranslator& translator, const std::vector<Metadata>& status
 ) {
     auto to_drop = std::vector<size_t>();
     for (auto pair : translator) {
-        if (pair.second < status.size() && status[pair.second] != Metadata::Valid) {
+        if (pair.second < status.size() && status[pair.second] == Metadata::Deleted) {
             to_drop.push_back(pair.second);
         }
     }
@@ -1802,7 +1802,7 @@ auto auto_dynamic_assemble(
     }
 
     // Copied state may contain deleted or empty slots.
-    detail::drop_non_valid_translations(translator, status);
+    detail::drop_deleted_translations(translator, status);
     detail::check_translator_matches_status(translator, status);
 
     // At this point, we should be completely validated.
@@ -1854,7 +1854,7 @@ auto auto_dynamic_assemble(
             "Status has {} entries but should have {}", status.size(), datasize
         );
     }
-    detail::drop_non_valid_translations(translator, status);
+    detail::drop_deleted_translations(translator, status);
     detail::check_translator_matches_status(translator, status);
 
     auto threadpool = threads::as_threadpool(std::move(threadpool_proto));
