@@ -31,12 +31,24 @@
 #include <algorithm>
 #include <array>
 #include <bit>
+#include <concepts>
 #include <cstddef>
 #include <cstdint>
+#include <cstring>
 #include <limits>
 #include <random>
 #include <thread>
 #include <vector>
+
+// POSIX, guarded: the guard-page test below needs mmap/mprotect/munmap, which this file
+// must still compile without on a non-POSIX target.
+#if defined(__unix__) || defined(__APPLE__)
+#define SVS_TEST_HAS_MMAP 1
+#include <sys/mman.h>
+#include <unistd.h>
+#else
+#define SVS_TEST_HAS_MMAP 0
+#endif
 
 namespace {
 
@@ -1034,3 +1046,208 @@ CATCH_TEST_CASE(
         out, reference_from_values(promote_bfloat16(a_bf16), m, b_rounded, n, d)
     );
 }
+
+#if SVS_TEST_HAS_MMAP
+
+namespace {
+
+// Owns one `mmap` region sized to guard exactly `usable_bytes` of real storage against
+// one neighbouring `PROT_NONE` page: `end_guarded` places the usable region so its last
+// byte is the last byte before the guard page (catches an overrun), `start_guarded`
+// places it at the first byte after a leading guard page (catches an underrun). A
+// kernel that reads or writes one byte past what the test tells it to touch faults
+// (SIGSEGV), which kills the test binary; that crash, not a Catch2 assertion, is this
+// test's failure signal.
+class GuardedMapping {
+  public:
+    static GuardedMapping end_guarded(size_t usable_bytes) {
+        size_t page = page_size();
+        size_t usable_pages = (usable_bytes + page - 1) / page;
+        size_t total = (usable_pages + 1) * page;
+        void* base = map(total);
+        guard(static_cast<char*>(base) + usable_pages * page, page);
+        void* ptr = static_cast<char*>(base) + usable_pages * page - usable_bytes;
+        return GuardedMapping(base, total, ptr);
+    }
+
+    static GuardedMapping start_guarded(size_t usable_bytes) {
+        size_t page = page_size();
+        size_t usable_pages = (usable_bytes + page - 1) / page;
+        size_t total = (usable_pages + 1) * page;
+        void* base = map(total);
+        guard(base, page);
+        void* ptr = static_cast<char*>(base) + page;
+        return GuardedMapping(base, total, ptr);
+    }
+
+    GuardedMapping(const GuardedMapping&) = delete;
+    GuardedMapping& operator=(const GuardedMapping&) = delete;
+    GuardedMapping(GuardedMapping&& other) noexcept
+        : base_{other.base_}
+        , total_{other.total_}
+        , ptr_{other.ptr_} {
+        other.base_ = nullptr;
+    }
+    GuardedMapping& operator=(GuardedMapping&&) = delete;
+
+    ~GuardedMapping() {
+        if (base_ != nullptr) {
+            munmap(base_, total_);
+        }
+    }
+
+    void* data() const { return ptr_; }
+
+  private:
+    GuardedMapping(void* base, size_t total, void* ptr)
+        : base_{base}
+        , total_{total}
+        , ptr_{ptr} {}
+
+    static size_t page_size() { return static_cast<size_t>(sysconf(_SC_PAGESIZE)); }
+
+    static void* map(size_t total) {
+        void* base = mmap(
+            nullptr, total, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0
+        );
+        CATCH_REQUIRE(base != MAP_FAILED);
+        return base;
+    }
+
+    static void guard(void* addr, size_t len) {
+        CATCH_REQUIRE(mprotect(addr, len, PROT_NONE) == 0);
+    }
+
+    void* base_;
+    size_t total_;
+    void* ptr_;
+};
+
+// Every tail shape the table and column-max kernels' SIMD/tile paths mask: m and n each
+// cross the 16-wide tile/lane boundary, d crosses the 32-element (16-pair) AMX k-chunk
+// boundary and both parities, matching the AMX tail sweep above but written out
+// explicitly per the task's shape list rather than reusing `amx_ms`/`amx_ns`/`amx_ds`.
+const std::vector<size_t> guard_ms{1, 15, 16, 17, 33};
+const std::vector<size_t> guard_ns{1, 15, 16, 17, 33};
+const std::vector<size_t> guard_ds{1, 2, 31, 32, 33, 127, 128, 129};
+
+// Runs both kernel forms (table and column-max) for one (level, element type) pair over
+// every (m, n, d) in the guard sweep, with A and `out` each placed, in turn, so a
+// one-element overrun or underrun would fault. `kernel` dispatches to
+// InnerProductMatrixImpl<Avx>::build_packed/column_max for whichever `T` the caller
+// closed over; `pack_b` chooses `PackedOperand::pack` vs. `pack_rounded_to_bf16` the same
+// way MaxSim/InnerProductMatrix's own callers do.
+template <typename T, typename BuildPacked, typename ColumnMax>
+void run_guarded_sweep(
+    bool pack_b_rounded, BuildPacked build_packed, ColumnMax column_max
+) {
+    for (size_t d : guard_ds) {
+        for (size_t m : guard_ms) {
+            for (size_t n : guard_ns) {
+                auto a_src =
+                    random_matrix(m, d, static_cast<unsigned>(m * 997 + n * 31 + d));
+                std::vector<T> a_host(m * d);
+                for (size_t i = 0; i < a_host.size(); ++i) {
+                    a_host[i] = T(a_src[i]);
+                }
+                auto b = random_matrix(n, d, static_cast<unsigned>(d * 997 + m * 31 + n));
+                PackedOperand packed;
+                if (pack_b_rounded) {
+                    packed.pack_rounded_to_bf16(b.data(), n, d);
+                } else {
+                    packed.pack(b.data(), n, d);
+                }
+
+                // (1) A ends exactly at a guard page: an overrun past A's last element
+                // faults.
+                {
+                    GuardedMapping guard = GuardedMapping::end_guarded(m * d * sizeof(T));
+                    std::memcpy(guard.data(), a_host.data(), m * d * sizeof(T));
+                    const T* a = static_cast<const T*>(guard.data());
+                    std::vector<float> table_out(m * n, 0.0F);
+                    build_packed(a, m, packed, table_out.data());
+                    std::vector<float> cm_out(n, 0.0F);
+                    column_max(a, m, packed, cm_out.data());
+                }
+
+                // (2) `out` ends exactly at a guard page, for both forms.
+                {
+                    GuardedMapping guard =
+                        GuardedMapping::end_guarded(m * n * sizeof(float));
+                    build_packed(
+                        a_host.data(), m, packed, static_cast<float*>(guard.data())
+                    );
+                }
+                {
+                    GuardedMapping guard = GuardedMapping::end_guarded(n * sizeof(float));
+                    column_max(a_host.data(), m, packed, static_cast<float*>(guard.data()));
+                }
+
+                // (3) A starts at the first byte after a guard page: an underrun before
+                // A's first element faults.
+                {
+                    GuardedMapping guard = GuardedMapping::start_guarded(m * d * sizeof(T));
+                    std::memcpy(guard.data(), a_host.data(), m * d * sizeof(T));
+                    const T* a = static_cast<const T*>(guard.data());
+                    std::vector<float> table_out(m * n, 0.0F);
+                    build_packed(a, m, packed, table_out.data());
+                    std::vector<float> cm_out(n, 0.0F);
+                    column_max(a, m, packed, cm_out.data());
+                }
+            }
+        }
+    }
+}
+
+template <AVX_AVAILABILITY Avx, typename T> void run_guarded_level() {
+    run_guarded_sweep<T>(
+        std::same_as<T, svs::BFloat16>,
+        [](const T* a, size_t m, const PackedOperand& b, float* out) {
+            InnerProductMatrixImpl<Avx>::build_packed(a, m, b, out);
+        },
+        [](const T* a, size_t m, const PackedOperand& b, float* out) {
+            InnerProductMatrixImpl<Avx>::column_max(a, m, b, out);
+        }
+    );
+}
+
+} // namespace
+
+// The AMX tile kernels (amx_table_bf16 / amx_column_max_bf16, reached only for a bfloat16
+// A against a tile-packed B) copy A's tail through a zero-padded stack buffer precisely
+// to avoid reading past A's own allocation (see PackedOperand::fill_tile_layout's doc
+// comment); this test is the memory-safety check for that claim, and for the AVX-512/AVX2
+// masked-tail kernels' equivalent claim. A violation is a SIGSEGV that kills this test
+// binary, which is the failure signal, not a CATCH_REQUIRE.
+CATCH_TEST_CASE(
+    "InnerProductMatrixImpl kernels never read or write outside A or out, including "
+    "their masked tails",
+    "[distance][inner_product_matrix][amx]"
+) {
+    CATCH_SECTION("AMX bfloat16 tile kernel") {
+        if (!svs::detail::amx_tile_bf16_available()) {
+            return;
+        }
+        run_guarded_level<AVX_AVAILABILITY::AMX, svs::BFloat16>();
+    }
+
+    CATCH_SECTION("AVX-512 kernels") {
+        if (!svs::detail::avx_runtime_flags.is_avx512f_supported()) {
+            return;
+        }
+        run_guarded_level<AVX_AVAILABILITY::AVX512, float>();
+        run_guarded_level<AVX_AVAILABILITY::AVX512, svs::Float16>();
+        run_guarded_level<AVX_AVAILABILITY::AVX512, svs::BFloat16>();
+    }
+
+    CATCH_SECTION("AVX2 kernels") {
+        if (!svs::detail::avx_runtime_flags.is_avx2_supported()) {
+            return;
+        }
+        run_guarded_level<AVX_AVAILABILITY::AVX2, float>();
+        run_guarded_level<AVX_AVAILABILITY::AVX2, svs::Float16>();
+        run_guarded_level<AVX_AVAILABILITY::AVX2, svs::BFloat16>();
+    }
+}
+
+#endif // SVS_TEST_HAS_MMAP
