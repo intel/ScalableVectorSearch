@@ -69,30 +69,49 @@ struct AVXRuntimeFlags {
 inline const AVXRuntimeFlags avx_runtime_flags = {};
 
 #if defined(__x86_64__) && defined(__linux__)
-// Kernel XFEATURE_XTILEDATA index for ARCH_REQ_XCOMP_PERM. Not in any header on this
-// machine (glibc's asm/prctl.h stops at ARCH_REQ_XCOMP_PERM itself); taken from the
-// kernel's xstate ABI (Documentation/x86/xstate.rst) and confirmed by experiment
-// (/tmp/amx-study/t2c_detect.c) that requesting permission with this value is what lets
-// tile instructions run without SIGILL.
+// Kernel XFEATURE_XTILEDATA index for ARCH_REQ_XCOMP_PERM; see amx_tile_bf16_available's
+// documentation below for where this number comes from and how it was confirmed.
 inline constexpr unsigned long SVS_XFEATURE_XTILEDATA = 18;
 
-// Requests AMX tile-data OS permission exactly once per process, the first time any
-// thread asks whether the AMX level is usable. Requesting at library load would run in
-// whatever process SVS is linked into before that process has decided it wants AMX at
-// all; requesting per-call would repeat a syscall this function's caching exists to
-// avoid. The request must run unconditionally, every time: XCR0 (read via `xgetbv`)
-// reports which xstate components the CPU/OS architecturally support, not whether this
-// process has been granted permission to use tile data, so an "already looks enabled"
-// shortcut on XCR0 would skip the one call that actually grants it (confirmed by
-// experiment: a process that never calls ARCH_REQ_XCOMP_PERM still reads XCR0 bits
-// 17/18 as set, then SIGILLs on the first real tile instruction). Returns true only
-// when the CPU has AMX-TILE and AMX-BF16 and the kernel request succeeds; any "no" here
-// is silent, not an error: dispatch simply does not pick AMX.
-//
-// Thread-safety and the once-ness come from the function-local static's initializer
-// guarantee (C++ [stmt.dcl]): concurrent first callers block on the same guard variable
-// and only one of them runs the body; every call after that is the "one predictable
-// branch on a cached value" the dispatch call site needs.
+/// Returns true the first time, and every time after, that this process may run AMX
+/// tile instructions without SIGILL: the CPU has AMX-TILE and AMX-BF16, and the one-time
+/// `ARCH_REQ_XCOMP_PERM` request below succeeded. Any "no" here is silent, not an error:
+/// dispatch simply does not pick AMX.
+///
+/// Requests AMX tile-data OS permission exactly once per process, the first time any
+/// thread calls this function. Requesting at library load would run in whatever process
+/// SVS is linked into before that process has decided it wants AMX at all; requesting
+/// per-call would repeat a syscall this function's caching exists to avoid. The request
+/// must run unconditionally, every time this initializes: XCR0 (read via `xgetbv`)
+/// reports which xstate components the CPU/OS architecturally support, not whether this
+/// process has been granted permission to use tile data, so an "already looks enabled"
+/// shortcut on XCR0 would skip the one call that actually grants it (confirmed by
+/// experiment: a process that never calls `ARCH_REQ_XCOMP_PERM` still reads XCR0 bits
+/// 17/18 as set, then SIGILLs on the first real tile instruction).
+///
+/// Thread-safety and the once-ness come from the function-local static's initializer
+/// guarantee (C++ [stmt.dcl]): concurrent first callers block on the same guard variable
+/// and only one of them runs the body; every call after that is the "one predictable
+/// branch on a cached value" the dispatch call site needs.
+///
+/// The feature number passed to `ARCH_REQ_XCOMP_PERM` (18, `SVS_XFEATURE_XTILEDATA`
+/// above) is not in any header on this machine: glibc's `asm/prctl.h` defines
+/// `ARCH_REQ_XCOMP_PERM` itself but not the per-feature indices it takes. 18 is
+/// `XFEATURE_XTILEDATA` per the kernel's xstate ABI (`Documentation/arch/x86/xstate.rst`
+/// in the Linux source tree); confirmed by experiment on this machine (Linux, x86-64,
+/// see `/tmp/amx-study/t2c_detect.c`) that requesting permission with this value is what
+/// lets tile instructions run without SIGILL, not merely a documented-but-untested
+/// number.
+///
+/// This syscall is process-wide, not just for the calling thread: once granted, tile
+/// state (the eight tmm registers and the tile-config register) becomes part of every
+/// thread's extended processor state in this process, saved and restored across context
+/// switches like any other xstate component from then on. A process running under a
+/// seccomp policy that kills on an unlisted syscall will be terminated right here, at
+/// this call, if `arch_prctl` is not on that policy's allow list. Taken from kernel
+/// documentation, not verified on this machine: the kernel may refuse the request if an
+/// installed alternate signal stack (`sigaltstack`) is smaller than the now-larger
+/// xstate save area requires.
 inline bool amx_tile_bf16_available() {
     static const bool available = [] {
         // amx.cpp is compiled at exactly the AVX-512 level's instruction set (plus the
