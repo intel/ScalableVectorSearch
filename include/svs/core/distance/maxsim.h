@@ -19,6 +19,7 @@
 // svs
 #include "svs/concepts/vector_set.h"
 #include "svs/core/distance/inner_product_matrix.h"
+#include "svs/lib/bfloat16.h"
 #include "svs/lib/exception.h"
 #include "svs/lib/float16.h"
 
@@ -29,6 +30,7 @@
 #include <functional>
 #include <limits>
 #include <string_view>
+#include <type_traits>
 #include <vector>
 
 namespace svs::distance {
@@ -48,12 +50,31 @@ namespace svs::distance {
 /// `must_fix_argument` is set because `compute` is meaningless without a prior
 /// `fix_argument`.
 ///
+/// `DocElement` (default `float`) is the element type of the documents this instance
+/// scores: `float` and `svs::Float16` documents are packed unrounded, bit for bit as
+/// before this type gained a template parameter; `svs::BFloat16` documents are packed
+/// through `PackedOperand::pack_rounded_to_bf16`, which both matches the bf16 precision
+/// those documents are already held at and is the one packing `InnerProductMatrix`'s AMX
+/// level requires to route a bf16 A through the tile kernel (see inner_product_matrix.h).
+/// Baking the document element type into the type, rather than branching on it inside
+/// `fix_argument`, means a document of the wrong element type fails to compile (`compute`'s
+/// `requires` clause below) instead of silently mismatching rounding at run time, and
+/// means `fix_argument` packs the query exactly once regardless of `DocElement` rather than
+/// packing twice to keep both a rounded and an unrounded copy on hand. The non-template
+/// spelling `MaxSim` keeps meaning `MaxSim<float>` for existing callers.
+///
 /// The query (fix_argument's argument) is a `svs::data::ContiguousVectorSet` of float32
 /// tokens. The document (compute's second argument) is a `svs::data::ContiguousVectorSet`
-/// of float32 or svs::Float16 tokens with the same dimensionality as the query; a
-/// mismatch throws (checked once per document, which is negligible next to the kernel
-/// it guards). An empty document scores -infinity, strictly worse than any real score.
-class MaxSim {
+/// of `DocElement` tokens with the same dimensionality as the query; a mismatch throws
+/// (checked once per document, which is negligible next to the kernel it guards). An
+/// empty document scores -infinity, strictly worse than any real score.
+template <typename DocElement = float> class MaxSim {
+    static_assert(
+        std::same_as<DocElement, float> || std::same_as<DocElement, svs::Float16> ||
+            std::same_as<DocElement, svs::BFloat16>,
+        "MaxSim's document element type must be float, svs::Float16 or svs::BFloat16"
+    );
+
   public:
     using compare = std::greater<>;
 
@@ -69,7 +90,13 @@ class MaxSim {
         requires std::same_as<typename S::element_type, float>
     void fix_argument(const S& query) {
         assert(query.cardinality() > 0);
-        packed_.pack(query.data(), query.cardinality(), query.dimensions());
+        if constexpr (std::same_as<DocElement, svs::BFloat16>) {
+            packed_.pack_rounded_to_bf16(
+                query.data(), query.cardinality(), query.dimensions()
+            );
+        } else {
+            packed_.pack(query.data(), query.cardinality(), query.dimensions());
+        }
         maxima_.resize(packed_.n());
     }
 
@@ -79,8 +106,7 @@ class MaxSim {
     /// (see QChamferExactQuery::compute in gem.h for the same shape). Non-const: writes
     /// into the member maxima buffer `fix_argument` sized.
     template <typename Query, svs::data::ContiguousVectorSet D>
-        requires std::same_as<typename D::element_type, float> ||
-                 std::same_as<typename D::element_type, svs::Float16>
+        requires std::same_as<typename D::element_type, DocElement>
     float compute(const Query& /*query*/, const D& document) {
         if (document.dimensions() != packed_.d()) {
             throw ANNEXCEPTION(
@@ -109,6 +135,9 @@ class MaxSim {
     std::vector<float> maxima_;
 };
 
-inline constexpr bool operator==(const MaxSim&, const MaxSim&) { return true; }
+template <typename DocElement>
+inline constexpr bool operator==(const MaxSim<DocElement>&, const MaxSim<DocElement>&) {
+    return true;
+}
 
 } // namespace svs::distance

@@ -184,14 +184,14 @@ brute_force_maxsim(const Query& query, const svs::data::ConstVectorSetView<float
     scored.reserve(docs.size());
     // MaxSim now packs the query once (must_fix_argument) and reuses that packing for
     // every document, instead of the old stateless compute() called fresh each time.
-    svs::distance::MaxSim maxsim{};
+    svs::distance::MaxSim<> maxsim{};
     svs::distance::maybe_fix_argument(maxsim, query);
     for (uint32_t id = 0; id < docs.size(); ++id) {
         float score = svs::distance::compute(maxsim, query, docs.get_datum(id));
         scored.emplace_back(id, score);
     }
     std::sort(scored.begin(), scored.end(), [](const auto& a, const auto& b) {
-        return svs::distance::MaxSim::compare{}(a.second, b.second);
+        return svs::distance::MaxSim<>::compare{}(a.second, b.second);
     });
     return scored;
 }
@@ -251,7 +251,7 @@ void check_rerank_pool(
 
     std::vector<uint32_t> pool_ids;
     pool_ids.reserve(buffer.size());
-    svs::distance::MaxSim maxsim{};
+    svs::distance::MaxSim<> maxsim{};
     svs::distance::maybe_fix_argument(maxsim, query);
     float previous_score = std::numeric_limits<float>::infinity();
     for (const auto& neighbor : buffer) {
@@ -548,6 +548,140 @@ CATCH_TEST_CASE("WithVectorSets save and reload", "[vamana][maxsim_rerank]") {
             CATCH_REQUIRE(
                 scratch_before.buffer[j].distance() == scratch_after.buffer[j].distance()
             );
+        }
+    }
+}
+
+namespace {
+
+// Rounds `corpus`'s float tokens to bfloat16 into a fresh owning `VectorSetData<BFloat16>`
+// with the same CSR offsets, so the bf16 store's documents are exactly what the float
+// corpus's documents round to.
+svs::data::VectorSetData<svs::BFloat16> round_tokens_to_bf16(const Corpus& corpus) {
+    size_t total_tokens = corpus.tokens.size() / DIM;
+    svs::data::SimpleData<svs::BFloat16> tokens(total_tokens, DIM);
+    std::vector<svs::BFloat16> row(DIM);
+    for (size_t i = 0; i < total_tokens; ++i) {
+        for (size_t d = 0; d < DIM; ++d) {
+            row[d] = svs::round_to_bfloat16(corpus.tokens[i * DIM + d]);
+        }
+        tokens.set_datum(i, row);
+    }
+    return svs::data::VectorSetData<svs::BFloat16>(std::move(tokens), corpus.offsets);
+}
+
+// Brute-force oracle over the bfloat16 store itself (not the float corpus the store was
+// rounded from): mirrors `brute_force_maxsim` but through `MaxSim<svs::BFloat16>`, so it
+// scores exactly what the owning bf16 store holds.
+template <svs::data::VectorSet Query>
+std::vector<std::pair<uint32_t, float>> brute_force_maxsim_bf16(
+    const Query& query, const svs::data::VectorSetData<svs::BFloat16>& docs
+) {
+    std::vector<std::pair<uint32_t, float>> scored;
+    scored.reserve(docs.size());
+    svs::distance::MaxSim<svs::BFloat16> maxsim{};
+    svs::distance::maybe_fix_argument(maxsim, query);
+    for (uint32_t id = 0; id < docs.size(); ++id) {
+        float score = svs::distance::compute(maxsim, query, docs.get_datum(id));
+        scored.emplace_back(id, score);
+    }
+    std::sort(scored.begin(), scored.end(), [](const auto& a, const auto& b) {
+        return svs::distance::MaxSim<>::compare{}(a.second, b.second);
+    });
+    return scored;
+}
+
+} // namespace
+
+// A document store whose element type is svs::BFloat16: the re-rank extension must pick
+// MaxSim<svs::BFloat16> for it (svs/extensions/vamana/maxsim.h selects on
+// `Sets::const_value_type::element_type`), reaching the bf16 (and AMX, where available)
+// InnerProductMatrix::column_max overload rather than the float one.
+CATCH_TEST_CASE(
+    "MaxSim re-rank over an owning bfloat16 vector-set store", "[vamana][maxsim_rerank]"
+) {
+    using Dist = MeanNegativeInnerProduct;
+    using Primary = svs::data::SimpleData<float>;
+    using Sets = svs::data::VectorSetData<svs::BFloat16>;
+    using Data = svs::data::WithVectorSets<Primary, Sets>;
+
+    const size_t n_docs = 80;
+    auto corpus = make_corpus(n_docs, 0x5EED5EED);
+    auto query_corpus = make_corpus(5, 0xFACE5EED);
+
+    auto data = Data(corpus.primary, round_tokens_to_bf16(corpus));
+
+    auto build_parameters =
+        svs::index::vamana::VamanaBuildParameters{1.2F, 16, 32, 64, 16, true};
+
+    auto entry_point_pool = svs::threads::DefaultThreadPool(1);
+    auto entry_point =
+        svs::lib::narrow<uint32_t>(svs::index::vamana::extensions::compute_entry_point(
+            corpus.primary, entry_point_pool
+        ));
+
+    auto graph = svs::default_graph<uint32_t>(n_docs, build_parameters.graph_max_degree);
+    auto build_pool = svs::threads::DefaultThreadPool(1);
+    auto builder = svs::index::vamana::VamanaBuilder(
+        graph,
+        data,
+        Dist{},
+        build_parameters,
+        build_pool,
+        svs::index::vamana::extensions::estimate_prefetch_parameters(data)
+    );
+    builder.construct(1.0F, entry_point);
+    builder.construct(build_parameters.alpha, entry_point);
+
+    auto pool = svs::threads::DefaultThreadPool(1);
+    auto index = svs::index::vamana::VamanaIndex(
+        std::move(graph), std::move(data), entry_point, Dist{}, std::move(pool)
+    );
+
+    auto queries = query_corpus.vector_sets();
+    const size_t capacity = n_docs;
+    const size_t num_neighbors = 10;
+    auto sp = search_params(capacity, capacity);
+    auto scratch = index.scratchspace(sp);
+
+    for (size_t q = 0; q < queries.size(); ++q) {
+        auto query = queries.get_datum(q);
+        index.search(query, scratch);
+        const auto& buffer = scratch.buffer;
+
+        svs::distance::MaxSim<svs::BFloat16> maxsim{};
+        svs::distance::maybe_fix_argument(maxsim, query);
+        float previous_score = std::numeric_limits<float>::infinity();
+        std::vector<uint32_t> pool_ids;
+        pool_ids.reserve(buffer.size());
+        for (const auto& neighbor : buffer) {
+            float expected = svs::distance::compute(
+                maxsim, query, index.view_data().get_vector_set(neighbor.id())
+            );
+            CATCH_REQUIRE(
+                static_cast<double>(neighbor.distance()) ==
+                Catch::Approx(expected)
+                    .epsilon(MAXSIM_RERANK_EPSILON)
+                    .margin(MAXSIM_RERANK_EPSILON)
+            );
+            CATCH_REQUIRE(neighbor.distance() <= previous_score);
+            previous_score = neighbor.distance();
+            pool_ids.push_back(neighbor.id());
+        }
+
+        std::set<uint32_t> pool_set(pool_ids.begin(), pool_ids.end());
+        auto oracle = brute_force_maxsim_bf16(query, index.view_data().vector_sets());
+        std::vector<uint32_t> restricted_oracle;
+        for (const auto& scored : oracle) {
+            if (pool_set.contains(scored.first)) {
+                restricted_oracle.push_back(scored.first);
+                if (restricted_oracle.size() == num_neighbors) {
+                    break;
+                }
+            }
+        }
+        for (size_t k = 0; k < num_neighbors; ++k) {
+            CATCH_REQUIRE(buffer[k].id() == restricted_oracle[k]);
         }
     }
 }

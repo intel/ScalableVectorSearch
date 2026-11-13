@@ -19,6 +19,7 @@
 
 // svs
 #include "svs/concepts/distance.h"
+#include "svs/lib/bfloat16.h"
 #include "svs/lib/float16.h"
 
 // catch2
@@ -66,6 +67,14 @@ TestVectorSet<T> make_set(std::initializer_list<std::initializer_list<T>> tokens
 
 template <typename T> double promote(T x) { return static_cast<double>(x); }
 
+// Namespace-scope concept (rather than a function-local requires-expression) so a
+// substitution failure inside MaxSim<DocElement>::compute's requires-clause, which
+// mentions the enclosing class template's parameter, stays in the immediate context for
+// SFINAE purposes.
+template <typename DocElement, typename D>
+concept CanComputeMaxSim =
+    requires(svs::distance::MaxSim<DocElement>& dist, const D& d) { dist.compute(0, d); };
+
 // Naive double-precision oracle: sum over query tokens of the max inner product to any
 // document token.
 template <typename Q, typename D>
@@ -90,6 +99,47 @@ double maxsim_reference(const TestVectorSet<Q>& query, const TestVectorSet<D>& d
     return total;
 }
 
+// Same oracle as `maxsim_reference`, but both the query and the document values are
+// first rounded to bfloat16 precision: matches what MaxSim<svs::BFloat16> actually
+// computes, since fix_argument rounds the query (pack_rounded_to_bf16) and the document
+// is already held at bf16 precision.
+double maxsim_reference_bf16(
+    const TestVectorSet<float>& query, const TestVectorSet<svs::BFloat16>& document
+) {
+    if (document.cardinality() == 0) {
+        return -std::numeric_limits<double>::infinity();
+    }
+    double total = 0.0;
+    for (size_t i = 0; i < query.cardinality(); ++i) {
+        auto q_token = query.token(i);
+        double best = -std::numeric_limits<double>::infinity();
+        for (size_t j = 0; j < document.cardinality(); ++j) {
+            auto d_token = document.token(j);
+            double dot = 0.0;
+            for (size_t d = 0; d < query.dimensions(); ++d) {
+                double qv = promote(svs::round_to_bfloat16(q_token[d]));
+                double dv = promote(d_token[d]);
+                dot += qv * dv;
+            }
+            best = std::max(best, dot);
+        }
+        total += best;
+    }
+    return total;
+}
+
+TestVectorSet<svs::BFloat16>
+make_random_bf16_set(size_t cardinality, size_t dim, std::mt19937& rng) {
+    std::uniform_real_distribution<float> dist(-1.0F, 1.0F);
+    TestVectorSet<svs::BFloat16> set;
+    set.dim = dim;
+    set.flat.resize(cardinality * dim);
+    for (auto& v : set.flat) {
+        v = svs::round_to_bfloat16(dist(rng));
+    }
+    return set;
+}
+
 TestVectorSet<float> make_random_set(size_t cardinality, size_t dim, std::mt19937& rng) {
     std::uniform_real_distribution<float> dist(-1.0F, 1.0F);
     TestVectorSet<float> set;
@@ -105,7 +155,7 @@ TestVectorSet<float> make_random_set(size_t cardinality, size_t dim, std::mt1993
 // (the protocol every ShouldFix-opted-in distance goes through), then scores `document`.
 template <typename D>
 float maxsim_score(const TestVectorSet<float>& query, const D& document) {
-    svs::distance::MaxSim dist{};
+    svs::distance::MaxSim<typename D::element_type> dist{};
     svs::distance::maybe_fix_argument(dist, query);
     return svs::distance::compute(dist, query, document);
 }
@@ -116,9 +166,9 @@ constexpr double MAXSIM_EPSILON = 1e-4;
 
 CATCH_TEST_CASE("MaxSim distance", "[distance][maxsim]") {
     CATCH_SECTION("Trait members") {
-        CATCH_REQUIRE(std::is_same_v<svs::distance::MaxSim::compare, std::greater<>>);
-        CATCH_REQUIRE_FALSE(svs::distance::MaxSim::implicit_broadcast);
-        CATCH_REQUIRE(svs::distance::MaxSim::must_fix_argument);
+        CATCH_REQUIRE(std::is_same_v<svs::distance::MaxSim<>::compare, std::greater<>>);
+        CATCH_REQUIRE_FALSE(svs::distance::MaxSim<>::implicit_broadcast);
+        CATCH_REQUIRE(svs::distance::MaxSim<>::must_fix_argument);
     }
 
     CATCH_SECTION("Hand-computed tiny case") {
@@ -206,5 +256,70 @@ CATCH_TEST_CASE("MaxSim distance", "[distance][maxsim]") {
                 Catch::Approx(expected).epsilon(MAXSIM_EPSILON).margin(MAXSIM_EPSILON)
             );
         }
+    }
+
+    CATCH_SECTION("Hand-computed bfloat16 document case") {
+        auto query = make_set<float>({{1.0F, 0.0F, 0.0F}, {0.0F, 1.0F, 0.0F}});
+        auto document = make_set<svs::BFloat16>(
+            {{svs::BFloat16(1.0F), svs::BFloat16(0.0F), svs::BFloat16(0.0F)},
+             {svs::BFloat16(0.0F), svs::BFloat16(0.0F), svs::BFloat16(1.0F)}}
+        );
+        float score = maxsim_score(query, document);
+        // Both values are exactly representable in bfloat16, so rounding changes nothing
+        // here: token 0 of query matches document token 0 exactly (dot = 1); token 1 has
+        // dot 0 with both document tokens.
+        CATCH_REQUIRE(score == Catch::Approx(1.0F).epsilon(MAXSIM_EPSILON));
+    }
+
+    CATCH_SECTION("Empty bfloat16 document set gives -inf") {
+        auto query = make_set<float>({{1.0F, 0.0F}});
+        TestVectorSet<svs::BFloat16> document;
+        document.dim = 2;
+        float score = maxsim_score(query, document);
+        CATCH_REQUIRE(score == -std::numeric_limits<float>::infinity());
+    }
+
+    CATCH_SECTION("Bfloat16 dimension mismatch throws") {
+        auto query = make_set<float>({{1.0F, 0.0F, 0.0F}});
+        auto document =
+            make_set<svs::BFloat16>({{svs::BFloat16(1.0F), svs::BFloat16(0.0F)}});
+        svs::distance::MaxSim<svs::BFloat16> dist{};
+        svs::distance::maybe_fix_argument(dist, query);
+        CATCH_REQUIRE_THROWS_AS(
+            svs::distance::compute(dist, query, document), svs::lib::ANNException
+        );
+    }
+
+    CATCH_SECTION("Bfloat16 document exact oracle on random sets, rounded query") {
+        std::mt19937 rng(0xB10A7);
+        std::vector<size_t> cardinalities{1, 2, 3, 7, 9, 17};
+        std::vector<size_t> dims{128, 37};
+        for (size_t dim : dims) {
+            for (size_t nq : cardinalities) {
+                for (size_t nd : cardinalities) {
+                    auto query = make_random_set(nq, dim, rng);
+                    auto document = make_random_bf16_set(nd, dim, rng);
+                    double expected = maxsim_reference_bf16(query, document);
+                    float actual = maxsim_score(query, document);
+                    CATCH_REQUIRE(
+                        static_cast<double>(actual) == Catch::Approx(expected)
+                                                           .epsilon(MAXSIM_EPSILON)
+                                                           .margin(MAXSIM_EPSILON)
+                    );
+                }
+            }
+        }
+    }
+
+    CATCH_SECTION("Document element type is checked at compile time") {
+        using FloatDoc = TestVectorSet<float>;
+        using BF16Doc = TestVectorSet<svs::BFloat16>;
+        // A MaxSim<float> accepts a float document and rejects a bfloat16 one: the
+        // document's element type is part of the functor's type, so a mismatch is a
+        // compile error (the `requires` clause on `compute`), not a run-time branch.
+        static_assert(CanComputeMaxSim<float, FloatDoc>);
+        static_assert(!CanComputeMaxSim<float, BF16Doc>);
+        static_assert(CanComputeMaxSim<svs::BFloat16, BF16Doc>);
+        static_assert(!CanComputeMaxSim<svs::BFloat16, FloatDoc>);
     }
 }

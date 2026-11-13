@@ -45,6 +45,8 @@ concept AcceptsVectorSetQuery =
 // Re-sort by MaxSim score (larger is better). The buffer's own comparator is fixed at
 // construction to the primary distance's direction, which may disagree with MaxSim's, so
 // sort a local copy and write the order back rather than reuse `search_buffer.sort()`.
+// `compare` does not depend on MaxSim's document-element template parameter, so the
+// default instantiation's comparator applies regardless of which one scored the buffer.
 template <typename SearchBuffer> void resort_by_maxsim(SearchBuffer& search_buffer) {
     size_t valid = search_buffer.size();
     using value_type = typename SearchBuffer::value_type;
@@ -53,7 +55,7 @@ template <typename SearchBuffer> void resort_by_maxsim(SearchBuffer& search_buff
         reordered.begin(),
         reordered.end(),
         [](const value_type& a, const value_type& b) {
-            return svs::distance::MaxSim::compare{}(a.distance(), b.distance());
+            return svs::distance::MaxSim<>::compare{}(a.distance(), b.distance());
         }
     );
     for (size_t j = 0; j < valid; ++j) {
@@ -116,7 +118,11 @@ template <
     // Packs the query once (must_fix_argument) and reuses that packing for every
     // candidate still in the pool: repacking per candidate would cost as much as
     // scoring them, which is exactly what PackedOperand/MaxSim::fix_argument avoids.
-    svs::distance::MaxSim maxsim{};
+    // The document element type is the vector-set dataset's own element type, so a
+    // bfloat16 store automatically gets the bf16 (and AMX, where available) kernel path
+    // while float/Float16 stores keep today's unrounded behaviour.
+    using DocElement = typename Sets::const_value_type::element_type;
+    svs::distance::MaxSim<DocElement> maxsim{};
     svs::distance::maybe_fix_argument(maxsim, query);
 
     size_t valid = search_buffer.size();
