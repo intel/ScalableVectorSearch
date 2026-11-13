@@ -19,9 +19,12 @@
 // svs
 #include "svs/concepts/vector_set.h"
 #include "svs/lib/exception.h"
+#include "svs/lib/saveload.h"
 
 // stl
+#include <concepts>
 #include <cstddef>
+#include <string_view>
 #include <utility>
 
 namespace svs::data {
@@ -68,6 +71,48 @@ template <typename Primary, ImmutableVectorSetDataset Sets> class WithVectorSets
     /// The candidate's token-vector set, for re-ranking after graph search.
     typename Sets::const_value_type get_vector_set(size_t i) const {
         return sets_.get_datum(i);
+    }
+
+    ///// IO
+    //
+    // Available only when both `Primary` and `Sets` are themselves saveable/loadable;
+    // a non-owning `Sets` (e.g. `ConstVectorSetView`) lacks `save`/`load`, and the
+    // requires-clauses below make that a silent non-participant rather than a hard
+    // error, so `WithVectorSets` over a view still compiles as a dataset member.
+
+    static constexpr lib::Version save_version = lib::Version(0, 0, 0);
+    static constexpr std::string_view serialization_schema = "with_vector_sets";
+
+    static bool check_load_compatibility(std::string_view schema, lib::Version version) {
+        return schema == serialization_schema && version == save_version;
+    }
+
+    /// @brief Save both members, nested as sub-tables under the ``"primary"`` and
+    /// ``"vector_sets"`` keys.
+    lib::SaveTable save(const lib::SaveContext& ctx) const
+        requires requires(const Primary& p, const Sets& s, const lib::SaveContext& c) {
+                     p.save(c);
+                     s.save(c);
+                 }
+    {
+        return lib::SaveTable(
+            serialization_schema,
+            save_version,
+            {{"primary", lib::save(primary_, ctx)}, {"vector_sets", lib::save(sets_, ctx)}}
+        );
+    }
+
+    /// @brief Reload both members with their default-constructed allocators.
+    static WithVectorSets load(const lib::LoadTable& table)
+        requires requires(const lib::LoadTable& t) {
+                     { Primary::load(t) } -> std::same_as<Primary>;
+                     { Sets::load(t) } -> std::same_as<Sets>;
+                 }
+    {
+        return WithVectorSets(
+            lib::load_at<Primary>(table, "primary"),
+            lib::load_at<Sets>(table, "vector_sets")
+        );
     }
 
   private:

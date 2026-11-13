@@ -20,14 +20,20 @@
 // svs
 #include "svs/concepts/vector_set.h"
 #include "svs/core/data.h"
+#include "svs/core/data/vector_set.h"
 #include "svs/core/data/vector_set_view.h"
 #include "svs/core/data/with_vector_sets.h"
 #include "svs/core/distance/maxsim.h"
 #include "svs/core/graph.h"
 #include "svs/core/query_result.h"
 #include "svs/index/vamana/index.h"
+#include "svs/lib/misc.h"
 #include "svs/lib/narrow.h"
+#include "svs/lib/saveload.h"
 #include "svs/lib/threads.h"
+
+// tests
+#include "tests/utils/utils.h"
 
 // catch2
 #include "catch2/catch_approx.hpp"
@@ -38,6 +44,7 @@
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
+#include <filesystem>
 #include <iterator>
 #include <limits>
 #include <random>
@@ -443,6 +450,100 @@ CATCH_TEST_CASE("MaxSim re-rank Vamana extension", "[vamana][maxsim_rerank]") {
                         .margin(MAXSIM_RERANK_EPSILON)
                 );
             }
+        }
+    }
+}
+
+// Saves and reloads a VamanaIndex over a WithVectorSets of two owning members
+// (SimpleData and VectorSetData, both saveable), checking the re-ranked results are
+// identical before and after. Reassembly uses `svs::index::vamana::auto_assemble` with a
+// `svs::lib::Lazy` callable as the data proto (`svs::detail::dispatch_load` accepts
+// anything invocable with no arguments) rather than a new loader type: `WithVectorSets`
+// has no `allocator_type` of its own to build a `VectorDataLoader`-style loader around,
+// and the lazy callable is the smaller option for a type that is reloaded whole.
+CATCH_TEST_CASE("WithVectorSets save and reload", "[vamana][maxsim_rerank]") {
+    using Dist = MeanNegativeInnerProduct;
+    using Primary = svs::data::SimpleData<float>;
+    using Sets = svs::data::VectorSetData<float>;
+    using Data = svs::data::WithVectorSets<Primary, Sets>;
+
+    const size_t n_docs = 60;
+    auto corpus = make_corpus(n_docs, 0xABCDEF);
+    auto query_corpus = make_corpus(5, 0xFEEDFACE);
+
+    // Both members are owning: the primary row dataset is copied from the corpus (it
+    // already owns its storage); the vector-set dataset takes ownership of a copy of the
+    // corpus's borrowed view through `copy_from`.
+    auto data = Data(corpus.primary, Sets::copy_from(corpus.vector_sets()));
+
+    auto build_parameters =
+        svs::index::vamana::VamanaBuildParameters{1.2F, 16, 32, 64, 16, true};
+
+    auto entry_point_pool = svs::threads::DefaultThreadPool(1);
+    auto entry_point =
+        svs::lib::narrow<uint32_t>(svs::index::vamana::extensions::compute_entry_point(
+            corpus.primary, entry_point_pool
+        ));
+
+    auto graph = svs::default_graph<uint32_t>(n_docs, build_parameters.graph_max_degree);
+    auto build_pool = svs::threads::DefaultThreadPool(1);
+    auto builder = svs::index::vamana::VamanaBuilder(
+        graph,
+        data,
+        Dist{},
+        build_parameters,
+        build_pool,
+        svs::index::vamana::extensions::estimate_prefetch_parameters(data)
+    );
+    builder.construct(1.0F, entry_point);
+    builder.construct(build_parameters.alpha, entry_point);
+
+    auto pool = svs::threads::DefaultThreadPool(1);
+    auto index = svs::index::vamana::VamanaIndex(
+        std::move(graph), std::move(data), entry_point, Dist{}, std::move(pool)
+    );
+
+    // The lower constructor above leaves `build_parameters_` at its default-constructed
+    // placeholder-sentinel state (it never ran verify_and_set_default_index_parameters,
+    // which is the point of using it with a non-L2/IP/Cosine distance); saving those
+    // sentinels overflows `VamanaBuildParameters::save`'s narrowing cast to a signed TOML
+    // integer. `apply` only assigns fields, without the distance-type check, so give the
+    // index real values before saving it.
+    index.apply(svs::index::vamana::VamanaIndexParameters{
+        entry_point, build_parameters, index.get_search_parameters()});
+
+    auto temp_directory = svs_test::prepare_temp_directory_v2();
+    auto config_dir = temp_directory / "config";
+    auto graph_dir = temp_directory / "graph";
+    auto data_dir = temp_directory / "data";
+    index.save(config_dir, graph_dir, data_dir);
+
+    auto reload_pool = svs::threads::DefaultThreadPool(1);
+    auto reloaded = svs::index::vamana::auto_assemble(
+        config_dir,
+        svs::GraphLoader<uint32_t>(graph_dir),
+        SVS_LAZY(svs::lib::load_from_disk<Data>(data_dir)),
+        Dist{},
+        std::move(reload_pool)
+    );
+
+    auto queries = query_corpus.vector_sets();
+    const size_t capacity = n_docs;
+    auto sp = search_params(capacity, capacity);
+    auto scratch_before = index.scratchspace(sp);
+    auto scratch_after = reloaded.scratchspace(sp);
+
+    for (size_t q = 0; q < queries.size(); ++q) {
+        auto query = queries.get_datum(q);
+        index.search(query, scratch_before);
+        reloaded.search(query, scratch_after);
+
+        CATCH_REQUIRE(scratch_before.buffer.size() == scratch_after.buffer.size());
+        for (size_t j = 0; j < scratch_before.buffer.size(); ++j) {
+            CATCH_REQUIRE(scratch_before.buffer[j].id() == scratch_after.buffer[j].id());
+            CATCH_REQUIRE(
+                scratch_before.buffer[j].distance() == scratch_after.buffer[j].distance()
+            );
         }
     }
 }
