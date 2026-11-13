@@ -18,6 +18,7 @@
 #include "svs/core/distance/maxsim.h"
 
 // svs
+#include "svs/concepts/distance.h"
 #include "svs/lib/float16.h"
 
 // catch2
@@ -37,16 +38,31 @@
 
 namespace {
 
-// Minimal svs::data::VectorSet model over a vector of row-major tokens; local to this
-// test so it does not depend on the ConstVectorSet view another agent is adding.
+// Minimal svs::data::ContiguousVectorSet model: a flat, row-major buffer of `cardinality`
+// tokens of `dim` elements each. Flat (rather than a vector of per-token vectors) because
+// MaxSim's packed-operand kernel needs `data()` to return one contiguous block.
 template <typename T> struct TestVectorSet {
     using element_type = T;
-    std::vector<std::vector<T>> tokens;
+    std::vector<T> flat;
+    size_t dim = 0;
 
-    size_t cardinality() const { return tokens.size(); }
-    size_t dimensions() const { return tokens.empty() ? 0 : tokens[0].size(); }
-    std::span<const T> token(size_t i) const { return std::span<const T>(tokens[i]); }
+    size_t cardinality() const { return dim == 0 ? 0 : flat.size() / dim; }
+    size_t dimensions() const { return dim; }
+    std::span<const T> token(size_t i) const {
+        return std::span<const T>(flat.data() + i * dim, dim);
+    }
+    const T* data() const { return flat.data(); }
 };
+
+template <typename T>
+TestVectorSet<T> make_set(std::initializer_list<std::initializer_list<T>> tokens) {
+    TestVectorSet<T> set;
+    set.dim = tokens.begin()->size();
+    for (const auto& token : tokens) {
+        set.flat.insert(set.flat.end(), token.begin(), token.end());
+    }
+    return set;
+}
 
 template <typename T> double promote(T x) { return static_cast<double>(x); }
 
@@ -59,11 +75,13 @@ double maxsim_reference(const TestVectorSet<Q>& query, const TestVectorSet<D>& d
     }
     double total = 0.0;
     for (size_t i = 0; i < query.cardinality(); ++i) {
+        auto q_token = query.token(i);
         double best = -std::numeric_limits<double>::infinity();
         for (size_t j = 0; j < document.cardinality(); ++j) {
+            auto d_token = document.token(j);
             double dot = 0.0;
             for (size_t d = 0; d < query.dimensions(); ++d) {
-                dot += promote(query.tokens[i][d]) * promote(document.tokens[j][d]);
+                dot += promote(q_token[d]) * promote(d_token[d]);
             }
             best = std::max(best, dot);
         }
@@ -75,14 +93,21 @@ double maxsim_reference(const TestVectorSet<Q>& query, const TestVectorSet<D>& d
 TestVectorSet<float> make_random_set(size_t cardinality, size_t dim, std::mt19937& rng) {
     std::uniform_real_distribution<float> dist(-1.0F, 1.0F);
     TestVectorSet<float> set;
-    set.tokens.resize(cardinality);
-    for (auto& token : set.tokens) {
-        token.resize(dim);
-        for (auto& v : token) {
-            v = dist(rng);
-        }
+    set.dim = dim;
+    set.flat.resize(cardinality * dim);
+    for (auto& v : set.flat) {
+        v = dist(rng);
     }
     return set;
+}
+
+// Packs `query` into a fresh MaxSim functor, through the generic maybe_fix_argument hook
+// (the protocol every ShouldFix-opted-in distance goes through), then scores `document`.
+template <typename D>
+float maxsim_score(const TestVectorSet<float>& query, const D& document) {
+    svs::distance::MaxSim dist{};
+    svs::distance::maybe_fix_argument(dist, query);
+    return svs::distance::compute(dist, query, document);
 }
 
 constexpr double MAXSIM_EPSILON = 1e-4;
@@ -92,32 +117,34 @@ constexpr double MAXSIM_EPSILON = 1e-4;
 CATCH_TEST_CASE("MaxSim distance", "[distance][maxsim]") {
     CATCH_SECTION("Trait members") {
         CATCH_REQUIRE(std::is_same_v<svs::distance::MaxSim::compare, std::greater<>>);
-        CATCH_REQUIRE(svs::distance::MaxSim::implicit_broadcast);
+        CATCH_REQUIRE_FALSE(svs::distance::MaxSim::implicit_broadcast);
+        CATCH_REQUIRE(svs::distance::MaxSim::must_fix_argument);
     }
 
     CATCH_SECTION("Hand-computed tiny case") {
         // Query has two orthonormal tokens; document has one token aligned with the
         // first and one aligned with neither, so the per-query maxima are 1 and 0.
-        TestVectorSet<float> query{{{1.0F, 0.0F}, {0.0F, 1.0F}}};
-        TestVectorSet<float> document{{{1.0F, 0.0F}, {0.0F, 0.0F}}};
-        float score = svs::distance::compute(svs::distance::MaxSim{}, query, document);
+        auto query = make_set<float>({{1.0F, 0.0F}, {0.0F, 1.0F}});
+        auto document = make_set<float>({{1.0F, 0.0F}, {0.0F, 0.0F}});
+        float score = maxsim_score(query, document);
         CATCH_REQUIRE(score == Catch::Approx(1.0F).epsilon(MAXSIM_EPSILON));
     }
 
     CATCH_SECTION("Empty document set gives -inf") {
-        TestVectorSet<float> query{{{1.0F, 0.0F}}};
-        TestVectorSet<float> document{{}};
-        float score = svs::distance::compute(svs::distance::MaxSim{}, query, document);
+        auto query = make_set<float>({{1.0F, 0.0F}});
+        TestVectorSet<float> document;
+        document.dim = 2;
+        float score = maxsim_score(query, document);
         CATCH_REQUIRE(score == -std::numeric_limits<float>::infinity());
     }
 
     CATCH_SECTION("Asymmetry") {
         // `a` has two tokens that each max out against `b`'s lone token, so swapping
         // query/document sums over a different number of maxima (2 vs. 1).
-        TestVectorSet<float> a{{{1.0F, 0.0F}, {1.0F, 0.0F}}};
-        TestVectorSet<float> b{{{1.0F, 0.0F}}};
-        float score_ab = svs::distance::compute(svs::distance::MaxSim{}, a, b);
-        float score_ba = svs::distance::compute(svs::distance::MaxSim{}, b, a);
+        auto a = make_set<float>({{1.0F, 0.0F}, {1.0F, 0.0F}});
+        auto b = make_set<float>({{1.0F, 0.0F}});
+        float score_ab = maxsim_score(a, b);
+        float score_ba = maxsim_score(b, a);
         CATCH_REQUIRE(score_ab != Catch::Approx(score_ba));
     }
 
@@ -131,8 +158,7 @@ CATCH_TEST_CASE("MaxSim distance", "[distance][maxsim]") {
                     auto query = make_random_set(nq, dim, rng);
                     auto document = make_random_set(nd, dim, rng);
                     double expected = maxsim_reference(query, document);
-                    float actual =
-                        svs::distance::compute(svs::distance::MaxSim{}, query, document);
+                    float actual = maxsim_score(query, document);
                     CATCH_REQUIRE(
                         static_cast<double>(actual) == Catch::Approx(expected)
                                                            .epsilon(MAXSIM_EPSILON)
@@ -144,37 +170,41 @@ CATCH_TEST_CASE("MaxSim distance", "[distance][maxsim]") {
     }
 
     CATCH_SECTION("Mixed element types") {
-        // float query against Float16 document: an AVX-accelerated pair the existing
-        // inner product supports (IPImpl<N, float, Float16, ...>).
-        TestVectorSet<float> query{{{1.0F, 0.0F, 0.0F}, {0.0F, 1.0F, 0.0F}}};
-        TestVectorSet<svs::Float16> document{
+        // float query against Float16 document.
+        auto query = make_set<float>({{1.0F, 0.0F, 0.0F}, {0.0F, 1.0F, 0.0F}});
+        auto document = make_set<svs::Float16>(
             {{svs::Float16(1.0F), svs::Float16(0.0F), svs::Float16(0.0F)},
-             {svs::Float16(0.0F), svs::Float16(0.0F), svs::Float16(1.0F)}}};
-        float score = svs::distance::compute(svs::distance::MaxSim{}, query, document);
+             {svs::Float16(0.0F), svs::Float16(0.0F), svs::Float16(1.0F)}}
+        );
+        float score = maxsim_score(query, document);
         // Token 0 of query matches document token 0 exactly (dot = 1); token 1 of query
         // has dot 0 with both document tokens.
         CATCH_REQUIRE(score == Catch::Approx(1.0F).epsilon(MAXSIM_EPSILON));
     }
 
-    CATCH_SECTION("Batch helper matches per-pair compute") {
-        std::mt19937 rng(42);
-        auto query = make_random_set(5, 64, rng);
-        std::vector<TestVectorSet<float>> candidates;
-        for (size_t i = 0; i < 6; ++i) {
-            candidates.push_back(make_random_set(i + 1, 64, rng));
-        }
-        std::vector<uint32_t> ids{0, 1, 2, 3, 4, 5};
-        std::vector<float> scores(ids.size());
-        svs::distance::maxsim_batch<TestVectorSet<float>>(
-            query,
-            [&](uint32_t id) -> const TestVectorSet<float>& { return candidates[id]; },
-            std::span<const uint32_t>(ids),
-            std::span<float>(scores)
+    CATCH_SECTION("Dimension mismatch throws") {
+        auto query = make_set<float>({{1.0F, 0.0F, 0.0F}});
+        auto document = make_set<float>({{1.0F, 0.0F}});
+        svs::distance::MaxSim dist{};
+        svs::distance::maybe_fix_argument(dist, query);
+        CATCH_REQUIRE_THROWS_AS(
+            svs::distance::compute(dist, query, document), svs::lib::ANNException
         );
-        for (size_t i = 0; i < ids.size(); ++i) {
-            float expected =
-                svs::distance::compute(svs::distance::MaxSim{}, query, candidates[ids[i]]);
-            CATCH_REQUIRE(scores[i] == expected);
+    }
+
+    CATCH_SECTION("Repeated compute calls reuse one fix_argument") {
+        std::mt19937 rng(7);
+        auto query = make_random_set(5, 32, rng);
+        svs::distance::MaxSim dist{};
+        svs::distance::maybe_fix_argument(dist, query);
+        for (size_t i = 0; i < 4; ++i) {
+            auto document = make_random_set(i + 1, 32, rng);
+            float direct = svs::distance::compute(dist, query, document);
+            float expected = maxsim_reference(query, document);
+            CATCH_REQUIRE(
+                static_cast<double>(direct) ==
+                Catch::Approx(expected).epsilon(MAXSIM_EPSILON).margin(MAXSIM_EPSILON)
+            );
         }
     }
 }

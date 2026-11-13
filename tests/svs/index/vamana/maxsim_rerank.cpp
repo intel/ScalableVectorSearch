@@ -182,9 +182,12 @@ std::vector<std::pair<uint32_t, float>>
 brute_force_maxsim(const Query& query, const svs::data::ConstVectorSetView<float>& docs) {
     std::vector<std::pair<uint32_t, float>> scored;
     scored.reserve(docs.size());
+    // MaxSim now packs the query once (must_fix_argument) and reuses that packing for
+    // every document, instead of the old stateless compute() called fresh each time.
+    svs::distance::MaxSim maxsim{};
+    svs::distance::maybe_fix_argument(maxsim, query);
     for (uint32_t id = 0; id < docs.size(); ++id) {
-        float score =
-            svs::distance::compute(svs::distance::MaxSim{}, query, docs.get_datum(id));
+        float score = svs::distance::compute(maxsim, query, docs.get_datum(id));
         scored.emplace_back(id, score);
     }
     std::sort(scored.begin(), scored.end(), [](const auto& a, const auto& b) {
@@ -248,11 +251,12 @@ void check_rerank_pool(
 
     std::vector<uint32_t> pool_ids;
     pool_ids.reserve(buffer.size());
+    svs::distance::MaxSim maxsim{};
+    svs::distance::maybe_fix_argument(maxsim, query);
     float previous_score = std::numeric_limits<float>::infinity();
     for (const auto& neighbor : buffer) {
-        float expected = svs::distance::compute(
-            svs::distance::MaxSim{}, query, doc_sets.get_datum(neighbor.id())
-        );
+        float expected =
+            svs::distance::compute(maxsim, query, doc_sets.get_datum(neighbor.id()));
         CATCH_REQUIRE(
             static_cast<double>(neighbor.distance()) == Catch::Approx(expected)
                                                             .epsilon(MAXSIM_RERANK_EPSILON)

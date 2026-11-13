@@ -113,12 +113,17 @@ template <
         return;
     }
 
+    // Packs the query once (must_fix_argument) and reuses that packing for every
+    // candidate still in the pool: repacking per candidate would cost as much as
+    // scoring them, which is exactly what PackedOperand/MaxSim::fix_argument avoids.
+    svs::distance::MaxSim maxsim{};
+    svs::distance::maybe_fix_argument(maxsim, query);
+
     size_t valid = search_buffer.size();
     for (size_t j = 0; j < valid; ++j) {
         auto& neighbor = search_buffer[j];
-        float score = svs::distance::compute(
-            svs::distance::MaxSim{}, query, dataset.get_vector_set(neighbor.id())
-        );
+        float score =
+            svs::distance::compute(maxsim, query, dataset.get_vector_set(neighbor.id()));
         neighbor.set_distance(score);
     }
 
