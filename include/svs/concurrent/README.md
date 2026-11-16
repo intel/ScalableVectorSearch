@@ -80,8 +80,9 @@ share nothing.
 ### 1c. `compact()` stops everything
 
 You may call `compact()` at any time, but it blocks all other work. It makes the
-storage smaller, so it must wait for every reader to finish first. It runs
-`consolidate_locked()` before it compacts. `save()` takes `save_gatekeeper_` and
+storage smaller, so it must wait for every reader to finish first. It is the only
+caller that takes `compact_mutex_` exclusive. It runs `consolidate_locked()`
+before it compacts. `save()` takes `save_gatekeeper_` and
 `save_mutex_` exclusive, so writers wait while searches keep running. It writes the
 slots as they are.
 

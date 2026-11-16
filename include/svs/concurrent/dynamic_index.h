@@ -1759,7 +1759,6 @@ class MutableVamanaIndex {
     }
 
     static constexpr lib::Version save_version = lib::Version(0, 0, 1);
-
     void save(
         const std::filesystem::path& config_directory,
         const std::filesystem::path& graph_directory,
