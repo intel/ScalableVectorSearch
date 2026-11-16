@@ -84,13 +84,12 @@ storage smaller, so it must wait for every reader to finish first. It is the onl
 caller that takes `compact_mutex_` exclusive. It runs `consolidate_locked()`
 before it compacts.
 
-### 1d. `save()`
+### 1d. `save()` stops everything too
 
 `save()` writes the slots as they are, with deleted and empty slots included. It does
-not call `consolidate()` or `compact()`. It takes `writers_gatekeeper_` and then
-`writers_mutex_` exclusive, so it waits for running writers and blocks new ones. New
-writers hold the gatekeeper only while acquiring `writers_mutex_`, so they cannot
-starve `save()`. Searches keep running.
+not call `consolidate()` or `compact()`. It takes the same locks as `compact()`
+(`compact_gatekeeper_`, then `compact_mutex_` exclusive), so it waits for running
+writers and readers, and searches wait until it is done.
 
 ### 1e. Not safe at all
 
@@ -148,9 +147,7 @@ There are three groups:
 
 | Lock | Protects | Taken exclusive by |
 | --- | --- | --- |
-| `writers_mutex_` | the index state stays unchanged while `save()` writes it | `save()` only |
-| `writers_gatekeeper_` | new writers wait behind a pending `save()` | `save()` only |
-| `compact_mutex_` | the storage stays alive | `compact()` only |
+| `compact_mutex_` | the storage stays alive | `compact()`, `save()` |
 | `translator_mutex_` | the two id hash maps | `add_points`, `consolidate`, `compact`, `replace_external_id` |
 | `pending_insertions_mutex_` | `pending_insertions_` | `add_points` |
 | `slot_alloc_mutex_` (plain `std::mutex`) | the scan for free slots | `add_points` |
@@ -167,7 +164,6 @@ so it waits for all of them.
 deadlock.
 
 ```
-writers_gatekeeper_ -> writers_mutex_ -> compact_gatekeeper_ -> compact_mutex_
 compact_mutex_ -> slot_alloc_mutex_
 compact_mutex_ -> translator_mutex_
 l2e_mutex_     -> e2l_mutex_          (multi index)

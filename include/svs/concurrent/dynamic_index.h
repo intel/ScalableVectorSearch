@@ -248,11 +248,9 @@ class MutableVamanaIndex {
     // compact()'s shrink — which frees trailing segments of the grow-stable
     // containers — drains in-flight readers before destroying storage.
     // Writers (add_points, delete_entries, consolidate) also hold it shared;
-    // compact() holds it exclusive.
+    // compact() and save() hold it exclusive.
     //
     // Lock acquisition order across the codebase:
-    //   writers_gatekeeper_ -> writers_mutex_ (never reversed)
-    //   writers_mutex_ -> compact_gatekeeper_ (never reversed)
     //   compact_gatekeeper_ -> compact_mutex_ (never reversed)
     //   compact_mutex_ -> slot_alloc_mutex_   (never reversed)
     //   compact_mutex_ -> translator_mutex_   (never reversed)
@@ -266,14 +264,6 @@ class MutableVamanaIndex {
         std::make_unique<std::shared_mutex>()};
     // Iterators check this under compact_mutex_ before reusing cached internal IDs.
     size_t compaction_epoch_ = 0;
-    // Outermost lock. Every writer (add_points, delete_entries, consolidate, compact,
-    // replace_external_id) holds it shared; save() holds it exclusive so the state it
-    // writes is stable. Searches and other readers never take it.
-    std::unique_ptr<std::shared_mutex> writers_mutex_{
-        std::make_unique<std::shared_mutex>()};
-    // Once save() owns this gate, new writers cannot keep it waiting on writers_mutex_.
-    std::unique_ptr<std::shared_mutex> writers_gatekeeper_{
-        std::make_unique<std::shared_mutex>()};
     // Writer-only mutex serializing slot allocation in add_points
     std::unique_ptr<std::mutex> slot_alloc_mutex_{std::make_unique<std::mutex>()};
 
@@ -832,7 +822,6 @@ class MutableVamanaIndex {
     /// @param new_id The external ID to assign. Must not be mapped at all.
     ///
     ReplaceExternalIdResult replace_external_id(size_t old_id, size_t new_id) {
-        auto writers_lock = lock_writers_shared();
         auto compact_lock = lock_storage_shared();
         std::lock_guard lock{*translator_mutex_};
 
@@ -888,12 +877,6 @@ class MutableVamanaIndex {
     // Return a `greedy_search` compatible builder for this index.
     // This is an internal method, mostly used to help implement the batch iterator.
     ValidBuilder internal_search_builder() const { return ValidBuilder{status_}; }
-
-    /// @brief Shared lock taken by every writer; waits behind a pending save().
-    [[nodiscard]] std::shared_lock<std::shared_mutex> lock_writers_shared() const {
-        std::shared_lock gatekeeper_lock{*writers_gatekeeper_};
-        return std::shared_lock<std::shared_mutex>(*writers_mutex_);
-    }
 
     /// @brief RAII shared lock guarding data_/graph_ against compact()'s shrink
     /// (which frees segments). Used by searches, iterators and mutations that
@@ -1121,8 +1104,6 @@ class MutableVamanaIndex {
             return {};
         }
 
-        auto writers_lock = lock_writers_shared();
-
         // Reserve slot ownership against compact(). Held for the entire call,
         // including the lock-free Phase 2-4 below; compact() takes this
         // exclusive and so will block until every in-flight add finishes.
@@ -1330,7 +1311,6 @@ class MutableVamanaIndex {
     ///   graph.
     ///
     template <typename T> size_t delete_entries(const T& ids) {
-        auto writers_lock = lock_writers_shared();
         auto compact_lock = lock_storage_shared();
         std::shared_lock lock{*translator_mutex_};
         size_t deleted = 0;
@@ -1416,7 +1396,6 @@ class MutableVamanaIndex {
     ///     improve performance but requires more working memory.
     ///
     void compact(Idx batch_size = 1'000) {
-        auto writers_lock = lock_writers_shared();
         std::lock_guard gatekeeper_lock{*compact_gatekeeper_};
         std::lock_guard compact_lock{*compact_mutex_};
 
@@ -1630,7 +1609,6 @@ class MutableVamanaIndex {
 
     ///// Mutation
     void consolidate() {
-        auto writers_lock = lock_writers_shared();
         auto compact_lock = lock_storage_shared();
         consolidate_locked();
     }
@@ -1720,7 +1698,6 @@ class MutableVamanaIndex {
     /// @returns The number of listed IDs that were consolidated.
     ///
     template <typename T> size_t consolidate(const T& ids) {
-        auto writers_lock = lock_writers_shared();
         auto compact_lock = lock_storage_shared();
 
         // Collect the internal slots of the listed, already-soft-deleted IDs.
@@ -1768,22 +1745,23 @@ class MutableVamanaIndex {
     //   * Behavior if loading from v0.0.0: All slots are `Valid`.
     static constexpr lib::Version save_version = lib::Version(0, 0, 1);
 
-    // Blocks writers while saving; searches may continue.
+    // Takes the storage lock exclusive like compact(): in-flight writers finish first and
+    // searches wait. Does not consolidate or compact.
     void save(
         const std::filesystem::path& config_directory,
         const std::filesystem::path& graph_directory,
         const std::filesystem::path& data_directory
     ) {
-        std::lock_guard gatekeeper_lock{*writers_gatekeeper_};
-        std::unique_lock writers_lock{*writers_mutex_};
+        std::lock_guard gatekeeper_lock{*compact_gatekeeper_};
+        std::lock_guard compact_lock{*compact_mutex_};
         vamana::detail::save_dynamic_index(
             *this, config_directory, graph_directory, data_directory
         );
     }
 
     void save(std::ostream& os) {
-        std::lock_guard gatekeeper_lock{*writers_gatekeeper_};
-        std::unique_lock writers_lock{*writers_mutex_};
+        std::lock_guard gatekeeper_lock{*compact_gatekeeper_};
+        std::lock_guard compact_lock{*compact_mutex_};
         vamana::detail::save_dynamic_index(*this, os);
     }
 
@@ -1906,7 +1884,7 @@ class MutableVamanaIndex {
     // Not synchronized: callers must exclude concurrent mutation.
     const IDTranslator& view_translator() const { return translator_; }
 
-    // Slot status bytes. The caller holds writers_mutex_ exclusive.
+    // Slot status bytes. The caller holds compact_mutex_ exclusive.
     std::vector<uint8_t> status_bytes_for_save() const {
         auto status = std::vector<uint8_t>{};
         auto slots = status_snapshot();
