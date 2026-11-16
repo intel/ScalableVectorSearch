@@ -80,18 +80,11 @@ share nothing.
 ### 1c. `compact()` stops everything
 
 You may call `compact()` at any time, but it blocks all other work. It makes the
-storage smaller, so it must wait for every reader to finish first. It is the only
-caller that takes `compact_mutex_` exclusive. It runs `consolidate_locked()`
-before it compacts.
+storage smaller, so it must wait for every reader to finish first. It runs
+`consolidate_locked()` before it compacts. `save()` takes the same locks and writes
+the slots as they are, without consolidating or compacting.
 
-### 1d. `save()` stops everything too
-
-`save()` writes the slots as they are, with deleted and empty slots included. It does
-not call `consolidate()` or `compact()`. It takes the same locks as `compact()`
-(`compact_gatekeeper_`, then `compact_mutex_` exclusive), so it waits for running
-writers and readers, and searches wait until it is done.
-
-### 1e. Not safe at all
+### 1d. Not safe at all
 
 Call these only when no other thread uses the index:
 
@@ -253,7 +246,7 @@ time. `distance` may be a functor or a `svs::DistanceType`. `batch_iterator()`
 returns this index's own `BatchIterator`, so it takes the locks described in 1a.
 
 The rules from section 1 apply unchanged: `set_threadpool()` and the
-build-parameter setters still need exclusive access; `save()` follows 1d.
+build-parameter setters still need exclusive access.
 
 ```cpp
 using Data = svs::index::vamana::concurrent::SegmentedBlockedData<float>;

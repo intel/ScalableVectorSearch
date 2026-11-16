@@ -1737,16 +1737,8 @@ class MutableVamanaIndex {
             get_search_parameters()};
     }
 
-    // Change notes:
-    //
-    // v0.0.0 - Initial version
-    // v0.0.1 - Save the status of every slot. The index is saved as it is, without
-    //   consolidating or compacting, and soft-deleted IDs stay mapped.
-    //   * Behavior if loading from v0.0.0: All slots are `Valid`.
     static constexpr lib::Version save_version = lib::Version(0, 0, 1);
 
-    // Takes the storage lock exclusive like compact(): in-flight writers finish first and
-    // searches wait. Does not consolidate or compact.
     void save(
         const std::filesystem::path& config_directory,
         const std::filesystem::path& graph_directory,
@@ -2345,7 +2337,7 @@ auto auto_dynamic_assemble(
     bool SVS_UNUSED(debug_load_from_static) = false,
     svs::logging::logger_ptr logger = svs::logging::get()
 ) {
-    // Read the combined TOML (parameters + translation + status)
+    // Read the combined TOML (parameters + translation)
     // and the translator binary data.
     auto table = lib::detail::read_metadata(is);
     auto version = table.template cast<toml::table>().version();

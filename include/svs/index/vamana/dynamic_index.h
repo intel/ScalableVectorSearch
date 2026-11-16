@@ -1765,7 +1765,7 @@ auto auto_dynamic_assemble(
     bool SVS_UNUSED(debug_load_from_static) = false,
     svs::logging::logger_ptr logger = svs::logging::get()
 ) {
-    // Read the combined TOML (parameters + translation + status)
+    // Read the combined TOML (parameters + translation)
     // and the translator binary data.
     auto table = lib::detail::read_metadata(is);
     auto version = table.template cast<toml::table>().version();
