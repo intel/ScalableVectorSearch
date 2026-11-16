@@ -1876,20 +1876,6 @@ class MutableVamanaIndex {
     // Not synchronized: callers must exclude concurrent mutation.
     const IDTranslator& view_translator() const { return translator_; }
 
-    // Slot status bytes. The caller holds compact_mutex_ exclusive.
-    std::vector<uint8_t> status_bytes_for_save() const {
-        auto status = std::vector<uint8_t>{};
-        auto slots = status_snapshot();
-        status.reserve(slots.size());
-        for (size_t i = 0, imax = slots.size(); i < imax; ++i) {
-            if (slots[i] == SlotMetadata::Pending) {
-                throw ANNEXCEPTION("Cannot save an index with pending slot {}", i);
-            }
-            status.push_back(static_cast<uint8_t>(slots[i]));
-        }
-        return status;
-    }
-
     // Not synchronized: callers must exclude concurrent mutation.
     std::vector<SlotMetadata> status_snapshot() const {
         auto result = std::vector<SlotMetadata>(status_.size());
@@ -2341,9 +2327,6 @@ auto auto_dynamic_assemble(
     // and the translator binary data.
     auto table = lib::detail::read_metadata(is);
     auto version = table.template cast<toml::table>().version();
-    if (version != lib::Version(0, 0, 0) && version != lib::Version(0, 0, 1)) {
-        throw ANNEXCEPTION("Unsupported dynamic index stream version {}", version);
-    }
 
     auto parameters = lib::load<VamanaIndexParameters>(
         table.template cast<toml::table>().at("parameters").template cast<toml::table>()
@@ -2356,11 +2339,9 @@ auto auto_dynamic_assemble(
 
     auto status = std::vector<SlotMetadata>();
     if (version == lib::Version(0, 0, 1)) {
-        auto raw = std::vector<uint8_t>(
-            lib::load_at<size_t>(table.template cast<toml::table>(), "num_status")
+        status.resize(lib::load_at<size_t>(table.template cast<toml::table>(), "num_status")
         );
-        lib::read_binary(is, raw);
-        status = vamana::detail::decode_slot_status<SlotMetadata>(raw);
+        lib::read_binary(is, status);
     }
 
     auto data = data_loader();
@@ -2374,7 +2355,7 @@ auto auto_dynamic_assemble(
         );
     }
 
-    if (version == lib::Version(0, 0, 0)) {
+    if (version != lib::Version(0, 0, 1)) {
         status.assign(datasize, SlotMetadata::Valid);
     }
 
