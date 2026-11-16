@@ -1704,7 +1704,8 @@ auto auto_dynamic_assemble(
         );
     }
 
-    // Saved concurrent indexes keep soft-deleted IDs mapped; this index erases them.
+    // A file saved by the concurrent index can still contain deleted IDs. The dynamic
+    // index checks IDs only in the translator (has_id), so remove them.
     auto to_drop = std::vector<size_t>();
     for (auto pair : translator) {
         if (pair.second < datasize && status[pair.second] == SlotMetadata::Deleted) {
@@ -1795,7 +1796,8 @@ auto auto_dynamic_assemble(
         status.assign(datasize, SlotMetadata::Valid);
     }
 
-    // Saved concurrent indexes keep soft-deleted IDs mapped; this index erases them.
+    // A file saved by the concurrent index can still contain deleted IDs. The dynamic
+    // index checks IDs only in the translator (has_id), so remove them.
     auto to_drop = std::vector<size_t>();
     for (auto pair : translator) {
         if (pair.second < status.size() && status[pair.second] == SlotMetadata::Deleted) {

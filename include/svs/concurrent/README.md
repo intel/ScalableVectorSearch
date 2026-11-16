@@ -81,8 +81,9 @@ share nothing.
 
 You may call `compact()` at any time, but it blocks all other work. It makes the
 storage smaller, so it must wait for every reader to finish first. It runs
-`consolidate_locked()` before it compacts. `save()` takes the same locks and writes
-the slots as they are, without consolidating or compacting.
+`consolidate_locked()` before it compacts. `save()` takes `save_gatekeeper_` and
+`save_mutex_` exclusive, so writers wait while searches keep running. It writes the
+slots as they are.
 
 ### 1d. Not safe at all
 
@@ -140,7 +141,9 @@ There are three groups:
 
 | Lock | Protects | Taken exclusive by |
 | --- | --- | --- |
-| `compact_mutex_` | the storage stays alive | `compact()`, `save()` |
+| `save_mutex_` | the index state stays unchanged while `save()` writes it | `save()` only |
+| `save_gatekeeper_` | new writers wait behind a pending `save()` | `save()` only |
+| `compact_mutex_` | the storage stays alive | `compact()` only |
 | `translator_mutex_` | the two id hash maps | `add_points`, `consolidate`, `compact`, `replace_external_id` |
 | `pending_insertions_mutex_` | `pending_insertions_` | `add_points` |
 | `slot_alloc_mutex_` (plain `std::mutex`) | the scan for free slots | `add_points` |
@@ -157,6 +160,7 @@ so it waits for all of them.
 deadlock.
 
 ```
+save_gatekeeper_ -> save_mutex_ -> compact_gatekeeper_ -> compact_mutex_
 compact_mutex_ -> slot_alloc_mutex_
 compact_mutex_ -> translator_mutex_
 l2e_mutex_     -> e2l_mutex_          (multi index)
