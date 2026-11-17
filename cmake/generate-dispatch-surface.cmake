@@ -16,7 +16,7 @@
 ##### Derives the dispatch surface declared in cmake/dispatch-surface.cmake.
 #####
 ##### Defines svs_generate_dispatch_surface(), which produces:
-#####   <build>/generated/include/svs/core/distance/dispatch_surface.h  (build tree only)
+#####   <build>/generated/include/svs/core/distance/dispatch_surface.h  (build tree and install only)
 #####   SVS_DISPATCH_TU_SPECS -- "<src>|<level>|<arch>|<infix>", one per ISA level
 #####
 ##### cmake/multi-arch.cmake calls the function and receives both.
@@ -166,8 +166,8 @@ function(svs_generate_dispatch_surface out_tu_specs out_header)
         tu_specs levels level_report
     )
 
-    # The build always compiles against the build-tree copy, and it is placed
-    # ahead of the source include directory so that it wins.
+    # The build compiles against this copy, ahead of the source include directory. Installed
+    # public headers include it too, so dropping the install breaks every find_package consumer.
     set(generated_include_dir "${CMAKE_CURRENT_BINARY_DIR}/generated/include")
     svs_dispatch_emit_header(
         "${SVS_DISPATCH_GEN_CMAKE_DIR}/templates/dispatch_surface.h.in"
@@ -178,6 +178,7 @@ function(svs_generate_dispatch_surface out_tu_specs out_header)
     target_include_directories(
         ${SVS_LIB} BEFORE INTERFACE $<BUILD_INTERFACE:${generated_include_dir}>
     )
+    install(FILES "${header}" DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/svs/core/distance")
 
     svs_dispatch_emit_manifest(
         "${supported_dims}" "${levels}"
@@ -206,7 +207,7 @@ function(svs_generate_dispatch_surface out_tu_specs out_header)
             set(undeclared)
             foreach(enumerator IN LISTS enumerators)
                 string(STRIP "${enumerator}" enumerator)
-                if(enumerator AND NOT enumerator IN_LIST levels)
+                if(enumerator AND NOT enumerator STREQUAL "NONE" AND NOT enumerator IN_LIST levels)
                     list(APPEND undeclared "${enumerator}")
                 endif()
             endforeach()
