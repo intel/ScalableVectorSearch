@@ -1348,11 +1348,13 @@ template <typename Unused> struct InnerProductMatrixImpl<AVX_AVAILABILITY::AMX, 
 extern template struct InnerProductMatrixImpl<AVX_AVAILABILITY::AVX512>;
 extern template struct InnerProductMatrixImpl<AVX_AVAILABILITY::AVX2>;
 #endif
-// Gated on the build-wide SVS_AMX_COMPILED_IN, not __x86_64__ alone: when the compiler
-// lacks -march=sapphirerapids, amx.cpp is never built (cmake/multi-arch.cmake), so no TU
-// anywhere provides `template struct InnerProductMatrixImpl<AVX_AVAILABILITY::AMX>;`'s
-// definition; an unconditional `extern template` here would then be an unresolved symbol
-// at link time the moment anything calls InnerProductMatrix, not just when AMX runs.
+// Gated on the build-wide SVS_AMX_COMPILED_IN, not __x86_64__ alone: amx.cpp is only built
+// when the compiler accepts -mamx-tile -mamx-bf16 (cmake/multi-arch.cmake's
+// SVS_COMPILER_SUPPORTS_AMX check), compiled at -march=cascadelake plus those two flags,
+// not at -march=sapphirerapids; when that check fails, no TU anywhere provides
+// `template struct InnerProductMatrixImpl<AVX_AVAILABILITY::AMX>;`'s definition, and an
+// unconditional `extern template` here would then be an unresolved symbol at link time
+// the moment anything calls InnerProductMatrix, not just when AMX runs.
 #if SVS_AMX_COMPILED_IN
 extern template struct InnerProductMatrixImpl<AVX_AVAILABILITY::AMX>;
 #endif

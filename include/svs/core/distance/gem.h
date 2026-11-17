@@ -16,25 +16,11 @@
 
 #pragma once
 
-// Vendored POT 0.9.5 network simplex solver (include/svs/third-party/pot/); not
-// warning-clean under -Werror, so only the warnings it actually trips are silenced.
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wunused-parameter"
-#pragma GCC diagnostic ignored "-Wpedantic"
-#pragma GCC diagnostic ignored "-Wreorder"
-#pragma GCC diagnostic ignored "-Wsign-compare"
-#include "svs/third-party/pot/network_simplex_simple.h"
-#pragma GCC diagnostic pop
-
-// network_simplex_simple.h leaves these #defined with no #undef; they mangle identifiers.
-#undef EPSILON
-#undef _EPSILON
-#undef MAX_DEBUG_ITER
-
 #include "svs/concepts/vector_set.h"
 #include "svs/core/distance/distance_core.h"
 #include "svs/core/distance/gem_router.h"
 #include "svs/core/distance/inner_product_matrix.h"
+#include "svs/core/distance/transport_simplex.h"
 #include "svs/lib/avx_detection.h"
 #include "svs/lib/bfloat16.h"
 #include "svs/lib/misc.h"
@@ -61,9 +47,6 @@
 #endif
 
 namespace svs::distance {
-
-// Same node-index type POT's EMD_wrap instantiates the solver with (ot/lp/EMD.h).
-using gem_node_id_type = unsigned int;
 
 /// Ground distance between two unit centroids the from_centroids() table is built from:
 /// Cos is `max(0, 1 - <ci,cj>)` (GEM Eq. 11), L2 is `sqrt(max(0, 2 - 2<ci,cj>))`.
@@ -391,9 +374,10 @@ inline void require_id_dimensions(size_t dims) {
 } // namespace gem_detail
 
 // Instantiated per ISA in svs/multi-arch/x86; without SVS_NOINLINE the caller inlines the
-// body at baseline flags. The bodies are scalar, so only compiler auto-vectorization
-// differs. compute_decoded takes already-decoded (deduplicated, weighted) centroid ids,
-// keeping the merge and the transportation solve as separately testable steps.
+// body at baseline flags. compute_decoded's pricing loop is explicitly vectorized per Avx
+// (TransportSimplex); compute_decoded takes already-decoded (deduplicated, weighted)
+// centroid ids, keeping the merge and the transportation solve as separately testable
+// steps.
 template <AVX_AVAILABILITY Avx> struct QEmdImpl {
     SVS_NOINLINE static float compute_decoded(
         const CentroidTable& table,
@@ -408,45 +392,14 @@ template <AVX_AVAILABILITY Avx> struct QEmdImpl {
             return table(ids_a[0], ids_b[0]);
         }
 
-        // Mirrors POT's EMD_wrap (ot/lp/EMD_wrapper.cpp); all weights are already nonzero.
-        using Digraph = lemon::FullBipartiteDigraph;
-        Digraph di(static_cast<int>(ua), static_cast<int>(ub));
-        lemon::NetworkSimplexSimple<Digraph, double, double, gem_node_id_type> net(
-            di,
-            true,
-            static_cast<int>(ua + ub),
-            static_cast<int64_t>(ua) * static_cast<int64_t>(ub),
-            std::numeric_limits<uint64_t>::max()
-        );
-
-        thread_local std::vector<double> neg_wb;
-        neg_wb.resize(ub);
-        for (size_t j = 0; j < ub; ++j) {
-            neg_wb[j] = -w_b[j];
-        }
-        net.supplyMap(w_a, static_cast<int>(ua), neg_wb.data(), static_cast<int>(ub));
-
-        int64_t idarc = 0;
-        for (size_t i = 0; i < ua; ++i) {
-            for (size_t j = 0; j < ub; ++j) {
-                net.setCost(di.arcFromId(idarc), table(ids_a[i], ids_b[j]));
-                ++idarc;
-            }
-        }
-
-        if (net.run() != decltype(net)::OPTIMAL) {
-            throw std::runtime_error(
-                "QEmd: network simplex did not reach an optimal solution"
-            );
-        }
-
-        double cost = 0.0;
-        Digraph::Arc arc;
-        for (di.first(arc); arc != INVALID; di.next(arc)) {
-            auto src = static_cast<size_t>(di.source(arc));
-            auto dst = static_cast<size_t>(di.target(arc)) - ua;
-            cost += net.flow(arc) * table(ids_a[src], ids_b[dst]);
-        }
+        // merge_sorted_duplicates divides integer counts by n in double, so w_a/w_b each
+        // sum to 1.0 up to a few ULPs rather than exactly; TransportSimplex::solve folds
+        // that residual into the last demand entry (see its doc comment) instead of
+        // requiring bit-exact balance here.
+        double cost =
+            TransportSimplex<Avx>::solve(ua, w_a, ub, w_b, [&](size_t i, size_t j) {
+                return table(ids_a[i], ids_b[j]);
+            });
         return static_cast<float>(cost);
     }
 

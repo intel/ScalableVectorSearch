@@ -395,6 +395,235 @@ CATCH_TEST_CASE("QEmd", "[distance][gem]") {
     }
 }
 
+namespace {
+
+// Independent reference for the balanced transportation problem: successive shortest
+// augmenting paths (Ahuja-Magnanti-Orlin ch. 9) over the explicit source/sink residual
+// graph, valid because every qEMD ground cost is nonnegative. Deliberately a different
+// algorithm from TransportSimplex, not a second copy of it.
+double reference_transport_cost(
+    size_t ua,
+    const std::vector<double>& supply,
+    size_t ub,
+    const std::vector<double>& demand,
+    const std::vector<double>& cost // ua * ub, row-major
+) {
+    constexpr double inf = std::numeric_limits<double>::infinity();
+    size_t s_node = ua + ub, t_node = ua + ub + 1, n = ua + ub + 2;
+    std::vector<double> rem_s(supply), rem_d(demand), flow(ua * ub, 0.0);
+    double total = 0.0;
+    for (;;) {
+        std::vector<double> dist(n, inf);
+        std::vector<int64_t> pred(n, -1);
+        std::vector<int> kind(n, 0); // 0: S->src, 1: src->sink, 2: sink->src, 3: sink->T
+        dist[s_node] = 0.0;
+        for (size_t pass = 0; pass < n; ++pass) {
+            for (size_t i = 0; i < ua; ++i) {
+                if (rem_s[i] > 1e-12 && dist[s_node] < dist[i]) {
+                    dist[i] = dist[s_node];
+                    pred[i] = static_cast<int64_t>(s_node);
+                    kind[i] = 0;
+                }
+            }
+            for (size_t i = 0; i < ua; ++i) {
+                if (dist[i] == inf) {
+                    continue;
+                }
+                for (size_t j = 0; j < ub; ++j) {
+                    double nd = dist[i] + cost[i * ub + j];
+                    if (nd < dist[ua + j] - 1e-12) {
+                        dist[ua + j] = nd;
+                        pred[ua + j] = static_cast<int64_t>(i);
+                        kind[ua + j] = 1;
+                    }
+                }
+            }
+            for (size_t j = 0; j < ub; ++j) {
+                if (dist[ua + j] == inf) {
+                    continue;
+                }
+                for (size_t i = 0; i < ua; ++i) {
+                    if (flow[i * ub + j] > 1e-12) {
+                        double nd = dist[ua + j] - cost[i * ub + j];
+                        if (nd < dist[i] - 1e-12) {
+                            dist[i] = nd;
+                            pred[i] = static_cast<int64_t>(ua + j);
+                            kind[i] = 2;
+                        }
+                    }
+                }
+                if (rem_d[j] > 1e-12 && dist[ua + j] < dist[t_node] - 1e-12) {
+                    dist[t_node] = dist[ua + j];
+                    pred[t_node] = static_cast<int64_t>(ua + j);
+                    kind[t_node] = 3;
+                }
+            }
+        }
+        if (dist[t_node] == inf) {
+            break;
+        }
+        double bottleneck = inf;
+        for (int64_t cur = static_cast<int64_t>(t_node);
+             cur != static_cast<int64_t>(s_node);) {
+            int64_t p = pred[static_cast<size_t>(cur)];
+            if (kind[static_cast<size_t>(cur)] == 0) {
+                bottleneck = std::min(bottleneck, rem_s[static_cast<size_t>(cur)]);
+            } else if (kind[static_cast<size_t>(cur)] == 2) {
+                bottleneck = std::min(
+                    bottleneck,
+                    flow[static_cast<size_t>(cur) * ub + static_cast<size_t>(p) - ua]
+                );
+            } else if (kind[static_cast<size_t>(cur)] == 3) {
+                bottleneck = std::min(bottleneck, rem_d[static_cast<size_t>(p) - ua]);
+            }
+            cur = p;
+        }
+        for (int64_t cur = static_cast<int64_t>(t_node);
+             cur != static_cast<int64_t>(s_node);) {
+            int64_t p = pred[static_cast<size_t>(cur)];
+            size_t curu = static_cast<size_t>(cur), pu = static_cast<size_t>(p);
+            if (kind[curu] == 0) {
+                rem_s[curu] -= bottleneck;
+            } else if (kind[curu] == 1) {
+                flow[pu * ub + (curu - ua)] += bottleneck;
+                total += bottleneck * cost[pu * ub + (curu - ua)];
+            } else if (kind[curu] == 2) {
+                flow[curu * ub + (pu - ua)] -= bottleneck;
+                total -= bottleneck * cost[curu * ub + (pu - ua)];
+            } else {
+                rem_d[pu - ua] -= bottleneck;
+            }
+            cur = p;
+        }
+    }
+    return total;
+}
+
+} // namespace
+
+CATCH_TEST_CASE("QEmd transportation solve: random cross-checks", "[distance][gem]") {
+    using svs::distance::AVX_AVAILABILITY;
+    using svs::distance::QEmdImpl;
+
+    std::mt19937 rng(0x7EA5CADEu);
+    std::uniform_int_distribution<size_t> size_dist(1, 40);
+    std::uniform_real_distribution<double> cost_dist(0.0, 10.0);
+
+    // Builds one random balanced problem, decoded ids_a/ids_b plus merged weights that
+    // already sum to 1 (matching QEmdImpl::compute_decoded's real inputs), and checks the
+    // NONE path against the independent reference and every compiled ISA path against NONE.
+    // `tiny_cost_range >= 0` draws integer costs from [0, tiny_cost_range] instead of a
+    // continuous spread -- the highly degenerate case (many tied reduced costs) that the
+    // block-search entering rule plus the strongly-feasible-tree leaving rule need to
+    // handle without stalling. `uniform_weights` skips random weights for exact 1/n ties.
+    auto run_case = [&](size_t ua,
+                        size_t ub,
+                        bool degenerate_costs,
+                        double weight_spread,
+                        bool uniform_weights = false,
+                        int tiny_cost_range = -1) {
+        std::vector<double> w_a(ua), w_b(ub);
+        if (uniform_weights) {
+            std::fill(w_a.begin(), w_a.end(), 1.0 / static_cast<double>(ua));
+            std::fill(w_b.begin(), w_b.end(), 1.0 / static_cast<double>(ub));
+        } else {
+            for (auto* w : {&w_a, &w_b}) {
+                double total = 0.0;
+                std::uniform_real_distribution<double> wd(0.01, weight_spread);
+                for (auto& x : *w) {
+                    x = wd(rng);
+                    total += x;
+                }
+                for (auto& x : *w) {
+                    x /= total; // Same normalization merge_sorted_duplicates relies on.
+                }
+            }
+        }
+        size_t k = std::max(ua, ub);
+        std::vector<uint32_t> ids_a(ua), ids_b(ub);
+        std::vector<double> cost(ua * ub);
+        std::vector<float> table_flat(k * k, 0.0F);
+        std::uniform_int_distribution<int> tiny_cost_dist(0, std::max(tiny_cost_range, 0));
+        for (size_t i = 0; i < ua; ++i) {
+            ids_a[i] = static_cast<uint32_t>(i);
+            for (size_t j = 0; j < ub; ++j) {
+                double c;
+                if (tiny_cost_range >= 0) {
+                    c = static_cast<double>(tiny_cost_dist(rng)); // few distinct costs
+                } else {
+                    c = degenerate_costs ? 1.0 : cost_dist(rng); // many-equal-cost case
+                }
+                cost[i * ub + j] = c;
+                table_flat[i * k + j] = static_cast<float>(c);
+            }
+        }
+        for (size_t j = 0; j < ub; ++j) {
+            ids_b[j] = static_cast<uint32_t>(j);
+        }
+        CentroidTable table(k, table_flat);
+
+        double reference = reference_transport_cost(ua, w_a, ub, w_b, cost);
+        float none_result = QEmdImpl<AVX_AVAILABILITY::NONE>::compute_decoded(
+            table, ids_a.data(), w_a.data(), ua, ids_b.data(), w_b.data(), ub
+        );
+        CATCH_REQUIRE(
+            static_cast<double>(none_result) == Catch::Approx(reference).margin(1e-6)
+        );
+
+#if defined(__x86_64__)
+        if (svs::detail::avx_runtime_flags.is_avx2_supported()) {
+            float avx2_result = QEmdImpl<AVX_AVAILABILITY::AVX2>::compute_decoded(
+                table, ids_a.data(), w_a.data(), ua, ids_b.data(), w_b.data(), ub
+            );
+            CATCH_REQUIRE(avx2_result == Catch::Approx(none_result));
+        }
+        if (svs::detail::avx_runtime_flags.is_avx512f_supported()) {
+            float avx512_result = QEmdImpl<AVX_AVAILABILITY::AVX512>::compute_decoded(
+                table, ids_a.data(), w_a.data(), ua, ids_b.data(), w_b.data(), ub
+            );
+            CATCH_REQUIRE(avx512_result == Catch::Approx(none_result));
+        }
+#endif
+    };
+
+    CATCH_SECTION("Random problems") {
+        for (int trial = 0; trial < 250; ++trial) {
+            size_t ua = size_dist(rng);
+            size_t ub = size_dist(rng);
+            run_case(ua, ub, false, 1.0);
+        }
+    }
+    CATCH_SECTION("Many equal costs") {
+        for (int trial = 0; trial < 20; ++trial) {
+            run_case(size_dist(rng), size_dist(rng), true, 1.0);
+        }
+    }
+    CATCH_SECTION("Single node on one side") {
+        for (int trial = 0; trial < 10; ++trial) {
+            run_case(1, size_dist(rng), false, 1.0);
+            run_case(size_dist(rng), 1, false, 1.0);
+        }
+    }
+    CATCH_SECTION("Large weight dynamic range") {
+        for (int trial = 0; trial < 20; ++trial) {
+            run_case(size_dist(rng), size_dist(rng), false, 1e6);
+        }
+    }
+    CATCH_SECTION("Highly degenerate: uniform weights, tiny integer cost range") {
+        std::uniform_int_distribution<size_t> big_size_dist(1, 64);
+        for (int trial = 0; trial < 30; ++trial) {
+            run_case(
+                big_size_dist(rng),
+                big_size_dist(rng),
+                false,
+                1.0,
+                /*uniform_weights=*/true,
+                /*tiny_cost_range=*/2
+            );
+        }
+    }
+}
+
 CATCH_TEST_CASE("QChamferExactQuery", "[distance][gem]") {
     // Raw (non-unit) centroids: c0=(1,0), c1=(0,1), c2=(-1,0).
     std::vector<float> flat{1.0F, 0.0F, 0.0F, 1.0F, -1.0F, 0.0F};
