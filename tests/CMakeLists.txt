@@ -249,6 +249,13 @@ if (SVS_EXPERIMENTAL_ENABLE_IVF OR SVS_EXPERIMENTAL_ENABLE_MULTI_VECTOR)
     )
 endif()
 
+if (SVS_EXPERIMENTAL_ENABLE_MULTI_VECTOR)
+    message("Enabling GEM codebook tests!")
+    list(APPEND TEST_SOURCES
+        ${TEST_DIR}/svs/quantization/gem/codebook.cpp
+    )
+endif()
+
 add_executable(tests ${TEST_SOURCES})
 
 # Path to the test dataset.
