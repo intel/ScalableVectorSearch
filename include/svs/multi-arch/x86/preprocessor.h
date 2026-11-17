@@ -41,7 +41,6 @@
     M(svs::float16::Float16, svs::float16::Float16, __VA_ARGS__)
 
 // Alias macro for each ISA level to support targeted combinations per ISA
-#define SVS_TYPE_PAIRS_NONE SVS_FOR_EACH_TYPE_PAIR
 #define SVS_TYPE_PAIRS_AVX2 SVS_FOR_EACH_TYPE_PAIR
 #define SVS_TYPE_PAIRS_AVX512 SVS_FOR_EACH_TYPE_PAIR
 
@@ -50,20 +49,18 @@
 #define SVS_TYPE_PAIRS_FOR(LEVEL, M, ...) SVS_TYPE_PAIRS_FOR_(LEVEL)(M, __VA_ARGS__)
 
 // SPEC wrapper for definition and declaration
-#define SVS_DECLARE_ONE_L2(Ea, Eb, SPEC, N, LEVEL) \
-    SPEC struct L2Impl<N, Ea, Eb, AVX_AVAILABILITY::LEVEL>;
-#define SVS_DECLARE_ONE_IP(Ea, Eb, SPEC, N, LEVEL) \
-    SPEC struct IPImpl<N, Ea, Eb, AVX_AVAILABILITY::LEVEL>;
-#define SVS_DECLARE_ONE_CS(Ea, Eb, SPEC, N, LEVEL) \
-    SPEC struct CosineSimilarityImpl<N, Ea, Eb, AVX_AVAILABILITY::LEVEL>;
+#define SVS_DECLARE_ONE_L2(Ea, Eb, SPEC, N, AVX) SPEC struct L2Impl<N, Ea, Eb, AVX>;
+#define SVS_DECLARE_ONE_IP(Ea, Eb, SPEC, N, AVX) SPEC struct IPImpl<N, Ea, Eb, AVX>;
+#define SVS_DECLARE_ONE_CS(Ea, Eb, SPEC, N, AVX) \
+    SPEC struct CosineSimilarityImpl<N, Ea, Eb, AVX>;
 
 // SPEC is `template` for a definition or `extern template` for a declaration.
 #define SVS_INSTANTIATE_L2(SPEC, N, LEVEL) \
-    SVS_TYPE_PAIRS_FOR(LEVEL, SVS_DECLARE_ONE_L2, SPEC, N, LEVEL)
+    SVS_TYPE_PAIRS_FOR(LEVEL, SVS_DECLARE_ONE_L2, SPEC, N, AVX_AVAILABILITY::LEVEL)
 #define SVS_INSTANTIATE_IP(SPEC, N, LEVEL) \
-    SVS_TYPE_PAIRS_FOR(LEVEL, SVS_DECLARE_ONE_IP, SPEC, N, LEVEL)
+    SVS_TYPE_PAIRS_FOR(LEVEL, SVS_DECLARE_ONE_IP, SPEC, N, AVX_AVAILABILITY::LEVEL)
 #define SVS_INSTANTIATE_CS(SPEC, N, LEVEL) \
-    SVS_TYPE_PAIRS_FOR(LEVEL, SVS_DECLARE_ONE_CS, SPEC, N, LEVEL)
+    SVS_TYPE_PAIRS_FOR(LEVEL, SVS_DECLARE_ONE_CS, SPEC, N, AVX_AVAILABILITY::LEVEL)
 
 // All distances are available for the same <SPEC, N, LEVEL> combinations
 // We therefore use one macro to do all three in one go
@@ -71,3 +68,18 @@
     SVS_INSTANTIATE_L2(SPEC, N, LEVEL)            \
     SVS_INSTANTIATE_IP(SPEC, N, LEVEL)            \
     SVS_INSTANTIATE_CS(SPEC, N, LEVEL)
+
+// Kept for downstream code that instantiates kernels itself; they cover all type pairs
+// regardless of level.
+#define DISTANCE_L2_INSTANTIATE_TEMPLATE(N, AVX) \
+    SVS_FOR_EACH_TYPE_PAIR(SVS_DECLARE_ONE_L2, template, N, AVX)
+#define DISTANCE_L2_EXTERN_TEMPLATE(N, AVX) \
+    SVS_FOR_EACH_TYPE_PAIR(SVS_DECLARE_ONE_L2, extern template, N, AVX)
+#define DISTANCE_IP_INSTANTIATE_TEMPLATE(N, AVX) \
+    SVS_FOR_EACH_TYPE_PAIR(SVS_DECLARE_ONE_IP, template, N, AVX)
+#define DISTANCE_IP_EXTERN_TEMPLATE(N, AVX) \
+    SVS_FOR_EACH_TYPE_PAIR(SVS_DECLARE_ONE_IP, extern template, N, AVX)
+#define DISTANCE_CS_INSTANTIATE_TEMPLATE(N, AVX) \
+    SVS_FOR_EACH_TYPE_PAIR(SVS_DECLARE_ONE_CS, template, N, AVX)
+#define DISTANCE_CS_EXTERN_TEMPLATE(N, AVX) \
+    SVS_FOR_EACH_TYPE_PAIR(SVS_DECLARE_ONE_CS, extern template, N, AVX)

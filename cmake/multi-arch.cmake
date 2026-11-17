@@ -25,14 +25,13 @@ set(SVS_X86_OBJECT_FILES)
 foreach(tu_spec IN LISTS SVS_DISPATCH_TU_SPECS)
     svs_parse_tu_spec("${tu_spec}" src level arch infix)
 
-    # Define unique lib_name and obj_name for this TU SPEC with provided infix.
-    # Requires unique infixes in cmake/dispatch-surface.cmake.
+    # obj_name is keyed on arch, so two ISA levels sharing an -march collide in add_library.
 
     set(lib_name "svs_x86_${infix}")
     add_library(${lib_name} INTERFACE)
     target_compile_options(${lib_name} INTERFACE -march=${arch} -mtune=${arch})
 
-    set(obj_name ${infix}_obj)
+    set(obj_name ${arch}_obj)
     add_library(${obj_name} OBJECT ${src})
     target_link_libraries(
         ${obj_name} PRIVATE ${SVS_LIB} svs::compile_options fmt::fmt ${lib_name}

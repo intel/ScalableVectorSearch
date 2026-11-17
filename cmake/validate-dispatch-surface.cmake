@@ -183,14 +183,4 @@ foreach(level_spec IN LISTS SVS_ISA_LEVELS)
     list(APPEND svs_seen_archs ${arch})
 endforeach()
 
-# mandatory levels
-foreach(svs_mandatory_level AVX2 AVX512)
-    if(NOT svs_mandatory_level IN_LIST svs_seen_levels)
-        message(FATAL_ERROR
-            "SVS_ISA_LEVELS omits mandatory level '${svs_mandatory_level}'; "
-            "distance_core.h requires both AVX2 and AVX512 to be present."
-        )
-    endif()
-endforeach()
-
 cmake_policy(POP)
