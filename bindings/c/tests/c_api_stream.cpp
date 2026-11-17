@@ -676,6 +676,51 @@ CATCH_TEST_CASE("C API Stream Save and Load", "[c_api][index][stream]") {
         svs_index_free(index);
     }
 
+    CATCH_SECTION("Dynamic stream load with sync kind") {
+        std::vector<size_t> ids(NUM_VECTORS);
+        std::iota(ids.begin(), ids.end(), size_t{0});
+        const size_t BLOCK_SIZE = 1024 * 1024;
+        svs_index_h index = svs_index_build_dynamic(
+            builder, data.data(), ids.data(), NUM_VECTORS, BLOCK_SIZE, error
+        );
+        CATCH_REQUIRE(index != nullptr);
+
+        MemoryStream stream;
+        svs_stream_interface_ops write_ops =
+            SVS_INIT_STREAM_OPS(nullptr, memory_stream_write);
+        svs_stream_interface out_stream = SVS_MAKE_INTERFACE(&stream, write_ops);
+        CATCH_REQUIRE(svs_index_save_stream(index, &out_stream, error));
+        CATCH_REQUIRE(svs_error_ok(error));
+
+        svs_stream_interface_ops read_ops =
+            SVS_INIT_STREAM_OPS(memory_stream_read, nullptr);
+        svs_stream_interface in_stream = SVS_MAKE_INTERFACE(&stream, read_ops);
+        svs_dynamic_index_params_t params = SVS_INIT_DYNAMIC_INDEX_PARAMS();
+        params.blocksize_bytes = BLOCK_SIZE;
+        params.sync_kind = SVS_SYNC_KIND_FINE_GRAIN;
+        svs_index_h loaded =
+            svs_index_load_stream_dynamic_ex(builder, &in_stream, &params, error);
+        CATCH_REQUIRE(loaded != nullptr);
+
+        svs_sync_kind_t kind = SVS_SYNC_KIND_NONE;
+        CATCH_REQUIRE(svs_index_dynamic_get_sync_kind(loaded, &kind, error));
+        CATCH_REQUIRE(kind == SVS_SYNC_KIND_FINE_GRAIN);
+        size_t size = 0;
+        CATCH_REQUIRE(svs_index_get_size(loaded, &size, error));
+        CATCH_REQUIRE(size == NUM_VECTORS);
+        svs_index_free(loaded);
+
+        // NULL params selects the defaults, i.e. no synchronization.
+        stream.pos = 0;
+        loaded = svs_index_load_stream_dynamic_ex(builder, &in_stream, nullptr, error);
+        CATCH_REQUIRE(loaded != nullptr);
+        kind = SVS_SYNC_KIND_FINE_GRAIN;
+        CATCH_REQUIRE(svs_index_dynamic_get_sync_kind(loaded, &kind, error));
+        CATCH_REQUIRE(kind == SVS_SYNC_KIND_NONE);
+        svs_index_free(loaded);
+        svs_index_free(index);
+    }
+
     CATCH_SECTION("Dynamic Stream Load Uses Custom Allocator For Graph") {
         // Assert same number of bytes are allocated during original construction and after
         // a streaming I/O loop
