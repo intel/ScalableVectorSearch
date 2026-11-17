@@ -30,6 +30,7 @@
 // stl
 #include <concepts>
 #include <span>
+#include <vector>
 
 namespace svs::index::vamana::extensions {
 
@@ -283,6 +284,37 @@ DefaultBuildAdaptor<Distance> svs_invoke(
     const Distance& SVS_UNUSED(distance)
 ) {
     return DefaultBuildAdaptor<Distance>{};
+}
+
+/// Builds the per-insert start nodes `generate_neighbors` uses. Default: entry_points
+/// unchanged. An extension may route to per-node starts instead (GEM, gem.h); `scratch`
+/// is per-thread storage it may fill and return a span over, avoiding allocation.
+struct BuildEntryPointsType {
+    template <typename Data, typename Distance, std::integral Idx>
+    std::span<const Idx> operator()(
+        const Data& data,
+        const Distance& distance,
+        Idx node_id,
+        std::span<const Idx> entry_points,
+        std::vector<Idx>& scratch
+    ) const {
+        return svs::svs_invoke(*this, data, distance, node_id, entry_points, scratch);
+    }
+};
+
+inline constexpr BuildEntryPointsType build_entry_points{};
+
+// Default Implementation.
+template <typename Data, typename Distance, std::integral Idx>
+std::span<const Idx> svs_invoke(
+    svs::tag_t<build_entry_points>,
+    const Data& SVS_UNUSED(data),
+    const Distance& SVS_UNUSED(distance),
+    Idx SVS_UNUSED(node_id),
+    std::span<const Idx> entry_points,
+    std::vector<Idx>& SVS_UNUSED(scratch)
+) {
+    return entry_points;
 }
 
 /////

@@ -360,6 +360,7 @@ class VamanaBuilder {
 
                 // Scratch space.
                 std::vector<Neighbor<Idx>> pool{};
+                std::vector<Idx> entry_point_scratch{};
                 auto search_buffer = search_buffer_type{params_.window_size};
 
                 // Enable use of the visited filter of the search buffer.
@@ -397,6 +398,14 @@ class VamanaBuilder {
                     auto search_clock_start = std::chrono::steady_clock::now();
 #endif
                     {
+                        // local_indices' element type varies; narrow to avoid two Idx's.
+                        auto node_entry_points = extensions::build_entry_points(
+                            data_,
+                            distance_function_,
+                            lib::narrow_cast<Idx>(node_id),
+                            lib::as_const_span(entry_points),
+                            entry_point_scratch
+                        );
                         auto accessor = build_adaptor.graph_search_accessor();
                         greedy_search(
                             graph_,
@@ -409,7 +418,7 @@ class VamanaBuilder {
                             graph_search_distance,
 #endif
                             search_buffer,
-                            vamana::EntryPointInitializer{lib::as_const_span(entry_points)},
+                            vamana::EntryPointInitializer{node_entry_points},
                             NeighborBuilder(),
                             tracker,
                             prefetch_hint_
