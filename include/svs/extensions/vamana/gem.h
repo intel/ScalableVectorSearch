@@ -128,6 +128,51 @@ inline DefaultBuildAdaptor<svs::distance::QChamfer> svs_invoke(
     return DefaultBuildAdaptor<svs::distance::QChamfer>{distance};
 }
 
+// Routes a node's own insert like GemRoutedInitializer routes a query; no-op if unrouted.
+template <svs::data::ImmutableVectorSetDataset Data, std::integral Idx>
+    requires std::unsigned_integral<typename Data::const_value_type::element_type>
+std::span<const Idx> svs_invoke(
+    svs::tag_t<build_entry_points>,
+    const Data& data,
+    const svs::distance::QEmd& distance,
+    Idx node_id,
+    std::span<const Idx> entry_points,
+    std::vector<Idx>& scratch
+) {
+    const auto& router = distance.router();
+    if (!router) {
+        return entry_points;
+    }
+
+    auto doc = data.get_datum(node_id);
+    svs::distance::gem_detail::require_id_dimensions(doc.dimensions());
+    thread_local std::vector<uint32_t> id_buf;
+    const uint32_t* ids =
+        svs::distance::gem_detail::id_span(doc.data(), doc.cardinality(), id_buf);
+
+    thread_local svs::distance::GemRouter::IdScratch route_scratch;
+    thread_local std::vector<uint32_t> routed;
+    router->route_ids(
+        std::span<const uint32_t>(ids, doc.cardinality()),
+        router->nprobe,
+        routed,
+        route_scratch
+    );
+
+    scratch.assign(entry_points.begin(), entry_points.end());
+    for (uint32_t id : routed) {
+        scratch.push_back(static_cast<Idx>(id));
+    }
+    std::sort(scratch.begin(), scratch.end());
+    scratch.erase(std::unique(scratch.begin(), scratch.end()), scratch.end());
+    scratch.erase(std::remove(scratch.begin(), scratch.end(), node_id), scratch.end());
+
+    if (scratch.empty()) {
+        return entry_points;
+    }
+    return std::span<const Idx>(scratch);
+}
+
 // Routes a QChamferExactQuery search; no-op to EntryPointInitializer when unrouted.
 template <typename Data, std::integral Idx>
 GemRoutedInitializer<Idx> svs_invoke(
