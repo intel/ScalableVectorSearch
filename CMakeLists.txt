@@ -77,8 +77,8 @@ include("cmake/fmt.cmake")
 include("cmake/spdlog.cmake")
 include("cmake/toml.cmake")
 
-# IVF requires Intel(R) MKL support
-if(SVS_EXPERIMENTAL_ENABLE_IVF)
+# IVF and multi-vector both train k-means codebooks, which need Intel(R) MKL support.
+if(SVS_EXPERIMENTAL_ENABLE_IVF OR SVS_EXPERIMENTAL_ENABLE_MULTI_VECTOR)
     include("cmake/mkl.cmake")
     target_compile_options(${SVS_LIB} INTERFACE "-DSVS_HAVE_MKL=1")
 endif()

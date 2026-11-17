@@ -45,7 +45,7 @@ if (SVS_EXPERIMENTAL_BUILD_CUSTOM_MKL)
         NO_DEFAULT_PATH
         REQUIRED
     )
-    if (SVS_EXPERIMENTAL_ENABLE_IVF)
+    if (SVS_EXPERIMENTAL_ENABLE_IVF OR SVS_EXPERIMENTAL_ENABLE_MULTI_VECTOR)
         set(mkl_functions_file ${CMAKE_CURRENT_LIST_DIR}/mkl_functions_ivf)
     else()
         set(mkl_functions_file ${CMAKE_CURRENT_LIST_DIR}/mkl_functions)
