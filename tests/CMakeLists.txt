@@ -118,6 +118,7 @@ set(TEST_SOURCES
     ${TEST_DIR}/svs/core/distances/inner_product_matrix.cpp
     ${TEST_DIR}/svs/core/distances/cosine.cpp
     ${TEST_DIR}/svs/core/distances/gem.cpp
+    ${TEST_DIR}/svs/core/distances/gem_router.cpp
     ${TEST_DIR}/svs/core/distances/maxsim.cpp
     ${TEST_DIR}/svs/core/graph.cpp
     ${TEST_DIR}/svs/core/io/vecs.cpp
@@ -140,6 +141,7 @@ set(TEST_SOURCES
     ${TEST_DIR}/svs/index/vamana/build_stats.cpp
     ${TEST_DIR}/svs/index/vamana/consolidate.cpp
     ${TEST_DIR}/svs/index/vamana/filter.cpp
+    ${TEST_DIR}/svs/index/vamana/gem_routing.cpp
     ${TEST_DIR}/svs/index/vamana/gem_vector_set.cpp
     ${TEST_DIR}/svs/index/vamana/index.cpp
     ${TEST_DIR}/svs/index/vamana/maxsim_rerank.cpp

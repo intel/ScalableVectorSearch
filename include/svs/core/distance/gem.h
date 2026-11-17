@@ -28,6 +28,7 @@
 
 #include "svs/concepts/vector_set.h"
 #include "svs/core/distance/distance_core.h"
+#include "svs/core/distance/gem_router.h"
 #include "svs/core/distance/inner_product_matrix.h"
 #include "svs/lib/avx_detection.h"
 #include "svs/lib/bfloat16.h"
@@ -581,8 +582,14 @@ class QEmd {
     static constexpr bool implicit_broadcast = true;
     static constexpr std::string_view name = "gem_qemd";
 
-    explicit QEmd(std::shared_ptr<const CentroidTable> table)
-        : table_{std::move(table)} {}
+    explicit QEmd(
+        std::shared_ptr<const CentroidTable> table,
+        std::shared_ptr<const GemRouter> router = nullptr
+    )
+        : table_{std::move(table)}
+        , router_{std::move(router)} {}
+
+    const std::shared_ptr<const GemRouter>& router() const { return router_; }
 
     // Vector-set path: ids come straight from a contiguous vector set's own storage; T ==
     // uint32_t skips the cast copy (gem_detail::id_span), any other unsigned type costs it.
@@ -611,6 +618,7 @@ class QEmd {
 
   private:
     std::shared_ptr<const CentroidTable> table_;
+    std::shared_ptr<const GemRouter> router_;
 };
 
 inline constexpr bool operator==(const QEmd&, const QEmd&) { return true; }
@@ -693,8 +701,27 @@ class QChamferExactQuery {
     static constexpr bool must_fix_argument = true;
     static constexpr std::string_view name = "gem_qchamfer_exact_query";
 
-    explicit QChamferExactQuery(std::shared_ptr<const FineCentroids> centroids)
-        : centroids_{std::move(centroids)} {}
+    explicit QChamferExactQuery(
+        std::shared_ptr<const FineCentroids> centroids,
+        std::shared_ptr<const GemRouter> router = nullptr
+    )
+        : centroids_{std::move(centroids)}
+        , router_{std::move(router)} {
+        if (router_ && router_->num_fine() != centroids_->K) {
+            throw std::invalid_argument(
+                "QChamferExactQuery: router has " + std::to_string(router_->num_fine()) +
+                " fine centroids, centroids has K = " + std::to_string(centroids_->K)
+            );
+        }
+    }
+
+    const std::shared_ptr<const GemRouter>& router() const { return router_; }
+
+    /// The per-query (K x n_query) dot table built by the last fix_argument() call.
+    const float* table() const { return table_.data(); }
+
+    /// Number of query tokens the last fix_argument() call built table() for.
+    size_t query_tokens() const { return n_query_; }
 
     // Vector-set path: a query set of raw (unquantized) fp32 token vectors, contiguous
     // in the set's own storage, with dimensions() equal to the centroid dimension.
@@ -759,6 +786,7 @@ class QChamferExactQuery {
     }
 
     std::shared_ptr<const FineCentroids> centroids_;
+    std::shared_ptr<const GemRouter> router_;
     PackedOperand packed_query_;
     std::vector<float> table_;
     size_t n_query_ = 0;
