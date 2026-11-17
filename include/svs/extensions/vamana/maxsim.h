@@ -25,11 +25,48 @@
 
 // stl
 #include <algorithm>
+#include <atomic>
 #include <concepts>
 #include <cstddef>
+#include <cstdint>
 #include <vector>
 
+#if defined(SVS_ENABLE_STATS) && SVS_ENABLE_STATS
+#include <chrono>
+#endif
+
 namespace svs::index::vamana::extensions {
+
+#if defined(SVS_ENABLE_STATS) && SVS_ENABLE_STATS
+
+/// Process-wide re-rank timing accumulated since the last `maxsim_rerank_stats_reset()`.
+struct MaxSimRerankStats {
+    uint64_t queries;
+    uint64_t search_ns;
+    uint64_t rerank_ns;
+};
+
+namespace stats_detail {
+// Process-wide, not per-index: simpler than plumbing counters through every thread.
+inline std::atomic<uint64_t> maxsim_queries{0};
+inline std::atomic<uint64_t> maxsim_search_ns{0};
+inline std::atomic<uint64_t> maxsim_rerank_ns{0};
+} // namespace stats_detail
+
+inline MaxSimRerankStats maxsim_rerank_stats_snapshot() {
+    return MaxSimRerankStats{
+        stats_detail::maxsim_queries.load(std::memory_order_relaxed),
+        stats_detail::maxsim_search_ns.load(std::memory_order_relaxed),
+        stats_detail::maxsim_rerank_ns.load(std::memory_order_relaxed)};
+}
+
+inline void maxsim_rerank_stats_reset() {
+    stats_detail::maxsim_queries.store(0, std::memory_order_relaxed);
+    stats_detail::maxsim_search_ns.store(0, std::memory_order_relaxed);
+    stats_detail::maxsim_rerank_ns.store(0, std::memory_order_relaxed);
+}
+
+#endif
 
 namespace detail {
 
@@ -109,7 +146,13 @@ template <
     }
 
     auto accessor = data::GetDatumAccessor();
+#if defined(SVS_ENABLE_STATS) && SVS_ENABLE_STATS
+    auto t_start = std::chrono::steady_clock::now();
     search(query, accessor, distance, search_buffer);
+    auto t_search_done = std::chrono::steady_clock::now();
+#else
+    search(query, accessor, distance, search_buffer);
+#endif
 
     if (cancel()) {
         return;
@@ -134,6 +177,23 @@ template <
     }
 
     detail::resort_by_maxsim(search_buffer);
+
+#if defined(SVS_ENABLE_STATS) && SVS_ENABLE_STATS
+    auto t_rerank_done = std::chrono::steady_clock::now();
+    auto search_ns =
+        std::chrono::duration_cast<std::chrono::nanoseconds>(t_search_done - t_start)
+            .count();
+    auto rerank_ns =
+        std::chrono::duration_cast<std::chrono::nanoseconds>(t_rerank_done - t_search_done)
+            .count();
+    stats_detail::maxsim_queries.fetch_add(1, std::memory_order_relaxed);
+    stats_detail::maxsim_search_ns.fetch_add(
+        static_cast<uint64_t>(search_ns), std::memory_order_relaxed
+    );
+    stats_detail::maxsim_rerank_ns.fetch_add(
+        static_cast<uint64_t>(rerank_ns), std::memory_order_relaxed
+    );
+#endif
 }
 
 // The default `per_thread_batch_search` (extensions.h) dispatches per query through the
