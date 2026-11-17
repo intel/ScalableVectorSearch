@@ -239,6 +239,13 @@ if (SVS_EXPERIMENTAL_ENABLE_IVF)
     )
 endif()
 
+if (SVS_EXPERIMENTAL_ENABLE_IVF OR SVS_EXPERIMENTAL_ENABLE_MULTI_VECTOR)
+    message("Enabling shared k-means tests!")
+    list(APPEND TEST_SOURCES
+        ${TEST_DIR}/svs/core/kmeans_training.cpp
+    )
+endif()
+
 add_executable(tests ${TEST_SOURCES})
 
 # Path to the test dataset.
