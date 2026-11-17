@@ -26,6 +26,11 @@
 #include "svs/third-party/pot/network_simplex_simple.h"
 #pragma GCC diagnostic pop
 
+// network_simplex_simple.h leaves these #defined with no #undef; they mangle identifiers.
+#undef EPSILON
+#undef _EPSILON
+#undef MAX_DEBUG_ITER
+
 #include "svs/concepts/vector_set.h"
 #include "svs/core/distance/distance_core.h"
 #include "svs/core/distance/gem_router.h"
