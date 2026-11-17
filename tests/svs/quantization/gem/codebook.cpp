@@ -16,6 +16,7 @@
 
 // header under test
 #include "svs/quantization/gem/codebook.h"
+#include "svs/quantization/gem/codebook_timed.h"
 
 // svs
 #include "svs/core/data/simple.h"
@@ -245,7 +246,33 @@ CATCH_TEST_CASE(
         }
         CATCH_REQUIRE(std::abs(std::sqrt(norm_sq) - 1.0F) < 1e-4F);
     }
-    CATCH_REQUIRE(four_iter.timings.train_iterations.size() == 4);
+}
+
+CATCH_TEST_CASE(
+    "GEM Codebook - train_codebook_timed records one iteration second per k-means pass",
+    "[quantization][gem]"
+) {
+    constexpr size_t K = 8;
+    constexpr size_t DIM = 16;
+    auto centers = make_random_centers(K, DIM, 0x1234);
+
+    std::vector<size_t> cardinalities(50, 6);
+    auto corpus = make_clustered_corpus(centers, K, DIM, cardinalities, 0xABCD, 0.05F);
+
+    gem::CodebookParameters parameters;
+    parameters.num_centroids = K;
+    parameters.seed = 7;
+    parameters.kmeans_iterations = 4;
+
+    auto threadpool = svs::threads::as_threadpool(2);
+    auto [trained, timings] = gem::train_codebook_timed(corpus, parameters, threadpool);
+
+    CATCH_REQUIRE(timings.train_iterations.size() == 4);
+    CATCH_REQUIRE(timings.sample >= 0.0);
+    CATCH_REQUIRE(timings.train >= 0.0);
+    CATCH_REQUIRE(timings.normalize >= 0.0);
+    CATCH_REQUIRE(timings.total >= 0.0);
+    CATCH_REQUIRE(trained.num_sampled_passages > 0);
 }
 
 CATCH_TEST_CASE(
@@ -425,14 +452,49 @@ CATCH_TEST_CASE(
     for (auto c : result.coarse_of_fine) {
         CATCH_REQUIRE(c < result.num_coarse);
     }
-    CATCH_REQUIRE(result.timings.train_iterations.size() == parameters.kmeans_iterations);
-    CATCH_REQUIRE(result.timings.total >= 0.0);
-    CATCH_REQUIRE(result.timings.sample >= 0.0);
-    CATCH_REQUIRE(result.timings.train >= 0.0);
-    CATCH_REQUIRE(result.timings.normalize >= 0.0);
-    CATCH_REQUIRE(result.timings.assign >= 0.0);
-    CATCH_REQUIRE(result.timings.ground_table >= 0.0);
-    CATCH_REQUIRE(result.timings.coarse >= 0.0);
+}
+
+CATCH_TEST_CASE(
+    "GEM Codebook - quantize_timed matches quantize and records every phase",
+    "[quantization][gem]"
+) {
+    constexpr size_t DIM = 16;
+    constexpr size_t NUM_PASSAGES = 200;
+    // 200 passages * 2 tokens == 400; colbert_num_partitions(400) == 256, still exceeded.
+    std::vector<size_t> cardinalities(NUM_PASSAGES, 2);
+    auto centers = make_random_centers(16, DIM, 0x9999);
+    auto corpus = make_clustered_corpus(centers, 16, DIM, cardinalities, 0x1357, 0.1F);
+
+    gem::CodebookParameters parameters; // num_centroids == 0: use the rule.
+    auto threadpool = svs::threads::as_threadpool(2);
+
+    auto plain = gem::quantize(corpus, parameters, threadpool);
+    auto [timed, timings] = gem::quantize_timed(corpus, parameters, threadpool);
+
+    // Same seed, same corpus: quantize_timed must reproduce quantize's result exactly.
+    CATCH_REQUIRE(timed.K == plain.K);
+    CATCH_REQUIRE(timed.num_coarse == plain.num_coarse);
+    CATCH_REQUIRE(timed.objective == plain.objective);
+    CATCH_REQUIRE(timed.num_sampled_passages == plain.num_sampled_passages);
+    CATCH_REQUIRE(timed.num_training_tokens == plain.num_training_tokens);
+    CATCH_REQUIRE(timed.coarse_of_fine == plain.coarse_of_fine);
+    CATCH_REQUIRE(flatten_ids(timed.ids) == flatten_ids(plain.ids));
+    for (size_t i = 0; i < timed.centroids.size(); ++i) {
+        auto a = timed.centroids.get_datum(i);
+        auto b = plain.centroids.get_datum(i);
+        for (size_t d = 0; d < a.size(); ++d) {
+            CATCH_REQUIRE(a[d] == b[d]);
+        }
+    }
+
+    CATCH_REQUIRE(timings.train_iterations.size() == parameters.kmeans_iterations);
+    CATCH_REQUIRE(timings.total >= 0.0);
+    CATCH_REQUIRE(timings.sample >= 0.0);
+    CATCH_REQUIRE(timings.train >= 0.0);
+    CATCH_REQUIRE(timings.normalize >= 0.0);
+    CATCH_REQUIRE(timings.assign >= 0.0);
+    CATCH_REQUIRE(timings.ground_table >= 0.0);
+    CATCH_REQUIRE(timings.coarse >= 0.0);
 }
 
 CATCH_TEST_CASE("GEM Codebook - failure paths", "[quantization][gem]") {

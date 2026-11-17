@@ -36,7 +36,6 @@
 
 // stl
 #include <algorithm>
-#include <chrono>
 #include <cmath>
 #include <concepts>
 #include <cstddef>
@@ -124,18 +123,6 @@ struct CodebookParameters {
     svs::distance::Ground ground = svs::distance::Ground::Cos;
     /// Per-thread score-buffer budget; fixed-row sizing once hit 587 GB at K=131'072.
     size_t assign_buffer_bytes = 32 * 1024 * 1024;
-};
-
-/// Wall-clock seconds for each phase, measured with std::chrono::steady_clock.
-struct QuantizeTimings {
-    double sample = 0.0;
-    double train = 0.0;
-    double normalize = 0.0;
-    double assign = 0.0;
-    double ground_table = 0.0;
-    double coarse = 0.0;
-    double total = 0.0;
-    std::vector<double> train_iterations;
 };
 
 /// Any contiguous vector-set dataset of float or Float16 tokens: VectorSetData<T> and
@@ -235,26 +222,51 @@ void plain_mean_update(
     );
 }
 
+} // namespace detail
+
+/// Centroids and the k-means objective after train_centroids; the observer (if any) owns
+/// per-iteration diagnostics instead, so this result does not carry them.
 struct L2KMeansResult {
     svs::data::SimpleData<float> centroids;
     double objective = 0.0;
-    std::vector<double> iteration_seconds;
 };
 
-// Shared L2/plain-mean trainer; takes Data by non-const ref, so callers pass a local copy.
-template <svs::data::ImmutableMemoryDataset Data, threads::ThreadPool Pool>
-L2KMeansResult run_l2_kmeans(
+/// Default k-means observer: both hooks are empty, so an optimizer can elide the calls
+/// entirely and a caller pays nothing for not timing iterations.
+struct NoOpKMeansObserver {
+    void before_iteration(size_t /*iter*/) {}
+    void after_iteration(size_t /*iter*/) {}
+};
+
+/// Satisfied by NoOpKMeansObserver and by any type exposing the same two hooks, e.g. one
+/// that times the interval between them.
+template <typename T>
+concept KMeansObserver = requires(T observer, size_t iter) {
+                             observer.before_iteration(iter);
+                             observer.after_iteration(iter);
+                         };
+
+/// Shared L2/plain-mean trainer; takes Data by non-const ref, so callers pass a local
+/// copy. `observer`'s before_/after_iteration are called once per iteration, with no
+/// other effect on the result, so a caller can measure iterations without this function
+/// depending on any timing facility itself.
+template <
+    svs::data::ImmutableMemoryDataset Data,
+    threads::ThreadPool Pool,
+    KMeansObserver Observer = NoOpKMeansObserver>
+L2KMeansResult train_centroids(
     Data& data,
     size_t num_clusters,
     size_t iterations,
     size_t minibatch_size,
     std::mt19937& rng,
-    Pool& threadpool
+    Pool& threadpool,
+    Observer observer = Observer{}
 ) {
     size_t n = data.size();
     if (n < num_clusters) {
         throw ANNEXCEPTION(
-            "run_l2_kmeans: only {} points available, need at least num_clusters={}",
+            "train_centroids: only {} points available, need at least num_clusters={}",
             n,
             num_clusters
         );
@@ -262,8 +274,8 @@ L2KMeansResult run_l2_kmeans(
     // faiss subsamples past 256/centroid; throws instead of silently diverging from it.
     if (n > num_clusters * 256) {
         throw ANNEXCEPTION(
-            "run_l2_kmeans: {} points exceed faiss's 256-per-centroid training bound for "
-            "num_clusters={} (max {}); subsampling instead of throwing would silently "
+            "train_centroids: {} points exceed faiss's 256-per-centroid training bound "
+            "for num_clusters={} (max {}); subsampling instead of throwing would silently "
             "differ from the reference training procedure",
             n,
             num_clusters,
@@ -286,10 +298,8 @@ L2KMeansResult run_l2_kmeans(
     svs::lib::Timer scratch_timer;
 
     double objective = 0.0;
-    std::vector<double> iteration_seconds;
-    iteration_seconds.reserve(iterations);
     for (size_t iter = 0; iter < iterations; ++iter) {
-        auto iter_start = std::chrono::steady_clock::now();
+        observer.before_iteration(iter);
         svs::kmeans::generate_norms(centroids, centroids_norm, threadpool);
 
         size_t num_batches = svs::lib::div_round_up(n, batch_cap);
@@ -313,49 +323,45 @@ L2KMeansResult run_l2_kmeans(
 
         // Objective is defined on the last pass, against the centroids before its update.
         if (iter + 1 == iterations) {
-            objective = compute_objective(data, centroids, assignments);
+            objective = detail::compute_objective(data, centroids, assignments);
         }
 
-        plain_mean_update(data, centroids, assignments, counts, threadpool);
+        detail::plain_mean_update(data, centroids, assignments, counts, threadpool);
         svs::kmeans::centroid_split(
             data, centroids, counts, rng, threadpool, scratch_timer
         );
-
-        iteration_seconds.push_back(
-            std::chrono::duration<double>(std::chrono::steady_clock::now() - iter_start)
-                .count()
-        );
+        observer.after_iteration(iter);
     }
 
-    return L2KMeansResult{std::move(centroids), objective, std::move(iteration_seconds)};
+    return L2KMeansResult{std::move(centroids), objective};
 }
 
-} // namespace detail
-
-/// Result of train_codebook: the normalized float32 centroids plus training diagnostics.
-struct TrainedCodebook {
-    svs::data::SimpleData<float> centroids;
-    double objective = 0.0;
+/// sample_training_tokens's output: the float32 tokens train_centroids trains on, plus
+/// the resolved centroid count and sampling sizes train_codebook reports.
+struct SampledTrainingTokens {
+    svs::data::SimpleData<float> trainset;
+    size_t K = 0;
     size_t num_sampled_passages = 0;
     size_t num_training_tokens = 0;
-    QuantizeTimings timings;
 };
 
-/// Steps 1-4: resolve K, sample passages, gather/shuffle/hold out tokens, run plain-mean
-/// L2 k-means, then normalize once. Only sampled tokens convert to float32, so a
-/// memory-mapped Float16 store is never copied in full.
+/// Steps 1-3: resolve K, sample passages, then gather/shuffle/hold out their tokens into a
+/// float32 trainset. Only sampled tokens convert to float32, so a memory-mapped Float16
+/// store is never copied in full. Advances `rng`, so a caller chaining into
+/// train_centroids with the same `rng` continues its stream rather than restarting it.
 template <TokenVectorStore Data, threads::ThreadPool Pool>
-TrainedCodebook
-train_codebook(const Data& tokens, const CodebookParameters& parameters, Pool& threadpool) {
-    auto total_start = std::chrono::steady_clock::now();
-    QuantizeTimings timings;
-
+SampledTrainingTokens sample_training_tokens(
+    const Data& tokens,
+    const CodebookParameters& parameters,
+    std::mt19937& rng,
+    Pool& threadpool
+) {
     size_t dim = tokens.dimensions();
     size_t num_passages = tokens.size();
     size_t num_total_tokens = tokens.total_tokens();
     if (num_passages == 0 || num_total_tokens == 0) {
         throw ANNEXCEPTION(
-            "train_codebook: tokens dataset is empty ({} passages, {} tokens)",
+            "sample_training_tokens: tokens dataset is empty ({} passages, {} tokens)",
             num_passages,
             num_total_tokens
         );
@@ -366,14 +372,13 @@ train_codebook(const Data& tokens, const CodebookParameters& parameters, Pool& t
     constexpr size_t max_id = static_cast<size_t>(std::numeric_limits<uint32_t>::max());
     if (K > max_id) {
         throw ANNEXCEPTION(
-            "train_codebook: K={} exceeds the uint32_t centroid-id range (max {})",
+            "sample_training_tokens: K={} exceeds the uint32_t centroid-id range (max {})",
             K,
             max_id
         );
     }
 
     size_t sample_size = colbert_sample_size(num_passages);
-    std::mt19937 rng(parameters.seed);
 
     std::vector<size_t> passage_ids(sample_size);
     svs::kmeans::generate_unique_ids(passage_ids, num_passages, rng);
@@ -410,15 +415,14 @@ train_codebook(const Data& tokens, const CodebookParameters& parameters, Pool& t
 
     if (num_training < K) {
         throw ANNEXCEPTION(
-            "train_codebook: only {} training tokens sampled (after a {} token held-out "
-            "split), need at least K={}",
+            "sample_training_tokens: only {} training tokens sampled (after a {} token "
+            "held-out split), need at least K={}",
             num_training,
             heldout,
             K
         );
     }
 
-    auto sample_start = std::chrono::steady_clock::now();
     auto trainset = svs::data::SimpleData<float>(num_training, dim);
     threads::parallel_for(
         threadpool,
@@ -436,41 +440,43 @@ train_codebook(const Data& tokens, const CodebookParameters& parameters, Pool& t
             }
         }
     );
-    timings.sample =
-        std::chrono::duration<double>(std::chrono::steady_clock::now() - sample_start)
-            .count();
 
-    auto train_start = std::chrono::steady_clock::now();
-    auto kmeans_result = detail::run_l2_kmeans(
-        trainset,
-        K,
+    return SampledTrainingTokens{std::move(trainset), K, sample_size, num_training};
+}
+
+/// Result of train_codebook: the normalized float32 centroids plus training diagnostics.
+struct TrainedCodebook {
+    svs::data::SimpleData<float> centroids;
+    double objective = 0.0;
+    size_t num_sampled_passages = 0;
+    size_t num_training_tokens = 0;
+};
+
+/// Composes sample_training_tokens and train_centroids, then normalizes once: the
+/// pipeline a caller wanting plain results (no phase timing) runs end to end.
+template <TokenVectorStore Data, threads::ThreadPool Pool>
+TrainedCodebook
+train_codebook(const Data& tokens, const CodebookParameters& parameters, Pool& threadpool) {
+    std::mt19937 rng(parameters.seed);
+    auto sampled = sample_training_tokens(tokens, parameters, rng, threadpool);
+
+    auto kmeans_result = train_centroids(
+        sampled.trainset,
+        sampled.K,
         parameters.kmeans_iterations,
         parameters.minibatch_size,
         rng,
         threadpool
     );
-    timings.train =
-        std::chrono::duration<double>(std::chrono::steady_clock::now() - train_start)
-            .count();
-    timings.train_iterations = std::move(kmeans_result.iteration_seconds);
 
-    auto normalize_start = std::chrono::steady_clock::now();
     svs::lib::Timer scratch_timer;
     svs::kmeans::normalize_centroids(kmeans_result.centroids, threadpool, scratch_timer);
-    timings.normalize =
-        std::chrono::duration<double>(std::chrono::steady_clock::now() - normalize_start)
-            .count();
-
-    timings.total =
-        std::chrono::duration<double>(std::chrono::steady_clock::now() - total_start)
-            .count();
 
     return TrainedCodebook{
         std::move(kmeans_result.centroids),
         kmeans_result.objective,
-        sample_size,
-        num_training,
-        timings};
+        sampled.num_sampled_passages,
+        sampled.num_training_tokens};
 }
 
 /// Step 5: assign every document token to its nearest (argmax inner product) normalized
@@ -687,7 +693,7 @@ MismatchReport count_assignment_mismatches(
 
 /// Clusters fine centroids into coarse groups via the same L2/plain-mean trainer, then
 /// an exact nearest-coarse assignment. `centroids` is read-only; a local copy is
-/// clustered since run_l2_kmeans takes Data by non-const ref.
+/// clustered since train_centroids takes Data by non-const ref.
 struct CoarseClusters {
     std::vector<uint32_t> coarse_of_fine;
     size_t num_coarse = 0;
@@ -714,7 +720,7 @@ CoarseClusters coarse_clusters(
     // Offset from the fine-training seed so the two never share a random stream.
     std::mt19937 rng(parameters.seed + 1);
     auto working_copy = centroids;
-    auto kmeans_result = detail::run_l2_kmeans(
+    auto kmeans_result = train_centroids(
         working_copy,
         num_coarse,
         parameters.coarse_iterations,
@@ -753,6 +759,34 @@ CoarseClusters coarse_clusters(
     return CoarseClusters{std::move(coarse_of_fine), num_coarse};
 }
 
+/// build_ground_structures's output: the bf16 FineCentroids and pairwise CentroidTable
+/// GEM's distances need, built from the same trained centroids.
+struct GroundStructures {
+    std::shared_ptr<const svs::distance::FineCentroids> fine_centroids;
+    std::shared_ptr<const svs::distance::CentroidTable> centroid_table;
+};
+
+/// Builds the bf16 FineCentroids and the pairwise CentroidTable from trained centroids;
+/// the pair quantize's distances need but neither centroid_table nor FineCentroids'
+/// constructor derives from the other, so they are built together here once.
+inline GroundStructures build_ground_structures(
+    const svs::data::SimpleData<float>& centroids,
+    const CodebookParameters& parameters,
+    size_t num_threads
+) {
+    size_t K = centroids.size();
+    size_t dim = centroids.dimensions();
+    auto fine_centroids = std::make_shared<const svs::distance::FineCentroids>(
+        K, dim, centroids.data(), num_threads
+    );
+    auto centroid_table = std::make_shared<const svs::distance::CentroidTable>(
+        svs::distance::CentroidTable::from_centroids(
+            centroids.data(), K, dim, parameters.ground, num_threads
+        )
+    );
+    return GroundStructures{std::move(fine_centroids), std::move(centroid_table)};
+}
+
 /// Full pipeline: train, assign, build the bf16 FineCentroids and the pairwise
 /// CentroidTable, and cluster the fine centroids themselves. The single entry point a
 /// driver calls to turn a raw token store into everything GEM's distances need.
@@ -767,63 +801,32 @@ struct Quantized {
     double objective = 0.0;
     size_t num_sampled_passages = 0;
     size_t num_training_tokens = 0;
-    QuantizeTimings timings;
 };
 
+/// Composes train_codebook, assign_tokens, build_ground_structures and coarse_clusters:
+/// the pipeline a caller wanting plain results (no phase timing) runs end to end.
 template <TokenVectorStore Data, threads::ThreadPool Pool>
 Quantized
 quantize(const Data& tokens, const CodebookParameters& parameters, Pool& threadpool) {
-    auto total_start = std::chrono::steady_clock::now();
-
     auto trained = train_codebook(tokens, parameters, threadpool);
-    QuantizeTimings timings = trained.timings;
-
-    auto assign_start = std::chrono::steady_clock::now();
     auto ids = assign_tokens(tokens, trained.centroids, parameters, threadpool);
-    timings.assign =
-        std::chrono::duration<double>(std::chrono::steady_clock::now() - assign_start)
-            .count();
 
     size_t K = trained.centroids.size();
-    size_t dim = trained.centroids.dimensions();
     size_t num_threads = threadpool.size();
-
-    // Timed with the pairwise table build; neither has its own QuantizeTimings field.
-    auto ground_start = std::chrono::steady_clock::now();
-    auto fine_centroids = std::make_shared<const svs::distance::FineCentroids>(
-        K, dim, trained.centroids.data(), num_threads
-    );
-    auto centroid_table = std::make_shared<const svs::distance::CentroidTable>(
-        svs::distance::CentroidTable::from_centroids(
-            trained.centroids.data(), K, dim, parameters.ground, num_threads
-        )
-    );
-    timings.ground_table =
-        std::chrono::duration<double>(std::chrono::steady_clock::now() - ground_start)
-            .count();
-
-    auto coarse_start = std::chrono::steady_clock::now();
+    auto ground = build_ground_structures(trained.centroids, parameters, num_threads);
     auto coarse = coarse_clusters(trained.centroids, parameters, threadpool);
-    timings.coarse =
-        std::chrono::duration<double>(std::chrono::steady_clock::now() - coarse_start)
-            .count();
-
-    timings.total =
-        std::chrono::duration<double>(std::chrono::steady_clock::now() - total_start)
-            .count();
 
     return Quantized{
         std::move(trained.centroids),
-        std::move(fine_centroids),
-        std::move(centroid_table),
+        std::move(ground.fine_centroids),
+        std::move(ground.centroid_table),
         std::move(ids),
         std::move(coarse.coarse_of_fine),
         coarse.num_coarse,
         K,
         trained.objective,
         trained.num_sampled_passages,
-        trained.num_training_tokens,
-        timings};
+        trained.num_training_tokens};
 }
 
 } // namespace svs::quantization::gem
