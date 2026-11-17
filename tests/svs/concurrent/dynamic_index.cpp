@@ -628,6 +628,63 @@ CATCH_TEST_CASE(
                 CATCH_REQUIRE(actual.index(q, i) == expected.index(q, i));
             }
         }
+
+        // The same save must also load into the dynamic index: same size, same
+        // visible ids, same search results.
+        auto check_loaded = [&](auto& dynamic) {
+            CATCH_REQUIRE(dynamic.size() == size_before);
+            for (size_t i = 0; i < 400; ++i) {
+                const bool removed = (i < 100) || (i >= 200 && i < 300);
+                CATCH_REQUIRE(dynamic.has_id(i) == !removed);
+            }
+            auto got = svs::QueryResult<size_t>(queries.size(), num_neighbors);
+            dynamic.search(got.view(), queries.cview(), search_params);
+            for (size_t q = 0; q < queries.size(); ++q) {
+                for (size_t i = 0; i < num_neighbors; ++i) {
+                    CATCH_REQUIRE(got.index(q, i) == expected.index(q, i));
+                }
+            }
+        };
+
+        stream.clear();
+        stream.seekg(0);
+        auto stream_deserializer = svs::lib::detail::Deserializer::build(stream);
+        CATCH_REQUIRE(stream_deserializer.is_native());
+        std::istream& is = stream; // select the `std::istream&` overload
+        auto from_stream = svs::index::vamana::auto_dynamic_assemble(
+            is,
+            svs::lib::Lazy([&]() {
+                return svs::graphs::SimpleBlockedGraph<uint32_t>::load(stream);
+            }),
+            svs::lib::Lazy([&]() {
+                return svs::lib::load_from_stream<svs::data::BlockedData<float>>(stream);
+            }),
+            Distance(),
+            num_threads
+        );
+        check_loaded(from_stream);
+
+        svs::lib::UniqueTempDirectory tempdir{"svs_concurrent_save_to_dynamic"};
+        std::filesystem::create_directories(tempdir.get() / "config");
+        std::filesystem::create_directories(tempdir.get() / "graph");
+        std::filesystem::create_directories(tempdir.get() / "data");
+        index.save(
+            tempdir.get() / "config", tempdir.get() / "graph", tempdir.get() / "data"
+        );
+        auto from_directory = svs::index::vamana::auto_dynamic_assemble(
+            tempdir.get() / "config",
+            svs::lib::Lazy([&]() {
+                return svs::graphs::SimpleBlockedGraph<uint32_t>::load(
+                    tempdir.get() / "graph"
+                );
+            }),
+            svs::lib::Lazy([&]() {
+                return svs::data::BlockedData<float>::load(tempdir.get() / "data");
+            }),
+            Distance(),
+            num_threads
+        );
+        check_loaded(from_directory);
     }
 }
 
