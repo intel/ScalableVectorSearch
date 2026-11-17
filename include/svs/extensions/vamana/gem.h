@@ -18,15 +18,19 @@
 
 // index/vamana depends on core/distance, not the reverse, so these overrides live here
 // rather than in core/distance/gem.h.
+#include "svs/concepts/vector_set.h"
+#include "svs/core/data/simple.h"
 #include "svs/core/distance/gem.h"
 #include "svs/index/vamana/extensions.h"
 #include "svs/index/vamana/prune.h"
+#include "svs/lib/exception.h"
 
 // stl
 #include <algorithm>
 #include <concepts>
 #include <cstdint>
 #include <span>
+#include <type_traits>
 #include <vector>
 
 namespace svs::index::vamana {
@@ -133,6 +137,82 @@ GemRoutedInitializer<Idx> svs_invoke(
     std::span<const Idx> entry_points
 ) {
     return GemRoutedInitializer<Idx>{&distance, entry_points};
+}
+
+// L2 medoid of each document's pooled fine-centroid mean; a real entry point for raw ids.
+template <svs::data::ImmutableVectorSetDataset IdSets, threads::ThreadPool Pool>
+    requires std::unsigned_integral<typename IdSets::const_value_type::element_type>
+size_t gem_pooled_entry_point(
+    const IdSets& docs, const svs::distance::FineCentroids& centroids, Pool& pool
+) {
+    size_t n = docs.size();
+    size_t dim = centroids.dim;
+    auto pooled = svs::data::SimpleData<float>(n, dim);
+
+    threads::parallel_for(
+        pool,
+        threads::StaticPartition{n},
+        [&](const auto& ids, uint64_t /*tid*/) {
+            std::vector<double> accum(dim);
+            for (size_t i : ids) {
+                auto doc = docs.get_datum(i);
+                if (doc.dimensions() != 1) {
+                    throw ANNEXCEPTION(
+                        "gem_pooled_entry_point: document {} has dimensions() = {}, "
+                        "expected 1 (one centroid id per token)",
+                        i,
+                        doc.dimensions()
+                    );
+                }
+                size_t card = doc.cardinality();
+                std::fill(accum.begin(), accum.end(), 0.0);
+                for (size_t t = 0; t < card; ++t) {
+                    uint64_t cid = static_cast<uint64_t>(doc.token(t)[0]);
+                    if (cid >= centroids.K) {
+                        throw ANNEXCEPTION(
+                            "gem_pooled_entry_point: document {} has centroid id {}, "
+                            "not < K = {}",
+                            i,
+                            cid,
+                            centroids.K
+                        );
+                    }
+                    const svs::BFloat16* row = centroids.data.get() + cid * dim;
+                    for (size_t d = 0; d < dim; ++d) {
+                        accum[d] += static_cast<double>(row[d]);
+                    }
+                }
+                auto out = pooled.get_datum(i);
+                for (size_t d = 0; d < dim; ++d) {
+                    out[d] = card > 0
+                                 ? static_cast<float>(accum[d] / static_cast<double>(card))
+                                 : 0.0F;
+                }
+            }
+        }
+    );
+
+    return utils::find_medioid(pooled, pool);
+}
+
+// Turns an opaque medioid.h compile failure on centroid-id sets into a clear diagnostic.
+template <typename Data, threads::ThreadPool Pool, typename Predicate>
+    requires svs::data::ImmutableVectorSetDataset<Data> &&
+             std::unsigned_integral<typename Data::const_value_type::element_type>
+size_t svs_invoke(
+    svs::tag_t<compute_entry_point>,
+    const Data& /*dataset*/,
+    Pool& /*threadpool*/,
+    Predicate&& /*predicate*/
+) {
+    static_assert(
+        !std::is_same_v<Data, Data>,
+        "compute_entry_point has no L2 medoid for centroid-id vector sets; build one "
+        "with svs::index::vamana::extensions::gem_pooled_entry_point and pass it to the "
+        "VamanaIndex constructor directly instead of relying on automatic entry-point "
+        "computation"
+    );
+    return 0;
 }
 
 } // namespace extensions

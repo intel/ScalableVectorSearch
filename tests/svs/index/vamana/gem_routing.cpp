@@ -14,8 +14,7 @@
  * limitations under the License.
  */
 
-// Headers under test: the GEM search-routing hook (GemRoutedInitializer,
-// search_initializer override).
+// Headers under test: GemRoutedInitializer, search_initializer, gem_pooled_entry_point.
 #include "svs/core/distance/gem.h"
 #include "svs/core/distance/gem_router.h"
 #include "svs/extensions/vamana/gem.h"
@@ -374,4 +373,22 @@ CATCH_TEST_CASE(
     size_t hits_routed = run_search(router_ptr);
 
     CATCH_REQUIRE(hits_routed >= hits_unrouted);
+}
+
+CATCH_TEST_CASE("gem_pooled_entry_point", "[vamana][gem][gem_router]") {
+    // Four unit vectors in 2D, matching core/distances/gem.cpp's hand example exactly.
+    constexpr size_t dim = 2;
+    std::vector<float> flat{1.0F, 0.0F, 0.0F, 1.0F, -1.0F, 0.0F, 0.0F, -1.0F};
+    FineCentroids fine(4, dim, flat.data(), 1);
+
+    // doc0's mean (0.5,0.5) is nearest the dataset mean (1/3,0), so doc0 is the medoid.
+    std::vector<uint32_t> ids{0, 1, 2, 3, 0};
+    std::vector<uint64_t> offsets{0, 2, 4, 5};
+    auto docs = svs::data::ConstVectorSetView<uint32_t, 1>(
+        std::span<const uint32_t>(ids), std::span<const uint64_t>(offsets), 1
+    );
+
+    auto pool = svs::threads::DefaultThreadPool(1);
+    size_t entry = svs::index::vamana::extensions::gem_pooled_entry_point(docs, fine, pool);
+    CATCH_REQUIRE(entry == 0);
 }
