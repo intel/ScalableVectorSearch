@@ -139,6 +139,7 @@ set(TEST_SOURCES
     ${TEST_DIR}/svs/index/flat/dynamic_flat.cpp
     ${TEST_DIR}/svs/index/vamana/build_parameters.cpp
     ${TEST_DIR}/svs/index/vamana/build_stats.cpp
+    ${TEST_DIR}/svs/index/vamana/connectivity.cpp
     ${TEST_DIR}/svs/index/vamana/consolidate.cpp
     ${TEST_DIR}/svs/index/vamana/filter.cpp
     ${TEST_DIR}/svs/index/vamana/gem_routing.cpp
