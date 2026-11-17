@@ -27,6 +27,10 @@
 #include "svs/lib/preprocessor.h"
 #include "svs/lib/threads.h"
 
+// stl
+#include <concepts>
+#include <span>
+
 namespace svs::index::vamana::extensions {
 
 /////
@@ -284,6 +288,31 @@ DefaultBuildAdaptor<Distance> svs_invoke(
 /////
 ///// SEARCH EXTENSIONS
 /////
+
+/// Builds the greedy-search initializer for a query. Default: EntryPointInitializer over
+/// the index's fixed entry points; an extension may start per-query instead (GEM, gem.h).
+/// Invoked inside greedy_search after fix_argument, so it may read per-query state.
+struct SearchInitializerType {
+    template <typename Data, typename Distance, std::integral Idx>
+    auto operator()(
+        const Data& data, const Distance& distance, std::span<const Idx> entry_points
+    ) const {
+        return svs::svs_invoke(*this, data, distance, entry_points);
+    }
+};
+
+inline constexpr SearchInitializerType search_initializer{};
+
+// Default Implementation.
+template <typename Data, typename Distance, std::integral Idx>
+vamana::EntryPointInitializer<Idx> svs_invoke(
+    svs::tag_t<search_initializer>,
+    const Data& SVS_UNUSED(data),
+    const Distance& SVS_UNUSED(distance),
+    std::span<const Idx> entry_points
+) {
+    return vamana::EntryPointInitializer<Idx>{entry_points};
+}
 
 /// Preprartion steps for single search.
 struct VamanaSingleSearchSetupType {
