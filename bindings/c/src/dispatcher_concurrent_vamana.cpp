@@ -32,6 +32,8 @@
 #include <svs/orchestrators/concurrent_dynamic_vamana.h>
 
 #include <filesystem>
+#include <istream>
+#include <memory>
 #include <span>
 #include <utility>
 #include <variant>
@@ -196,9 +198,38 @@ svs::DynamicVamana load_concurrent_vamana_index(
     );
 }
 
+template <typename DataLoader, typename Distance>
+svs::DynamicVamana load_stream_concurrent_vamana_index(
+    const svs::index::vamana::VamanaBuildParameters& SVS_UNUSED(build_params),
+    std::unique_ptr<std::istream> stream,
+    DataLoader SVS_UNUSED(loader),
+    Distance D,
+    svs::threads::ThreadPoolHandle pool,
+    const AllocatorBuilder& allocator_builder,
+    const svs::data::BlockingParameters& block_params,
+    svs::logging::logger_ptr logger
+) {
+    using allocator_type = typename DataLoader::allocator_type;
+    using value_type = typename allocator_type::value_type;
+    using data_type = typename DataLoader::data_type;
+    auto allocator = allocator_type{block_params, allocator_builder.build<value_type>()};
+    auto graph_allocator = ConcurrentGraphAllocator{
+        block_params, allocator_builder.build_for_graph<uint32_t>()};
+
+    return svs::ConcurrentDynamicVamana::assemble<float>(
+        *stream,
+        svs::make_stream_loader<ConcurrentGraph>(graph_allocator),
+        svs::make_stream_loader<data_type>(allocator),
+        std::move(D),
+        std::move(pool),
+        std::move(logger)
+    );
+}
+
 using ConcurrentVamanaSource = std::variant<
     std::pair<svs::data::ConstSimpleDataView<float>, std::span<const size_t>>,
-    std::filesystem::path>;
+    std::filesystem::path,
+    std::unique_ptr<std::istream>>;
 
 using BuildConcurrentIndexDispatcher = svs::lib::Dispatcher<
     svs::DynamicVamana,
@@ -221,10 +252,15 @@ const BuildConcurrentIndexDispatcher& build_concurrent_vamana_index_dispatcher()
             d.register_target(&load_concurrent_vamana_index<DataLoader, Distance>);
         };
 
+        auto load_stream_closure = [&d]<typename DataLoader, typename Distance>() {
+            d.register_target(&load_stream_concurrent_vamana_index<DataLoader, Distance>);
+        };
+
         constexpr auto kind = ConcurrentVamanaFlavor::block_kind;
 
         for_all_specializations<kind>(build_closure);
         for_all_specializations<kind>(load_closure);
+        for_all_specializations<kind>(load_stream_closure);
         return d;
     }();
     return dispatcher;
@@ -284,6 +320,28 @@ svs::DynamicVamana dispatch_concurrent_vamana_index_load(
     return build_concurrent_vamana_index_dispatcher().invoke(
         build_params,
         ConcurrentVamanaSource{directory},
+        storage,
+        distance_type,
+        std::move(pool),
+        allocator_builder,
+        block_params,
+        std::move(logger)
+    );
+}
+
+svs::DynamicVamana dispatch_concurrent_vamana_index_load_stream(
+    const svs::index::vamana::VamanaBuildParameters& build_params,
+    std::unique_ptr<std::istream> stream,
+    const Storage* storage,
+    svs::DistanceType distance_type,
+    svs::threads::ThreadPoolHandle pool,
+    const AllocatorBuilder& allocator_builder,
+    const svs::data::BlockingParameters& block_params,
+    svs::logging::logger_ptr logger
+) {
+    return build_concurrent_vamana_index_dispatcher().invoke(
+        build_params,
+        ConcurrentVamanaSource{std::move(stream)},
         storage,
         distance_type,
         std::move(pool),
