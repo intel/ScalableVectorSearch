@@ -1,0 +1,573 @@
+/*
+ * Copyright 2026 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+#pragma once
+
+// svs
+#include "svs/concepts/data.h"
+#include "svs/concepts/distance.h"
+#include "svs/core/data/simple.h"
+#include "svs/core/data/view.h"
+#include "svs/core/distance.h"
+#include "svs/lib/exception.h"
+#include "svs/lib/neighbor.h"
+#include "svs/lib/threads/threadpool.h"
+#include "svs/lib/timing.h"
+#include "svs/lib/type_traits.h"
+
+// external
+#include "tsl/robin_set.h"
+
+// Intel(R) MKL
+#include <mkl.h>
+
+// stl
+#include <random>
+
+// Generic k-means training shared by IVF and multi-vector codebook training.
+namespace svs::kmeans {
+
+/// Helper trait to check if a distance type behaves like IP (inner product)
+template <typename Distance>
+inline constexpr bool is_ip_like_v =
+    std::is_same_v<std::remove_cvref_t<Distance>, distance::DistanceIP> ||
+    std::is_same_v<std::remove_cvref_t<Distance>, distance::DistanceCosineSimilarity>;
+
+/// Helper trait to check if a distance type is L2
+template <typename Distance>
+inline constexpr bool is_l2_v =
+    std::is_same_v<std::remove_cvref_t<Distance>, distance::DistanceL2>;
+
+// Small epsilon value used for floating-point comparisons to avoid precision
+// issues.  The value 1/1024 (approximately 0.0009765625) is chosen as a reasonable
+// threshold for numerical stability in algorithms such as k-means clustering, where exact
+constexpr double EPSILON = 1.0 / 1024.0;
+
+/// @brief Parameters controlling the k-means training loop.
+struct KMeansTrainingParameters {
+    /// The number of iterations used in kmeans training.
+    size_t num_iterations;
+    /// The size of each minibatch.
+    size_t minibatch_size;
+};
+
+// Helper functions to convert data from one type to another using threadpool
+template <typename D1, typename D2, threads::ThreadPool Pool>
+void convert_data(D1& src, D2& dst, Pool& threadpool) {
+    // Note: Destination size can be bigger than the source as we preallocate a bigger
+    // buffer and reuse it to reduce the cost of frequent allocations
+    if (src.size() > dst.size() || src.dimensions() != dst.dimensions()) {
+        throw ANNEXCEPTION(
+            "Unexpected data shapes sizes: {}, {}; dims: {}, {}!",
+            src.size(),
+            dst.size(),
+            src.dimensions(),
+            dst.dimensions()
+        );
+    }
+
+    threads::parallel_for(
+        threadpool,
+        threads::StaticPartition{src.size()},
+        [&](auto indices, auto /*tid*/) {
+            for (auto i : indices) {
+                dst.set_datum(i, src.get_datum(i));
+            }
+        }
+    );
+}
+
+template <typename T, data::ImmutableMemoryDataset Data, threads::ThreadPool Pool>
+auto convert_data(Data& src, Pool& threadpool) {
+    auto dst = svs::data::SimpleData<T>(src.size(), src.dimensions());
+    convert_data(src, dst, threadpool);
+    return dst;
+}
+
+// Partial specialization to preserve the dimensionality and Allocation type
+template <typename T, size_t Extent, typename Alloc, threads::ThreadPool Pool>
+auto convert_data(svs::data::SimpleData<float, Extent, Alloc>& src, Pool& threadpool) {
+    using allocator_type = svs::lib::rebind_allocator_t<T, Alloc>;
+    allocator_type rebound_alloctor = {};
+
+    auto dst = svs::data::SimpleData<T, Extent, allocator_type>(
+        src.size(), src.dimensions(), rebound_alloctor
+    );
+    convert_data(src, dst, threadpool);
+    return dst;
+}
+
+template <typename T, data::ImmutableMemoryDataset Data> auto convert_data(Data& src) {
+    auto dst = svs::data::SimpleData<T>(src.size(), src.dimensions());
+    auto threadpool = threads::as_threadpool(1);
+    convert_data(src, dst, threadpool);
+    return dst;
+}
+
+template <typename T>
+void compute_matmul(
+    const T* data, const T* centroids, float* results, size_t m, size_t n, size_t k
+) {
+    // Early return for zero dimensions.
+    // Calling Intel MKL functions with zero dimensions may result in undefined behavior
+    // or runtime errors. This check ensures we avoid such cases.
+    if (m == 0 || n == 0 || k == 0) {
+        return; // Nothing to compute
+    }
+
+    // Check for integer overflow when casting to int (MKL requirement)
+    constexpr size_t max_int = static_cast<size_t>(std::numeric_limits<int>::max());
+    if (m > max_int || n > max_int || k > max_int) {
+        throw ANNEXCEPTION(
+            "Matrix dimensions too large for Intel MKL GEMM: m={}, n={}, k={}, max={}",
+            m,
+            n,
+            k,
+            max_int
+        );
+    }
+
+    // Cast size_t parameters to int for MKL GEMM functions
+    int m_int = static_cast<int>(m);
+    int n_int = static_cast<int>(n);
+    int k_int = static_cast<int>(k);
+    if constexpr (std::is_same_v<T, float>) {
+        cblas_sgemm(
+            CblasRowMajor, // CBLAS_LAYOUT layout
+            CblasNoTrans,  // CBLAS_TRANSPOSE TransA
+            CblasTrans,    // CBLAS_TRANSPOSE TransB
+            m_int,         // const int M
+            n_int,         // const int N
+            k_int,         // const int K
+            1.0F,          // float alpha
+            data,          // const float* A
+            k_int,         // const int lda
+            centroids,     // const float* B
+            k_int,         // const int ldb
+            0.0F,          // const float beta
+            results,       // float* c
+            n_int          // const int ldc
+        );
+    } else if constexpr (std::is_same_v<T, BFloat16>) {
+        cblas_gemm_bf16bf16f32(
+            CblasRowMajor,              // CBLAS_LAYOUT layout
+            CblasNoTrans,               // CBLAS_TRANSPOSE TransA
+            CblasTrans,                 // CBLAS_TRANSPOSE TransB
+            m_int,                      // const int M
+            n_int,                      // const int N
+            k_int,                      // const int K
+            1.0F,                       // float alpha
+            (const uint16_t*)data,      // const *uint16_t A
+            k_int,                      // const int lda
+            (const uint16_t*)centroids, // const uint16_t* B
+            k_int,                      // const int ldb
+            0.0F,                       // const float beta
+            results,                    // float* c
+            n_int                       // const int ldc
+        );
+    } else if constexpr (std::is_same_v<T, Float16>) {
+        cblas_gemm_f16f16f32(
+            CblasRowMajor,              // CBLAS_LAYOUT layout
+            CblasNoTrans,               // CBLAS_TRANSPOSE TransA
+            CblasTrans,                 // CBLAS_TRANSPOSE TransB
+            m_int,                      // const int M
+            n_int,                      // const int N
+            k_int,                      // const int K
+            1.0F,                       // float alpha
+            (const uint16_t*)data,      // const *uint16_t A
+            k_int,                      // const int lda
+            (const uint16_t*)centroids, // const uint16_t* B
+            k_int,                      // const int ldb
+            0.0F,                       // const float beta
+            results,                    // float* c
+            n_int                       // const int ldc
+        );
+    } else {
+        throw ANNEXCEPTION("GEMM type not supported!");
+    }
+}
+
+inline static void
+generate_unique_ids(std::vector<size_t>& ids, size_t id_range, std::mt19937& rng) {
+    size_t n = ids.size();
+    tsl::robin_set<size_t> seen;
+    seen.reserve(n);
+
+    while (seen.size() < n) {
+        auto j = rng() % id_range;
+        seen.insert(j);
+    }
+
+    size_t i = 0;
+    for (auto it = seen.begin(); it != seen.end(); ++it, ++i) {
+        ids[i] = *it;
+    }
+}
+
+template <typename T, threads::ThreadPool Pool>
+void normalize_centroids(
+    data::SimpleData<T>& centroids, Pool& threadpool, lib::Timer& timer
+) {
+    auto normalize_centroids_t = timer.push_back("normalize centroids");
+    threads::parallel_for(
+        threadpool,
+        threads::StaticPartition{centroids.size()},
+        [&](auto indices, auto /*tid*/) {
+            for (auto i : indices) {
+                auto datum = centroids.get_datum(i);
+                float norm = distance::norm(datum);
+                if (norm != 0.0) {
+                    float norm_inv = 1.0F / norm;
+                    for (size_t j = 0; j < datum.size(); j++) {
+                        datum[j] = datum[j] * norm_inv;
+                    }
+                }
+            }
+        }
+    );
+    normalize_centroids_t.finish();
+}
+
+template <
+    data::ImmutableMemoryDataset Data,
+    typename T,
+    typename Distance,
+    threads::ThreadPool Pool>
+void centroid_assignment(
+    const Data& data,
+    std::vector<float>& data_norm,
+    threads::UnitRange<uint64_t> batch_range,
+    Distance& SVS_UNUSED(distance),
+    data::SimpleData<T>& centroids,
+    std::vector<float>& centroids_norm,
+    std::vector<size_t>& assignments,
+    data::SimpleData<float>& matmul_results,
+    Pool& threadpool,
+    lib::Timer& timer
+) {
+    using DataType = typename Data::element_type;
+    using CentroidType = T;
+
+    // Convert data to match centroid type if necessary, otherwise use original data
+    [[maybe_unused]] data::SimpleData<CentroidType> data_conv;
+    if constexpr (!std::is_same_v<CentroidType, DataType>) {
+        data_conv = convert_data<CentroidType>(data, threadpool);
+    }
+    const auto& matmul_data = [&]() -> const auto& {
+        if constexpr (!std::is_same_v<CentroidType, DataType>) {
+            return data_conv;
+        } else {
+            return data;
+        }
+    }
+    ();
+
+    auto generate_assignments = timer.push_back("generate assignments");
+    threads::parallel_for(
+        threadpool,
+        threads::StaticPartition{batch_range.size()},
+        [&](auto indices, auto /*tid*/) {
+            auto range = threads::UnitRange(indices);
+            compute_matmul(
+                matmul_data.get_datum(range.start()).data(),
+                centroids.data(),
+                matmul_results.get_datum(range.start()).data(),
+                range.size(),
+                centroids.size(),
+                matmul_data.dimensions()
+            );
+            if constexpr (is_ip_like_v<Distance>) {
+                for (auto i : indices) {
+                    auto nearest =
+                        type_traits::sentinel_v<Neighbor<size_t>, std::greater<>>;
+                    auto dists = matmul_results.get_datum(i);
+                    for (size_t j = 0; j < centroids.size(); j++) {
+                        nearest = std::max(nearest, Neighbor<size_t>(j, dists[j]));
+                    }
+                    assignments[batch_range.start() + i] = nearest.id();
+                }
+            } else if constexpr (is_l2_v<Distance>) {
+                for (auto i : indices) {
+                    auto nearest = type_traits::sentinel_v<Neighbor<size_t>, std::less<>>;
+                    auto dists = matmul_results.get_datum(i);
+                    for (size_t j = 0; j < centroids.size(); j++) {
+                        auto dist = data_norm[batch_range.start() + i] + centroids_norm[j] -
+                                    (2 * dists[j]);
+                        nearest = std::min(nearest, Neighbor<size_t>(j, dist));
+                    }
+                    assignments[batch_range.start() + i] = nearest.id();
+                }
+            } else {
+                // Compile-time error for unsupported distance types
+                static_assert(
+                    sizeof(Distance) == 0,
+                    "Only L2, MIP, and Cosine distances are supported in IVF build!"
+                );
+            }
+        }
+    );
+    generate_assignments.finish();
+}
+
+template <data::ImmutableMemoryDataset Data, typename T, threads::ThreadPool Pool>
+void centroid_adjustment(
+    Data& data,
+    data::SimpleData<T>& centroids,
+    std::vector<size_t>& assignments,
+    std::vector<size_t>& counts,
+    Pool& threadpool,
+    lib::Timer& timer
+) {
+    auto adjust_centroids = timer.push_back("adjust centroids");
+    size_t n_threads = threadpool.size();
+    size_t n_centroids = centroids.size();
+
+    threads::parallel_for(
+        threadpool,
+        threads::StaticPartition{n_threads},
+        [&](auto /*indices*/, auto tid) {
+            size_t centroid_start = (n_centroids * tid) / n_threads;
+            size_t centroid_end = (n_centroids * (tid + 1)) / n_threads;
+            for (auto i : data.eachindex()) {
+                auto assignment = assignments[i];
+                if (assignment >= centroid_start && assignment < centroid_end) {
+                    counts.at(assignment)++;
+                    auto datum = data.get_datum(i);
+                    auto this_centroid = centroids.get_datum(assignment);
+                    for (size_t p = 0, pmax = this_centroid.size(); p < pmax; ++p) {
+                        this_centroid[p] += lib::narrow_cast<float>(datum[p]);
+                    }
+                }
+            }
+        }
+    );
+
+    threads::parallel_for(
+        threadpool,
+        threads::StaticPartition{n_centroids},
+        [&](auto indices, auto /*tid*/) {
+            for (auto i : indices) {
+                if (counts.at(i) != 0) {
+                    auto this_centroid = centroids.get_datum(i);
+                    float norm = 1.0 / (counts.at(i) + 1);
+                    // float norm = 1.0 / counts.at(i);
+                    for (size_t p = 0, pmax = this_centroid.size(); p < pmax; ++p) {
+                        this_centroid[p] *= norm;
+                    }
+                }
+            }
+        }
+    );
+    adjust_centroids.finish();
+}
+
+template <data::ImmutableMemoryDataset Data, typename T, threads::ThreadPool Pool>
+void centroid_split(
+    Data& data,
+    data::SimpleData<T>& centroids,
+    std::vector<size_t>& counts,
+    std::mt19937& rng,
+    Pool& SVS_UNUSED(threadpool),
+    lib::Timer& timer
+) {
+    auto split_centroids = timer.push_back("split centroids");
+
+    auto num_centroids = centroids.size();
+    auto dims = centroids.dimensions();
+    auto num_data = data.size();
+
+    auto distribution = std::uniform_real_distribution<float>(0.0, 1.0);
+    for (size_t i = 0; i < num_centroids; i++) {
+        if (counts.at(i) == 0) {
+            size_t j;
+            for (j = 0; true; j = (j + 1) % num_centroids) {
+                if (counts.at(j) == 0) {
+                    continue;
+                }
+                float p = static_cast<float>(counts.at(j)) / static_cast<float>(num_data);
+                float r = distribution(rng);
+                if (r < p) {
+                    break;
+                }
+            }
+            centroids.set_datum(i, centroids.get_datum(j));
+            for (size_t k = 0; k < dims; k++) {
+                if (k % 2 == 0) {
+                    centroids.get_datum(i)[k] *= 1 + EPSILON;
+                    centroids.get_datum(j)[k] *= 1 - EPSILON;
+                } else {
+                    centroids.get_datum(i)[k] *= 1 - EPSILON;
+                    centroids.get_datum(j)[k] *= 1 + EPSILON;
+                }
+            }
+            counts.at(i) = counts.at(j) / 2;
+            counts.at(j) -= counts.at(i);
+        }
+    }
+    split_centroids.finish();
+}
+
+template <typename Data, threads::ThreadPool Pool>
+void generate_norms(Data& data, std::vector<float>& norms, Pool& threadpool) {
+    norms.resize(data.size());
+    threads::parallel_for(
+        threadpool,
+        threads::StaticPartition{data.size()},
+        [&](auto indices, auto /*tid*/) {
+            for (auto i : indices) {
+                norms[i] = distance::norm_square(data.get_datum(i));
+            }
+        }
+    );
+}
+
+template <
+    data::ImmutableMemoryDataset Data,
+    typename T,
+    typename Distance,
+    threads::ThreadPool Pool>
+auto kmeans_training(
+    const KMeansTrainingParameters& parameters,
+    Data& data,
+    Distance& distance,
+    data::SimpleData<T>& centroids,
+    data::SimpleData<float>& matmul_results,
+    std::mt19937& rng,
+    Pool& threadpool,
+    lib::Timer& timer
+) {
+    auto training_timer = timer.push_back("Kmeans training");
+    data::SimpleData<float> centroids_fp32 = convert_data<float>(centroids, threadpool);
+
+    if constexpr (is_ip_like_v<Distance>) {
+        normalize_centroids(centroids_fp32, threadpool, timer);
+    }
+
+    auto assignments = std::vector<size_t>(data.size());
+    std::vector<float> data_norm;
+    if constexpr (is_l2_v<Distance>) {
+        generate_norms(data, data_norm, threadpool);
+    }
+    std::vector<float> centroids_norm;
+
+    for (size_t iter = 0; iter < parameters.num_iterations; ++iter) {
+        auto iter_timer = timer.push_back("iteration");
+        auto batchsize = parameters.minibatch_size;
+        auto num_batches = lib::div_round_up(data.size(), batchsize);
+        if constexpr (is_l2_v<Distance>) {
+            generate_norms(centroids_fp32, centroids_norm, threadpool);
+        }
+
+        // Convert from fp32 to fp16/bf16
+        convert_data(centroids_fp32, centroids, threadpool);
+
+        for (size_t batch = 0; batch < num_batches; ++batch) {
+            auto this_batch = threads::UnitRange{
+                batch * batchsize, std::min((batch + 1) * batchsize, data.size())};
+            auto data_batch = data::make_view(data, this_batch);
+            centroid_assignment(
+                data_batch,
+                data_norm,
+                this_batch,
+                distance,
+                centroids,
+                centroids_norm,
+                assignments,
+                matmul_results,
+                threadpool,
+                timer
+            );
+        }
+
+        // Convert back to fp32
+        convert_data(centroids, centroids_fp32, threadpool);
+
+        auto counts = std::vector<size_t>(centroids.size());
+        centroid_adjustment(data, centroids_fp32, assignments, counts, threadpool, timer);
+
+        centroid_split(data, centroids_fp32, counts, rng, threadpool, timer);
+
+        if constexpr (is_ip_like_v<Distance>) {
+            normalize_centroids(centroids_fp32, threadpool, timer);
+        }
+    }
+
+    // Finally call the conversion to get the updated centroids
+    // after adjustment and split
+    convert_data(centroids_fp32, centroids, threadpool);
+    training_timer.finish();
+    return centroids_fp32;
+}
+
+/// @brief Generate a random subset of data for training
+template <typename BuildType, typename Data, typename Alloc, threads::ThreadPool Pool>
+data::SimpleData<BuildType, Data::extent, Alloc> make_training_set(
+    const Data& data,
+    std::vector<size_t>& ids,
+    size_t num_training,
+    std::mt19937& rng,
+    Pool& threadpool
+) {
+    data::SimpleData<BuildType, Data::extent, Alloc> trainset(
+        num_training, data.dimensions()
+    );
+    generate_unique_ids(ids, data.size(), rng);
+    threads::parallel_for(
+        threadpool,
+        threads::StaticPartition{num_training},
+        [&](auto indices, auto /*tid*/) {
+            for (auto i : indices) {
+                trainset.set_datum(i, data.get_datum(ids[i]));
+            }
+        }
+    );
+    return trainset;
+}
+
+/// @brief Initialize centroids randomly from the training set
+template <typename BuildType, typename Data, threads::ThreadPool Pool>
+data::SimpleData<BuildType> init_centroids(
+    const Data& trainset,
+    std::vector<size_t>& ids,
+    size_t num_centroids,
+    std::mt19937& rng,
+    Pool& threadpool
+) {
+    data::SimpleData<BuildType> centroids(num_centroids, trainset.dimensions());
+    generate_unique_ids(ids, trainset.size(), rng);
+    threads::parallel_for(
+        threadpool,
+        threads::StaticPartition{num_centroids},
+        [&](auto indices, auto) {
+            for (auto i : indices) {
+                centroids.set_datum(i, trainset.get_datum(ids[i]));
+            }
+        }
+    );
+    return centroids;
+}
+
+/// @brief Compute norms for L2 distance if needed
+template <typename Distance, typename Data, threads::ThreadPool Pool>
+std::vector<float> maybe_compute_norms(const Data& data, Pool& threadpool) {
+    std::vector<float> norms;
+    if constexpr (is_l2_v<Distance>) {
+        generate_norms(data, norms, threadpool);
+    }
+    return norms;
+}
+
+} // namespace svs::kmeans
