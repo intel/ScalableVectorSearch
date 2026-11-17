@@ -16,15 +16,13 @@
 
 #pragma once
 
-// Compiled out unless SVS_ENABLE_STATS is set, so including this header is always free.
-#if SVS_ENABLE_STATS
-
 #include "svs/concepts/distance.h"
 
 #include <algorithm>
 #include <chrono>
 #include <cstdint>
 #include <mutex>
+#include <type_traits>
 
 namespace svs::index::vamana {
 
@@ -129,6 +127,100 @@ template <typename Dist> class CountingDistance {
     uint64_t& counter_;
 };
 
-} // namespace svs::index::vamana
+/// No-op build-stats collector: every member is empty, so binding it into the build hot
+/// path costs nothing. Mirrors `CountingBuildStats`'s interface exactly.
+class NullBuildStats {
+  public:
+    struct ScopedTimer {};
 
-#endif // SVS_ENABLE_STATS
+    ScopedTimer time_search() { return {}; }
+    ScopedTimer time_prune() { return {}; }
+    ScopedTimer time_backedge_prune() { return {}; }
+
+    template <typename Dist> Dist& wrap_search(Dist& dist) { return dist; }
+    template <typename Dist> Dist& wrap_pool(Dist& dist) { return dist; }
+    template <typename Dist> Dist& wrap_prune(Dist& dist) { return dist; }
+    template <typename Dist> Dist& wrap_backedge_prune(Dist& dist) { return dist; }
+
+    void finish_search() {}
+    void finish_pool() {}
+    void finish_prune() {}
+    void merge() {}
+};
+
+/// Build-stats collector that actually counts: one instance per worker thread, merged
+/// into the process-wide accumulator once that thread's work is done.
+class CountingBuildStats {
+  public:
+    // Adds its own elapsed time into `target` on destruction; never copied or moved, so
+    // that add happens exactly once per timed scope.
+    class ScopedTimer {
+      public:
+        explicit ScopedTimer(uint64_t& target)
+            : target_{&target}
+            , start_{std::chrono::steady_clock::now()} {}
+        ScopedTimer(const ScopedTimer&) = delete;
+        ScopedTimer& operator=(const ScopedTimer&) = delete;
+        ScopedTimer(ScopedTimer&&) = delete;
+        ScopedTimer& operator=(ScopedTimer&&) = delete;
+        ~ScopedTimer() { *target_ += build_stats_elapsed_ns(start_); }
+
+      private:
+        uint64_t* target_;
+        std::chrono::steady_clock::time_point start_;
+    };
+
+    ScopedTimer time_search() { return ScopedTimer{current_.search_ns}; }
+    ScopedTimer time_prune() { return ScopedTimer{current_.prune_ns}; }
+    ScopedTimer time_backedge_prune() { return ScopedTimer{current_.backedge_prune_ns}; }
+
+    // Resets its own per-call counter, so the caller must invoke this once per
+    // search/pool/prune step rather than reusing a previously returned wrapper.
+    template <typename Dist> CountingDistance<Dist> wrap_search(Dist& dist) {
+        search_count_ = 0;
+        return CountingDistance<Dist>{dist, search_count_};
+    }
+    template <typename Dist> CountingDistance<Dist> wrap_pool(Dist& dist) {
+        pool_count_ = 0;
+        return CountingDistance<Dist>{dist, pool_count_};
+    }
+    template <typename Dist> CountingDistance<Dist> wrap_prune(Dist& dist) {
+        prune_count_ = 0;
+        return CountingDistance<Dist>{dist, prune_count_};
+    }
+
+    // Backedge counting spans the whole thread's work, not one node, so this is called
+    // once per thread and the returned wrapper is reused across every source vertex.
+    template <typename Dist> CountingDistance<Dist> wrap_backedge_prune(Dist& dist) {
+        return CountingDistance<Dist>{dist, backedge_count_};
+    }
+
+    void finish_search() {
+        current_.search_distances += search_count_;
+        current_.max_search_distances_per_insert =
+            std::max(current_.max_search_distances_per_insert, search_count_);
+        ++current_.inserts;
+    }
+    void finish_pool() { current_.pool_distances += pool_count_; }
+    void finish_prune() { current_.prune_distances += prune_count_; }
+
+    /// Call once per thread, after that thread's loop over nodes finishes.
+    void merge() {
+        current_.backedge_prune_distances = backedge_count_;
+        build_stats_merge(current_);
+    }
+
+  private:
+    BuildStats current_{};
+    uint64_t search_count_ = 0;
+    uint64_t pool_count_ = 0;
+    uint64_t prune_count_ = 0;
+    uint64_t backedge_count_ = 0;
+};
+
+/// The collector `VamanaBuilder` uses by default. Both collectors above always compile,
+/// so only this selection depends on the build-time flag.
+using DefaultBuildStats = std::
+    conditional_t<static_cast<bool>(SVS_ENABLE_STATS), CountingBuildStats, NullBuildStats>;
+
+} // namespace svs::index::vamana

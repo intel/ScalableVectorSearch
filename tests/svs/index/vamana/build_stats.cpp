@@ -17,9 +17,6 @@
 // Header under test: the build-time measurement counters.
 #include "svs/index/vamana/build_stats.h"
 
-// Only meaningful with SVS_ENABLE_STATS=1, else this file is an empty translation unit.
-#if SVS_ENABLE_STATS
-
 // svs
 #include "svs/core/data/simple.h"
 #include "svs/core/distance.h"
@@ -102,7 +99,14 @@ CATCH_TEST_CASE("Build Stats", "[vamana][build_stats]") {
     build_stats_test::CountingTestDistance::counter() = 0;
     vamana::build_stats_reset();
 
-    auto builder = vamana::VamanaBuilder(
+    // Instantiate with CountingBuildStats explicitly, so this test exercises the real
+    // collector regardless of the ambient SVS_ENABLE_STATS build flag.
+    auto builder = vamana::VamanaBuilder<
+        decltype(graph),
+        decltype(data),
+        build_stats_test::CountingTestDistance,
+        decltype(build_pool),
+        vamana::CountingBuildStats>(
         graph,
         data,
         build_stats_test::CountingTestDistance{},
@@ -133,5 +137,3 @@ CATCH_TEST_CASE("Build Stats", "[vamana][build_stats]") {
     CATCH_REQUIRE(stats.backedge_prune_ns > 0);
     CATCH_REQUIRE(stats.max_search_distances_per_insert > 0);
 }
-
-#endif // SVS_ENABLE_STATS

@@ -26,18 +26,14 @@
 // stl
 #include <algorithm>
 #include <atomic>
+#include <chrono>
 #include <concepts>
 #include <cstddef>
 #include <cstdint>
+#include <type_traits>
 #include <vector>
 
-#if defined(SVS_ENABLE_STATS) && SVS_ENABLE_STATS
-#include <chrono>
-#endif
-
 namespace svs::index::vamana::extensions {
-
-#if defined(SVS_ENABLE_STATS) && SVS_ENABLE_STATS
 
 /// Process-wide re-rank timing accumulated since the last `maxsim_rerank_stats_reset()`.
 struct MaxSimRerankStats {
@@ -66,7 +62,47 @@ inline void maxsim_rerank_stats_reset() {
     stats_detail::maxsim_rerank_ns.store(0, std::memory_order_relaxed);
 }
 
-#endif
+/// No-op re-rank timer: both methods are empty, so binding one into the re-rank hot path
+/// costs nothing. Mirrors `CountingMaxSimRerankStats`'s interface exactly.
+class NullMaxSimRerankStats {
+  public:
+    void mark_search_done() {}
+    void finish() {}
+};
+
+/// Re-rank timer that actually records: `mark_search_done()` splits the search and
+/// re-rank durations, `finish()` folds both plus one query into the global accumulator.
+class CountingMaxSimRerankStats {
+  public:
+    void mark_search_done() { search_done_ = std::chrono::steady_clock::now(); }
+
+    void finish() {
+        auto rerank_done = std::chrono::steady_clock::now();
+        auto ns = [](auto from, auto to) {
+            return static_cast<uint64_t>(
+                std::chrono::duration_cast<std::chrono::nanoseconds>(to - from).count()
+            );
+        };
+        stats_detail::maxsim_queries.fetch_add(1, std::memory_order_relaxed);
+        stats_detail::maxsim_search_ns.fetch_add(
+            ns(start_, search_done_), std::memory_order_relaxed
+        );
+        stats_detail::maxsim_rerank_ns.fetch_add(
+            ns(search_done_, rerank_done), std::memory_order_relaxed
+        );
+    }
+
+  private:
+    std::chrono::steady_clock::time_point start_ = std::chrono::steady_clock::now();
+    std::chrono::steady_clock::time_point search_done_ = start_;
+};
+
+/// The timer `single_search` uses by default. Both timers above always compile, so only
+/// this selection depends on the build-time flag.
+using DefaultMaxSimRerankStats = std::conditional_t<
+    static_cast<bool>(SVS_ENABLE_STATS),
+    CountingMaxSimRerankStats,
+    NullMaxSimRerankStats>;
 
 namespace detail {
 
@@ -146,13 +182,9 @@ template <
     }
 
     auto accessor = data::GetDatumAccessor();
-#if defined(SVS_ENABLE_STATS) && SVS_ENABLE_STATS
-    auto t_start = std::chrono::steady_clock::now();
+    DefaultMaxSimRerankStats rerank_stats{};
     search(query, accessor, distance, search_buffer);
-    auto t_search_done = std::chrono::steady_clock::now();
-#else
-    search(query, accessor, distance, search_buffer);
-#endif
+    rerank_stats.mark_search_done();
 
     if (cancel()) {
         return;
@@ -178,22 +210,7 @@ template <
 
     detail::resort_by_maxsim(search_buffer);
 
-#if defined(SVS_ENABLE_STATS) && SVS_ENABLE_STATS
-    auto t_rerank_done = std::chrono::steady_clock::now();
-    auto search_ns =
-        std::chrono::duration_cast<std::chrono::nanoseconds>(t_search_done - t_start)
-            .count();
-    auto rerank_ns =
-        std::chrono::duration_cast<std::chrono::nanoseconds>(t_rerank_done - t_search_done)
-            .count();
-    stats_detail::maxsim_queries.fetch_add(1, std::memory_order_relaxed);
-    stats_detail::maxsim_search_ns.fetch_add(
-        static_cast<uint64_t>(search_ns), std::memory_order_relaxed
-    );
-    stats_detail::maxsim_rerank_ns.fetch_add(
-        static_cast<uint64_t>(rerank_ns), std::memory_order_relaxed
-    );
-#endif
+    rerank_stats.finish();
 }
 
 // The default `per_thread_batch_search` (extensions.h) dispatches per query through the
