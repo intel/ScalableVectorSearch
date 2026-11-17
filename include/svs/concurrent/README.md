@@ -82,14 +82,14 @@ share nothing.
 You may call `compact()` at any time, but it blocks all other work. It makes the
 storage smaller, so it must wait for every reader to finish first. It is the only
 caller that takes `compact_mutex_` exclusive. It runs `consolidate_locked()`
-before it compacts.
+before it compacts. `save()` takes `save_gatekeeper_` and
+`save_mutex_` exclusive, so writers wait while searches keep running. It writes the
+slots as they are.
 
 ### 1d. Not safe at all
 
 Call these only when no other thread uses the index:
 
-- `save()` - it holds no lock while it writes the files. It calls `consolidate()`
-  and `compact()` first, but it releases both locks before writing.
 - `set_alpha`, `set_prune_to`, `set_max_candidates`,
   `set_construction_window_size`, `set_threadpool` - plain writes, no lock.
 
@@ -142,6 +142,8 @@ There are three groups:
 
 | Lock | Protects | Taken exclusive by |
 | --- | --- | --- |
+| `save_mutex_` | the index state stays unchanged while `save()` writes it | `save()` only |
+| `save_gatekeeper_` | new writers wait behind a pending `save()` | `save()` only |
 | `compact_mutex_` | the storage stays alive | `compact()` only |
 | `translator_mutex_` | the two id hash maps | `add_points`, `consolidate`, `compact`, `replace_external_id` |
 | `pending_insertions_mutex_` | `pending_insertions_` | `add_points` |
@@ -159,6 +161,7 @@ so it waits for all of them.
 deadlock.
 
 ```
+save_gatekeeper_ -> save_mutex_ -> compact_gatekeeper_ -> compact_mutex_
 compact_mutex_ -> slot_alloc_mutex_
 compact_mutex_ -> translator_mutex_
 l2e_mutex_     -> e2l_mutex_          (multi index)
@@ -247,7 +250,7 @@ The dataset must use a `SegmentedBlocked` allocator; this is checked at compile
 time. `distance` may be a functor or a `svs::DistanceType`. `batch_iterator()`
 returns this index's own `BatchIterator`, so it takes the locks described in 1a.
 
-The rules from section 1 apply unchanged: `save()`, `set_threadpool()` and the
+The rules from section 1 apply unchanged: `set_threadpool()` and the
 build-parameter setters still need exclusive access.
 
 ```cpp

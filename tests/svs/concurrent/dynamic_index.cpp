@@ -565,6 +565,70 @@ CATCH_TEST_CASE(
             }
         }
     }
+
+    CATCH_SECTION("Save keeps deleted and empty slots") {
+        // Ids [0, 100) are consolidated (Empty slots) but the index is not compacted;
+        // ids [200, 300) are soft-deleted (Deleted slots).
+        std::vector<size_t> consolidated(100);
+        std::iota(consolidated.begin(), consolidated.end(), 0);
+        index.delete_entries(consolidated);
+        index.consolidate();
+        std::vector<size_t> soft_deleted(100);
+        std::iota(soft_deleted.begin(), soft_deleted.end(), 200);
+        index.delete_entries(soft_deleted);
+
+        const auto status_before = index.status_snapshot();
+        const auto num_slots = index.view_data().size();
+        const auto size_before = index.size();
+        CATCH_REQUIRE(
+            std::count(
+                status_before.begin(), status_before.end(), cc::SlotMetadata::Empty
+            ) > 0
+        );
+        CATCH_REQUIRE(
+            std::count(
+                status_before.begin(), status_before.end(), cc::SlotMetadata::Deleted
+            ) > 0
+        );
+
+        std::stringstream stream;
+        index.save(stream);
+
+        // Saving does not compact the source.
+        CATCH_REQUIRE(index.view_data().size() == num_slots);
+        CATCH_REQUIRE(index.size() == size_before);
+        CATCH_REQUIRE(index.status_snapshot() == status_before);
+
+        auto deserializer = svs::lib::detail::Deserializer::build(stream);
+        CATCH_REQUIRE(deserializer.is_native());
+        auto loaded = cc::auto_dynamic_assemble(
+            stream,
+            [&]() -> ConcurrentGraph { return ConcurrentGraph::load(stream); },
+            [&]() -> ConcurrentData {
+                return svs::lib::load_from_stream<ConcurrentData>(stream);
+            },
+            Distance(),
+            num_threads
+        );
+
+        CATCH_REQUIRE(loaded.view_data().size() == num_slots);
+        CATCH_REQUIRE(loaded.size() == size_before);
+        CATCH_REQUIRE(loaded.status_snapshot() == status_before);
+        for (size_t i = 0; i < 400; ++i) {
+            const bool removed = (i < 100) || (i >= 200 && i < 300);
+            CATCH_REQUIRE(loaded.has_id(i) == !removed);
+        }
+
+        auto expected = svs::QueryResult<size_t>(queries.size(), num_neighbors);
+        index.search(expected.view(), queries.cview(), search_params);
+        auto actual = svs::QueryResult<size_t>(queries.size(), num_neighbors);
+        loaded.search(actual.view(), queries.cview(), search_params);
+        for (size_t q = 0; q < queries.size(); ++q) {
+            for (size_t i = 0; i < num_neighbors; ++i) {
+                CATCH_REQUIRE(actual.index(q, i) == expected.index(q, i));
+            }
+        }
+    }
 }
 
 CATCH_TEST_CASE(
