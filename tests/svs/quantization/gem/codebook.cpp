@@ -36,9 +36,7 @@
 #include <vector>
 
 namespace {
-
 namespace gem = svs::quantization::gem;
-
 constexpr float TOL = 1e-4F;
 
 std::vector<float> random_unit_vector(std::mt19937& rng, size_t dim) {
@@ -56,6 +54,26 @@ std::vector<float> random_unit_vector(std::mt19937& rng, size_t dim) {
     return v;
 }
 
+std::vector<float> make_random_centers(size_t K, size_t dim, uint32_t seed) {
+    std::mt19937 rng(seed);
+    std::vector<float> centers(K * dim);
+    for (size_t k = 0; k < K; ++k) {
+        auto c = random_unit_vector(rng, dim);
+        std::copy(c.begin(), c.end(), centers.begin() + static_cast<ptrdiff_t>(k * dim));
+    }
+    return centers;
+}
+
+// Fine centroids as a SimpleData, laid out row-major from a flat `centers` buffer.
+svs::data::SimpleData<float>
+centroids_from(const std::vector<float>& centers, size_t K, size_t dim) {
+    svs::data::SimpleData<float> centroids(K, dim);
+    for (size_t k = 0; k < K; ++k) {
+        centroids.set_datum(k, std::span<const float>(centers.data() + k * dim, dim));
+    }
+    return centroids;
+}
+
 // Each token perturbs a center with a large margin, so even an approximate assigner agrees.
 svs::data::VectorSetData<float> make_clustered_corpus(
     const std::vector<float>& centers,
@@ -71,7 +89,6 @@ svs::data::VectorSetData<float> make_clustered_corpus(
     for (auto c : cardinalities) {
         total_tokens += c;
     }
-
     svs::data::SimpleData<float> token_matrix(total_tokens, dim);
     std::vector<uint64_t> offsets(num_passages + 1, 0);
     std::uniform_int_distribution<size_t> pick(0, K - 1);
@@ -97,16 +114,6 @@ svs::data::VectorSetData<float> make_clustered_corpus(
         }
     }
     return svs::data::VectorSetData<float>(std::move(token_matrix), std::move(offsets));
-}
-
-std::vector<float> make_random_centers(size_t K, size_t dim, uint32_t seed) {
-    std::mt19937 rng(seed);
-    std::vector<float> centers(K * dim);
-    for (size_t k = 0; k < K; ++k) {
-        auto c = random_unit_vector(rng, dim);
-        std::copy(c.begin(), c.end(), centers.begin() + static_cast<ptrdiff_t>(k * dim));
-    }
-    return centers;
 }
 
 uint32_t brute_force_best(
@@ -148,37 +155,37 @@ rebuild_ids(const std::vector<uint32_t>& flat, std::vector<uint64_t> offsets) {
     }
     return svs::data::VectorSetData<uint32_t>(std::move(storage), std::move(offsets));
 }
-
 } // namespace
 
-CATCH_TEST_CASE("GEM Codebook - colbert_num_partitions", "[quantization][gem]") {
-    // Exact powers of two: 16 * sqrt(1) == 16, 16 * sqrt(4) == 32.
-    CATCH_REQUIRE(gem::colbert_num_partitions(1) == 16);
-    CATCH_REQUIRE(gem::colbert_num_partitions(4) == 32);
-    // One token below/above the num_tokens=4 boundary (raw crosses exactly 32 at n=4).
-    CATCH_REQUIRE(gem::colbert_num_partitions(3) == 16);
-    CATCH_REQUIRE(gem::colbert_num_partitions(5) == 32);
-    CATCH_REQUIRE_THROWS(gem::colbert_num_partitions(0));
-}
+CATCH_TEST_CASE("GEM Codebook - sizing rules", "[quantization][gem]") {
+    CATCH_SECTION("colbert_num_partitions") {
+        // Exact powers of two: 16 * sqrt(1) == 16, 16 * sqrt(4) == 32.
+        CATCH_REQUIRE(gem::colbert_num_partitions(1) == 16);
+        CATCH_REQUIRE(gem::colbert_num_partitions(4) == 32);
+        // One token below/above the num_tokens=4 boundary (raw crosses exactly 32 at n=4).
+        CATCH_REQUIRE(gem::colbert_num_partitions(3) == 16);
+        CATCH_REQUIRE(gem::colbert_num_partitions(5) == 32);
+        CATCH_REQUIRE_THROWS(gem::colbert_num_partitions(0));
+    }
 
-CATCH_TEST_CASE("GEM Codebook - colbert_sample_size", "[quantization][gem]") {
-    // Small corpora: the formula's raw value exceeds num_passages, so it is capped.
-    CATCH_REQUIRE(gem::colbert_sample_size(1) == 1);
-    CATCH_REQUIRE(gem::colbert_sample_size(10) == 10);
-    // Large corpus: 1 + floor(16 * sqrt(120 * 1'000'000)) is well under num_passages.
-    size_t num_passages = 1'000'000;
-    size_t expected =
-        1 + static_cast<size_t>(
-                std::floor(16.0 * std::sqrt(120.0 * static_cast<double>(num_passages)))
-            );
-    CATCH_REQUIRE(gem::colbert_sample_size(num_passages) == expected);
-    CATCH_REQUIRE(expected < num_passages);
-    CATCH_REQUIRE_THROWS(gem::colbert_sample_size(0));
-
-    // Perfect-square boundary (921'600 == 960^2); integer sqrt must not be off by one.
-    CATCH_REQUIRE(gem::detail::isqrt_floor(921'600) == 960);
-    CATCH_REQUIRE(gem::detail::isqrt_floor(921'599) == 959);
-    CATCH_REQUIRE(gem::detail::isqrt_floor(921'601) == 960);
+    CATCH_SECTION("colbert_sample_size") {
+        // Small corpora: the formula's raw value exceeds num_passages, so it is capped.
+        CATCH_REQUIRE(gem::colbert_sample_size(1) == 1);
+        CATCH_REQUIRE(gem::colbert_sample_size(10) == 10);
+        // Large corpus: 1 + floor(16 * sqrt(120 * 1'000'000)) is well under num_passages.
+        size_t num_passages = 1'000'000;
+        size_t expected =
+            1 + static_cast<size_t>(
+                    std::floor(16.0 * std::sqrt(120.0 * static_cast<double>(num_passages)))
+                );
+        CATCH_REQUIRE(gem::colbert_sample_size(num_passages) == expected);
+        CATCH_REQUIRE(expected < num_passages);
+        CATCH_REQUIRE_THROWS(gem::colbert_sample_size(0));
+        // Perfect-square boundary (921'600 == 960^2); integer sqrt must not be off by one.
+        CATCH_REQUIRE(gem::detail::isqrt_floor(921'600) == 960);
+        CATCH_REQUIRE(gem::detail::isqrt_floor(921'599) == 959);
+        CATCH_REQUIRE(gem::detail::isqrt_floor(921'601) == 960);
+    }
 }
 
 CATCH_TEST_CASE(
@@ -190,7 +197,6 @@ CATCH_TEST_CASE(
     data.set_datum(1, std::vector<float>{0.0F, 2.0F});
     data.set_datum(2, std::vector<float>{10.0F, 0.0F});
     data.set_datum(3, std::vector<float>{10.0F, 2.0F});
-
     auto centroids = svs::data::SimpleData<float>(2, 2);
     centroids.set_datum(0, std::vector<float>{0.0F, 0.0F});
     centroids.set_datum(1, std::vector<float>{10.0F, 0.0F});
@@ -198,7 +204,6 @@ CATCH_TEST_CASE(
     std::vector<size_t> assignments{0, 0, 1, 1};
     std::vector<size_t> counts(2);
     auto threadpool = svs::threads::as_threadpool(2);
-
     gem::detail::plain_mean_update(data, centroids, assignments, counts, threadpool);
 
     auto c0 = centroids.get_datum(0);
@@ -212,308 +217,184 @@ CATCH_TEST_CASE(
     CATCH_REQUIRE(std::abs(c0[1] - (2.0F / 3.0F)) > TOL);
 }
 
-CATCH_TEST_CASE(
-    "GEM Codebook - train_codebook centroids are unit norm, objective is non-increasing",
-    "[quantization][gem]"
-) {
-    constexpr size_t K = 8;
+// One small corpus drives the whole pipeline; each SECTION below asserts a different group
+// of properties on the shared `result`/`corpus` instead of rebuilding its own input. Cases
+// that genuinely need different input (thread count, byte budget) get their own SECTION
+// too, still off this one corpus; only parameters/sizing that need a different seed/shape
+// get their own TEST_CASE (sizing rules, plain-mean-update, failure paths).
+CATCH_TEST_CASE("GEM Codebook - quantize pipeline", "[quantization][gem]") {
     constexpr size_t DIM = 16;
-    auto centers = make_random_centers(K, DIM, 0x1234);
-
-    std::vector<size_t> cardinalities(50, 6);
-    auto corpus = make_clustered_corpus(centers, K, DIM, cardinalities, 0xABCD, 0.05F);
-
-    gem::CodebookParameters parameters;
-    parameters.num_centroids = K;
-    parameters.seed = 7;
-
+    constexpr size_t NUM_PASSAGES = 100;
+    auto centers = make_random_centers(16, DIM, 0x9999);
+    auto corpus = make_clustered_corpus(
+        centers, 16, DIM, std::vector<size_t>(NUM_PASSAGES, 2), 0x1357, 0.1F
+    );
+    gem::CodebookParameters parameters; // num_centroids == 0: use the default rule.
     auto threadpool = svs::threads::as_threadpool(2);
+    auto result = gem::quantize(corpus, parameters, threadpool);
+    size_t expected_K = gem::colbert_num_partitions(NUM_PASSAGES * 2);
 
-    parameters.kmeans_iterations = 1;
-    auto one_iter = gem::train_codebook(corpus, parameters, threadpool);
-
-    parameters.kmeans_iterations = 4;
-    auto four_iter = gem::train_codebook(corpus, parameters, threadpool);
-
-    // Same seed and sampling: more passes cannot raise the final objective.
-    CATCH_REQUIRE(four_iter.objective <= one_iter.objective + 1e-3);
-
-    for (size_t i = 0; i < four_iter.centroids.size(); ++i) {
-        auto c = four_iter.centroids.get_datum(i);
-        float norm_sq = 0.0F;
-        for (size_t d = 0; d < c.size(); ++d) {
-            norm_sq += c[d] * c[d];
+    CATCH_SECTION(
+        "Pipeline wiring, default coarse rule, unit-norm, non-increasing objective"
+    ) {
+        CATCH_REQUIRE(result.K == expected_K);
+        CATCH_REQUIRE(result.centroids.size() == expected_K);
+        CATCH_REQUIRE(result.centroids.dimensions() == DIM);
+        CATCH_REQUIRE(result.fine_centroids->K == expected_K);
+        CATCH_REQUIRE(result.fine_centroids->dim == DIM);
+        CATCH_REQUIRE(result.centroid_table->K == expected_K);
+        CATCH_REQUIRE(result.ids.total_tokens() == NUM_PASSAGES * 2);
+        for (size_t p = 0; p < NUM_PASSAGES; ++p) {
+            CATCH_REQUIRE(result.ids.cardinality(p) == 2);
         }
-        CATCH_REQUIRE(std::abs(std::sqrt(norm_sq) - 1.0F) < 1e-4F);
-    }
-}
-
-CATCH_TEST_CASE(
-    "GEM Codebook - train_codebook_timed records one iteration second per k-means pass",
-    "[quantization][gem]"
-) {
-    constexpr size_t K = 8;
-    constexpr size_t DIM = 16;
-    auto centers = make_random_centers(K, DIM, 0x1234);
-
-    std::vector<size_t> cardinalities(50, 6);
-    auto corpus = make_clustered_corpus(centers, K, DIM, cardinalities, 0xABCD, 0.05F);
-
-    gem::CodebookParameters parameters;
-    parameters.num_centroids = K;
-    parameters.seed = 7;
-    parameters.kmeans_iterations = 4;
-
-    auto threadpool = svs::threads::as_threadpool(2);
-    auto [trained, timings] = gem::train_codebook_timed(corpus, parameters, threadpool);
-
-    CATCH_REQUIRE(timings.train_iterations.size() == 4);
-    CATCH_REQUIRE(timings.sample >= 0.0);
-    CATCH_REQUIRE(timings.train >= 0.0);
-    CATCH_REQUIRE(timings.normalize >= 0.0);
-    CATCH_REQUIRE(timings.total >= 0.0);
-    CATCH_REQUIRE(trained.num_sampled_passages > 0);
-}
-
-CATCH_TEST_CASE(
-    "GEM Codebook - assign_tokens agrees with brute force, both assigners, both thread "
-    "counts",
-    "[quantization][gem]"
-) {
-    constexpr size_t K = 64;
-    constexpr size_t DIM = 128;
-    auto centers = make_random_centers(K, DIM, 0x5EED);
-
-    std::vector<size_t> cardinalities;
-    for (size_t i = 0; i < 300; ++i) {
-        cardinalities.push_back(1 + (i % 6));
-    }
-    auto corpus = make_clustered_corpus(centers, K, DIM, cardinalities, 0xC0FFEE, 0.02F);
-
-    svs::data::SimpleData<float> centroids(K, DIM);
-    for (size_t k = 0; k < K; ++k) {
-        centroids.set_datum(k, std::span<const float>(centers.data() + k * DIM, DIM));
-    }
-
-    gem::CodebookParameters parameters;
-    parameters.assign_candidates = 8;
-
-    for (auto assigner : {gem::Assigner::ExactGemm, gem::Assigner::InnerProductMatrix}) {
-        parameters.assigner = assigner;
-
-        auto pool1 = svs::threads::as_threadpool(1);
-        auto pool4 = svs::threads::as_threadpool(4);
-        auto ids1 = gem::assign_tokens(corpus, centroids, parameters, pool1);
-        auto ids4 = gem::assign_tokens(corpus, centroids, parameters, pool4);
-
-        auto flat1 = flatten_ids(ids1);
-        auto flat4 = flatten_ids(ids4);
-        CATCH_REQUIRE(flat1 == flat4);
-
-        // Cardinalities of the id sets match the input token store.
-        for (size_t p = 0; p < corpus.size(); ++p) {
-            CATCH_REQUIRE(ids1.cardinality(p) == corpus.cardinality(p));
-        }
-
-        // Every id agrees with an independent brute-force argmax.
-        size_t global = 0;
-        for (size_t p = 0; p < corpus.size(); ++p) {
-            auto doc = corpus.get_datum(p);
-            for (size_t t = 0; t < doc.cardinality(); ++t) {
-                uint32_t expected = brute_force_best(doc.token(t), centroids);
-                CATCH_REQUIRE(flat1[global] == expected);
-                ++global;
-            }
-        }
-
-        auto report = gem::count_assignment_mismatches(corpus, centroids, ids1, 1000, 99);
-        CATCH_REQUIRE(report.mismatches == 0);
-        CATCH_REQUIRE(report.sample_size == 1000);
-
-        // Corrupt a few ids and confirm the checker notices.
-        auto offsets = std::vector<uint64_t>(ids1.offsets().begin(), ids1.offsets().end());
-        auto corrupted = flat1;
-        for (size_t i = 0; i < corrupted.size(); i += 37) {
-            corrupted[i] = static_cast<uint32_t>((corrupted[i] + 1) % K);
-        }
-        auto corrupted_ids = rebuild_ids(corrupted, offsets);
-        auto bad_report =
-            gem::count_assignment_mismatches(corpus, centroids, corrupted_ids, 2000, 99);
-        CATCH_REQUIRE(bad_report.mismatches > 0);
-    }
-}
-
-CATCH_TEST_CASE(
-    "GEM Codebook - assign_tokens batch row count comes from a byte budget",
-    "[quantization][gem]"
-) {
-    constexpr size_t K = 64;
-    constexpr size_t DIM = 32;
-    auto centers = make_random_centers(K, DIM, 0xBEEF);
-
-    std::vector<size_t> cardinalities;
-    for (size_t i = 0; i < 40; ++i) {
-        cardinalities.push_back(1 + (i % 5));
-    }
-    auto corpus = make_clustered_corpus(centers, K, DIM, cardinalities, 0xFACE, 0.02F);
-
-    svs::data::SimpleData<float> centroids(K, DIM);
-    for (size_t k = 0; k < K; ++k) {
-        centroids.set_datum(k, std::span<const float>(centers.data() + k * DIM, DIM));
-    }
-
-    auto threadpool = svs::threads::as_threadpool(2);
-
-    for (auto assigner : {gem::Assigner::ExactGemm, gem::Assigner::InnerProductMatrix}) {
-        gem::CodebookParameters default_parameters;
-        default_parameters.assigner = assigner;
-        auto default_ids =
-            gem::assign_tokens(corpus, centroids, default_parameters, threadpool);
-        auto default_flat = flatten_ids(default_ids);
-
-        // K*4 bytes/row: 256 forces a 1-row batch, 900 forces a 3-row batch.
-        for (size_t budget : {size_t{256}, size_t{900}}) {
-            gem::CodebookParameters tiny_parameters = default_parameters;
-            tiny_parameters.assign_buffer_bytes = budget;
-            auto tiny_ids =
-                gem::assign_tokens(corpus, centroids, tiny_parameters, threadpool);
-            CATCH_REQUIRE(flatten_ids(tiny_ids) == default_flat);
-        }
-    }
-}
-
-CATCH_TEST_CASE("GEM Codebook - coarse_clusters", "[quantization][gem]") {
-    constexpr size_t K = 64;
-    constexpr size_t DIM = 16;
-    auto centers = make_random_centers(K, DIM, 0x777);
-    svs::data::SimpleData<float> centroids(K, DIM);
-    for (size_t k = 0; k < K; ++k) {
-        centroids.set_datum(k, std::span<const float>(centers.data() + k * DIM, DIM));
-    }
-
-    auto threadpool = svs::threads::as_threadpool(2);
-
-    CATCH_SECTION("default num_coarse rule") {
-        gem::CodebookParameters parameters;
-        auto result = gem::coarse_clusters(centroids, parameters, threadpool);
-        CATCH_REQUIRE(result.num_coarse == std::max<size_t>(1, K * 5 / 32));
-        CATCH_REQUIRE(result.coarse_of_fine.size() == K);
+        // Default num_coarse rule (num_coarse == 0 in `parameters`).
+        CATCH_REQUIRE(result.num_coarse == std::max<size_t>(1, expected_K * 5 / 32));
+        CATCH_REQUIRE(result.coarse_of_fine.size() == expected_K);
         for (auto c : result.coarse_of_fine) {
             CATCH_REQUIRE(c < result.num_coarse);
         }
+        for (size_t i = 0; i < result.centroids.size(); ++i) {
+            auto c = result.centroids.get_datum(i);
+            float norm_sq = 0.0F;
+            for (size_t d = 0; d < c.size(); ++d) {
+                norm_sq += c[d] * c[d];
+            }
+            CATCH_REQUIRE(std::abs(std::sqrt(norm_sq) - 1.0F) < 1e-4F);
+        }
+
+        // Same seed and sampling: more k-means passes cannot raise the final objective.
+        auto one_iter_params = parameters;
+        one_iter_params.kmeans_iterations = 1;
+        auto one_iter = gem::train_codebook(corpus, one_iter_params, threadpool);
+        auto four_iter_params = parameters;
+        four_iter_params.kmeans_iterations = 4;
+        auto four_iter = gem::train_codebook(corpus, four_iter_params, threadpool);
+        CATCH_REQUIRE(four_iter.objective <= one_iter.objective + 1e-3);
     }
 
-    CATCH_SECTION("explicit num_coarse") {
-        gem::CodebookParameters parameters;
-        parameters.num_coarse = 5;
-        auto result = gem::coarse_clusters(centroids, parameters, threadpool);
-        CATCH_REQUIRE(result.num_coarse == 5);
-        for (auto c : result.coarse_of_fine) {
+    CATCH_SECTION("coarse_clusters: explicit num_coarse is honored") {
+        gem::CodebookParameters explicit_params = parameters;
+        explicit_params.num_coarse = 5;
+        auto explicit_coarse =
+            gem::coarse_clusters(result.centroids, explicit_params, threadpool);
+        CATCH_REQUIRE(explicit_coarse.num_coarse == 5);
+        for (auto c : explicit_coarse.coarse_of_fine) {
             CATCH_REQUIRE(c < 5);
         }
     }
 
-    CATCH_SECTION("num_coarse exceeding K throws") {
-        gem::CodebookParameters parameters;
-        parameters.num_coarse = K + 1;
-        CATCH_REQUIRE_THROWS(gem::coarse_clusters(centroids, parameters, threadpool));
-    }
-}
+    CATCH_SECTION(
+        "assign_tokens agrees with brute force and the mismatch checker, both assigners"
+    ) {
+        for (auto assigner :
+             {gem::Assigner::ExactGemm, gem::Assigner::InnerProductMatrix}) {
+            gem::CodebookParameters assign_params = parameters;
+            assign_params.assigner = assigner;
+            auto ids =
+                gem::assign_tokens(corpus, result.centroids, assign_params, threadpool);
+            auto flat = flatten_ids(ids);
 
-CATCH_TEST_CASE(
-    "GEM Codebook - quantize end to end on a small synthetic set", "[quantization][gem]"
-) {
-    constexpr size_t DIM = 16;
-    constexpr size_t NUM_PASSAGES = 200;
-    // 200 passages * 2 tokens == 400; colbert_num_partitions(400) == 256, still exceeded.
-    std::vector<size_t> cardinalities(NUM_PASSAGES, 2);
-    auto centers = make_random_centers(16, DIM, 0x9999);
-    auto corpus = make_clustered_corpus(centers, 16, DIM, cardinalities, 0x1357, 0.1F);
+            size_t global = 0;
+            for (size_t p = 0; p < corpus.size(); ++p) {
+                auto doc = corpus.get_datum(p);
+                for (size_t t = 0; t < doc.cardinality(); ++t) {
+                    CATCH_REQUIRE(
+                        flat[global++] == brute_force_best(doc.token(t), result.centroids)
+                    );
+                }
+            }
 
-    CATCH_REQUIRE(corpus.total_tokens() == 400);
-    CATCH_REQUIRE(gem::colbert_num_partitions(corpus.total_tokens()) == 256);
+            auto report =
+                gem::count_assignment_mismatches(corpus, result.centroids, ids, 150, 99);
+            CATCH_REQUIRE(report.mismatches == 0);
+            CATCH_REQUIRE(report.sample_size == 150);
 
-    gem::CodebookParameters parameters; // num_centroids == 0: use the rule.
-    auto threadpool = svs::threads::as_threadpool(2);
-    auto result = gem::quantize(corpus, parameters, threadpool);
-
-    CATCH_REQUIRE(result.K == 256);
-    CATCH_REQUIRE(result.centroids.size() == 256);
-    CATCH_REQUIRE(result.centroids.dimensions() == DIM);
-    CATCH_REQUIRE(result.fine_centroids->K == 256);
-    CATCH_REQUIRE(result.fine_centroids->dim == DIM);
-    CATCH_REQUIRE(result.centroid_table->K == 256);
-    CATCH_REQUIRE(result.ids.total_tokens() == 400);
-    for (size_t p = 0; p < NUM_PASSAGES; ++p) {
-        CATCH_REQUIRE(result.ids.cardinality(p) == 2);
-    }
-    CATCH_REQUIRE(result.num_coarse == std::max<size_t>(1, 256 * 5 / 32));
-    CATCH_REQUIRE(result.coarse_of_fine.size() == 256);
-    for (auto c : result.coarse_of_fine) {
-        CATCH_REQUIRE(c < result.num_coarse);
-    }
-}
-
-CATCH_TEST_CASE(
-    "GEM Codebook - quantize_timed matches quantize and records every phase",
-    "[quantization][gem]"
-) {
-    constexpr size_t DIM = 16;
-    constexpr size_t NUM_PASSAGES = 200;
-    // 200 passages * 2 tokens == 400; colbert_num_partitions(400) == 256, still exceeded.
-    std::vector<size_t> cardinalities(NUM_PASSAGES, 2);
-    auto centers = make_random_centers(16, DIM, 0x9999);
-    auto corpus = make_clustered_corpus(centers, 16, DIM, cardinalities, 0x1357, 0.1F);
-
-    gem::CodebookParameters parameters; // num_centroids == 0: use the rule.
-    auto threadpool = svs::threads::as_threadpool(2);
-
-    auto plain = gem::quantize(corpus, parameters, threadpool);
-    auto [timed, timings] = gem::quantize_timed(corpus, parameters, threadpool);
-
-    // Same seed, same corpus: quantize_timed must reproduce quantize's result exactly.
-    CATCH_REQUIRE(timed.K == plain.K);
-    CATCH_REQUIRE(timed.num_coarse == plain.num_coarse);
-    CATCH_REQUIRE(timed.objective == plain.objective);
-    CATCH_REQUIRE(timed.num_sampled_passages == plain.num_sampled_passages);
-    CATCH_REQUIRE(timed.num_training_tokens == plain.num_training_tokens);
-    CATCH_REQUIRE(timed.coarse_of_fine == plain.coarse_of_fine);
-    CATCH_REQUIRE(flatten_ids(timed.ids) == flatten_ids(plain.ids));
-    for (size_t i = 0; i < timed.centroids.size(); ++i) {
-        auto a = timed.centroids.get_datum(i);
-        auto b = plain.centroids.get_datum(i);
-        for (size_t d = 0; d < a.size(); ++d) {
-            CATCH_REQUIRE(a[d] == b[d]);
+            // Corrupt a few ids and confirm the checker notices.
+            auto offsets =
+                std::vector<uint64_t>(ids.offsets().begin(), ids.offsets().end());
+            auto corrupted = flat;
+            for (size_t i = 0; i < corrupted.size(); i += 37) {
+                corrupted[i] = static_cast<uint32_t>((corrupted[i] + 1) % expected_K);
+            }
+            auto bad_report = gem::count_assignment_mismatches(
+                corpus, result.centroids, rebuild_ids(corrupted, offsets), 2000, 99
+            );
+            CATCH_REQUIRE(bad_report.mismatches > 0);
         }
     }
 
-    CATCH_REQUIRE(timings.train_iterations.size() == parameters.kmeans_iterations);
-    CATCH_REQUIRE(timings.total >= 0.0);
-    CATCH_REQUIRE(timings.sample >= 0.0);
-    CATCH_REQUIRE(timings.train >= 0.0);
-    CATCH_REQUIRE(timings.normalize >= 0.0);
-    CATCH_REQUIRE(timings.assign >= 0.0);
-    CATCH_REQUIRE(timings.ground_table >= 0.0);
-    CATCH_REQUIRE(timings.coarse >= 0.0);
+    // Thread partitioning and batch sizing happen before the per-assigner flush branch, so
+    // neither depends on `assigner`; one (the default, InnerProductMatrix) is enough.
+    CATCH_SECTION("assign_tokens: thread-count independence and byte-budget batching") {
+        auto pool1 = svs::threads::as_threadpool(1);
+        auto pool4 = svs::threads::as_threadpool(4);
+        auto flat1 =
+            flatten_ids(gem::assign_tokens(corpus, result.centroids, parameters, pool1));
+        CATCH_REQUIRE(
+            flat1 ==
+            flatten_ids(gem::assign_tokens(corpus, result.centroids, parameters, pool4))
+        );
+
+        // expected_K(128)*4 bytes/row: 256 forces a 1-row batch, 1536 forces a 3-row batch.
+        for (size_t budget : {size_t{256}, size_t{1536}}) {
+            gem::CodebookParameters tiny = parameters;
+            tiny.assign_buffer_bytes = budget;
+            CATCH_REQUIRE(
+                flatten_ids(gem::assign_tokens(corpus, result.centroids, tiny, pool1)) ==
+                flat1
+            );
+        }
+    }
+
+    CATCH_SECTION(
+        "quantize_timed reproduces quantize's result exactly and times every phase"
+    ) {
+        auto [timed, timings] = gem::quantize_timed(corpus, parameters, threadpool);
+        CATCH_REQUIRE(timed.K == result.K);
+        CATCH_REQUIRE(timed.num_coarse == result.num_coarse);
+        CATCH_REQUIRE(timed.objective == result.objective);
+        CATCH_REQUIRE(timed.num_sampled_passages == result.num_sampled_passages);
+        CATCH_REQUIRE(timed.num_training_tokens == result.num_training_tokens);
+        CATCH_REQUIRE(timed.coarse_of_fine == result.coarse_of_fine);
+        CATCH_REQUIRE(flatten_ids(timed.ids) == flatten_ids(result.ids));
+        for (size_t i = 0; i < timed.centroids.size(); ++i) {
+            auto a = timed.centroids.get_datum(i);
+            auto b = result.centroids.get_datum(i);
+            for (size_t d = 0; d < a.size(); ++d) {
+                CATCH_REQUIRE(a[d] == b[d]);
+            }
+        }
+        CATCH_REQUIRE(timings.train_iterations.size() == parameters.kmeans_iterations);
+        CATCH_REQUIRE(timings.total >= 0.0);
+        CATCH_REQUIRE(timings.sample >= 0.0);
+        CATCH_REQUIRE(timings.train >= 0.0);
+        CATCH_REQUIRE(timings.normalize >= 0.0);
+        CATCH_REQUIRE(timings.assign >= 0.0);
+        CATCH_REQUIRE(timings.ground_table >= 0.0);
+        CATCH_REQUIRE(timings.coarse >= 0.0);
+    }
 }
 
 CATCH_TEST_CASE("GEM Codebook - failure paths", "[quantization][gem]") {
     constexpr size_t DIM = 8;
+    constexpr size_t K = 4;
     auto threadpool = svs::threads::as_threadpool(1);
+    // Shared by every case below that just needs *some* valid corpus/centroids; only the
+    // 256-per-centroid bound needs a differently-shaped corpus to trigger that branch.
+    auto centers = make_random_centers(K, DIM, 1);
+    auto corpus =
+        make_clustered_corpus(centers, K, DIM, std::vector<size_t>(10, 4), 2, 0.05F);
 
     CATCH_SECTION("empty tokens dataset") {
-        svs::data::SimpleData<float> empty_tokens(0, DIM);
-        std::vector<uint64_t> offsets{0};
-        auto corpus =
-            svs::data::VectorSetData<float>(std::move(empty_tokens), std::move(offsets));
-        gem::CodebookParameters parameters;
-        CATCH_REQUIRE_THROWS(gem::train_codebook(corpus, parameters, threadpool));
+        auto empty = svs::data::VectorSetData<float>(
+            svs::data::SimpleData<float>(0, DIM), std::vector<uint64_t>{0}
+        );
+        CATCH_REQUIRE_THROWS(
+            gem::train_codebook(empty, gem::CodebookParameters{}, threadpool)
+        );
     }
 
     CATCH_SECTION("num_centroids above the uint32_t id range") {
-        auto centers = make_random_centers(4, DIM, 1);
-        std::vector<size_t> cardinalities(10, 4);
-        auto corpus = make_clustered_corpus(centers, 4, DIM, cardinalities, 2, 0.05F);
         gem::CodebookParameters parameters;
         parameters.num_centroids =
             static_cast<size_t>(std::numeric_limits<uint32_t>::max()) + 1;
@@ -521,9 +402,6 @@ CATCH_TEST_CASE("GEM Codebook - failure paths", "[quantization][gem]") {
     }
 
     CATCH_SECTION("fewer training tokens than K") {
-        auto centers = make_random_centers(4, DIM, 3);
-        std::vector<size_t> cardinalities(5, 2);
-        auto corpus = make_clustered_corpus(centers, 4, DIM, cardinalities, 4, 0.05F);
         gem::CodebookParameters parameters;
         parameters.num_centroids = 1'000; // far more centroids than tokens sampled
         CATCH_REQUIRE_THROWS(gem::train_codebook(corpus, parameters, threadpool));
@@ -531,33 +409,23 @@ CATCH_TEST_CASE("GEM Codebook - failure paths", "[quantization][gem]") {
 
     CATCH_SECTION("training points exceed faiss's 256-per-centroid bound") {
         // One passage, 600 tokens; colbert_sample_size caps at 1 passage as training set.
-        auto centers = make_random_centers(2, DIM, 5);
-        std::vector<size_t> cardinalities{600};
-        auto corpus = make_clustered_corpus(centers, 2, DIM, cardinalities, 6, 0.05F);
+        auto dense_corpus = make_clustered_corpus(centers, K, DIM, {600}, 6, 0.05F);
         gem::CodebookParameters parameters;
         parameters.num_centroids = 2; // 600ish training tokens > 2 * 256 == 512
-        CATCH_REQUIRE_THROWS(gem::train_codebook(corpus, parameters, threadpool));
+        CATCH_REQUIRE_THROWS(gem::train_codebook(dense_corpus, parameters, threadpool));
     }
 
     CATCH_SECTION("assign_tokens token/centroid dimension mismatch") {
-        auto centers = make_random_centers(4, DIM, 7);
-        std::vector<size_t> cardinalities(5, 2);
-        auto corpus = make_clustered_corpus(centers, 4, DIM, cardinalities, 8, 0.05F);
-        svs::data::SimpleData<float> bad_centroids(4, DIM + 1);
-        gem::CodebookParameters parameters;
+        svs::data::SimpleData<float> bad_centroids(K, DIM + 1);
         CATCH_REQUIRE_THROWS(
-            gem::assign_tokens(corpus, bad_centroids, parameters, threadpool)
+            gem::assign_tokens(corpus, bad_centroids, gem::CodebookParameters{}, threadpool)
         );
     }
 
     CATCH_SECTION("coarse_clusters num_coarse exceeds K") {
-        auto centers = make_random_centers(4, DIM, 9);
-        svs::data::SimpleData<float> centroids(4, DIM);
-        for (size_t k = 0; k < 4; ++k) {
-            centroids.set_datum(k, std::span<const float>(centers.data() + k * DIM, DIM));
-        }
+        auto centroids = centroids_from(centers, K, DIM);
         gem::CodebookParameters parameters;
-        parameters.num_coarse = 5;
+        parameters.num_coarse = K + 1;
         CATCH_REQUIRE_THROWS(gem::coarse_clusters(centroids, parameters, threadpool));
     }
 }

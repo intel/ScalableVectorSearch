@@ -24,107 +24,85 @@
 #include "catch2/catch_test_macros.hpp"
 
 // stl
+#include <array>
 #include <cstdint>
 #include <vector>
 
 CATCH_TEST_CASE("Vector Set View", "[core][data][vector_set_view]") {
-    CATCH_SECTION("Construction and contents") {
-        // 3 sets with cardinalities 2, 0, 3 over dimension 2.
-        auto tokens = std::vector<float>{
-            1.0f,
-            2.0f, // set 0, token 0
-            3.0f,
-            4.0f, // set 0, token 1
-            5.0f,
-            6.0f, // set 2, token 0
-            7.0f,
-            8.0f, // set 2, token 1
-            9.0f,
-            10.0f // set 2, token 2
-        };
-        auto offsets = std::vector<uint64_t>{0, 2, 2, 5};
-        auto view = svs::data::ConstVectorSetView<float>(tokens, offsets, 2);
+    // 3 sets with cardinalities 2, 0, 3 over dimension 2.
+    auto tokens =
+        std::vector<float>{1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f, 7.0f, 8.0f, 9.0f, 10.0f};
+    auto offsets = std::vector<uint64_t>{0, 2, 2, 5};
 
+    CATCH_SECTION("Construction and contents") {
+        auto view = svs::data::ConstVectorSetView<float>(tokens, offsets, 2);
         CATCH_REQUIRE(view.size() == 3);
         CATCH_REQUIRE(view.dimensions() == 2);
         CATCH_REQUIRE(view.total_tokens() == 5);
 
-        CATCH_REQUIRE(view.cardinality(0) == 2);
-        CATCH_REQUIRE(view.cardinality(1) == 0);
-        CATCH_REQUIRE(view.cardinality(2) == 3);
-
-        auto set0 = view.get_datum(0);
-        CATCH_REQUIRE(set0.cardinality() == 2);
-        CATCH_REQUIRE(set0.dimensions() == 2);
-        CATCH_REQUIRE(!set0.empty());
-        CATCH_REQUIRE(set0.token(0)[0] == 1.0f);
-        CATCH_REQUIRE(set0.token(0)[1] == 2.0f);
-        CATCH_REQUIRE(set0.token(1)[0] == 3.0f);
-        CATCH_REQUIRE(set0.token(1)[1] == 4.0f);
-
-        auto set1 = view.get_datum(1);
-        CATCH_REQUIRE(set1.cardinality() == 0);
-        CATCH_REQUIRE(set1.empty());
-
-        auto set2 = view.get_datum(2);
-        CATCH_REQUIRE(set2.cardinality() == 3);
-        CATCH_REQUIRE(set2.token(2)[0] == 9.0f);
-        CATCH_REQUIRE(set2.token(2)[1] == 10.0f);
-
-        view.prefetch(0);
-        view.prefetch(1);
-        view.prefetch(2);
+        // size(), cardinality() and get_datum() against the ground truth, one pass.
+        std::vector<std::vector<std::array<float, 2>>> expected{
+            {{1.0f, 2.0f}, {3.0f, 4.0f}}, {}, {{5.0f, 6.0f}, {7.0f, 8.0f}, {9.0f, 10.0f}}};
+        for (size_t i = 0; i < expected.size(); ++i) {
+            auto set = view.get_datum(i);
+            CATCH_REQUIRE(set.cardinality() == expected[i].size());
+            CATCH_REQUIRE(set.dimensions() == 2);
+            CATCH_REQUIRE(set.empty() == expected[i].empty());
+            for (size_t j = 0; j < expected[i].size(); ++j) {
+                auto t = set.token(j);
+                CATCH_REQUIRE(t[0] == expected[i][j][0]);
+                CATCH_REQUIRE(t[1] == expected[i][j][1]);
+            }
+            view.prefetch(i); // exercised for the empty set (i==1) too
+        }
     }
 
-    CATCH_SECTION("Validation failures") {
-        auto tokens = std::vector<float>{1.0f, 2.0f, 3.0f, 4.0f};
-
+    CATCH_SECTION("Validation failures: one per throw in validate_vector_set_layout") {
+        CATCH_REQUIRE_THROWS_AS(
+            (svs::data::ConstVectorSetView<float>(
+                std::span<const float>(), std::span<const uint64_t>(), 2
+            )),
+            svs::ANNException
+        ); // offsets.empty()
+        CATCH_REQUIRE_THROWS_AS(
+            svs::data::ConstVectorSetView<float>(tokens, std::vector<uint64_t>{1, 2}, 2),
+            svs::ANNException
+        ); // offsets.front() != 0
+        CATCH_REQUIRE_THROWS_AS(
+            svs::data::ConstVectorSetView<float>(tokens, std::vector<uint64_t>{0, 2, 1}, 2),
+            svs::ANNException
+        ); // offsets not non-decreasing
+        CATCH_REQUIRE_THROWS_AS(
+            svs::data::ConstVectorSetView<float>(tokens, std::vector<uint64_t>{0, 1}, 2),
+            svs::ANNException
+        ); // offsets.back() * dimensions != token_elements
         CATCH_REQUIRE_THROWS_AS(
             svs::data::ConstVectorSetView<float>(
-                std::span<const float>(tokens), std::span<const uint64_t>(), 2
+                std::span<const float>(), std::vector<uint64_t>{0, uint64_t{1} << 63}, 2
             ),
             svs::ANNException
-        );
-
-        auto bad_front = std::vector<uint64_t>{1, 2};
-        CATCH_REQUIRE_THROWS_AS(
-            svs::data::ConstVectorSetView<float>(tokens, bad_front, 2), svs::ANNException
-        );
-
-        auto decreasing = std::vector<uint64_t>{0, 2, 1};
-        CATCH_REQUIRE_THROWS_AS(
-            svs::data::ConstVectorSetView<float>(tokens, decreasing, 2), svs::ANNException
-        );
-
-        auto mismatched = std::vector<uint64_t>{0, 1};
-        CATCH_REQUIRE_THROWS_AS(
-            svs::data::ConstVectorSetView<float>(tokens, mismatched, 2), svs::ANNException
-        );
-
-        auto overflowing = std::vector<uint64_t>{0, uint64_t{1} << 63};
-        CATCH_REQUIRE_THROWS_AS(
-            svs::data::ConstVectorSetView<float>(std::span<const float>(), overflowing, 2),
-            svs::ANNException
-        );
+        ); // offsets.back() * dimensions overflows size_t
     }
 
     CATCH_SECTION("Static extent") {
-        auto tokens = std::vector<float>{1.0f, 2.0f, 3.0f, 4.0f};
-        auto offsets = std::vector<uint64_t>{0, 1, 2};
+        auto static_tokens = std::vector<float>{1.0f, 2.0f, 3.0f, 4.0f};
+        auto static_offsets = std::vector<uint64_t>{0, 1, 2};
 
-        auto view = svs::data::ConstVectorSetView<float, 2>(tokens, offsets, 2);
+        auto view =
+            svs::data::ConstVectorSetView<float, 2>(static_tokens, static_offsets, 2);
         CATCH_REQUIRE(view.dimensions() == 2);
         CATCH_REQUIRE(view.get_datum(0).token(0)[0] == 1.0f);
 
         CATCH_REQUIRE_THROWS_AS(
-            (svs::data::ConstVectorSetView<float, 3>(tokens, offsets, 2)), svs::ANNException
+            (svs::data::ConstVectorSetView<float, 3>(static_tokens, static_offsets, 2)),
+            svs::ANNException
         );
     }
 
-    CATCH_SECTION("Non-float element type") {
-        auto tokens = std::vector<uint8_t>{1, 2, 3, 4, 5, 6};
-        auto offsets = std::vector<uint64_t>{0, 1, 3};
-        auto view = svs::data::ConstVectorSetView<uint8_t>(tokens, offsets, 2);
+    CATCH_SECTION("Non-float element type, concept checks") {
+        auto byte_tokens = std::vector<uint8_t>{1, 2, 3, 4, 5, 6};
+        auto byte_offsets = std::vector<uint64_t>{0, 1, 3};
+        auto view = svs::data::ConstVectorSetView<uint8_t>(byte_tokens, byte_offsets, 2);
 
         CATCH_REQUIRE(view.size() == 2);
         CATCH_REQUIRE(view.cardinality(0) == 1);
