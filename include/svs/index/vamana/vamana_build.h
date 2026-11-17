@@ -21,6 +21,7 @@
 #include "svs/concepts/distance.h"
 #include "svs/core/logging.h"
 #include "svs/index/vamana/build_params.h"
+#include "svs/index/vamana/build_stats.h"
 #include "svs/index/vamana/extensions.h"
 #include "svs/index/vamana/greedy_search.h"
 #include "svs/index/vamana/prune.h"
@@ -43,10 +44,12 @@
 // stdlib
 #include <algorithm>
 #include <bit>
+#include <chrono>
 #include <concepts>
 #include <memory>
 #include <optional>
 #include <tuple>
+#include <type_traits>
 #include <vector>
 
 namespace svs::index::vamana {
@@ -370,6 +373,9 @@ class VamanaBuilder {
                 auto&& graph_search_distance = build_adaptor.graph_search_distance();
                 auto&& general_distance = build_adaptor.general_distance();
                 auto general_accessor = build_adaptor.general_accessor();
+#if SVS_ENABLE_STATS
+                BuildStats thread_stats{};
+#endif
 
                 for (auto node_id : local_indices) {
                     pool.clear();
@@ -380,8 +386,16 @@ class VamanaBuilder {
                     const auto& graph_search_query =
                         build_adaptor.access_query_for_graph_search(data_, node_id);
 
-                    // Perform the greedy search.
-                    // The search tracker will be used if it is enabled.
+                // Perform the greedy search.
+                // The search tracker will be used if it is enabled.
+#if SVS_ENABLE_STATS
+                    uint64_t search_distance_count = 0;
+                    CountingDistance<
+                        std::remove_reference_t<decltype(graph_search_distance)>>
+                        counted_graph_search_distance{
+                            graph_search_distance, search_distance_count};
+                    auto search_clock_start = std::chrono::steady_clock::now();
+#endif
                     {
                         auto accessor = build_adaptor.graph_search_accessor();
                         greedy_search(
@@ -389,7 +403,11 @@ class VamanaBuilder {
                             data_,
                             accessor,
                             graph_search_query,
+#if SVS_ENABLE_STATS
+                            counted_graph_search_distance,
+#else
                             graph_search_distance,
+#endif
                             search_buffer,
                             vamana::EntryPointInitializer{lib::as_const_span(entry_points)},
                             NeighborBuilder(),
@@ -397,6 +415,14 @@ class VamanaBuilder {
                             prefetch_hint_
                         );
                     }
+#if SVS_ENABLE_STATS
+                    thread_stats.search_ns += build_stats_elapsed_ns(search_clock_start);
+                    thread_stats.search_distances += search_distance_count;
+                    thread_stats.max_search_distances_per_insert = std::max(
+                        thread_stats.max_search_distances_per_insert, search_distance_count
+                    );
+                    ++thread_stats.inserts;
+#endif
 
                     const auto& post_search_query = build_adaptor.modify_post_search_query(
                         data_, node_id, graph_search_query
@@ -434,7 +460,12 @@ class VamanaBuilder {
                         }
                     }
 
-                    // Add neighbors of the query that are not part of `visited`.
+                // Add neighbors of the query that are not part of `visited`.
+#if SVS_ENABLE_STATS
+                    uint64_t pool_distance_count = 0;
+                    CountingDistance<std::remove_reference_t<decltype(general_distance)>>
+                        counted_pool_distance{general_distance, pool_distance_count};
+#endif
                     for (auto id : graph_.get_node(node_id)) {
                         assert(id != node_id);
                         // Try to emplace the node id into the visited set.
@@ -445,13 +476,20 @@ class VamanaBuilder {
                             pool.emplace_back(
                                 id,
                                 distance::compute(
+#if SVS_ENABLE_STATS
+                                    counted_pool_distance,
+#else
                                     general_distance,
+#endif
                                     post_search_query,
                                     general_accessor(data_, id)
                                 )
                             );
                         }
                     }
+#if SVS_ENABLE_STATS
+                    thread_stats.pool_distances += pool_distance_count;
+#endif
 
                     std::sort(
                         pool.begin(),
@@ -463,18 +501,35 @@ class VamanaBuilder {
                     // Prune and wait for an update.
                     thread_local_updates.emplace_back(node_id, std::vector<Idx>{});
                     auto& pruned_results = thread_local_updates.back().second;
+#if SVS_ENABLE_STATS
+                    uint64_t prune_distance_count = 0;
+                    CountingDistance<std::remove_reference_t<decltype(general_distance)>>
+                        counted_prune_distance{general_distance, prune_distance_count};
+                    auto prune_clock_start = std::chrono::steady_clock::now();
+#endif
                     heuristic_prune_neighbors(
                         prune_strategy(distance_function_),
                         params_.graph_max_degree,
                         alpha,
                         data_,
                         general_accessor,
+#if SVS_ENABLE_STATS
+                        counted_prune_distance,
+#else
                         general_distance,
+#endif
                         node_id,
                         lib::as_const_span(pool),
                         pruned_results
                     );
+#if SVS_ENABLE_STATS
+                    thread_stats.prune_ns += build_stats_elapsed_ns(prune_clock_start);
+                    thread_stats.prune_distances += prune_distance_count;
+#endif
                 }
+#if SVS_ENABLE_STATS
+                build_stats_merge(thread_stats);
+#endif
             }
         );
 
@@ -528,7 +583,13 @@ class VamanaBuilder {
         threads::parallel_for(
             threadpool_,
             threads::DynamicPartition{backedge_buffer_.buckets(), 1},
-            [&](auto& buckets, uint64_t SVS_UNUSED(tid)) {
+            [&](auto& buckets,
+#if SVS_ENABLE_STATS
+                uint64_t tid
+#else
+                uint64_t SVS_UNUSED(tid)
+#endif
+            ) {
                 // Thread local auxiliary data structures.
                 std::vector<Neighbor<Idx>> candidates{};
                 std::vector<Idx> pruned_results{};
@@ -538,6 +599,13 @@ class VamanaBuilder {
                 auto&& general_distance = build_adaptor.general_distance();
 
                 auto cmp = distance::comparator(general_distance);
+#if SVS_ENABLE_STATS
+                BuildStats thread_stats{};
+                (void)tid;
+                uint64_t backedge_distance_count = 0;
+                CountingDistance<std::remove_reference_t<decltype(general_distance)>>
+                    counted_backedge_distance{general_distance, backedge_distance_count};
+#endif
                 for (auto& bucket : buckets) {
                     for (const auto& kv : bucket) {
                         // The ``neighbors`` class is a set.
@@ -549,11 +617,17 @@ class VamanaBuilder {
                         // Helper lambda to make distance computations look a little
                         // cleaner.
                         auto make_neighbor = [&](auto i) {
-                            return Neighbor<Idx>{
-                                i,
-                                distance::compute(
-                                    general_distance, src_data, general_accessor(data_, i)
-                                )};
+                            return Neighbor<Idx> {
+                                i, distance::compute(
+#if SVS_ENABLE_STATS
+                                       counted_backedge_distance,
+#else
+                                       general_distance,
+#endif
+                                       src_data,
+                                       general_accessor(data_, i)
+                                   )
+                            };
                         };
 
                         candidates.clear();
@@ -573,20 +647,35 @@ class VamanaBuilder {
                             std::min(candidates.size(), params_.max_candidate_pool_size)
                         );
 
+#if SVS_ENABLE_STATS
+                        auto backedge_prune_clock_start = std::chrono::steady_clock::now();
+#endif
                         heuristic_prune_neighbors(
                             prune_strategy(distance_function_),
                             params_.prune_to,
                             alpha,
                             data_,
                             general_accessor,
+#if SVS_ENABLE_STATS
+                            counted_backedge_distance,
+#else
                             general_distance,
+#endif
                             src,
                             lib::as_const_span(candidates),
                             pruned_results
                         );
+#if SVS_ENABLE_STATS
+                        thread_stats.backedge_prune_ns +=
+                            build_stats_elapsed_ns(backedge_prune_clock_start);
+#endif
                         graph_.replace_node(src, pruned_results);
                     }
                 }
+#if SVS_ENABLE_STATS
+                thread_stats.backedge_prune_distances = backedge_distance_count;
+                build_stats_merge(thread_stats);
+#endif
             }
         );
     }

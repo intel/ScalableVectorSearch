@@ -115,6 +115,11 @@ option(SVS_EXPERIMENTAL_ENABLE_MULTI_VECTOR
     OFF # disabled by default
 )
 
+option(SVS_EXPERIMENTAL_ENABLE_STATS
+    "Enable build and search measurement counters"
+    OFF # disabled by default
+)
+
 #####
 ##### svsbenchmark
 #####
@@ -172,6 +177,12 @@ if (SVS_EXPERIMENTAL_ENABLE_MULTI_VECTOR)
     target_compile_options(${SVS_LIB} INTERFACE -DSVS_ENABLE_MULTI_VECTOR=1)
 else()
     target_compile_options(${SVS_LIB} INTERFACE -DSVS_ENABLE_MULTI_VECTOR=0)
+endif()
+
+if (SVS_EXPERIMENTAL_ENABLE_STATS)
+    target_compile_options(${SVS_LIB} INTERFACE -DSVS_ENABLE_STATS=1)
+else()
+    target_compile_options(${SVS_LIB} INTERFACE -DSVS_ENABLE_STATS=0)
 endif()
 
 #####
