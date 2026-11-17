@@ -14,9 +14,8 @@
  * limitations under the License.
  */
 
-// Proves a VamanaIndex can be built and searched directly over a
-// ConstVectorSetView<uint32_t, 1> of centroid-id vector sets, using QChamfer as both the
-// build and search distance.
+// Proves a VamanaIndex builds, searches, and saves/reloads over an owning
+// VectorSetData<uint32_t, 1> of centroid-id vector sets, using QChamfer throughout.
 #include "svs/core/distance/gem.h"
 #include "svs/extensions/vamana/gem.h"
 
@@ -28,6 +27,7 @@
 #include "svs/lib/threads.h"
 
 // tests
+#include "tests/svs/index/vamana/gem_test_utils.h"
 #include "tests/utils/utils.h"
 
 // catch2
@@ -36,125 +36,35 @@
 
 // stl
 #include <algorithm>
-#include <cmath>
 #include <cstddef>
 #include <cstdint>
-#include <filesystem>
 #include <limits>
 #include <memory>
-#include <random>
-#include <span>
 #include <utility>
 #include <vector>
 
 namespace {
 
-constexpr size_t K = 16;
-constexpr size_t DIM = 4;
-
-std::shared_ptr<const svs::distance::CentroidTable> make_centroid_table(uint32_t seed) {
-    std::mt19937 rng(seed);
-    std::uniform_real_distribution<float> coord(-1.0F, 1.0F);
-    std::vector<float> centroids(K * DIM);
-    for (size_t k = 0; k < K; ++k) {
-        double norm = 0.0;
-        for (size_t d = 0; d < DIM; ++d) {
-            float v = coord(rng);
-            centroids[k * DIM + d] = v;
-            norm += static_cast<double>(v) * static_cast<double>(v);
-        }
-        norm = std::sqrt(norm);
-        for (size_t d = 0; d < DIM; ++d) {
-            centroids[k * DIM + d] = static_cast<float>(centroids[k * DIM + d] / norm);
-        }
-    }
-    return std::make_shared<const svs::distance::CentroidTable>(
-        svs::distance::CentroidTable::from_centroids(
-            centroids.data(), K, DIM, svs::distance::Ground::Cos, 1
-        )
-    );
-}
-
-// A deterministic dataset of id vector sets, held CSR-style exactly as
-// ConstVectorSetView<uint32_t, 1> expects: cardinality cycles 1..6, ids are uniform over
-// the K centroids.
-struct IdSetCorpus {
-    std::vector<uint32_t> ids;
-    std::vector<uint64_t> offsets;
-
-    size_t size() const { return offsets.size() - 1; }
-
-    svs::data::ConstVectorSetView<uint32_t, 1> view() const {
-        return svs::data::ConstVectorSetView<uint32_t, 1>(
-            std::span<const uint32_t>(ids), std::span<const uint64_t>(offsets), 1
-        );
-    }
-};
-
-IdSetCorpus make_corpus(size_t n, uint32_t seed) {
-    std::mt19937 rng(seed);
-    std::uniform_int_distribution<uint32_t> id_dist(0, static_cast<uint32_t>(K - 1));
-
-    IdSetCorpus corpus;
-    corpus.offsets.resize(n + 1, 0);
-    for (size_t i = 0; i < n; ++i) {
-        size_t cardinality = 1 + (i % 6);
-        corpus.offsets[i + 1] = corpus.offsets[i] + cardinality;
-        for (size_t t = 0; t < cardinality; ++t) {
-            corpus.ids.push_back(id_dist(rng));
-        }
-    }
-    return corpus;
-}
+using svs_test::gem::make_centroid_table;
+using svs_test::gem::make_centroids;
+using svs_test::gem::make_doc_corpus;
 
 svs::index::vamana::VamanaSearchParameters search_params(size_t window, size_t capacity) {
     return svs::index::vamana::VamanaSearchParameters{{window, capacity}, false, 0, 0};
 }
 
-// Brute-force oracle: every document's QChamfer score against `query`, sorted best-first
-// (ascending, since QChamfer::compare is std::less<>).
-std::vector<std::pair<uint32_t, float>> brute_force_qchamfer(
-    svs::distance::QChamfer& dist,
-    const svs::data::ConstVectorSet<uint32_t, 1>& query,
-    const svs::data::ConstVectorSetView<uint32_t, 1>& docs
+// Builds a graph+index over `docs` through VamanaBuilder directly (not the
+// VamanaIndex build-parameters constructor, which hard-codes L2/IP/Cosine and throws for
+// qCH, same as qEMD).
+template <typename Docs>
+auto build_index(
+    Docs docs,
+    svs::distance::QChamfer dist,
+    const svs::index::vamana::VamanaBuildParameters& build_parameters,
+    uint32_t entry_point
 ) {
-    std::vector<std::pair<uint32_t, float>> scored;
-    scored.reserve(docs.size());
-    for (uint32_t id = 0; id < docs.size(); ++id) {
-        float score = svs::distance::compute(dist, query, docs.get_datum(id));
-        scored.emplace_back(id, score);
-    }
-    std::sort(scored.begin(), scored.end(), [](const auto& a, const auto& b) {
-        return svs::distance::QChamfer::compare{}(a.second, b.second);
-    });
-    return scored;
-}
-
-} // namespace
-
-CATCH_TEST_CASE("Vamana build and search over a vector-set dataset", "[vamana][gem]") {
-    auto table = make_centroid_table(0x5EED);
-    svs::distance::QChamfer dist{table};
-
-    const size_t n_docs = 200;
-    auto corpus = make_corpus(n_docs, 0xDEADBEEF);
-    auto queries = make_corpus(10, 0xC0FFEE);
-    auto docs = corpus.view();
-    auto query_view = queries.view();
-
-    auto build_parameters =
-        svs::index::vamana::VamanaBuildParameters{1.2F, 16, 32, 64, 16, true};
-
-    // Entry point 0 is caller-supplied; the vector-set path adds no medoid logic of its
-    // own.
-    const uint32_t entry_point = 0;
-
-    // VamanaIndex's build-parameters constructor hard-codes L2/IP/Cosine in
-    // verify_and_set_default_index_parameters and throws for any other distance, so
-    // qCH (like qEMD) has to go through VamanaBuilder directly, mirroring how
-    // VamanaIndex's own build constructor drives it (index.h's build-parameters
-    // constructor) minus that distance-type check.
-    auto graph = svs::default_graph<uint32_t>(n_docs, build_parameters.graph_max_degree);
+    auto graph =
+        svs::default_graph<uint32_t>(docs.size(), build_parameters.graph_max_degree);
     auto build_pool = svs::threads::DefaultThreadPool(1);
     auto builder = svs::index::vamana::VamanaBuilder(
         graph,
@@ -167,9 +77,31 @@ CATCH_TEST_CASE("Vamana build and search over a vector-set dataset", "[vamana][g
     builder.construct(build_parameters.alpha, entry_point);
 
     auto pool = svs::threads::DefaultThreadPool(1);
-    auto index = svs::index::vamana::VamanaIndex(
-        std::move(graph), docs, entry_point, dist, std::move(pool)
+    return svs::index::vamana::VamanaIndex(
+        std::move(graph), std::move(docs), entry_point, dist, std::move(pool)
     );
+}
+
+} // namespace
+
+CATCH_TEST_CASE(
+    "Vamana build, search and save/reload over a vector-set dataset", "[vamana][gem]"
+) {
+    auto table = make_centroid_table(make_centroids(0x5EED));
+    svs::distance::QChamfer dist{table};
+
+    const size_t n_docs = 200;
+    auto corpus = make_doc_corpus(n_docs, 0xDEADBEEF);
+    auto queries = make_doc_corpus(10, 0xC0FFEE);
+    auto query_view = queries.view();
+    auto owning_docs = svs::data::VectorSetData<uint32_t, 1>::copy_from(corpus.view());
+
+    auto build_parameters =
+        svs::index::vamana::VamanaBuildParameters{1.2F, 16, 32, 64, 16, true};
+    const uint32_t entry_point = 0;
+
+    auto index = build_index(std::move(owning_docs), dist, build_parameters, entry_point);
+    const auto& docs = index.view_data();
 
     CATCH_SECTION("Small-window search returns a best-first, internally consistent pool") {
         const size_t capacity = 20;
@@ -205,12 +137,10 @@ CATCH_TEST_CASE("Vamana build and search over a vector-set dataset", "[vamana][g
         for (size_t q = 0; q < query_view.size(); ++q) {
             auto query = query_view.get_datum(q);
             index.search(query, scratch);
+            auto oracle = svs_test::brute_force_top_k(dist, query, docs);
 
-            auto oracle = brute_force_qchamfer(dist, query, docs);
-
-            // Centroid ids repeat across documents, so several documents can legitimately
-            // tie for the best score; check the distance exactly and the id against every
-            // document tied for that best score, rather than oracle[0].first alone.
+            // Centroid ids repeat, so several documents can tie for the best score; check
+            // the id against every document tied for it, not just oracle[0].first.
             const auto& top1 = scratch.buffer[0];
             CATCH_REQUIRE(
                 static_cast<double>(top1.distance()) ==
@@ -224,90 +154,49 @@ CATCH_TEST_CASE("Vamana build and search over a vector-set dataset", "[vamana][g
             CATCH_REQUIRE(id_ties_for_best);
         }
     }
-}
 
-// Saves a VamanaIndex built over an owning VectorSetData<uint32_t, 1> and reassembles it
-// through `svs::index::vamana::auto_assemble` with `svs::VectorSetDataLoader`, the small
-// loader type that mirrors `svs::VectorDataLoader`. `auto_assemble` applies the saved
-// config via `VamanaIndex::apply` rather than `verify_and_set_default_index_parameters`
-// (index.h), so it never runs the L2/IP/Cosine distance-type check that forces the
-// build path above through `VamanaBuilder` directly: QChamfer hits no obstacle here.
-CATCH_TEST_CASE(
-    "Vamana save and reload over an owning vector-set dataset", "[vamana][gem]"
-) {
-    auto table = make_centroid_table(0xABCD);
-    svs::distance::QChamfer dist{table};
+    CATCH_SECTION("Save and reload preserve every query's result") {
+        // `apply` gives the index real VamanaBuildParameters (build_index's lower
+        // VamanaBuilder path left them at sentinels that overflow TOML save) without
+        // re-running the L2/IP/Cosine distance-type check.
+        index.apply(svs::index::vamana::VamanaIndexParameters{
+            entry_point, build_parameters, index.get_search_parameters()});
 
-    const size_t n_docs = 50;
-    auto corpus = make_corpus(n_docs, 0x1234);
-    auto queries = make_corpus(5, 0x5678);
-    auto query_view = queries.view();
+        auto temp_directory = svs_test::prepare_temp_directory_v2();
+        auto config_dir = temp_directory / "config";
+        auto graph_dir = temp_directory / "graph";
+        auto data_dir = temp_directory / "data";
+        index.save(config_dir, graph_dir, data_dir);
 
-    // Owning takeover of the borrowed corpus, exactly the `copy_from` path a caller
-    // without its own ownable storage would use.
-    auto owning_sets = svs::data::VectorSetData<uint32_t, 1>::copy_from(corpus.view());
+        auto reload_pool = svs::threads::DefaultThreadPool(1);
+        auto reloaded = svs::index::vamana::auto_assemble(
+            config_dir,
+            svs::GraphLoader<uint32_t>(graph_dir),
+            svs::VectorSetDataLoader<uint32_t, 1>(data_dir),
+            dist,
+            std::move(reload_pool)
+        );
 
-    auto build_parameters =
-        svs::index::vamana::VamanaBuildParameters{1.2F, 16, 32, 64, 16, true};
-    const uint32_t entry_point = 0;
+        const size_t capacity = n_docs;
+        auto sp = search_params(capacity, capacity);
+        auto scratch_before = index.scratchspace(sp);
+        auto scratch_after = reloaded.scratchspace(sp);
 
-    auto graph = svs::default_graph<uint32_t>(n_docs, build_parameters.graph_max_degree);
-    auto build_pool = svs::threads::DefaultThreadPool(1);
-    auto builder = svs::index::vamana::VamanaBuilder(
-        graph,
-        owning_sets,
-        dist,
-        build_parameters,
-        build_pool,
-        svs::index::vamana::extensions::estimate_prefetch_parameters(owning_sets)
-    );
-    builder.construct(build_parameters.alpha, entry_point);
+        for (size_t q = 0; q < query_view.size(); ++q) {
+            auto query = query_view.get_datum(q);
+            index.search(query, scratch_before);
+            reloaded.search(query, scratch_after);
 
-    auto pool = svs::threads::DefaultThreadPool(1);
-    auto index = svs::index::vamana::VamanaIndex(
-        std::move(graph), std::move(owning_sets), entry_point, dist, std::move(pool)
-    );
-
-    // The lower constructor above (required to dodge the L2/IP/Cosine check, as noted on
-    // the test case above) leaves `build_parameters_` at its default-constructed,
-    // placeholder-sentinel state; saving those sentinels overflows
-    // `VamanaBuildParameters::save`'s narrowing cast to a signed TOML integer. `apply`
-    // only assigns the fields below (it does not run the distance-type check), so it is
-    // the way to give the index real values to save.
-    index.apply(svs::index::vamana::VamanaIndexParameters{
-        entry_point, build_parameters, index.get_search_parameters()});
-
-    auto temp_directory = svs_test::prepare_temp_directory_v2();
-    auto config_dir = temp_directory / "config";
-    auto graph_dir = temp_directory / "graph";
-    auto data_dir = temp_directory / "data";
-    index.save(config_dir, graph_dir, data_dir);
-
-    auto reload_pool = svs::threads::DefaultThreadPool(1);
-    auto reloaded = svs::index::vamana::auto_assemble(
-        config_dir,
-        svs::GraphLoader<uint32_t>(graph_dir),
-        svs::VectorSetDataLoader<uint32_t, 1>(data_dir),
-        dist,
-        std::move(reload_pool)
-    );
-
-    const size_t capacity = n_docs;
-    auto sp = search_params(capacity, capacity);
-    auto scratch_before = index.scratchspace(sp);
-    auto scratch_after = reloaded.scratchspace(sp);
-
-    for (size_t q = 0; q < query_view.size(); ++q) {
-        auto query = query_view.get_datum(q);
-        index.search(query, scratch_before);
-        reloaded.search(query, scratch_after);
-
-        CATCH_REQUIRE(scratch_before.buffer.size() == scratch_after.buffer.size());
-        for (size_t j = 0; j < scratch_before.buffer.size(); ++j) {
-            CATCH_REQUIRE(scratch_before.buffer[j].id() == scratch_after.buffer[j].id());
-            CATCH_REQUIRE(
-                scratch_before.buffer[j].distance() == scratch_after.buffer[j].distance()
-            );
+            CATCH_REQUIRE(scratch_before.buffer.size() == scratch_after.buffer.size());
+            for (size_t j = 0; j < scratch_before.buffer.size(); ++j) {
+                CATCH_REQUIRE(
+                    scratch_before.buffer[j].id() == scratch_after.buffer[j].id()
+                );
+                CATCH_REQUIRE(
+                    scratch_before.buffer[j].distance() ==
+                    scratch_after.buffer[j].distance()
+                );
+            }
         }
     }
 }

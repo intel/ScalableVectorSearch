@@ -15,6 +15,7 @@
  */
 
 // Headers under test: GemRoutedInitializer, search_initializer, gem_pooled_entry_point.
+// No-router / all-unrepresented fallback is covered by gem_build.cpp's build_entry_points.
 #include "svs/core/distance/gem.h"
 #include "svs/core/distance/gem_router.h"
 #include "svs/extensions/vamana/gem.h"
@@ -27,7 +28,7 @@
 #include "svs/lib/threads.h"
 
 // tests
-#include "tests/utils/utils.h"
+#include "tests/svs/index/vamana/gem_test_utils.h"
 
 // catch2
 #include "catch2/catch_test_macros.hpp"
@@ -37,7 +38,6 @@
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
-#include <limits>
 #include <memory>
 #include <random>
 #include <span>
@@ -45,63 +45,16 @@
 
 namespace {
 
-using svs::distance::CentroidTable;
-using svs::distance::FineCentroids;
 using svs::distance::GemRouter;
-using svs::distance::Ground;
 using svs::distance::QChamfer;
 using svs::distance::QChamferExactQuery;
-
-constexpr size_t K = 16;
-constexpr size_t DIM = 4;
-
-// K unit vectors, deterministic for a given seed; dim == DIM.
-std::vector<float> make_centroids(uint32_t seed) {
-    std::mt19937 rng(seed);
-    std::uniform_real_distribution<float> coord(-1.0F, 1.0F);
-    std::vector<float> centroids(K * DIM);
-    for (size_t k = 0; k < K; ++k) {
-        double norm = 0.0;
-        for (size_t d = 0; d < DIM; ++d) {
-            float v = coord(rng);
-            centroids[k * DIM + d] = v;
-            norm += static_cast<double>(v) * static_cast<double>(v);
-        }
-        norm = std::sqrt(norm);
-        for (size_t d = 0; d < DIM; ++d) {
-            centroids[k * DIM + d] = static_cast<float>(centroids[k * DIM + d] / norm);
-        }
-    }
-    return centroids;
-}
-
-struct IdSetCorpus {
-    std::vector<uint32_t> ids;
-    std::vector<uint64_t> offsets;
-
-    size_t size() const { return offsets.size() - 1; }
-
-    svs::data::ConstVectorSetView<uint32_t, 1> view() const {
-        return svs::data::ConstVectorSetView<uint32_t, 1>(
-            std::span<const uint32_t>(ids), std::span<const uint64_t>(offsets), 1
-        );
-    }
-};
-
-IdSetCorpus make_doc_corpus(size_t n, uint32_t seed) {
-    std::mt19937 rng(seed);
-    std::uniform_int_distribution<uint32_t> id_dist(0, static_cast<uint32_t>(K - 1));
-    IdSetCorpus corpus;
-    corpus.offsets.resize(n + 1, 0);
-    for (size_t i = 0; i < n; ++i) {
-        size_t cardinality = 2 + (i % 5);
-        corpus.offsets[i + 1] = corpus.offsets[i] + cardinality;
-        for (size_t t = 0; t < cardinality; ++t) {
-            corpus.ids.push_back(id_dist(rng));
-        }
-    }
-    return corpus;
-}
+using svs_test::gem::DIM;
+using svs_test::gem::K;
+using svs_test::gem::make_centroid_table;
+using svs_test::gem::make_centroids;
+using svs_test::gem::make_doc_corpus;
+using svs_test::gem::make_fine_centroids;
+using svs_test::gem::round_robin_coarse_of_fine;
 
 // Raw-float query tokens, one per centroid dimension: what QChamferExactQuery expects.
 struct QueryCorpus {
@@ -137,25 +90,6 @@ make_query_corpus(const std::vector<float>& centroids, size_t n, uint32_t seed) 
     return corpus;
 }
 
-std::shared_ptr<const CentroidTable> make_table(const std::vector<float>& centroids) {
-    return std::make_shared<const CentroidTable>(
-        CentroidTable::from_centroids(centroids.data(), K, DIM, Ground::Cos, 1)
-    );
-}
-
-std::shared_ptr<const FineCentroids> make_fine(const std::vector<float>& centroids) {
-    return std::make_shared<const FineCentroids>(K, DIM, centroids.data(), 1);
-}
-
-// Deterministic grouping (f % num_coarse); good enough to exercise routing, not realistic.
-std::vector<uint32_t> round_robin_coarse_of_fine(size_t num_coarse) {
-    std::vector<uint32_t> out(K);
-    for (size_t f = 0; f < K; ++f) {
-        out[f] = static_cast<uint32_t>(f % num_coarse);
-    }
-    return out;
-}
-
 // Minimal greedy-search test double: records pushed ids, nothing else.
 struct RecordingBuffer {
     using index_type = uint32_t;
@@ -177,84 +111,11 @@ auto id_builder() {
 } // namespace
 
 CATCH_TEST_CASE(
-    "GemRoutedInitializer with no router matches EntryPointInitializer",
-    "[vamana][gem][gem_router]"
-) {
-    auto centroids = make_centroids(0x1111);
-    auto fine = make_fine(centroids);
-    QChamferExactQuery distance{fine};
-
-    auto queries = make_query_corpus(centroids, 1, 0x2222);
-    auto query = queries.view().get_datum(0);
-    distance.fix_argument(query);
-
-    auto graph = svs::default_graph<uint32_t>(10, 32);
-    std::vector<uint32_t> entry_points{3};
-    auto computer = dummy_computer();
-    auto builder = id_builder();
-    svs::index::vamana::NullTracker tracker;
-
-    RecordingBuffer buf_plain;
-    svs::index::vamana::EntryPointInitializer<uint32_t> plain_init{
-        std::span<const uint32_t>(entry_points)};
-    plain_init(buf_plain, computer, graph, builder, tracker);
-
-    RecordingBuffer buf_routed;
-    svs::index::vamana::GemRoutedInitializer<uint32_t> routed_init{
-        &distance, std::span<const uint32_t>(entry_points)};
-    routed_init(buf_routed, computer, graph, builder, tracker);
-
-    CATCH_REQUIRE(buf_routed.ids == buf_plain.ids);
-}
-
-CATCH_TEST_CASE(
-    "GemRoutedInitializer with every cluster unrepresented falls back to the medoid",
-    "[vamana][gem][gem_router]"
-) {
-    auto centroids = make_centroids(0x3333);
-    auto fine = make_fine(centroids);
-
-    GemRouter all_norep;
-    all_norep.coarse_of_fine = round_robin_coarse_of_fine(4);
-    all_norep.representative.assign(4, GemRouter::no_representative);
-    all_norep.nprobe = 2;
-    auto router_ptr = std::make_shared<const GemRouter>(all_norep);
-
-    QChamferExactQuery distance_no_router{fine};
-    QChamferExactQuery distance_all_norep{fine, router_ptr};
-
-    auto queries = make_query_corpus(centroids, 1, 0x4444);
-    auto query = queries.view().get_datum(0);
-    distance_no_router.fix_argument(query);
-    distance_all_norep.fix_argument(query);
-
-    auto graph = svs::default_graph<uint32_t>(10, 32);
-    std::vector<uint32_t> entry_points{5};
-    auto computer = dummy_computer();
-    auto builder = id_builder();
-    svs::index::vamana::NullTracker tracker;
-
-    RecordingBuffer buf_no_router;
-    svs::index::vamana::GemRoutedInitializer<uint32_t>{
-        &distance_no_router, std::span<const uint32_t>(entry_points)}(
-        buf_no_router, computer, graph, builder, tracker
-    );
-
-    RecordingBuffer buf_all_norep;
-    svs::index::vamana::GemRoutedInitializer<uint32_t>{
-        &distance_all_norep, std::span<const uint32_t>(entry_points)}(
-        buf_all_norep, computer, graph, builder, tracker
-    );
-
-    CATCH_REQUIRE(buf_all_norep.ids == buf_no_router.ids);
-}
-
-CATCH_TEST_CASE(
     "GemRoutedInitializer with a real router pushes exactly medoid union routed",
     "[vamana][gem][gem_router]"
 ) {
     auto centroids = make_centroids(0x5555);
-    auto fine = make_fine(centroids);
+    auto fine = make_fine_centroids(centroids);
 
     auto doc_corpus = make_doc_corpus(100, 0x6666);
     auto docs = doc_corpus.view();
@@ -298,8 +159,8 @@ CATCH_TEST_CASE(
     "Routed search is not worse than unrouted on a small index", "[vamana][gem][gem_router]"
 ) {
     auto centroids = make_centroids(0x8888);
-    auto table = make_table(centroids);
-    auto fine = make_fine(centroids);
+    auto table = make_centroid_table(centroids);
+    auto fine = make_fine_centroids(centroids);
 
     const size_t n_docs = 150;
     auto doc_corpus = make_doc_corpus(n_docs, 0x9999);
@@ -349,20 +210,10 @@ CATCH_TEST_CASE(
             auto query = query_view.get_datum(q);
             index.search(query, scratch);
 
-            // Brute-force QChamferExactQuery oracle for this query.
             QChamferExactQuery oracle_dist{fine};
             oracle_dist.fix_argument(query);
-            uint32_t best_id = 0;
-            float best_score = std::numeric_limits<float>::infinity();
-            for (uint32_t id = 0; id < docs.size(); ++id) {
-                float score =
-                    svs::distance::compute(oracle_dist, query, docs.get_datum(id));
-                if (score < best_score) {
-                    best_score = score;
-                    best_id = id;
-                }
-            }
-            if (scratch.buffer[0].id() == best_id) {
+            auto oracle = svs_test::brute_force_top_k(oracle_dist, query, docs);
+            if (scratch.buffer[0].id() == oracle[0].first) {
                 ++top1_hits;
             }
         }
@@ -375,13 +226,13 @@ CATCH_TEST_CASE(
     CATCH_REQUIRE(hits_routed >= hits_unrouted);
 }
 
-CATCH_TEST_CASE("gem_pooled_entry_point", "[vamana][gem][gem_router]") {
-    // Four unit vectors in 2D, matching core/distances/gem.cpp's hand example exactly.
+CATCH_TEST_CASE(
+    "gem_pooled_entry_point picks doc0 as the medoid", "[vamana][gem][gem_router]"
+) {
     constexpr size_t dim = 2;
     std::vector<float> flat{1.0F, 0.0F, 0.0F, 1.0F, -1.0F, 0.0F, 0.0F, -1.0F};
-    FineCentroids fine(4, dim, flat.data(), 1);
+    svs::distance::FineCentroids fine(4, dim, flat.data(), 1);
 
-    // doc0's mean (0.5,0.5) is nearest the dataset mean (1/3,0), so doc0 is the medoid.
     std::vector<uint32_t> ids{0, 1, 2, 3, 0};
     std::vector<uint64_t> offsets{0, 2, 4, 5};
     auto docs = svs::data::ConstVectorSetView<uint32_t, 1>(
