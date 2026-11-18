@@ -16,6 +16,7 @@
 
 // header under test
 #include "svs/core/kmeans_training.h"
+#include "svs/core/kmeans_emeans.h"
 
 // svs
 #include "svs/core/data.h"
@@ -26,8 +27,11 @@
 #include "catch2/catch_test_macros.hpp"
 
 // stl
+#include <array>
 #include <cmath>
+#include <limits>
 #include <random>
+#include <utility>
 #include <vector>
 
 namespace {
@@ -204,5 +208,176 @@ CATCH_TEST_CASE("Shared Kmeans Training", "[core][kmeans]") {
 
         check_distance(svs::DistanceL2());
         check_distance(svs::DistanceIP());
+    }
+}
+
+namespace {
+
+// Three well-separated clusters, far enough apart that nearest-centroid assignment never
+// ties and small perturbations in training never cross a cluster boundary.
+svs::data::SimpleData<float> make_three_clusters() {
+    auto data = svs::data::SimpleData<float>(15, 2);
+    std::array<std::array<float, 2>, 3> centers{
+        {{0.0F, 0.0F}, {100.0F, 0.0F}, {0.0F, 100.0F}}};
+    for (size_t c = 0; c < 3; ++c) {
+        for (size_t i = 0; i < 5; ++i) {
+            float jitter = static_cast<float>(i) * 0.1F;
+            data.set_datum(
+                c * 5 + i,
+                std::vector<float>{centers[c][0] + jitter, centers[c][1] + jitter}
+            );
+        }
+    }
+    return data;
+}
+
+svs::kmeans::EMeansParameters small_emeans_parameters() {
+    svs::kmeans::EMeansParameters parameters;
+    parameters.epochs = 2;
+    parameters.batch_size = 3;
+    parameters.alpha0 = 0.5;
+    parameters.revival_interval = 5;
+    parameters.tau = 0.1;
+    return parameters;
+}
+
+} // namespace
+
+CATCH_TEST_CASE("EMeans Training", "[core][kmeans][emeans]") {
+    CATCH_SECTION("determinism for a fixed seed and thread count") {
+        auto data = make_three_clusters();
+        auto parameters = small_emeans_parameters();
+
+        auto run = [&]() {
+            auto rng = std::mt19937(0xc0ffee);
+            auto threadpool = svs::threads::as_threadpool(2);
+            auto timer = svs::lib::Timer();
+            return svs::kmeans::emeans_train(
+                parameters, data, size_t{3}, rng, threadpool, timer
+            );
+        };
+
+        auto result_a = run();
+        auto result_b = run();
+
+        CATCH_REQUIRE(result_a.centroids.size() == result_b.centroids.size());
+        for (size_t i = 0; i < result_a.centroids.size(); ++i) {
+            auto a = result_a.centroids.get_datum(i);
+            auto b = result_b.centroids.get_datum(i);
+            for (size_t d = 0; d < a.size(); ++d) {
+                CATCH_REQUIRE(a[d] == b[d]);
+            }
+        }
+        CATCH_REQUIRE(result_a.objective == result_b.objective);
+    }
+
+    CATCH_SECTION("a forced-dead cluster is revived") {
+        auto data = make_three_clusters();
+        auto parameters = small_emeans_parameters();
+
+        // Four initial centroids: one near each real cluster, plus a fourth parked far
+        // from all data so it is never the nearest centroid for any point and stays dead
+        // (EMA count near its 1e-10 floor) until revival splits a donor into it.
+        auto initial = svs::data::SimpleData<float>(4, 2);
+        initial.set_datum(0, std::vector<float>{0.0F, 0.0F});
+        initial.set_datum(1, std::vector<float>{100.0F, 0.0F});
+        initial.set_datum(2, std::vector<float>{0.0F, 100.0F});
+        initial.set_datum(3, std::vector<float>{1000.0F, 1000.0F});
+
+        auto rng = std::mt19937(42);
+        auto threadpool = svs::threads::as_threadpool(2);
+        auto timer = svs::lib::Timer();
+        auto result =
+            svs::kmeans::emeans_train(parameters, data, initial, rng, threadpool, timer);
+
+        // Revival splits a donor near the data into this slot; an unrevived cluster would
+        // still sit at (1000, 1000), about 1000 from every real cluster center.
+        auto final_dead = result.centroids.get_datum(3);
+        float nearest_center = std::numeric_limits<float>::max();
+        constexpr std::array<std::pair<float, float>, 3> centers{
+            {{0.0F, 0.0F}, {100.0F, 0.0F}, {0.0F, 100.0F}}};
+        for (auto [cx, cy] : centers) {
+            float dx = final_dead[0] - cx;
+            float dy = final_dead[1] - cy;
+            nearest_center = std::min(nearest_center, dx * dx + dy * dy);
+        }
+        CATCH_REQUIRE(nearest_center < 10.0F * 10.0F);
+    }
+
+    CATCH_SECTION("resolve_emeans_parameters matches hand-computed scaling-law values") {
+        // Hand-computed (Python) from Eq. 6/Eq. 7 with the code's exact coefficients.
+        svs::kmeans::EMeansParameters small_n_params;
+        small_n_params.epochs = 2;
+        auto small_n =
+            svs::kmeans::resolve_emeans_parameters(100'000, 1'000, small_n_params);
+        CATCH_REQUIRE(small_n.batch_size == 4096);
+        CATCH_REQUIRE(std::abs(small_n.alpha0 - 0.3191081273388448) < 1e-6);
+
+        // n > 2e6: the batch law's coefficient switches to 0.035/8.
+        svs::kmeans::EMeansParameters large_n_params;
+        large_n_params.epochs = 2;
+        auto large_n =
+            svs::kmeans::resolve_emeans_parameters(5'000'000, 1'000, large_n_params);
+        CATCH_REQUIRE(large_n.batch_size == 16384);
+        CATCH_REQUIRE(std::abs(large_n.alpha0 - 0.19109765404135304) < 1e-6);
+    }
+
+    CATCH_SECTION("batch_size not dividing n exercises the tail batch") {
+        auto data = make_three_clusters(); // n = 15
+        auto parameters = small_emeans_parameters();
+        parameters.batch_size = 4; // 15 / 4 = 3 remainder 3: a tail batch of size 3
+
+        auto rng = std::mt19937(0xc0ffee);
+        auto threadpool = svs::threads::as_threadpool(2);
+        auto timer = svs::lib::Timer();
+        auto result =
+            svs::kmeans::emeans_train(parameters, data, size_t{3}, rng, threadpool, timer);
+
+        CATCH_REQUIRE(result.centroids.size() == 3);
+        CATCH_REQUIRE(std::isfinite(result.objective));
+    }
+
+    // Not a general invariant: the last epoch's assignments come from moving centroids, so
+    // the closing mean need not dominate the EMA readout in general. Holds here because
+    // this toy set's clusters are so well separated that the assignment never wavers.
+    CATCH_SECTION(
+        "the final mean pass does not raise the objective (well-separated toy set)"
+    ) {
+        auto data = make_three_clusters();
+
+        auto with_pass_params = small_emeans_parameters();
+        with_pass_params.final_mean_pass = true;
+        auto without_pass_params = small_emeans_parameters();
+        without_pass_params.final_mean_pass = false;
+
+        auto run = [&](const svs::kmeans::EMeansParameters& parameters) {
+            auto rng = std::mt19937(0xc0ffee);
+            auto threadpool = svs::threads::as_threadpool(2);
+            auto timer = svs::lib::Timer();
+            return svs::kmeans::emeans_train(
+                parameters, data, size_t{3}, rng, threadpool, timer
+            );
+        };
+
+        auto with_pass = run(with_pass_params);
+        auto without_pass = run(without_pass_params);
+
+        CATCH_REQUIRE(with_pass.objective <= without_pass.objective + 1e-6);
+    }
+
+    CATCH_SECTION("k > n throws") {
+        auto data = svs::data::SimpleData<float>(3, 2);
+        data.set_datum(0, std::vector<float>{0.0F, 0.0F});
+        data.set_datum(1, std::vector<float>{1.0F, 0.0F});
+        data.set_datum(2, std::vector<float>{0.0F, 1.0F});
+
+        auto parameters = small_emeans_parameters();
+        auto rng = std::mt19937(0xc0ffee);
+        auto threadpool = svs::threads::as_threadpool(2);
+        auto timer = svs::lib::Timer();
+
+        CATCH_REQUIRE_THROWS(
+            svs::kmeans::emeans_train(parameters, data, size_t{5}, rng, threadpool, timer)
+        );
     }
 }
