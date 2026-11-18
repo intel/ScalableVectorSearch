@@ -394,12 +394,9 @@ template <AVX_AVAILABILITY Avx> struct QEmdImpl {
 
         // merge_sorted_duplicates divides integer counts by n in double, so w_a/w_b each
         // sum to 1.0 up to a few ULPs rather than exactly; TransportSimplex::solve folds
-        // that residual into the last demand entry (see its doc comment) instead of
-        // requiring bit-exact balance here.
-        double cost =
-            TransportSimplex<Avx>::solve(ua, w_a, ub, w_b, [&](size_t i, size_t j) {
-                return table(ids_a[i], ids_b[j]);
-            });
+        // that residual into the last demand entry instead of requiring exact balance.
+        auto cost_fn = [&](size_t i, size_t j) { return table(ids_a[i], ids_b[j]); };
+        double cost = TransportSimplex<Avx>::solve(ua, w_a, ub, w_b, cost_fn);
         return static_cast<float>(cost);
     }
 
