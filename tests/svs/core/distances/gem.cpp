@@ -449,11 +449,27 @@ CATCH_TEST_CASE("QEmd transportation solve: random cross-checks", "[distance][ge
                         size_t ub,
                         double weight_spread,
                         bool uniform_weights = false,
-                        int tiny_cost_range = -1) {
+                        int tiny_cost_range = -1,
+                        int repeated_levels = 0,
+                        bool row_index_cost = false) {
         std::vector<double> w_a(ua), w_b(ub);
         if (uniform_weights) {
             std::fill(w_a.begin(), w_a.end(), 1.0 / static_cast<double>(ua));
             std::fill(w_b.begin(), w_b.end(), 1.0 / static_cast<double>(ub));
+        } else if (repeated_levels > 0) {
+            // Weights from a small integer set, normalized: ties the walk without making
+            // every weight equal, unlike uniform_weights.
+            std::uniform_int_distribution<int> level_dist(1, repeated_levels);
+            for (auto* w : {&w_a, &w_b}) {
+                double total = 0.0;
+                for (auto& x : *w) {
+                    x = static_cast<double>(level_dist(rng));
+                    total += x;
+                }
+                for (auto& x : *w) {
+                    x /= total;
+                }
+            }
         } else {
             for (auto* w : {&w_a, &w_b}) {
                 double total = 0.0;
@@ -475,8 +491,10 @@ CATCH_TEST_CASE("QEmd transportation solve: random cross-checks", "[distance][ge
         for (size_t i = 0; i < ua; ++i) {
             ids_a[i] = static_cast<uint32_t>(i);
             for (size_t j = 0; j < ub; ++j) {
-                double c = tiny_cost_range >= 0 ? static_cast<double>(tiny_cost_dist(rng))
-                                                : cost_dist(rng);
+                // row_index_cost: row 0 is cheapest for every column, by construction.
+                double c = row_index_cost         ? static_cast<double>(i)
+                           : tiny_cost_range >= 0 ? static_cast<double>(tiny_cost_dist(rng))
+                                                  : cost_dist(rng);
                 cost[i * ub + j] = c;
                 table_flat[i * k + j] = static_cast<float>(c);
             }
@@ -581,6 +599,40 @@ CATCH_TEST_CASE("QEmd transportation solve: random cross-checks", "[distance][ge
         run_case(256, 1, 1.0);
         run_case(100, 100, 1.0, /*uniform_weights=*/true, /*tiny_cost_range=*/0);
         run_case(100, 100, 1.0, /*uniform_weights=*/true, /*tiny_cost_range=*/1);
+    }
+    // Ties in weights and costs are where the start tree's walk adds zero-flow arcs and
+    // where the cheapest-row column grouping collapses; both threaten strong feasibility.
+    CATCH_SECTION("Start-tree degeneracy: tied costs, repeated weights, extreme shapes") {
+        for (int tiny_cost_range : {0, 1}) {
+            for (bool uniform_weights : {false, true}) {
+                int repeated_levels = uniform_weights ? 0 : 3;
+                for (size_t n : {size_t{2}, size_t{7}, size_t{64}}) {
+                    // With uniform weights, supply and demand tie at every walk step.
+                    run_case(n, n, 1.0, uniform_weights, tiny_cost_range, repeated_levels);
+                }
+                // 300 keeps the Dynamic (uint32 id) bucket's 1xn/nx1 cases tied too.
+                for (size_t n :
+                     {size_t{2}, size_t{7}, size_t{64}, size_t{256}, size_t{300}}) {
+                    run_case(1, n, 1.0, uniform_weights, tiny_cost_range, repeated_levels);
+                    run_case(n, 1, 1.0, uniform_weights, tiny_cost_range, repeated_levels);
+                }
+            }
+        }
+
+        // Uniform weights only: other weights raise the reference's augmenting-path count
+        // toward ua+ub-1 and dominate the section's runtime.
+        run_case(256, 256, 1.0, /*uniform_weights=*/true, /*tiny_cost_range=*/0);
+        run_case(256, 256, 1.0, /*uniform_weights=*/true, /*tiny_cost_range=*/1);
+        run_case(257, 257, 1.0, /*uniform_weights=*/true, /*tiny_cost_range=*/0);
+        run_case(257, 257, 1.0, /*uniform_weights=*/true, /*tiny_cost_range=*/1);
+
+        // Tied, lopsided, and into the Dynamic bucket on the larger side.
+        run_case(3, 300, 1.0, false, /*tiny_cost_range=*/1, /*repeated_levels=*/3);
+        run_case(300, 3, 1.0, false, /*tiny_cost_range=*/1, /*repeated_levels=*/3);
+
+        // Row 0 is cheapest for every column, so every column lands in one group.
+        run_case(64, 64, 1.0, false, -1, 3, /*row_index_cost=*/true);
+        run_case(256, 64, 1.0, false, -1, 3, /*row_index_cost=*/true);
     }
 }
 
