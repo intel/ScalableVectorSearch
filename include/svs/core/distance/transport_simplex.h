@@ -118,6 +118,16 @@ template <AVX_AVAILABILITY Avx> struct TransportSimplex {
         return optimality_gap_bound(ua, ub, max_cost, total_mass);
     }
 
+#if SVS_ENABLE_STATS
+    /// Pivots performed by this thread's solves since the caller last reset it. Stats
+    /// builds only (`SVS_EXPERIMENTAL_ENABLE_STATS`). Per ISA instantiation: read it
+    /// through the same `Avx` the dispatched solver used, or it reads 0.
+    static size_t& thread_pivot_count() {
+        thread_local size_t count = 0;
+        return count;
+    }
+#endif
+
     template <typename CostFn>
     static double
     solve(size_t ua, const double* supply, size_t ub, const double* demand, CostFn&& cost)
@@ -551,6 +561,9 @@ template <AVX_AVAILABILITY Avx> struct TransportSimplex {
             size_t pivots_since_recompute = 0;
 
             auto do_pivot = [&](size_t row, size_t col) {
+#if SVS_ENABLE_STATS
+                ++thread_pivot_count();
+#endif
                 pivot(ws, m, padded_k, row, col);
                 ++pivots_since_recompute;
                 if (pivots_since_recompute >= recompute_period) {
