@@ -22,8 +22,10 @@
 #include "svs/core/distance/distance_core.h"
 #include "svs/lib/preprocessor.h"
 
+#include <bit>
 #include <cstddef>
 #include <cstdint>
+#include <limits>
 
 #if defined(__x86_64__)
 #include <immintrin.h>
@@ -97,20 +99,26 @@ template <> struct RowMin<AVX_AVAILABILITY::AVX512> {
         uint32_t& best_col
     ) {
         __m512 u_vec = _mm512_set1_ps(u_i);
-        float buf[16];
         for (size_t j = 0; j < ub_padded; j += 16) {
             // Two separate _mm512_sub_ps, not an FMA: the generic version rounds the two
             // subtractions independently, and this must match it bit-for-bit.
             __m512 r = _mm512_sub_ps(
                 _mm512_sub_ps(_mm512_loadu_ps(cost_row + j), u_vec), _mm512_loadu_ps(v + j)
             );
-            _mm512_storeu_ps(buf, r);
-            for (size_t lane = 0; lane < 16; ++lane) {
-                if (buf[lane] < best_val) {
-                    best_val = buf[lane];
-                    best_col = static_cast<uint32_t>(j + lane);
-                }
+            // Ordered-quiet: NaN never wins, matching scalar `<`. A zero mask -- the common
+            // case once a good candidate is found -- skips the block untouched.
+            __mmask16 lt_mask = _mm512_cmp_ps_mask(r, _mm512_set1_ps(best_val), _CMP_LT_OQ);
+            if (lt_mask == 0) {
+                continue;
             }
+            // reduce_min can return a bit pattern no lane had (e.g. +0.0 vs -0.0 on a tie);
+            // compress then moves the lowest-index lane equal to that value to position 0.
+            float block_min = _mm512_mask_reduce_min_ps(lt_mask, r);
+            __mmask16 eq_mask = static_cast<__mmask16>(
+                lt_mask & _mm512_cmp_ps_mask(r, _mm512_set1_ps(block_min), _CMP_EQ_OQ)
+            );
+            best_val = _mm512_cvtss_f32(_mm512_maskz_compress_ps(eq_mask, r));
+            best_col = static_cast<uint32_t>(j + std::countr_zero(eq_mask));
         }
     }
 
@@ -122,25 +130,36 @@ template <> struct RowMin<AVX_AVAILABILITY::AVX512> {
         double& best_val,
         uint32_t& best_col
     ) {
-        double buf[16];
         __m512d u_vec = _mm512_set1_pd(u_i);
+        // One 8-lane half (mask8 is native width for double); see the float/float overload
+        // above for why compress, not reduce_min, supplies best_val.
+        auto resolve = [&](__m512d r, size_t col_base) {
+            __mmask8 lt_mask = _mm512_cmp_pd_mask(r, _mm512_set1_pd(best_val), _CMP_LT_OQ);
+            if (lt_mask == 0) {
+                return;
+            }
+            double block_min = _mm512_mask_reduce_min_pd(lt_mask, r);
+            __mmask8 eq_mask = static_cast<__mmask8>(
+                lt_mask & _mm512_cmp_pd_mask(r, _mm512_set1_pd(block_min), _CMP_EQ_OQ)
+            );
+            best_val = _mm512_cvtsd_f64(_mm512_maskz_compress_pd(eq_mask, r));
+            best_col = static_cast<uint32_t>(col_base + std::countr_zero(eq_mask));
+        };
         for (size_t j = 0; j < ub_padded; j += 16) {
             __m256 c_lo = _mm256_loadu_ps(cost_row + j);
             __m256 c_hi = _mm256_loadu_ps(cost_row + j + 8);
-            __m512d r_lo = _mm512_sub_pd(
-                _mm512_sub_pd(_mm512_cvtps_pd(c_lo), u_vec), _mm512_loadu_pd(v + j)
+            resolve(
+                _mm512_sub_pd(
+                    _mm512_sub_pd(_mm512_cvtps_pd(c_lo), u_vec), _mm512_loadu_pd(v + j)
+                ),
+                j
             );
-            __m512d r_hi = _mm512_sub_pd(
-                _mm512_sub_pd(_mm512_cvtps_pd(c_hi), u_vec), _mm512_loadu_pd(v + j + 8)
+            resolve(
+                _mm512_sub_pd(
+                    _mm512_sub_pd(_mm512_cvtps_pd(c_hi), u_vec), _mm512_loadu_pd(v + j + 8)
+                ),
+                j + 8
             );
-            _mm512_storeu_pd(buf, r_lo);
-            _mm512_storeu_pd(buf + 8, r_hi);
-            for (size_t lane = 0; lane < 16; ++lane) {
-                if (buf[lane] < best_val) {
-                    best_val = buf[lane];
-                    best_col = static_cast<uint32_t>(j + lane);
-                }
-            }
         }
     }
 };
@@ -158,23 +177,47 @@ template <> struct RowMin<AVX_AVAILABILITY::AVX2> {
         uint32_t& best_col
     ) {
         __m256 u_vec = _mm256_set1_ps(u_i);
-        float buf[16];
-        for (size_t j = 0; j < ub_padded; j += 16) {
-            __m256 r_lo = _mm256_sub_ps(
-                _mm256_sub_ps(_mm256_loadu_ps(cost_row + j), u_vec), _mm256_loadu_ps(v + j)
-            );
-            __m256 r_hi = _mm256_sub_ps(
-                _mm256_sub_ps(_mm256_loadu_ps(cost_row + j + 8), u_vec),
-                _mm256_loadu_ps(v + j + 8)
-            );
-            _mm256_storeu_ps(buf, r_lo);
-            _mm256_storeu_ps(buf + 8, r_hi);
-            for (size_t lane = 0; lane < 16; ++lane) {
-                if (buf[lane] < best_val) {
-                    best_val = buf[lane];
-                    best_col = static_cast<uint32_t>(j + lane);
-                }
+        __m256 inf_vec = _mm256_set1_ps(std::numeric_limits<float>::infinity());
+        // AVX2 has no compress instruction, so the winning lane's exact r is read back
+        // from a stack buffer on the rare lt_mask != 0 branch, not taken from block_min.
+        auto resolve = [&](__m256 r, size_t col_base) {
+            __m256 lt_cmp = _mm256_cmp_ps(r, _mm256_set1_ps(best_val), _CMP_LT_OQ);
+            auto lt_mask = static_cast<unsigned>(_mm256_movemask_ps(lt_cmp));
+            if (lt_mask == 0) {
+                return;
             }
+            __m256 masked = _mm256_blendv_ps(inf_vec, r, lt_cmp);
+            __m128 m = _mm_min_ps(
+                _mm256_castps256_ps128(masked), _mm256_extractf128_ps(masked, 1)
+            );
+            m = _mm_min_ps(m, _mm_shuffle_ps(m, m, _MM_SHUFFLE(0, 0, 3, 2)));
+            m = _mm_min_ps(m, _mm_shuffle_ps(m, m, _MM_SHUFFLE(0, 0, 0, 1)));
+            float block_min = _mm_cvtss_f32(m);
+            auto eq_mask =
+                lt_mask & static_cast<unsigned>(_mm256_movemask_ps(
+                              _mm256_cmp_ps(r, _mm256_set1_ps(block_min), _CMP_EQ_OQ)
+                          ));
+            auto lane = static_cast<unsigned>(std::countr_zero(eq_mask));
+            float buf[8];
+            _mm256_storeu_ps(buf, r);
+            best_val = buf[lane];
+            best_col = static_cast<uint32_t>(col_base + lane);
+        };
+        for (size_t j = 0; j < ub_padded; j += 16) {
+            resolve(
+                _mm256_sub_ps(
+                    _mm256_sub_ps(_mm256_loadu_ps(cost_row + j), u_vec),
+                    _mm256_loadu_ps(v + j)
+                ),
+                j
+            );
+            resolve(
+                _mm256_sub_ps(
+                    _mm256_sub_ps(_mm256_loadu_ps(cost_row + j + 8), u_vec),
+                    _mm256_loadu_ps(v + j + 8)
+                ),
+                j + 8
+            );
         }
     }
 
@@ -187,20 +230,41 @@ template <> struct RowMin<AVX_AVAILABILITY::AVX2> {
         uint32_t& best_col
     ) {
         __m256d u_vec = _mm256_set1_pd(u_i);
-        double buf[16];
+        __m256d inf_vec = _mm256_set1_pd(std::numeric_limits<double>::infinity());
+        // Same technique as the float/float overload above, at the 4-double width AVX2
+        // actually has.
+        auto resolve = [&](__m256d r, size_t col_base) {
+            __m256d lt_cmp = _mm256_cmp_pd(r, _mm256_set1_pd(best_val), _CMP_LT_OQ);
+            auto lt_mask = static_cast<unsigned>(_mm256_movemask_pd(lt_cmp));
+            if (lt_mask == 0) {
+                return;
+            }
+            __m256d masked = _mm256_blendv_pd(inf_vec, r, lt_cmp);
+            __m128d m = _mm_min_pd(
+                _mm256_castpd256_pd128(masked), _mm256_extractf128_pd(masked, 1)
+            );
+            m = _mm_min_pd(m, _mm_shuffle_pd(m, m, 0x1));
+            double block_min = _mm_cvtsd_f64(m);
+            auto eq_mask =
+                lt_mask & static_cast<unsigned>(_mm256_movemask_pd(
+                              _mm256_cmp_pd(r, _mm256_set1_pd(block_min), _CMP_EQ_OQ)
+                          ));
+            auto lane = static_cast<unsigned>(std::countr_zero(eq_mask));
+            double buf[4];
+            _mm256_storeu_pd(buf, r);
+            best_val = buf[lane];
+            best_col = static_cast<uint32_t>(col_base + lane);
+        };
         for (size_t j = 0; j < ub_padded; j += 16) {
             for (size_t sub = 0; sub < 16; sub += 4) {
                 __m128 c = _mm_loadu_ps(cost_row + j + sub);
-                __m256d r = _mm256_sub_pd(
-                    _mm256_sub_pd(_mm256_cvtps_pd(c), u_vec), _mm256_loadu_pd(v + j + sub)
+                resolve(
+                    _mm256_sub_pd(
+                        _mm256_sub_pd(_mm256_cvtps_pd(c), u_vec),
+                        _mm256_loadu_pd(v + j + sub)
+                    ),
+                    j + sub
                 );
-                _mm256_storeu_pd(buf + sub, r);
-            }
-            for (size_t lane = 0; lane < 16; ++lane) {
-                if (buf[lane] < best_val) {
-                    best_val = buf[lane];
-                    best_col = static_cast<uint32_t>(j + lane);
-                }
             }
         }
     }
