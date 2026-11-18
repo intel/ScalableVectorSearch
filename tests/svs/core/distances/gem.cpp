@@ -16,6 +16,7 @@
 
 // Header under test
 #include "svs/core/distance/gem.h"
+#include "svs/core/distance/transport_simplex.h"
 #include "svs/extensions/vamana/gem.h"
 
 // svs
@@ -484,6 +485,7 @@ CATCH_TEST_CASE("QEmd transportation solve: random cross-checks", "[distance][ge
             ids_b[j] = static_cast<uint32_t>(j);
         }
         CentroidTable table(k, table_flat);
+        double max_cost = *std::max_element(cost.begin(), cost.end());
 
         double reference = reference_transport_cost(ua, w_a, ub, w_b, cost);
         float none_result = QEmdImpl<AVX_AVAILABILITY::NONE>::compute_decoded(
@@ -493,18 +495,39 @@ CATCH_TEST_CASE("QEmd transportation solve: random cross-checks", "[distance][ge
             static_cast<double>(none_result) == Catch::Approx(reference).margin(1e-6)
         );
 
+        // Tolerance vs. NONE: the optimized solver's derived optimality-gap bound, plus 2
+        // float ulps of none_result for the float cast/accumulation NONE itself already
+        // did.
+        auto isa_margin = [&](double none) {
+            double gap =
+                svs::distance::TransportSimplex<AVX_AVAILABILITY::AVX2>::error_bound(
+                    ua, ub, max_cost, 1.0
+                );
+            double ulp = 2 * static_cast<double>(std::numeric_limits<float>::epsilon()) *
+                         std::max(1.0, std::abs(none));
+            return gap + ulp;
+        };
+
 #if defined(__x86_64__)
         if (svs::detail::avx_runtime_flags.is_avx2_supported()) {
             float avx2_result = QEmdImpl<AVX_AVAILABILITY::AVX2>::compute_decoded(
                 table, ids_a.data(), w_a.data(), ua, ids_b.data(), w_b.data(), ub
             );
-            CATCH_REQUIRE(avx2_result == Catch::Approx(none_result));
+            CATCH_REQUIRE(
+                static_cast<double>(avx2_result) ==
+                Catch::Approx(static_cast<double>(none_result))
+                    .margin(isa_margin(static_cast<double>(none_result)))
+            );
         }
         if (svs::detail::avx_runtime_flags.is_avx512f_supported()) {
             float avx512_result = QEmdImpl<AVX_AVAILABILITY::AVX512>::compute_decoded(
                 table, ids_a.data(), w_a.data(), ua, ids_b.data(), w_b.data(), ub
             );
-            CATCH_REQUIRE(avx512_result == Catch::Approx(none_result));
+            CATCH_REQUIRE(
+                static_cast<double>(avx512_result) ==
+                Catch::Approx(static_cast<double>(none_result))
+                    .margin(isa_margin(static_cast<double>(none_result)))
+            );
         }
 #endif
     };
@@ -544,6 +567,20 @@ CATCH_TEST_CASE("QEmd transportation solve: random cross-checks", "[distance][ge
                 );
             }
         }
+    }
+    CATCH_SECTION("Larger shapes: dense, lopsided, transpose, and the Dynamic bucket") {
+        // 4x256/256x4 exercise the transpose; 5x300/300x5 cross into the Dynamic bucket
+        // (side > 256); 1x256/256x1 are single-source/sink; the last two are tied costs.
+        run_case(100, 100, 1.0);
+        run_case(4, 256, 1.0);
+        run_case(256, 4, 1.0);
+        run_case(3, 200, 1.0);
+        run_case(5, 300, 1.0);
+        run_case(300, 5, 1.0);
+        run_case(1, 256, 1.0);
+        run_case(256, 1, 1.0);
+        run_case(100, 100, 1.0, /*uniform_weights=*/true, /*tiny_cost_range=*/0);
+        run_case(100, 100, 1.0, /*uniform_weights=*/true, /*tiny_cost_range=*/1);
     }
 }
 
