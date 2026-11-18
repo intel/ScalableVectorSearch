@@ -37,6 +37,54 @@
 
 namespace svs::distance::transport_reference_detail {
 
+// Copies supply/demand into the solver's own buffers, checks total balance to within
+// 1e-6*max(total_supply, 1), and folds a smaller residual into the last demand entry;
+// throws std::runtime_error on a larger mismatch or a fold that leaves that entry
+// non-positive. Shared by TransportSimplexReference and TransportSimplex (called before
+// either orients rows/columns, so the fold always lands on the caller's own last demand
+// entry, never its supply) so the input contract cannot drift between them. `Caller`
+// (TransportSimplexReference, or TransportSimplex<Avx>::Impl<MaxSide>) is a tag only, so
+// each -march TU instantiates its own copy instead of sharing one weak symbol.
+template <typename Caller>
+inline double prepare_marginals(
+    size_t ua,
+    const double* supply,
+    double* supply_out,
+    size_t ub,
+    const double* demand,
+    double* demand_out
+) {
+    double total_s = 0.0, total_d = 0.0;
+    for (size_t i = 0; i < ua; ++i) {
+        supply_out[i] = supply[i];
+        total_s += supply[i];
+    }
+    for (size_t j = 0; j < ub; ++j) {
+        demand_out[j] = demand[j];
+        total_d += demand[j];
+    }
+    double tol = 1e-6 * std::max(total_s, 1.0);
+    double diff = total_s - total_d;
+    if (diff > tol || diff < -tol) {
+        throw std::runtime_error(
+            "TransportSimplex::solve: supply (" + std::to_string(total_s) +
+            ") and demand (" + std::to_string(total_d) +
+            ") are not balanced for ua=" + std::to_string(ua) + ", ub=" + std::to_string(ub)
+        );
+    }
+    double last_demand = demand_out[ub - 1];
+    demand_out[ub - 1] += diff;
+    if (demand_out[ub - 1] <= 0.0) {
+        throw std::runtime_error(
+            "TransportSimplex::solve: the last demand entry (" +
+            std::to_string(last_demand) +
+            ") is too small to absorb the balance residual (" + std::to_string(diff) +
+            ") for ua=" + std::to_string(ua) + ", ub=" + std::to_string(ub)
+        );
+    }
+    return total_s;
+}
+
 // Finds the most negative reduced cost in a cost row and its column, for the block-search
 // entering rule in TransportSimplexReference::solve.
 inline void price_row(
@@ -253,8 +301,9 @@ namespace svs::distance {
 /// qEMD's merged weights), and `sum(supply) == sum(demand)` to within `1e-6 *
 /// max(sum(supply), 1.0)`; any smaller residual (the kind two independent floating-point
 /// sums that are mathematically equal can differ by) is folded into the last demand entry
-/// so the solver never over- or under-subscribes a side. A larger mismatch throws
-/// std::runtime_error, since it signals mismatched inputs rather than rounding.
+/// so the solver never over- or under-subscribes a side. A larger mismatch, or a residual
+/// that leaves the last demand entry non-positive, throws std::runtime_error, since both
+/// signal mismatched inputs rather than rounding.
 ///
 /// Initializes with an artificial root node and big-M artificial arcs to every source and
 /// sink (Ahuja-Magnanti-Orlin ch. 11.2), which is strongly feasible from the start since
@@ -270,9 +319,9 @@ namespace svs::distance {
 /// solution's total real cost could be plus 1, so no finite combination of real arcs is
 /// ever more expensive than keeping one unit of flow on an artificial arc.
 ///
-/// This type runs the scalar pricing loop unconditionally: it is the AVX_AVAILABILITY::
-/// NONE path, and it is also the test oracle that TransportSimplex's SIMD-pricing
-/// variants are checked against, so its algorithm must not diverge from theirs.
+/// This type runs the scalar pricing loop unconditionally: it is the `AVX_AVAILABILITY::
+/// NONE` path, and it is the oracle TransportSimplex's results (not its algorithm) are
+/// checked against.
 struct TransportSimplexReference {
     template <typename CostFn>
     static double
@@ -282,25 +331,9 @@ struct TransportSimplexReference {
         ws.reserve(ua, ub);
         size_t root = ua + ub;
 
-        double total_s = 0.0, total_d = 0.0;
-        for (size_t i = 0; i < ua; ++i) {
-            ws.supply[i] = supply[i];
-            total_s += supply[i];
-        }
-        for (size_t j = 0; j < ub; ++j) {
-            ws.demand[j] = demand[j];
-            total_d += demand[j];
-        }
-        double tol = 1e-6 * std::max(total_s, 1.0);
-        double diff = total_s - total_d;
-        if (diff > tol || diff < -tol) {
-            throw std::runtime_error(
-                "TransportSimplexReference::solve: supply (" + std::to_string(total_s) +
-                ") and demand (" + std::to_string(total_d) + ") are not balanced for ua=" +
-                std::to_string(ua) + ", ub=" + std::to_string(ub)
-            );
-        }
-        ws.demand[ub - 1] += diff;
+        prepare_marginals<TransportSimplexReference>(
+            ua, supply, ws.supply.data(), ub, demand, ws.demand.data()
+        );
 
         double max_cost = 0.0;
         for (size_t i = 0; i < ua; ++i) {
