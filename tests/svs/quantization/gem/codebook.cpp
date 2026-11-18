@@ -230,6 +230,8 @@ CATCH_TEST_CASE("GEM Codebook - quantize pipeline", "[quantization][gem]") {
         centers, 16, DIM, std::vector<size_t>(NUM_PASSAGES, 2), 0x1357, 0.1F
     );
     gem::CodebookParameters parameters; // num_centroids == 0: use the default rule.
+    // Per-iteration timing and the faiss bound below are Lloyd's contract.
+    parameters.kmeans_algorithm = gem::KMeansAlgorithm::Lloyd;
     auto threadpool = svs::threads::as_threadpool(2);
     auto result = gem::quantize(corpus, parameters, threadpool);
     size_t expected_K = gem::colbert_num_partitions(NUM_PASSAGES * 2);
@@ -412,6 +414,8 @@ CATCH_TEST_CASE("GEM Codebook - failure paths", "[quantization][gem]") {
         auto dense_corpus = make_clustered_corpus(centers, K, DIM, {600}, 6, 0.05F);
         gem::CodebookParameters parameters;
         parameters.num_centroids = 2; // 600ish training tokens > 2 * 256 == 512
+        parameters.kmeans_algorithm =
+            gem::KMeansAlgorithm::Lloyd; // the bound is Lloyd-only
         CATCH_REQUIRE_THROWS(gem::train_codebook(dense_corpus, parameters, threadpool));
     }
 
@@ -431,9 +435,9 @@ CATCH_TEST_CASE("GEM Codebook - failure paths", "[quantization][gem]") {
 }
 
 CATCH_TEST_CASE("GEM Codebook - k-means algorithm selection", "[quantization][gem]") {
-    CATCH_SECTION("default CodebookParameters selects Lloyd") {
+    CATCH_SECTION("default CodebookParameters selects EMeans") {
         CATCH_REQUIRE(
-            gem::CodebookParameters{}.kmeans_algorithm == gem::KMeansAlgorithm::Lloyd
+            gem::CodebookParameters{}.kmeans_algorithm == gem::KMeansAlgorithm::EMeans
         );
     }
 

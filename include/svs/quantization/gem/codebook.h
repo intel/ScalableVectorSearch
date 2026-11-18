@@ -105,9 +105,9 @@ inline size_t colbert_sample_size(size_t num_passages) {
 /// Which kernel assign_tokens/quantize use to find each token's nearest centroid.
 enum class Assigner { ExactGemm, InnerProductMatrix };
 
-/// Which k-means algorithm train_centroids runs. Lloyd is the historical default and its
-/// behavior is unchanged by this enum's existence; EMeans is svs::kmeans::emeans_train
-/// (arXiv:2611.09501v1), wired in as an alternative for the same plain-L2 contract.
+/// Which k-means algorithm train_centroids runs. EMeans is svs::kmeans::emeans_train
+/// (arXiv:2611.09501v1) and CodebookParameters' default; Lloyd is the earlier default,
+/// same plain-L2 contract.
 enum class KMeansAlgorithm { Lloyd, EMeans };
 
 /// Parameters for codebook training, assignment and the coarse-cluster side table.
@@ -131,8 +131,8 @@ struct CodebookParameters {
     svs::distance::Ground ground = svs::distance::Ground::Cos;
     /// Per-thread score-buffer budget; fixed-row sizing once hit 587 GB at K=131'072.
     size_t assign_buffer_bytes = 32 * 1024 * 1024;
-    /// Which k-means algorithm train_centroids runs; Lloyd (kmeans_iterations) by default.
-    KMeansAlgorithm kmeans_algorithm = KMeansAlgorithm::Lloyd;
+    /// Which k-means algorithm train_codebook runs; EMeans (emeans_epochs) by default.
+    KMeansAlgorithm kmeans_algorithm = KMeansAlgorithm::EMeans;
     /// EMeans epochs T, used only when kmeans_algorithm == EMeans. Batch size and alpha0
     /// are left to svs::kmeans::EMeansParameters's scaling-law defaults. Defaults to
     /// EMeansParameters's own default so the two never drift apart.
