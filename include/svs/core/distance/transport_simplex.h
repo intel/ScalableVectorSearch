@@ -89,8 +89,10 @@ namespace svs::distance {
 /// `TransportSimplexReference::solve`, plus: `CostFn` must return `float` (pricing stores
 /// costs as float, exact for callers whose costs already are, e.g. `CentroidTable`).
 ///
-/// Orients to put the smaller side in rows, then starts from a northwest-corner basic
-/// feasible solution. Strong feasibility means every zero-flow tree arc has a *source*
+/// Orients to put the smaller side in rows, then starts from a northwest-corner walk over
+/// columns grouped by their cheapest row (ties broken by ascending column id), trading a
+/// one-pass cost scan for fewer pivots than a cost-blind NW start needs.
+/// Strong feasibility means every zero-flow tree arc has a *source*
 /// child (points toward the root, LEMON's convention); the only zero-flow arc the start
 /// ever adds is a value tie's degenerate arc, and that arc's child is always a fresh,
 /// untouched row, never a sink. Every arc whose child is a sink instead carries that
@@ -219,6 +221,12 @@ template <AVX_AVAILABILITY Avx> struct TransportSimplex {
             // Fold-before-orient scratch, each sized to k (>= both ua and ub): holds the
             // caller's own supply/demand, pre-orientation, until m/k are known.
             std::vector<double> supply_folded, demand_folded;
+            // Cost-aware column order: col_min/col_argmin (per-column cheapest cost/row)
+            // feed col_order, a stable counting sort by col_argmin (scratch col_count).
+            std::vector<float> col_min;
+            std::vector<NodeT> col_argmin;
+            std::vector<NodeT> col_order;
+            std::vector<NodeT> col_count;
             std::vector<double> child_sum;      // final flow recompute scratch, size n
             std::vector<NodeT> parent;          // n = m+k; parent[0] (root) unused
             std::vector<NodeT> thread;          // preorder successor, circular over all n
@@ -246,11 +254,17 @@ template <AVX_AVAILABILITY Avx> struct TransportSimplex {
                     supply.resize(m);
                     supply_marginal.resize(m);
                 }
+                if (col_count.size() < m + 1) {
+                    col_count.resize(m + 1);
+                }
                 if (demand.size() < k) {
                     demand.resize(k);
                     demand_marginal.resize(k);
                     supply_folded.resize(k);
                     demand_folded.resize(k);
+                    col_min.resize(k);
+                    col_argmin.resize(k);
+                    col_order.resize(k);
                 }
                 if (parent.size() < n) {
                     parent.resize(n);
@@ -460,6 +474,7 @@ template <AVX_AVAILABILITY Avx> struct TransportSimplex {
             } else {
                 fill_cost_matrix<false>(ws, m, k, padded_k, cost, max_cost);
             }
+            build_col_order(ws, m, k);
             for (size_t j = k; j < padded_k; ++j) {
                 ws.v_d[j] = 0.0;
                 ws.v_f[j] = 0.0F;
@@ -487,13 +502,17 @@ template <AVX_AVAILABILITY Avx> struct TransportSimplex {
                 ws.price_f[i * padded_k + j] = std::numeric_limits<float>::infinity();
             };
             {
-                size_t i = 0, j = 0;
+                size_t i = 0;
+                // p is the walk's position among columns; j = col_order[p] is the real
+                // column id. The walk's correctness depends only on visiting order.
+                size_t p = 0;
+                size_t j = static_cast<size_t>(ws.col_order[p]);
                 // True when row i was the side most recently entered fresh (so, at the
                 // final cell, is still untouched); false when column j was.
                 bool fresh_row = false;
                 while (true) {
                     bool last_row = (i == m - 1);
-                    bool last_col = (j == k - 1);
+                    bool last_col = (p == k - 1);
                     if (last_row && last_col) {
                         // The fresh side's value is untouched and strictly positive; the
                         // other side's residual lives in supply/demand, not a tree arc.
@@ -515,7 +534,8 @@ template <AVX_AVAILABILITY Avx> struct TransportSimplex {
                         add_tree_arc(i, j, x);
                         ws.supply[i] -= x;
                         ws.demand[j] -= x;
-                        j += 1;
+                        p += 1;
+                        j = static_cast<size_t>(ws.col_order[p]);
                         fresh_row = false;
                     } else {
                         double x = std::min(ws.supply[i], ws.demand[j]);
@@ -529,13 +549,15 @@ template <AVX_AVAILABILITY Avx> struct TransportSimplex {
                             // (row i+1, fresh), not a sink child, per the class doc.
                             add_tree_arc(i + 1, j, 0.0);
                             i += 1;
-                            j += 1;
+                            p += 1;
+                            j = static_cast<size_t>(ws.col_order[p]);
                             fresh_row = true;
                         } else if (s_zero) {
                             i += 1;
                             fresh_row = true;
                         } else {
-                            j += 1;
+                            p += 1;
+                            j = static_cast<size_t>(ws.col_order[p]);
                             fresh_row = false;
                         }
                     }
@@ -656,8 +678,8 @@ template <AVX_AVAILABILITY Avx> struct TransportSimplex {
         }
 
       private:
-        // Fills cost_f/padding; Transposed is a compile-time branch so the per-cell cost
-        // lookup has no runtime orientation check.
+        // Fills cost_f/padding; Transposed avoids a runtime orientation check. Also folds
+        // each column's cheapest cost/row into col_min/col_argmin while filling.
         template <bool Transposed, typename CostFn>
         static void fill_cost_matrix(
             SolverWorkspace& ws,
@@ -674,10 +696,39 @@ template <AVX_AVAILABILITY Avx> struct TransportSimplex {
                                           : static_cast<double>(cost(i, j));
                     row[j] = static_cast<float>(c);
                     max_cost = std::max(max_cost, c);
+                    // Row 0 seeds col_min by assignment rather than a separate +inf
+                    // pass; strict `<` below keeps the smallest row on a tie.
+                    float cf = static_cast<float>(c);
+                    if (i == 0 || cf < ws.col_min[j]) {
+                        ws.col_min[j] = cf;
+                        ws.col_argmin[j] = static_cast<NodeT>(i);
+                    }
                 }
                 for (size_t j = k; j < padded_k; ++j) {
                     row[j] = std::numeric_limits<float>::infinity();
                 }
+            }
+        }
+
+        // Stable counting sort of columns by col_argmin, ties kept in ascending column
+        // id: col_count's prefix sums give each row's bucket start before the fill pass.
+        static void build_col_order(SolverWorkspace& ws, size_t m, size_t k) {
+            std::fill(
+                ws.col_count.begin(),
+                ws.col_count.begin() + static_cast<ptrdiff_t>(m + 1),
+                NodeT{0}
+            );
+            for (size_t j = 0; j < k; ++j) {
+                ++ws.col_count[static_cast<size_t>(ws.col_argmin[j]) + 1];
+            }
+            for (size_t r = 0; r < m; ++r) {
+                ws.col_count[r + 1] =
+                    static_cast<NodeT>(ws.col_count[r + 1] + ws.col_count[r]);
+            }
+            for (size_t j = 0; j < k; ++j) {
+                size_t row = ws.col_argmin[j];
+                ws.col_order[ws.col_count[row]] = static_cast<NodeT>(j);
+                ws.col_count[row] = static_cast<NodeT>(ws.col_count[row] + 1);
             }
         }
 
