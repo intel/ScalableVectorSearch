@@ -74,6 +74,8 @@ inline Ground parse_ground(std::string_view s) {
 struct CentroidTable {
     size_t K;
     svs::data::SimpleData<float, svs::Dynamic, svs::HugepageAllocator<float>> data;
+    // True only for a table from_centroids() built; see the comment where it is set.
+    bool symmetric = false;
 
     CentroidTable(size_t k, std::vector<float> table)
         : K{k}
@@ -218,6 +220,10 @@ struct CentroidTable {
                 }
             }
         );
+        // Every unordered pair is written once and copied to both halves above, so
+        // table(i,j) == table(j,i) bit-for-bit; QEmdImpl's swapped transposed-solve
+        // lookup (gem.h) is only exact because of that, not a general table property.
+        result.symmetric = true;
         return result;
     }
 
@@ -399,6 +405,14 @@ template <AVX_AVAILABILITY Avx> struct QEmdImpl {
         // merge_sorted_duplicates divides integer counts by n in double, so w_a/w_b each
         // sum to 1.0 up to a few ULPs rather than exactly; TransportSimplex::solve folds
         // that residual into the last demand entry instead of requiring exact balance.
+        if (table.symmetric && ua > ub) {
+            // TransportSimplex transposes and walks ids_a in its inner loop when ua >
+            // ub; swapping keeps the row (ids_b) fixed there. If that transpose rule
+            // changes, results stay correct but this locality win is lost.
+            auto cost_fn = [&](size_t i, size_t j) { return table(ids_b[j], ids_a[i]); };
+            double cost = TransportSimplex<Avx>::solve(ua, w_a, ub, w_b, cost_fn);
+            return static_cast<float>(cost);
+        }
         auto cost_fn = [&](size_t i, size_t j) { return table(ids_a[i], ids_b[j]); };
         double cost = TransportSimplex<Avx>::solve(ua, w_a, ub, w_b, cost_fn);
         return static_cast<float>(cost);
