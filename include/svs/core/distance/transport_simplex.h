@@ -372,23 +372,31 @@ template <AVX_AVAILABILITY Avx> struct TransportSimplex {
         // before its subtree.
         static void
         recompute_potentials(SolverWorkspace& ws, size_t m, size_t k, size_t padded_k) {
-            ws.u_d[0] = 0.0;
-            ws.u_f[0] = 0.0F;
-            NodeT node = ws.thread[0];
+            // Hoisted so the compiler doesn't reload each vector's base pointer every
+            // iteration (a store through one could otherwise alias another's data()).
+            const NodeT* const __restrict thread = ws.thread.data();
+            const NodeT* const __restrict parent = ws.parent.data();
+            double* const __restrict u_d = ws.u_d.data();
+            float* const __restrict u_f = ws.u_f.data();
+            double* const __restrict v_d = ws.v_d.data();
+            float* const __restrict v_f = ws.v_f.data();
+            u_d[0] = 0.0;
+            u_f[0] = 0.0F;
+            NodeT node = thread[0];
             size_t n = m + k;
-            for (size_t count = 1; count < n; ++count, node = ws.thread[node]) {
-                NodeT p = ws.parent[node];
+            for (size_t count = 1; count < n; ++count, node = thread[node]) {
+                NodeT p = parent[node];
                 double c =
                     static_cast<double>(pred_cost_f(ws.cost_f, padded_k, m, node, p));
                 double val = (static_cast<size_t>(node) < m)
-                                 ? c - ws.v_d[static_cast<size_t>(p) - m]
-                                 : c - ws.u_d[p];
+                                 ? c - v_d[static_cast<size_t>(p) - m]
+                                 : c - u_d[p];
                 if (static_cast<size_t>(node) < m) {
-                    ws.u_d[node] = val;
-                    ws.u_f[node] = static_cast<float>(val);
+                    u_d[node] = val;
+                    u_f[node] = static_cast<float>(val);
                 } else {
-                    ws.v_d[static_cast<size_t>(node) - m] = val;
-                    ws.v_f[static_cast<size_t>(node) - m] = static_cast<float>(val);
+                    v_d[static_cast<size_t>(node) - m] = val;
+                    v_f[static_cast<size_t>(node) - m] = static_cast<float>(val);
                 }
             }
         }
@@ -765,12 +773,14 @@ template <AVX_AVAILABILITY Avx> struct TransportSimplex {
         }
 
         static NodeT find_join_node(SolverWorkspace& ws, NodeT i_node, NodeT j_node) {
+            const NodeT* const __restrict succ_num = ws.succ_num.data();
+            const NodeT* const __restrict parent = ws.parent.data();
             size_t u = i_node, v = j_node;
             while (u != v) {
-                if (ws.succ_num[u] < ws.succ_num[v]) {
-                    u = ws.parent[u];
+                if (succ_num[u] < succ_num[v]) {
+                    u = parent[u];
                 } else {
-                    v = ws.parent[v];
+                    v = parent[v];
                 }
             }
             return static_cast<NodeT>(u);
@@ -789,19 +799,21 @@ template <AVX_AVAILABILITY Avx> struct TransportSimplex {
             NodeT& v_in,
             NodeT& u_out
         ) {
+            const NodeT* const __restrict parent = ws.parent.data();
+            const double* const __restrict flow_to_parent = ws.flow_to_parent.data();
             double delta = std::numeric_limits<double>::infinity();
             bool leaving_on_j_side = false;
-            for (size_t u = i_node; u != join; u = ws.parent[u]) {
-                double d = is_source(u, m) ? ws.flow_to_parent[u]
+            for (size_t u = i_node; u != join; u = parent[u]) {
+                double d = is_source(u, m) ? flow_to_parent[u]
                                            : std::numeric_limits<double>::infinity();
                 if (d < delta) {
                     delta = d;
                     u_out = static_cast<NodeT>(u);
                 }
             }
-            for (size_t u = j_node; u != join; u = ws.parent[u]) {
+            for (size_t u = j_node; u != join; u = parent[u]) {
                 double d = is_source(u, m) ? std::numeric_limits<double>::infinity()
-                                           : ws.flow_to_parent[u];
+                                           : flow_to_parent[u];
                 if (d <= delta) {
                     delta = d;
                     u_out = static_cast<NodeT>(u);
@@ -829,11 +841,13 @@ template <AVX_AVAILABILITY Avx> struct TransportSimplex {
             if (theta <= 0.0) {
                 return;
             }
-            for (size_t u = i_node; u != join; u = ws.parent[u]) {
-                ws.flow_to_parent[u] += is_source(u, m) ? -theta : theta;
+            const NodeT* const __restrict parent = ws.parent.data();
+            double* const __restrict flow_to_parent = ws.flow_to_parent.data();
+            for (size_t u = i_node; u != join; u = parent[u]) {
+                flow_to_parent[u] += is_source(u, m) ? -theta : theta;
             }
-            for (size_t u = j_node; u != join; u = ws.parent[u]) {
-                ws.flow_to_parent[u] += is_source(u, m) ? theta : -theta;
+            for (size_t u = j_node; u != join; u = parent[u]) {
+                flow_to_parent[u] += is_source(u, m) ? theta : -theta;
             }
         }
 
@@ -848,94 +862,103 @@ template <AVX_AVAILABILITY Avx> struct TransportSimplex {
             NodeT u_out,
             double theta
         ) {
-            size_t old_rev_thread = ws.rev_thread[u_out];
-            NodeT old_succ_num = ws.succ_num[u_out];
-            size_t old_last_succ = ws.last_succ[u_out];
-            NodeT v_out = ws.parent[u_out];
+            // Hoisted: none of these vectors alias each other, but without __restrict a
+            // store through one forces a reload of every other's data() each iteration.
+            NodeT* const __restrict parent = ws.parent.data();
+            NodeT* const __restrict thread = ws.thread.data();
+            NodeT* const __restrict rev_thread = ws.rev_thread.data();
+            NodeT* const __restrict succ_num = ws.succ_num.data();
+            NodeT* const __restrict last_succ = ws.last_succ.data();
+            double* const __restrict flow_to_parent = ws.flow_to_parent.data();
 
-            size_t u = ws.last_succ[u_in];
-            size_t right = ws.thread[u];
+            size_t old_rev_thread = rev_thread[u_out];
+            NodeT old_succ_num = succ_num[u_out];
+            size_t old_last_succ = last_succ[u_out];
+            NodeT v_out = parent[u_out];
+
+            size_t u = last_succ[u_in];
+            size_t right = thread[u];
             size_t last = (old_rev_thread == static_cast<size_t>(v_in))
-                              ? ws.thread[ws.last_succ[u_out]]
-                              : ws.thread[v_in];
+                              ? thread[last_succ[u_out]]
+                              : thread[v_in];
 
-            ws.thread[v_in] = u_in;
+            thread[v_in] = u_in;
             size_t stem = u_in;
             ws.dirty_revs.clear();
             ws.dirty_revs.push_back(v_in);
             size_t par_stem = v_in;
             while (stem != u_out) {
-                size_t new_stem = ws.parent[stem];
-                ws.thread[u] = static_cast<NodeT>(new_stem);
+                size_t new_stem = parent[stem];
+                thread[u] = static_cast<NodeT>(new_stem);
                 ws.dirty_revs.push_back(static_cast<NodeT>(u));
 
-                size_t w = ws.rev_thread[stem];
-                ws.thread[w] = static_cast<NodeT>(right);
-                ws.rev_thread[right] = static_cast<NodeT>(w);
+                size_t w = rev_thread[stem];
+                thread[w] = static_cast<NodeT>(right);
+                rev_thread[right] = static_cast<NodeT>(w);
 
-                ws.parent[stem] = static_cast<NodeT>(par_stem);
+                parent[stem] = static_cast<NodeT>(par_stem);
                 par_stem = stem;
                 stem = new_stem;
 
-                u = (ws.last_succ[stem] == ws.last_succ[par_stem]) ? ws.rev_thread[par_stem]
-                                                                   : ws.last_succ[stem];
-                right = ws.thread[u];
+                u = (last_succ[stem] == last_succ[par_stem]) ? rev_thread[par_stem]
+                                                             : last_succ[stem];
+                right = thread[u];
             }
-            ws.parent[u_out] = static_cast<NodeT>(par_stem);
-            ws.thread[u] = static_cast<NodeT>(last);
-            ws.rev_thread[last] = static_cast<NodeT>(u);
-            ws.last_succ[u_out] = static_cast<NodeT>(u);
+            parent[u_out] = static_cast<NodeT>(par_stem);
+            thread[u] = static_cast<NodeT>(last);
+            rev_thread[last] = static_cast<NodeT>(u);
+            last_succ[u_out] = static_cast<NodeT>(u);
 
             if (old_rev_thread != static_cast<size_t>(v_in)) {
-                ws.thread[old_rev_thread] = static_cast<NodeT>(right);
-                ws.rev_thread[right] = static_cast<NodeT>(old_rev_thread);
+                thread[old_rev_thread] = static_cast<NodeT>(right);
+                rev_thread[right] = static_cast<NodeT>(old_rev_thread);
             }
             for (NodeT dirty : ws.dirty_revs) {
-                ws.rev_thread[ws.thread[dirty]] = dirty;
+                rev_thread[thread[dirty]] = dirty;
             }
 
             NodeT tmp_sc = 0;
-            size_t tmp_ls = ws.last_succ[u_out];
+            size_t tmp_ls = last_succ[u_out];
             u = u_out;
             while (u != static_cast<size_t>(u_in)) {
-                size_t w = ws.parent[u];
-                ws.flow_to_parent[u] = ws.flow_to_parent[w];
-                tmp_sc = static_cast<NodeT>(tmp_sc + ws.succ_num[u] - ws.succ_num[w]);
-                ws.succ_num[u] = tmp_sc;
-                ws.last_succ[w] = static_cast<NodeT>(tmp_ls);
+                size_t w = parent[u];
+                flow_to_parent[u] = flow_to_parent[w];
+                tmp_sc = static_cast<NodeT>(tmp_sc + succ_num[u] - succ_num[w]);
+                succ_num[u] = tmp_sc;
+                last_succ[w] = static_cast<NodeT>(tmp_ls);
                 u = w;
             }
-            ws.flow_to_parent[u_in] = theta;
-            ws.succ_num[u_in] = old_succ_num;
+            flow_to_parent[u_in] = theta;
+            succ_num[u_in] = old_succ_num;
 
             // parent[root]'s sentinel (see solve_impl) matches this "disabled" value, so
             // a chain left unbounded below is safe to walk off the end of the tree.
             constexpr size_t no_node = std::numeric_limits<NodeT>::max();
             size_t up_limit_in = no_node, up_limit_out = no_node;
-            if (ws.last_succ[join] == v_in) {
+            if (last_succ[join] == v_in) {
                 up_limit_out = join;
             } else {
                 up_limit_in = join;
             }
-            for (u = v_in; u != up_limit_in && ws.last_succ[u] == v_in; u = ws.parent[u]) {
-                ws.last_succ[u] = ws.last_succ[u_out];
+            for (u = v_in; u != up_limit_in && last_succ[u] == v_in; u = parent[u]) {
+                last_succ[u] = last_succ[u_out];
             }
             if (join != old_rev_thread && static_cast<size_t>(v_in) != old_rev_thread) {
-                for (u = v_out; u != up_limit_out && ws.last_succ[u] == old_last_succ;
-                     u = ws.parent[u]) {
-                    ws.last_succ[u] = static_cast<NodeT>(old_rev_thread);
+                for (u = v_out; u != up_limit_out && last_succ[u] == old_last_succ;
+                     u = parent[u]) {
+                    last_succ[u] = static_cast<NodeT>(old_rev_thread);
                 }
             } else {
-                for (u = v_out; u != up_limit_out && ws.last_succ[u] == old_last_succ;
-                     u = ws.parent[u]) {
-                    ws.last_succ[u] = ws.last_succ[u_out];
+                for (u = v_out; u != up_limit_out && last_succ[u] == old_last_succ;
+                     u = parent[u]) {
+                    last_succ[u] = last_succ[u_out];
                 }
             }
-            for (u = v_in; u != static_cast<size_t>(join); u = ws.parent[u]) {
-                ws.succ_num[u] = static_cast<NodeT>(ws.succ_num[u] + old_succ_num);
+            for (u = v_in; u != static_cast<size_t>(join); u = parent[u]) {
+                succ_num[u] = static_cast<NodeT>(succ_num[u] + old_succ_num);
             }
-            for (u = v_out; u != static_cast<size_t>(join); u = ws.parent[u]) {
-                ws.succ_num[u] = static_cast<NodeT>(ws.succ_num[u] - old_succ_num);
+            for (u = v_out; u != static_cast<size_t>(join); u = parent[u]) {
+                succ_num[u] = static_cast<NodeT>(succ_num[u] - old_succ_num);
             }
         }
 
@@ -962,15 +985,22 @@ template <AVX_AVAILABILITY Avx> struct TransportSimplex {
             double sigma = is_source(u_in, m) ? pi_of(v_in) - pi_of(u_in) - entering_cost
                                               : pi_of(v_in) - pi_of(u_in) + entering_cost;
 
-            size_t end = ws.thread[ws.last_succ[u_in]];
-            for (size_t node = u_in; node != end; node = ws.thread[node]) {
+            // Hoisted: these never alias each other, but without __restrict every store
+            // through one forces a reload of the others' data() each iteration.
+            const NodeT* const __restrict thread = ws.thread.data();
+            double* const __restrict u_d = ws.u_d.data();
+            float* const __restrict u_f = ws.u_f.data();
+            double* const __restrict v_d = ws.v_d.data();
+            float* const __restrict v_f = ws.v_f.data();
+            size_t end = thread[ws.last_succ[u_in]];
+            for (size_t node = u_in; node != end; node = thread[node]) {
                 if (is_source(node, m)) {
-                    ws.u_d[node] -= sigma;
-                    ws.u_f[node] -= static_cast<float>(sigma);
+                    u_d[node] -= sigma;
+                    u_f[node] -= static_cast<float>(sigma);
                 } else {
                     size_t j = node - m;
-                    ws.v_d[j] += sigma;
-                    ws.v_f[j] += static_cast<float>(sigma);
+                    v_d[j] += sigma;
+                    v_f[j] += static_cast<float>(sigma);
                 }
             }
         }
