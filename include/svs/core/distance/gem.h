@@ -17,6 +17,7 @@
 #pragma once
 
 #include "svs/concepts/vector_set.h"
+#include "svs/core/data/simple.h"
 #include "svs/core/distance/distance_core.h"
 #include "svs/core/distance/gem_router.h"
 #include "svs/core/distance/inner_product_matrix.h"
@@ -67,17 +68,20 @@ inline Ground parse_ground(std::string_view s) {
 
 /// Owns a dense K x K matrix of pairwise centroid distances, row-major. Built either by
 /// loading a precomputed file or in-process from centroids (see from_centroids()).
+/// Backed by the hugepage allocator (see `svs::HugepageAllocator`, used the same way by
+/// `svs::data::VectorSetData` and `svs::graphs::SimpleGraph`): random lookups into a
+/// K=16384 table (1 GiB) are TLB/cache-miss bound, and hugepages shrink the TLB footprint.
 struct CentroidTable {
     size_t K;
-    std::unique_ptr<float[]> data;
+    svs::data::SimpleData<float, svs::Dynamic, svs::HugepageAllocator<float>> data;
 
     CentroidTable(size_t k, std::vector<float> table)
         : K{k}
-        , data{std::make_unique<float[]>(k * k)} {
+        , data{k, k, svs::HugepageAllocator<float>()} {
         if (table.size() != K * K) {
             throw std::invalid_argument("CentroidTable: data size does not match K*K");
         }
-        std::copy(table.begin(), table.end(), data.get());
+        std::copy(table.begin(), table.end(), data.data());
     }
 
     // The file has no header, so K comes from table.json via the caller.
@@ -101,7 +105,7 @@ struct CentroidTable {
         // wasted bandwidth on a buffer that can be hundreds of GiB.
         CentroidTable result{k, uninitialized_tag{}};
         in.read(
-            reinterpret_cast<char*>(result.data.get()),
+            reinterpret_cast<char*>(result.data.data()),
             static_cast<std::streamsize>(expected_bytes)
         );
         if (!in) {
@@ -129,7 +133,7 @@ struct CentroidTable {
         const float* centroids, size_t k, size_t dim, Ground ground, size_t num_threads
     ) {
         CentroidTable result{k, uninitialized_tag{}};
-        float* out = result.data.get();
+        float* out = result.data.data();
         svs::threads::DefaultThreadPool pool(num_threads);
 
         // Tile edge: an operand block (tile * dim * 4 bytes, 128 KiB at dim=128) and the
@@ -218,17 +222,17 @@ struct CentroidTable {
     }
 
     float operator()(uint32_t i, uint32_t j) const {
-        return data[static_cast<size_t>(i) * K + j];
+        return data.data()[static_cast<size_t>(i) * K + j];
     }
 
   private:
     struct uninitialized_tag {};
 
-    // new[] with no parens default-initializes float (indeterminate value, no zero
-    // fill); ownership passes to unique_ptr immediately, so this stays exception-safe.
+    // SimpleData's allocator-backed ctor default-constructs each element in place; for
+    // a trivial float that writes nothing, matching make_unique_for_overwrite's intent.
     CentroidTable(size_t k, uninitialized_tag)
         : K{k}
-        , data{std::make_unique_for_overwrite<float[]>(k * k)} {}
+        , data{k, k, svs::HugepageAllocator<float>()} {}
 };
 
 /// Owns the raw K x dim fine-centroid vectors (row-major, not a pairwise table), as
