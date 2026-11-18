@@ -1245,6 +1245,40 @@ extern "C" svs_index_h svs_index_load_stream_dynamic(
     );
 }
 
+extern "C" svs_index_h svs_index_load_stream_dynamic_ex(
+    svs_index_builder_h builder,
+    svs_stream_i stream,
+    const svs_dynamic_index_params_t* params,
+    svs_error_h out_err
+) {
+    using namespace svs::c_runtime;
+    return wrap_exceptions(
+        [&]() {
+            EXPECT_ARG_NOT_NULL(builder);
+            EXPECT_ARG_NOT_NULL(stream);
+            NOT_IMPLEMENTED_IF(
+                (builder->impl->algorithm->type != SVS_ALGORITHM_TYPE_VAMANA),
+                "Only Vamana algorithm is currently supported for dynamic index loading"
+            );
+            StreamBuf::validate(stream, /*need_write=*/false);
+            auto dynamic_params = read_dynamic_index_params(params);
+            auto index = builder->impl->load_stream_dynamic(
+                std::make_unique<InputStream>(*stream->ops, stream->self),
+                dynamic_params.block_params,
+                dynamic_params.sync_kind
+            );
+            if (index == nullptr) {
+                SET_ERROR(out_err, SVS_ERROR_RUNTIME, "Dynamic index load failed");
+                return svs_index_h{nullptr};
+            }
+            auto result = new svs_index;
+            result->impl = index;
+            return result;
+        },
+        out_err
+    );
+}
+
 extern "C" svs_index_h
 svs_index_convert(svs_index_builder_h builder, svs_index_h src_index, svs_error_h out_err) {
     using namespace svs::c_runtime;
