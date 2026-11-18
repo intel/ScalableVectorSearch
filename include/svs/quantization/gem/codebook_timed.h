@@ -87,7 +87,9 @@ std::pair<TrainedCodebook, QuantizeTimings> train_codebook_timed(
         parameters.minibatch_size,
         rng,
         threadpool,
-        detail::IterationTimer{timings.train_iterations, {}}
+        detail::IterationTimer{timings.train_iterations, {}},
+        parameters.kmeans_algorithm,
+        parameters.emeans_epochs
     );
     timings.train =
         std::chrono::duration<double>(std::chrono::steady_clock::now() - train_start)

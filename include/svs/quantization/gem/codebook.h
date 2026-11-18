@@ -25,6 +25,7 @@
 #include "svs/core/data/vector_set.h"
 #include "svs/core/distance/gem.h"
 #include "svs/core/distance/inner_product_matrix.h"
+#include "svs/core/kmeans_emeans.h"
 #include "svs/core/kmeans_training.h"
 #include "svs/lib/bfloat16.h"
 #include "svs/lib/exception.h"
@@ -104,12 +105,19 @@ inline size_t colbert_sample_size(size_t num_passages) {
 /// Which kernel assign_tokens/quantize use to find each token's nearest centroid.
 enum class Assigner { ExactGemm, InnerProductMatrix };
 
+/// Which k-means algorithm train_centroids runs. Lloyd is the historical default and its
+/// behavior is unchanged by this enum's existence; EMeans is svs::kmeans::emeans_train
+/// (arXiv:2611.09501v1), wired in as an alternative for the same plain-L2 contract.
+enum class KMeansAlgorithm { Lloyd, EMeans };
+
 /// Parameters for codebook training, assignment and the coarse-cluster side table.
 struct CodebookParameters {
     /// Number of fine centroids K; 0 selects colbert_num_partitions from the token count.
     size_t num_centroids = 0;
+    /// Lloyd iteration count; ignored when kmeans_algorithm == EMeans (use emeans_epochs).
     size_t kmeans_iterations = 4;
     /// GEMM chunk size for training's shared buffer; assign_tokens sizes its own instead.
+    /// Also EMeansParameters::assignment_chunk's source when kmeans_algorithm == EMeans.
     size_t minibatch_size = 10'000;
     uint32_t seed = 42;
     double heldout_fraction = 0.05;
@@ -123,6 +131,12 @@ struct CodebookParameters {
     svs::distance::Ground ground = svs::distance::Ground::Cos;
     /// Per-thread score-buffer budget; fixed-row sizing once hit 587 GB at K=131'072.
     size_t assign_buffer_bytes = 32 * 1024 * 1024;
+    /// Which k-means algorithm train_centroids runs; Lloyd (kmeans_iterations) by default.
+    KMeansAlgorithm kmeans_algorithm = KMeansAlgorithm::Lloyd;
+    /// EMeans epochs T, used only when kmeans_algorithm == EMeans. Batch size and alpha0
+    /// are left to svs::kmeans::EMeansParameters's scaling-law defaults. Defaults to
+    /// EMeansParameters's own default so the two never drift apart.
+    size_t emeans_epochs = svs::kmeans::EMeansParameters{}.epochs;
 };
 
 /// Any contiguous vector-set dataset of float or Float16 tokens: VectorSetData<T> and
@@ -261,7 +275,9 @@ L2KMeansResult train_centroids(
     size_t minibatch_size,
     std::mt19937& rng,
     Pool& threadpool,
-    Observer observer = Observer{}
+    Observer observer = Observer{},
+    KMeansAlgorithm algorithm = KMeansAlgorithm::Lloyd,
+    size_t emeans_epochs = svs::kmeans::EMeansParameters{}.epochs
 ) {
     size_t n = data.size();
     if (n < num_clusters) {
@@ -271,7 +287,27 @@ L2KMeansResult train_centroids(
             num_clusters
         );
     }
+
+    if (algorithm == KMeansAlgorithm::EMeans) {
+        svs::kmeans::EMeansParameters emeans_params;
+        emeans_params.epochs = emeans_epochs;
+        // Caps EMeans' per-chunk score buffer the same way minibatch_size caps Lloyd's.
+        emeans_params.assignment_chunk = minibatch_size;
+        svs::lib::Timer scratch_timer;
+        observer.before_iteration(0);
+        auto emeans_result = svs::kmeans::emeans_train(
+            emeans_params, data, num_clusters, rng, threadpool, scratch_timer
+        );
+        observer.after_iteration(0);
+        // L2KMeansResult.objective is the raw sum detail::compute_objective produces;
+        // emeans_train returns the mean, so GEM's kmeans_objective field stays comparable
+        // across algorithms.
+        double objective_sum = emeans_result.objective * static_cast<double>(n);
+        return L2KMeansResult{std::move(emeans_result.centroids), objective_sum};
+    }
+
     // faiss subsamples past 256/centroid; throws instead of silently diverging from it.
+    // Lloyd-only: e-means is designed to train on n far beyond this bound.
     if (n > num_clusters * 256) {
         throw ANNEXCEPTION(
             "train_centroids: {} points exceed faiss's 256-per-centroid training bound "
@@ -466,7 +502,10 @@ train_codebook(const Data& tokens, const CodebookParameters& parameters, Pool& t
         parameters.kmeans_iterations,
         parameters.minibatch_size,
         rng,
-        threadpool
+        threadpool,
+        NoOpKMeansObserver{},
+        parameters.kmeans_algorithm,
+        parameters.emeans_epochs
     );
 
     svs::lib::Timer scratch_timer;

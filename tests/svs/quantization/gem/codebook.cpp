@@ -429,3 +429,32 @@ CATCH_TEST_CASE("GEM Codebook - failure paths", "[quantization][gem]") {
         CATCH_REQUIRE_THROWS(gem::coarse_clusters(centroids, parameters, threadpool));
     }
 }
+
+CATCH_TEST_CASE("GEM Codebook - k-means algorithm selection", "[quantization][gem]") {
+    CATCH_SECTION("default CodebookParameters selects Lloyd") {
+        CATCH_REQUIRE(
+            gem::CodebookParameters{}.kmeans_algorithm == gem::KMeansAlgorithm::Lloyd
+        );
+    }
+
+    CATCH_SECTION("EMeans trains K centroids of the right dimension, finite objective") {
+        constexpr size_t DIM = 8;
+        constexpr size_t K = 4;
+        constexpr size_t NUM_PASSAGES = 40;
+        auto centers = make_random_centers(K, DIM, 0x2024);
+        auto corpus = make_clustered_corpus(
+            centers, K, DIM, std::vector<size_t>(NUM_PASSAGES, 2), 0xaaaa, 0.1F
+        );
+        gem::CodebookParameters parameters;
+        parameters.num_centroids = K;
+        parameters.kmeans_algorithm = gem::KMeansAlgorithm::EMeans;
+        parameters.emeans_epochs = 1;
+        auto threadpool = svs::threads::as_threadpool(2);
+
+        auto result = gem::train_codebook(corpus, parameters, threadpool);
+
+        CATCH_REQUIRE(result.centroids.size() == K);
+        CATCH_REQUIRE(result.centroids.dimensions() == DIM);
+        CATCH_REQUIRE(std::isfinite(result.objective));
+    }
+}
