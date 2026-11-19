@@ -24,6 +24,7 @@
 #include "svs/lib/file.h"
 
 // tests
+#include "tests/utils/range_search.h"
 #include "tests/utils/test_dataset.h"
 #include "tests/utils/utils.h"
 #include "tests/utils/vamana_reference.h"
@@ -405,4 +406,19 @@ CATCH_TEST_CASE(
     for (size_t i = initial; i < initial + num_writers * per_writer; ++i) {
         CATCH_REQUIRE(index.has_id(i));
     }
+}
+
+CATCH_TEST_CASE(
+    "ConcurrentDynamicVamana Range Search", "[managers][concurrent_dynamic_vamana]"
+) {
+    auto data = load_data();
+    auto queries = svs::data::SimpleData<float>::load(test_dataset::query_file());
+    auto index = svs::ConcurrentDynamicVamana::build<float>(
+        svs::index::vamana::VamanaBuildParameters{1.2, 32, 64, 750, 28, true},
+        load_data(),
+        iota_ids(data.size()),
+        svs::DistanceType::L2,
+        num_threads
+    );
+    svs_test::check_orchestrator_range_search(index, data, queries);
 }

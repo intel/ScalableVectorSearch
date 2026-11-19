@@ -108,7 +108,25 @@ class VamanaInterface {
     // through the wrong slot with no link-time diagnostic.
     virtual svs::index::vamana::MemoryBreakdown get_memory_breakdown() const = 0;
     virtual svs::index::vamana::VamanaIndexParameters parameters() const = 0;
+
+    ///// Range search
+    virtual std::vector<std::vector<Neighbor<size_t>>> range_search(
+        AnonymousArray<2> queries,
+        float radius,
+        const index::vamana::VamanaSearchParameters& search_parameters,
+        const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>())
+    ) = 0;
 };
+
+/// Whether the index implementation `Impl` provides ``range_search`` for `Queries`.
+template <typename Impl, typename Queries>
+concept HasRangeSearch = requires(
+    Impl& impl,
+    const Queries& queries,
+    float radius,
+    const index::vamana::VamanaSearchParameters& search_parameters,
+    const lib::DefaultPredicate& cancel
+) { impl.range_search(queries, radius, search_parameters, cancel); };
 
 template <lib::TypeList QueryTypes, typename Impl, typename IFace = VamanaInterface>
 class VamanaImpl : public manager::ManagerImpl<QueryTypes, Impl, IFace> {
@@ -282,6 +300,37 @@ class VamanaImpl : public manager::ManagerImpl<QueryTypes, Impl, IFace> {
 
     svs::index::vamana::VamanaIndexParameters parameters() const override {
         return impl().parameters();
+    }
+
+    ///// Range search
+    std::vector<std::vector<Neighbor<size_t>>> range_search(
+        AnonymousArray<2> queries,
+        float radius,
+        const VamanaSearchParameters& search_parameters,
+        const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>())
+    ) override {
+        return lib::match(
+            QueryTypes{},
+            queries.type(),
+            [&]<typename T>(lib::Type<T> SVS_UNUSED(type)) {
+                const auto view = data::ConstSimpleDataView<T>(queries);
+                if constexpr (HasRangeSearch<Impl, data::ConstSimpleDataView<T>>) {
+                    return this->impl().range_search(
+                        view, radius, search_parameters, cancel
+                    );
+                } else {
+                    throw ANNEXCEPTION("Range search is not supported by this index!");
+                    return std::vector<std::vector<Neighbor<size_t>>>{};
+                }
+            },
+            [&](svs::DataType data_type) -> std::vector<std::vector<Neighbor<size_t>>> {
+                throw ANNEXCEPTION(
+                    "Unsupported datatype! Got: {}. Expected one of: {}.",
+                    data_type,
+                    fmt::join(QueryTypes::data_types(), ", ")
+                );
+            }
+        );
     }
 };
 
@@ -774,6 +823,20 @@ class Vamana : public manager::IndexManager<VamanaInterface> {
 
     svs::index::vamana::VamanaIndexParameters parameters() const {
         return impl_->parameters();
+    }
+
+    ///// Range search
+    /// @copydoc svs::index::vamana::VamanaIndex::range_search
+    template <typename QueryType>
+    std::vector<std::vector<Neighbor<size_t>>> range_search(
+        data::ConstSimpleDataView<QueryType> queries,
+        float radius,
+        const VamanaSearchParameters& search_parameters,
+        const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>())
+    ) {
+        return impl_->range_search(
+            AnonymousArray<2>(queries), radius, search_parameters, cancel
+        );
     }
 
   private:

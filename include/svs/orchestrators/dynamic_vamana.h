@@ -609,6 +609,20 @@ class DynamicVamana : public manager::IndexManager<DynamicVamanaInterface> {
 
     /// @brief Check if the index has been consolidated - no `Deleted` entries remain.
     bool is_consolidated() const { return impl_->is_consolidated(); }
+
+    ///// Range search
+    /// @copydoc svs::index::vamana::MutableVamanaIndex::range_search
+    template <typename QueryType>
+    std::vector<std::vector<Neighbor<size_t>>> range_search(
+        data::ConstSimpleDataView<QueryType> queries,
+        float radius,
+        const VamanaSearchParameters& search_parameters,
+        const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>())
+    ) {
+        return impl_->range_search(
+            AnonymousArray<2>(queries), radius, search_parameters, cancel
+        );
+    }
 };
 
 ///
