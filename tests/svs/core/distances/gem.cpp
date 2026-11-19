@@ -433,6 +433,26 @@ CATCH_TEST_CASE("QEmd", "[distance][gem]") {
             CATCH_REQUIRE(ba == Catch::Approx(ab));
         }
     }
+
+    CATCH_SECTION("start() reports the constructed start; CheapestRow matches the "
+                  "default distance") {
+        auto table = make_table(Ground::Cos);
+        QEmd default_dist{table};
+        QEmd cheapest_dist{table, nullptr, svs::distance::TransportStart::CheapestRow};
+        CATCH_REQUIRE(default_dist.start() == svs::distance::TransportStart::NorthWest);
+        CATCH_REQUIRE(cheapest_dist.start() == svs::distance::TransportStart::CheapestRow);
+
+        auto a = make_id_set({0, 1});
+        auto b = make_id_set({2, 3});
+        float default_score = default_dist.compute(a.view(), b.view());
+        float cheapest_score = cheapest_dist.compute(a.view(), b.view());
+        double gap = svs::distance::TransportSimplex<
+            svs::distance::AVX_AVAILABILITY::AVX2>::error_bound(2, 2, 2.0, 1.0);
+        CATCH_REQUIRE(
+            static_cast<double>(cheapest_score) ==
+            Catch::Approx(static_cast<double>(default_score)).margin(gap + 1e-6)
+        );
+    }
 }
 
 CATCH_TEST_CASE("QEmd transportation solve: random cross-checks", "[distance][gem]") {
@@ -507,7 +527,14 @@ CATCH_TEST_CASE("QEmd transportation solve: random cross-checks", "[distance][ge
 
         double reference = reference_transport_cost(ua, w_a, ub, w_b, cost);
         float none_result = QEmdImpl<AVX_AVAILABILITY::NONE>::compute_decoded(
-            table, ids_a.data(), w_a.data(), ua, ids_b.data(), w_b.data(), ub
+            table,
+            ids_a.data(),
+            w_a.data(),
+            ua,
+            ids_b.data(),
+            w_b.data(),
+            ub,
+            svs::distance::TransportStart::NorthWest
         );
         CATCH_REQUIRE(
             static_cast<double>(none_result) == Catch::Approx(reference).margin(1e-6)
@@ -526,28 +553,32 @@ CATCH_TEST_CASE("QEmd transportation solve: random cross-checks", "[distance][ge
             return gap + ulp;
         };
 
+        for (auto start :
+             {svs::distance::TransportStart::NorthWest,
+              svs::distance::TransportStart::CheapestRow}) {
 #if defined(__x86_64__)
-        if (svs::detail::avx_runtime_flags.is_avx2_supported()) {
-            float avx2_result = QEmdImpl<AVX_AVAILABILITY::AVX2>::compute_decoded(
-                table, ids_a.data(), w_a.data(), ua, ids_b.data(), w_b.data(), ub
-            );
-            CATCH_REQUIRE(
-                static_cast<double>(avx2_result) ==
-                Catch::Approx(static_cast<double>(none_result))
-                    .margin(isa_margin(static_cast<double>(none_result)))
-            );
-        }
-        if (svs::detail::avx_runtime_flags.is_avx512f_supported()) {
-            float avx512_result = QEmdImpl<AVX_AVAILABILITY::AVX512>::compute_decoded(
-                table, ids_a.data(), w_a.data(), ua, ids_b.data(), w_b.data(), ub
-            );
-            CATCH_REQUIRE(
-                static_cast<double>(avx512_result) ==
-                Catch::Approx(static_cast<double>(none_result))
-                    .margin(isa_margin(static_cast<double>(none_result)))
-            );
-        }
+            if (svs::detail::avx_runtime_flags.is_avx2_supported()) {
+                float avx2_result = QEmdImpl<AVX_AVAILABILITY::AVX2>::compute_decoded(
+                    table, ids_a.data(), w_a.data(), ua, ids_b.data(), w_b.data(), ub, start
+                );
+                CATCH_REQUIRE(
+                    static_cast<double>(avx2_result) ==
+                    Catch::Approx(static_cast<double>(none_result))
+                        .margin(isa_margin(static_cast<double>(none_result)))
+                );
+            }
+            if (svs::detail::avx_runtime_flags.is_avx512f_supported()) {
+                float avx512_result = QEmdImpl<AVX_AVAILABILITY::AVX512>::compute_decoded(
+                    table, ids_a.data(), w_a.data(), ua, ids_b.data(), w_b.data(), ub, start
+                );
+                CATCH_REQUIRE(
+                    static_cast<double>(avx512_result) ==
+                    Catch::Approx(static_cast<double>(none_result))
+                        .margin(isa_margin(static_cast<double>(none_result)))
+                );
+            }
 #endif
+        }
     };
 
     CATCH_SECTION("Random problems") {

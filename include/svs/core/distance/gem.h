@@ -396,7 +396,8 @@ template <AVX_AVAILABILITY Avx> struct QEmdImpl {
         size_t ua,
         const uint32_t* ids_b,
         const double* w_b,
-        size_t ub
+        size_t ub,
+        TransportStart start
     ) {
         if (ua == 1 && ub == 1) {
             return table(ids_a[0], ids_b[0]);
@@ -410,11 +411,11 @@ template <AVX_AVAILABILITY Avx> struct QEmdImpl {
             // ub; swapping keeps the row (ids_b) fixed there. If that transpose rule
             // changes, results stay correct but this locality win is lost.
             auto cost_fn = [&](size_t i, size_t j) { return table(ids_b[j], ids_a[i]); };
-            double cost = TransportSimplex<Avx>::solve(ua, w_a, ub, w_b, cost_fn);
+            double cost = TransportSimplex<Avx>::solve(ua, w_a, ub, w_b, cost_fn, start);
             return static_cast<float>(cost);
         }
         auto cost_fn = [&](size_t i, size_t j) { return table(ids_a[i], ids_b[j]); };
-        double cost = TransportSimplex<Avx>::solve(ua, w_a, ub, w_b, cost_fn);
+        double cost = TransportSimplex<Avx>::solve(ua, w_a, ub, w_b, cost_fn, start);
         return static_cast<float>(cost);
     }
 
@@ -425,7 +426,8 @@ template <AVX_AVAILABILITY Avx> struct QEmdImpl {
         const uint32_t* ids_a,
         size_t na,
         const uint32_t* ids_b,
-        size_t nb
+        size_t nb,
+        TransportStart start
     ) {
         thread_local gem_detail::MergeScratch scratch_a;
         thread_local gem_detail::MergeScratch scratch_b;
@@ -438,7 +440,8 @@ template <AVX_AVAILABILITY Avx> struct QEmdImpl {
             ua,
             scratch_b.ids.data(),
             scratch_b.weights.data(),
-            ub
+            ub,
+            start
         );
     }
 
@@ -557,12 +560,18 @@ class QEmd {
 
     explicit QEmd(
         std::shared_ptr<const CentroidTable> table,
-        std::shared_ptr<const GemRouter> router = nullptr
+        std::shared_ptr<const GemRouter> router = nullptr,
+        TransportStart start = TransportStart::NorthWest
     )
         : table_{std::move(table)}
-        , router_{std::move(router)} {}
+        , router_{std::move(router)}
+        , start_{start} {}
 
     const std::shared_ptr<const GemRouter>& router() const { return router_; }
+
+    /// Transport-simplex start used by `compute`. Not saved with an index: it changes the
+    /// pivot count, not the optimum.
+    TransportStart start() const { return start_; }
 
     // Vector-set path: ids come straight from a contiguous vector set's own storage; T ==
     // uint32_t skips the cast copy (gem_detail::id_span), any other unsigned type costs it.
@@ -580,18 +589,23 @@ class QEmd {
         size_t nb = b.cardinality();
         if (__builtin_expect(svs::detail::avx_runtime_flags.is_avx512f_supported(), 1)) {
             return QEmdImpl<AVX_AVAILABILITY::AVX512>::compute(
-                *table_, ids_a, na, ids_b, nb
+                *table_, ids_a, na, ids_b, nb, start_
             );
         }
         if (__builtin_expect(svs::detail::avx_runtime_flags.is_avx2_supported(), 1)) {
-            return QEmdImpl<AVX_AVAILABILITY::AVX2>::compute(*table_, ids_a, na, ids_b, nb);
+            return QEmdImpl<AVX_AVAILABILITY::AVX2>::compute(
+                *table_, ids_a, na, ids_b, nb, start_
+            );
         }
-        return QEmdImpl<AVX_AVAILABILITY::NONE>::compute(*table_, ids_a, na, ids_b, nb);
+        return QEmdImpl<AVX_AVAILABILITY::NONE>::compute(
+            *table_, ids_a, na, ids_b, nb, start_
+        );
     }
 
   private:
     std::shared_ptr<const CentroidTable> table_;
     std::shared_ptr<const GemRouter> router_;
+    TransportStart start_;
 };
 
 inline constexpr bool operator==(const QEmd&, const QEmd&) { return true; }

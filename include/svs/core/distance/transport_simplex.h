@@ -60,6 +60,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <limits>
+#include <numeric>
 #include <stdexcept>
 #include <string>
 #include <type_traits>
@@ -84,23 +85,29 @@ template <> struct TransportIndexTraits<256> {
 
 namespace svs::distance {
 
+/// Column order of `TransportSimplex::solve`'s northwest-corner start. `NorthWest` walks
+/// columns in id order. `CheapestRow` groups them by cheapest row first (ties by ascending
+/// column id): one extra compare per cost cell for fewer pivots. Both reach the same
+/// optimum; only the pivot count differs.
+enum class TransportStart { NorthWest, CheapestRow };
+
 /// Solves the dense balanced transportation problem exactly to within
 /// `error_bound(ua, ub, max_cost, total_mass)`. Same contract as
 /// `TransportSimplexReference::solve`, plus: `CostFn` must return `float` (pricing stores
 /// costs as float, exact for callers whose costs already are, e.g. `CentroidTable`).
 ///
 /// Orients to put the smaller side in rows, then starts from a northwest-corner walk over
-/// columns grouped by their cheapest row (ties broken by ascending column id), trading a
-/// one-pass cost scan for fewer pivots than a cost-blind NW start needs.
-/// Strong feasibility means every zero-flow tree arc has a *source*
-/// child (points toward the root, LEMON's convention); the only zero-flow arc the start
-/// ever adds is a value tie's degenerate arc, and that arc's child is always a fresh,
-/// untouched row, never a sink. Every arc whose child is a sink instead carries that
-/// sink's own fresh demand (or a fresh row's full supply), so it is always strictly
-/// positive. Each pivot picks the leaving arc by Cunningham's rule (the *last* blocking
-/// arc on the cycle in the entering arc's own direction), which preserves this invariant
-/// under degenerate pivots and so guarantees termination regardless of which
-/// negative-reduced-cost arc enters next.
+/// columns in the order `TransportStart` picks. Both starts share one argument: the walk
+/// reasons only about positions (row i, column position p), never a column's id, and rows
+/// keep their order, so the root is row 0 and any column permutation stays strongly
+/// feasible. Strong feasibility means every zero-flow tree arc has a *source* child (points
+/// toward the root, LEMON's convention); the only zero-flow arc the start ever adds is a
+/// value tie's degenerate arc, and that arc's child is always a fresh, untouched row, never
+/// a sink. Every arc whose child is a sink instead carries that sink's own fresh demand (or
+/// a fresh row's full supply), so it is always strictly positive. Each pivot picks the
+/// leaving arc by Cunningham's rule (the *last* blocking arc on the cycle in the entering
+/// arc's own direction), which preserves this invariant under degenerate pivots and so
+/// guarantees termination regardless of which negative-reduced-cost arc enters next.
 /// Pricing scans the dense cost matrix in a block-cyclic resumable order in float (`Avx`
 /// selects the row scan's SIMD width); a float candidate is only pivoted once its reduced
 /// cost is confirmed negative in double (exactly recoverable, since the cost matrix is
@@ -131,17 +138,23 @@ template <AVX_AVAILABILITY Avx> struct TransportSimplex {
 #endif
 
     template <typename CostFn>
-    static double
-    solve(size_t ua, const double* supply, size_t ub, const double* demand, CostFn&& cost)
+    static double solve(
+        size_t ua,
+        const double* supply,
+        size_t ub,
+        const double* demand,
+        CostFn&& cost,
+        TransportStart start = TransportStart::NorthWest
+    )
         requires std::same_as<std::invoke_result_t<CostFn&, size_t, size_t>, float>
     {
         if (std::max(ua, ub) <= narrow_index_max_side) {
             return Impl<narrow_index_max_side>::solve_impl(
-                ua, supply, ub, demand, std::forward<CostFn>(cost)
+                ua, supply, ub, demand, std::forward<CostFn>(cost), start
             );
         }
         return Impl<svs::Dynamic>::solve_impl(
-            ua, supply, ub, demand, std::forward<CostFn>(cost)
+            ua, supply, ub, demand, std::forward<CostFn>(cost), start
         );
     }
 
@@ -428,7 +441,12 @@ template <AVX_AVAILABILITY Avx> struct TransportSimplex {
       public:
         template <typename CostFn>
         static double solve_impl(
-            size_t ua, const double* supply, size_t ub, const double* demand, CostFn&& cost
+            size_t ua,
+            const double* supply,
+            size_t ub,
+            const double* demand,
+            CostFn&& cost,
+            TransportStart start
         ) {
             if constexpr (MaxSide != svs::Dynamic) {
                 size_t largest = std::max(ua, ub);
@@ -469,12 +487,24 @@ template <AVX_AVAILABILITY Avx> struct TransportSimplex {
             std::copy_n(ws.demand.begin(), k, ws.demand_marginal.begin());
 
             double max_cost = 0.0;
-            if (transposed) {
-                fill_cost_matrix<true>(ws, m, k, padded_k, cost, max_cost);
+            bool cheapest_row = (start == TransportStart::CheapestRow);
+            if (cheapest_row) {
+                if (transposed) {
+                    fill_cost_matrix<true, true>(ws, m, k, padded_k, cost, max_cost);
+                } else {
+                    fill_cost_matrix<false, true>(ws, m, k, padded_k, cost, max_cost);
+                }
+                build_col_order(ws, m, k);
             } else {
-                fill_cost_matrix<false>(ws, m, k, padded_k, cost, max_cost);
+                if (transposed) {
+                    fill_cost_matrix<true, false>(ws, m, k, padded_k, cost, max_cost);
+                } else {
+                    fill_cost_matrix<false, false>(ws, m, k, padded_k, cost, max_cost);
+                }
+                // NorthWest's column order is the identity: the walk below always
+                // indexes through col_order, so fill it rather than branch the walk.
+                std::iota(ws.col_order.begin(), ws.col_order.begin() + k, NodeT{0});
             }
-            build_col_order(ws, m, k);
             for (size_t j = k; j < padded_k; ++j) {
                 ws.v_d[j] = 0.0;
                 ws.v_f[j] = 0.0F;
@@ -678,9 +708,9 @@ template <AVX_AVAILABILITY Avx> struct TransportSimplex {
         }
 
       private:
-        // Fills cost_f/padding; Transposed avoids a runtime orientation check. Also folds
-        // each column's cheapest cost/row into col_min/col_argmin while filling.
-        template <bool Transposed, typename CostFn>
+        // Fills cost_f/padding; Transposed avoids a runtime orientation check. TrackColMin
+        // also folds each column's cheapest cost/row into col_min/col_argmin (CheapestRow).
+        template <bool Transposed, bool TrackColMin, typename CostFn>
         static void fill_cost_matrix(
             SolverWorkspace& ws,
             size_t m,
@@ -696,12 +726,14 @@ template <AVX_AVAILABILITY Avx> struct TransportSimplex {
                                           : static_cast<double>(cost(i, j));
                     row[j] = static_cast<float>(c);
                     max_cost = std::max(max_cost, c);
-                    // Row 0 seeds col_min by assignment rather than a separate +inf
-                    // pass; strict `<` below keeps the smallest row on a tie.
-                    float cf = static_cast<float>(c);
-                    if (i == 0 || cf < ws.col_min[j]) {
-                        ws.col_min[j] = cf;
-                        ws.col_argmin[j] = static_cast<NodeT>(i);
+                    if constexpr (TrackColMin) {
+                        // Row 0 seeds col_min by assignment rather than a separate +inf
+                        // pass; strict `<` below keeps the smallest row on a tie.
+                        float cf = static_cast<float>(c);
+                        if (i == 0 || cf < ws.col_min[j]) {
+                            ws.col_min[j] = cf;
+                            ws.col_argmin[j] = static_cast<NodeT>(i);
+                        }
                     }
                 }
                 for (size_t j = k; j < padded_k; ++j) {
@@ -1088,9 +1120,16 @@ template <> struct TransportSimplex<AVX_AVAILABILITY::NONE> {
         return (2.0 * walk_tol + flow_rounding + final_sum_rounding) * total_mass;
     }
 
+    // The reference solver has no start choice, so the start is ignored.
     template <typename CostFn>
-    static double
-    solve(size_t ua, const double* supply, size_t ub, const double* demand, CostFn&& cost) {
+    static double solve(
+        size_t ua,
+        const double* supply,
+        size_t ub,
+        const double* demand,
+        CostFn&& cost,
+        TransportStart /*start*/ = TransportStart::NorthWest
+    ) {
         return TransportSimplexReference::solve(
             ua, supply, ub, demand, std::forward<CostFn>(cost)
         );
