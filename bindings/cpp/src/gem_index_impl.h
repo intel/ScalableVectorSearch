@@ -47,6 +47,20 @@
 #include <vector>
 
 namespace svs {
+namespace data {
+
+// VectorSetData has no element_size(); VamanaIndex::get_memory_breakdown() calls
+// dataset_allocated_bytes(data_) on the id-set dataset, so this overload (found via ADL,
+// preferred over the data.h template) supplies the byte count directly instead.
+inline size_t dataset_allocated_bytes(const VectorSetData<uint32_t>& dataset) {
+    return dataset.tokens().capacity() * dataset.tokens().element_size() +
+           dataset.offsets().size() * sizeof(uint64_t);
+}
+
+} // namespace data
+} // namespace svs
+
+namespace svs {
 namespace runtime {
 
 // GEM runtime implementation: a Vamana graph over per-document centroid-id sets, served
@@ -332,8 +346,13 @@ class GemIndexImpl {
     // Tag-dispatched constructor `load()` uses to build an otherwise-empty instance
     // before filling in every member from the stream.
     struct PrivateLoadTag {};
+
+  public:
+    // Public so make_unique can call it; PrivateLoadTag stays private, so only this
+    // class can name the tag and thus construct an empty instance.
     explicit GemIndexImpl(PrivateLoadTag) {}
 
+  private:
     // On-disk layout: a fixed POD header (not the TOML SaveTable the rest of the library
     // uses), matching GemRouter's own header convention (gem_router.h) rather than
     // pulling lib::SaveTable machinery in for a handful of scalars.
