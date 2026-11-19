@@ -17,14 +17,17 @@
 #pragma once
 
 // stdlib
+#include <algorithm>
 #include <atomic>
 #include <functional>
 #include <limits>
 #include <memory>
 #include <mutex>
+#include <optional>
 #include <shared_mutex>
 #include <span>
 #include <type_traits>
+#include <utility>
 #include <vector>
 
 // Include the flat index to spin-up exhaustive searches on demand.
@@ -106,7 +109,7 @@ enum class SlotMetadata : uint8_t {
     Empty = 0x00,
     Valid = 0x01,
     Deleted = 0x02,
-    // Reserved by an in-flight add_points
+    // Reserved by an in-flight add_points or update_entries
     Pending = 0x04,
 };
 
@@ -230,8 +233,9 @@ class MutableVamanaIndex {
     std::unique_ptr<std::atomic<size_t>> first_reusable_{
         std::make_unique<std::atomic<size_t>>(0)};
     IDTranslator translator_;
-    // Count of Valid slots. Maintained atomically in add_points/delete_entry.
-    // Wrapped in unique_ptr because std::atomic is not movable.
+    // Count of Valid slots. Maintained atomically in
+    // add_points/delete_entry/update_entries. Wrapped in unique_ptr because std::atomic is
+    // not movable.
     std::unique_ptr<std::atomic<size_t>> num_valid_{
         std::make_unique<std::atomic<size_t>>(0)};
     // Protects translator access: exclusive for writes (add/consolidate/compact),
@@ -253,16 +257,25 @@ class MutableVamanaIndex {
     //   compact_gatekeeper_ -> compact_mutex_ (never reversed)
     //   compact_mutex_ -> slot_alloc_mutex_   (never reversed)
     //   compact_mutex_ -> translator_mutex_   (never reversed)
-    // slot_alloc_mutex_ and translator_mutex_ are never held simultaneously
-    // (add_points takes them sequentially), so they have no relative order.
+    // update_entries reserve Empty slots under translator_mutex_ -> slot_alloc_mutex_.
+    // add_points takes these locks separately; it never holds them in reverse order.
+    // Payload readers take compact_mutex_ -> payload_mutex_ -> translator_mutex_.
+    // update_entries releases translator_mutex_ before acquiring payload protection.
     std::unique_ptr<std::shared_mutex> compact_mutex_{
         std::make_unique<std::shared_mutex>()};
     // Once compaction owns this gate, new shared users cannot delay its
     // storage lock. Readers hold the gate only while acquiring compact_mutex_.
     std::unique_ptr<std::shared_mutex> compact_gatekeeper_{
         std::make_unique<std::shared_mutex>()};
-    // Iterators check this under compact_mutex_ before reusing cached internal IDs.
+    // Iterators check this under compact_mutex_ and payload_mutex_
+    // before reusing cached internal IDs
     size_t compaction_epoch_ = 0;
+    // Once writer owns this gate, new shared users cannot delay its
+    // lock. Readers hold the gate only while acquiring payload_mutex_.
+    std::unique_ptr<std::shared_mutex> payload_mutex_{
+        std::make_unique<std::shared_mutex>()};
+    std::unique_ptr<std::shared_mutex> payload_gatekeeper_{
+        std::make_unique<std::shared_mutex>()};
     // Writer-only mutex serializing slot allocation in add_points
     std::unique_ptr<std::mutex> slot_alloc_mutex_{std::make_unique<std::mutex>()};
 
@@ -846,6 +859,7 @@ class MutableVamanaIndex {
     auto get_datum(size_t e) const {
         // Lock order: compact_mutex_ then translator_mutex_ (global order).
         auto compact_lock = lock_storage_shared();
+        auto payload_lock = lock_payload_shared();
         std::shared_lock lock{*translator_mutex_};
         if (!translator_.has_external(e)) {
             throw ANNEXCEPTION("External ID {} not found in index!", e);
@@ -862,6 +876,7 @@ class MutableVamanaIndex {
         requires std::invocable<F&, typename Data::const_value_type> bool
     on_datum(size_t e, F&& f) const {
         auto compact_lock = lock_storage_shared();
+        auto payload_lock = lock_payload_shared();
         std::shared_lock lock{*translator_mutex_};
         if (!unsafe_has_id(e)) {
             return false;
@@ -891,6 +906,13 @@ class MutableVamanaIndex {
     [[nodiscard]] std::shared_lock<std::shared_mutex> lock_storage_shared() const {
         std::shared_lock gatekeeper_lock{*compact_gatekeeper_};
         return std::shared_lock<std::shared_mutex>(*compact_mutex_);
+    }
+
+    /// @brief Hold shared payload protection for a complete read operation.
+    /// Acquire compact_mutex_ first, then this guard, then translator/node locks.
+    [[nodiscard]] std::shared_lock<std::shared_mutex> lock_payload_shared() const {
+        std::shared_lock gatekeeper_lock{*payload_gatekeeper_};
+        return std::shared_lock<std::shared_mutex>(*payload_mutex_);
     }
 
     /// @brief RAII reader lock guarding translator_ against erase/remap by
@@ -942,6 +964,7 @@ class MutableVamanaIndex {
         // Hold compact_mutex_ shared so compact()'s shrink can't free segments
         // mid-traversal. add_points growth is lock-free (grow-stable storage).
         auto compact_lock = lock_storage_shared();
+        auto payload_lock = lock_payload_shared();
         extensions::single_search(
             data_,
             scratch.buffer,
@@ -961,6 +984,7 @@ class MutableVamanaIndex {
     ) {
         // Internal IDs must retain their meaning until translation has completed.
         auto compact_lock = lock_storage_shared();
+        auto payload_lock = lock_payload_shared();
         {
             threads::parallel_for(
                 threadpool_,
@@ -1022,11 +1046,17 @@ class MutableVamanaIndex {
         size_t num_neighbors,
         QueryResultView<I> result
     ) {
+        auto compact_lock = lock_storage_shared();
+        auto payload_lock = lock_payload_shared();
+        const auto status_size = status_.size();
         auto temp_index = temporary_flat_index(
             data_, distance_, threads::ThreadPoolReferenceWrapper(threadpool_)
         );
         temp_index.search(queries, num_neighbors, result, [&](size_t i) {
-            return getindex(status_, i) == SlotMetadata::Valid;
+            // Insertion can grow data_ before it grows status_.
+            return i < status_size &&
+                   std::atomic_ref<SlotMetadata>(status_[i])
+                           .load(std::memory_order_acquire) == SlotMetadata::Valid;
         });
 
         // After the search procedure, the indices in `results` are internal.
@@ -1205,9 +1235,27 @@ class MutableVamanaIndex {
         copy_points(points, slots);
         clear_lists(slots);
 
+        {
+            auto payload_lock = lock_payload_shared();
+            connect_pending(slots);
+        }
+
+        // Mark added entries as valid.
+        for (const auto& i : slots) {
+            std::atomic_ref<SlotMetadata>(status_[i])
+                .store(SlotMetadata::Valid, std::memory_order_release);
+        }
+        num_valid_->fetch_add(slots.size(), std::memory_order_acq_rel);
+
+        return slots;
+    }
+
+  private:
+    // Callers own initialized Pending slots and hold storage and payload protection.
+    void connect_pending(const std::vector<size_t>& slots) {
         // Publish only initialized slots: another insertion may immediately use one
         // as a candidate or backlink parent. Batch insertions do not use this registry.
-        const bool single_insert = num_points == 1;
+        const bool single_insert = slots.size() == 1;
         const Idx pending_id = lib::narrow_cast<Idx>(slots.front());
         if (single_insert) {
             std::unique_lock lock{*pending_insertions_mutex_};
@@ -1281,15 +1329,207 @@ class MutableVamanaIndex {
                 lib::as_const_span(pending_candidates)};
             builder.construct(alpha_, seed, build_slots, logging::Level::Trace, logger_);
         }
+    }
 
-        // Mark added entries as valid.
-        for (const auto& i : slots) {
-            std::atomic_ref<SlotMetadata>(status_[i])
+    struct UpdateBatch {
+        std::vector<size_t> slots;
+        std::vector<std::pair<Idx, SlotMetadata>> ordered;
+        tsl::robin_set<Idx> targets;
+        size_t live = 0;
+        size_t first_empty = 0;
+    };
+
+    template <data::ImmutableMemoryDataset Points>
+    UpdateBatch prepare_update(const Points& points, std::vector<size_t> slots) {
+        if (points.size() != slots.size()) {
+            throw ANNEXCEPTION(
+                "Number of points ({}) differs from the number of IDs ({})!",
+                points.size(),
+                slots.size()
+            );
+        }
+        if (!slots.empty() && points.dimensions() != dimensions()) {
+            throw ANNEXCEPTION(
+                "Points have {} dimensions but the index has {}!",
+                points.dimensions(),
+                dimensions()
+            );
+        }
+        UpdateBatch batch{};
+        batch.slots = std::move(slots);
+        batch.ordered.reserve(batch.slots.size());
+        batch.targets.reserve(batch.slots.size());
+        const auto status_size = status_.size();
+        for (auto id : batch.slots) {
+            if (id >= status_size) {
+                throw ANNEXCEPTION("Internal ID {} is outside [0, {})!", id, status_size);
+            }
+            auto internal = lib::narrow<Idx>(id);
+            if (!batch.targets.insert(internal).second) {
+                throw ANNEXCEPTION("Internal ID {} is listed more than once!", id);
+            }
+            batch.ordered.emplace_back(internal, SlotMetadata::Pending);
+        }
+        // A common reservation order prevents overlapping batches waiting cyclically.
+        // slots remains in point order for copying the replacement vectors.
+        std::sort(batch.ordered.begin(), batch.ordered.end(), [](auto a, auto b) {
+            return a.first < b.first;
+        });
+        batch.first_empty = first_empty_->load(std::memory_order_acquire);
+        return batch;
+    }
+
+    void wait_until_not_pending(size_t id) const {
+        while (std::atomic_ref<SlotMetadata>(const_cast<SlotMetadata&>(status_[id]))
+                   .load(std::memory_order_acquire) == SlotMetadata::Pending) {
+            svs::detail::pause();
+        }
+    }
+
+    // The owner of a Pending slot may need translation protection to finish.
+    template <typename TranslationLock>
+    void wait_for_owner(TranslationLock& translation_lock, Idx id) const {
+        translation_lock.unlock();
+        wait_until_not_pending(id);
+        translation_lock.lock();
+    }
+
+    // Reserve every target, or none. The caller holds storage and translation locks
+    // from its checks until this returns. Returns a Pending slot of another operation.
+    std::optional<Idx> try_reserve_update(UpdateBatch& batch) {
+        size_t reserved = 0;
+        for (auto& [id, previous] : batch.ordered) {
+            auto ref = std::atomic_ref<SlotMetadata>(status_[id]);
+            for (;;) {
+                std::unique_lock allocation_lock{*slot_alloc_mutex_, std::defer_lock};
+                if (ref.load(std::memory_order_acquire) == SlotMetadata::Empty) {
+                    allocation_lock.lock();
+                }
+                auto node_lock = graph_.lock_node(id);
+                auto expected = ref.load(std::memory_order_acquire);
+                if (expected == SlotMetadata::Pending) {
+                    // The caller waits and checks again; it may then pick other slots.
+                    release_reservations(batch, reserved);
+                    batch.live = 0;
+                    return id;
+                }
+                if ((expected != SlotMetadata::Empty || allocation_lock.owns_lock()) &&
+                    ref.compare_exchange_strong(
+                        expected,
+                        SlotMetadata::Pending,
+                        std::memory_order_acq_rel,
+                        std::memory_order_relaxed
+                    )) {
+                    previous = expected;
+                    batch.live += expected == SlotMetadata::Valid;
+                    ++reserved;
+                    break;
+                }
+            }
+        }
+        num_valid_->fetch_sub(batch.live, std::memory_order_acq_rel);
+        return std::nullopt;
+    }
+
+    // Restore the first `count` reserved slots to their saved states.
+    void release_reservations(const UpdateBatch& batch, size_t count) {
+        size_t first_restored_empty = std::numeric_limits<size_t>::max();
+        for (size_t i = 0; i < count; ++i) {
+            auto [id, previous] = batch.ordered[i];
+            std::atomic_ref<SlotMetadata>(status_[id])
+                .store(previous, std::memory_order_release);
+            if (previous == SlotMetadata::Empty) {
+                first_restored_empty = std::min(first_restored_empty, size_t(id));
+            }
+        }
+        if (first_restored_empty != std::numeric_limits<size_t>::max()) {
+            detail::atomic_min(*first_empty_, batch.first_empty);
+            detail::atomic_min(*first_reusable_, first_restored_empty);
+        }
+    }
+
+    // The caller owns these Pending slots and holds storage protection.
+    // This overload performs no ID translation or mapping mutation.
+    template <data::ImmutableMemoryDataset Points>
+    void update_internal(const Points& points, const UpdateBatch& batch) {
+        {
+            std::lock_guard gatekeeper_lock{*payload_gatekeeper_};
+            std::lock_guard payload_lock{*payload_mutex_};
+            // A partial payload write also invalidates cached iterator distances.
+            ++compaction_epoch_;
+            copy_points(points, batch.slots);
+        }
+        auto payload_lock = lock_payload_shared();
+        for (auto [id, previous] : batch.ordered) {
+            if (previous == SlotMetadata::Empty) {
+                // An Empty slot can come from an insertion that failed before
+                // initializing its adjacency. Use insertion's initialization.
+                graph_.clear_node(id);
+            }
+        }
+        // The exclusive copy drained linkers using the old payload. Their connections
+        // are now visible to repair; keep the old outgoing lists as repair candidates.
+        repair_connections(batch.targets);
+        const auto anchor = entry_point();
+        for (auto id : batch.slots) {
+            if (id != anchor) {
+                graph_.replace_node(lib::narrow_cast<Idx>(id), std::span<const Idx>{});
+            }
+        }
+        // The anchor retains its outgoing list until construction searches from it.
+        connect_pending(batch.slots);
+        // A waiting deletion can consume Valid immediately after publication.
+        num_valid_->fetch_add(batch.slots.size(), std::memory_order_acq_rel);
+        for (auto id : batch.slots) {
+            std::atomic_ref<SlotMetadata>(status_[id])
                 .store(SlotMetadata::Valid, std::memory_order_release);
         }
-        num_valid_->fetch_add(slots.size(), std::memory_order_acq_rel);
+    }
 
-        return slots;
+  public:
+    /// @brief Update vectors addressed by existing external mappings.
+    /// @param points Replacement dataset in external-ID order, with the index dimensions.
+    /// @param external_ids Unique existing external IDs; supports iteration and `size()`.
+    ///
+    /// The mappings are retained. Accepts mapped Valid, Deleted, Empty and Pending
+    /// slots; waits for Pending owners. Targets are Pending during the operation and
+    /// Valid on success. Only formerly Valid targets are subtracted from size()
+    /// during the update.
+    /// Live checks exclude Pending targets; an older search may finish with old results.
+    /// Concurrent deletion waits for the Pending owner.
+    /// After a wait, the IDs are looked up and checked again.
+    /// Encoding/build failures have the same rollback guarantees as add_points:
+    /// partial work and Pending slots can remain. See `get_threadpool_handle()` for
+    /// the worker-task calling contract. Do not call while holding index read guards.
+    template <data::ImmutableMemoryDataset Points, typename ExternalIds>
+    void update_entries(const Points& points, const ExternalIds& external_ids) {
+        auto compact_lock = lock_storage_shared();
+        auto translation_lock = lock_for_translation();
+
+        UpdateBatch batch;
+        for (;;) {
+            // Keep the lock from these checks until the slots are reserved,
+            // so every check is still true when the update is applied.
+            std::vector<size_t> slots;
+            slots.reserve(external_ids.size());
+            for (auto id : external_ids) {
+                if (!translator_.has_external(id)) {
+                    throw ANNEXCEPTION("External ID {} has no mapping!", id);
+                }
+                slots.push_back(translator_.get_internal(id));
+            }
+            batch = prepare_update(points, std::move(slots));
+            if (batch.slots.empty()) {
+                return;
+            }
+            auto busy = try_reserve_update(batch);
+            if (!busy) {
+                break;
+            }
+            wait_for_owner(translation_lock, *busy);
+        }
+        translation_lock.unlock();
+        update_internal(points, batch);
     }
 
     ///
@@ -1319,15 +1559,22 @@ class MutableVamanaIndex {
         std::shared_lock lock{*translator_mutex_};
         size_t deleted = 0;
         for (auto i : ids) {
-            if (!translator_.has_external(i)) {
-                continue; // Already deleted + consolidated, or never existed.
+            for (;;) {
+                if (!translator_.has_external(i)) {
+                    break;
+                }
+                auto internal = translator_.get_internal(i);
+                auto previous = try_delete_entry(internal);
+                if (previous != SlotMetadata::Pending) {
+                    deleted += previous == SlotMetadata::Valid;
+                    break;
+                }
+                // The Pending owner may need translation protection to complete.
+                lock.unlock();
+                wait_until_not_pending(internal);
+                lock.lock();
+                // Resolve the external ID again: its mapping may have changed.
             }
-            auto internal = translator_.get_internal(i);
-            if (is_deleted(internal)) {
-                continue; // Already soft-deleted, translator entry not yet consolidated.
-            }
-            delete_entry(internal);
-            ++deleted;
         }
         // Don't erase translator entries here — concurrent search may still
         // need them for translate_to_external(). Cleanup happens in
@@ -1336,29 +1583,32 @@ class MutableVamanaIndex {
     }
 
     void delete_entry(size_t i) {
-        auto& meta = getindex(status_, i);
-        auto ref = std::atomic_ref<SlotMetadata>(meta);
-        // Wait without the node lock: the Pending insertion needs it to finish.
-        while (ref.load(std::memory_order_acquire) == SlotMetadata::Pending) {
-            svs::detail::pause();
-        }
-        // For non-anchor parents, a backlink commits before this transition or
-        // observes Deleted under the same lock and retries its Pending insertion.
-        auto node_lock = graph_.lock_node(lib::narrow_cast<Idx>(i));
-        SlotMetadata expected = SlotMetadata::Valid;
-        if (ref.compare_exchange_strong(
-                expected,
-                SlotMetadata::Deleted,
-                std::memory_order_acq_rel,
-                std::memory_order_relaxed
-            )) {
-            num_valid_->fetch_sub(1, std::memory_order_acq_rel);
+        while (try_delete_entry(i) == SlotMetadata::Pending) {
+            wait_until_not_pending(i);
         }
     }
 
+  private:
+    SlotMetadata try_delete_entry(size_t i) {
+        // Serialize with update reservation and with backlink publication.
+        auto node_lock = graph_.lock_node(lib::narrow_cast<Idx>(i));
+        SlotMetadata expected = SlotMetadata::Valid;
+        if (std::atomic_ref<SlotMetadata>(status_[i])
+                .compare_exchange_strong(
+                    expected,
+                    SlotMetadata::Deleted,
+                    std::memory_order_acq_rel,
+                    std::memory_order_relaxed
+                )) {
+            num_valid_->fetch_sub(1, std::memory_order_acq_rel);
+        }
+        return expected;
+    }
+
+  public:
     bool is_deleted(size_t i) const {
         // True only for slots that have been soft-deleted. Pending (in-flight
-        // add) and Empty are NOT deleted: consolidate must not prune them out
+        // insertion/update) and Empty are NOT deleted: consolidate must not prune them out
         // of other nodes' adjacency lists, and search already filters
         // non-Valid slots via ValidBuilder.
         return std::atomic_ref<SlotMetadata>(const_cast<SlotMetadata&>(status_[i]))
@@ -1582,6 +1832,11 @@ class MutableVamanaIndex {
     ///
     /// @brief Return the current thread pool handle.
     ///
+    /// Do not call index methods that acquire storage/payload protection from tasks on
+    /// this index's underlying pool, including through another handle to that pool.
+    /// The submitting thread must acquire those guards before submitting work; tasks
+    /// use `unsafe_*` read paths under those guards. Otherwise a writer can close the
+    /// gate and wait for the pool while its tasks wait at that gate.
     threads::ThreadPoolHandle& get_threadpool_handle() { return threadpool_; }
 
     ///// Window Interface
@@ -1617,30 +1872,47 @@ class MutableVamanaIndex {
         consolidate_locked();
     }
 
-    // Full consolidation: gather the Deleted set (one cheap byte scan of status_) then
-    // delegate. Concurrent deletes arriving after the scan are picked up next round.
+    // Hold payload protection before collecting IDs: an updater must drain this
+    // snapshot's repair before it can replace and rebuild one of its Deleted slots.
     void consolidate_locked() {
+        auto payload_lock = lock_payload_shared();
         tsl::robin_set<Idx> deleted{};
         for (size_t i = 0, imax = status_.size(); i < imax; ++i) {
-            if (std::atomic_ref<SlotMetadata>(status_[i]).load(std::memory_order_acquire) ==
-                SlotMetadata::Deleted) {
+            if (is_deleted(i)) {
                 deleted.insert(lib::narrow_cast<Idx>(i));
             }
         }
-        consolidate_locked(deleted);
+        consolidate_selected(deleted);
     }
 
-    // Body of consolidate()/consolidate(ids) with no compact_mutex_ locking. The caller
-    // holds compact_mutex_. `deleted` holds the internal slots to prune out of the graph
-    // and reclaim; those slots must currently be SlotMetadata::Deleted. Consolidation and
-    // cleanup both range over exactly `deleted`, so both are O(|deleted|), not O(N).
+    // The caller holds storage protection. Revalidate explicit targets under payload
+    // protection: a supplied deletion snapshot may predate a completed update.
     void consolidate_locked(const tsl::robin_set<Idx>& deleted) {
+        auto payload_lock = lock_payload_shared();
+        tsl::robin_set<Idx> current;
+        for (auto id : deleted) {
+            if (is_deleted(id)) {
+                current.insert(id);
+            }
+        }
+        consolidate_selected(current);
+    }
+
+  private:
+    // Graph-only repair; the caller holds storage and payload protection.
+    void repair_connections(const tsl::robin_set<Idx>& deleted) {
         // Online operations never hand off or reclaim the routing anchor.
         // If this snapshot is NO_ENTRY, an overlapping election can only
         // publish a new Pending slot, which cannot belong to `deleted`.
         const Idx anchor = entry_point();
         auto should_remove = [&](size_t i) {
             return i != anchor && deleted.contains(lib::narrow_cast<Idx>(i));
+        };
+
+        // update_entries mark slots Pending before consolidation
+        auto is_pending = [&](size_t i) {
+            return std::atomic_ref<SlotMetadata>(status_[i])
+                       .load(std::memory_order_acquire) == SlotMetadata::Pending;
         };
 
         // Perform graph consolidation over the in-neighbors of `deleted`, discovered via
@@ -1654,9 +1926,16 @@ class MutableVamanaIndex {
             alpha_,
             distance_,
             deleted,
-            should_remove
+            should_remove,
+            is_pending
         );
+    }
 
+    // Reclaim only ordinary deletions, never an update's reserved Pending slots.
+    // The caller holds storage and payload protection through collection and cleanup.
+    void consolidate_selected(const tsl::robin_set<Idx>& deleted) {
+        repair_connections(deleted);
+        const auto anchor = entry_point();
         // After consolidation - clean up the removed slots under lock. O(|deleted|).
         {
             std::lock_guard lock{*translator_mutex_};
@@ -1665,7 +1944,7 @@ class MutableVamanaIndex {
             // may have reassigned the external ID and erased the stale reverse entry.
             std::vector<size_t> deleted_internal_ids;
             for (auto i : deleted) {
-                if (status_[i] == SlotMetadata::Deleted && translator_.has_internal(i)) {
+                if (is_deleted(i) && translator_.has_internal(i)) {
                     deleted_internal_ids.push_back(i);
                 }
             }
@@ -1676,7 +1955,7 @@ class MutableVamanaIndex {
             // but its data/edges remain routing-only until exclusive compaction.
             size_t min_freed = std::numeric_limits<size_t>::max();
             for (auto i : deleted) {
-                if (i != anchor && status_[i] == SlotMetadata::Deleted) {
+                if (i != anchor && is_deleted(i)) {
                     std::atomic_ref<SlotMetadata>(status_[i])
                         .store(SlotMetadata::Empty, std::memory_order_release);
                     min_freed = std::min(min_freed, static_cast<size_t>(i));
@@ -1688,6 +1967,7 @@ class MutableVamanaIndex {
         }
     }
 
+  public:
     ///
     /// @brief Consolidate only the soft-deleted entries listed in `ids`.
     ///
@@ -1703,6 +1983,7 @@ class MutableVamanaIndex {
     ///
     template <typename T> size_t consolidate(const T& ids) {
         auto compact_lock = lock_storage_shared();
+        auto payload_lock = lock_payload_shared();
 
         // Collect the internal slots of the listed, already-soft-deleted IDs.
         tsl::robin_set<Idx> targets{};
@@ -1723,7 +2004,7 @@ class MutableVamanaIndex {
         if (targets.empty()) {
             return 0;
         }
-        consolidate_locked(targets);
+        consolidate_selected(targets);
         return targets.size();
     }
 
@@ -1821,6 +2102,7 @@ class MutableVamanaIndex {
         // compact_mutex_ shared guards data_/graph_ against compact()'s shrink;
         // translator_mutex_ shared guards the ID translation reads below.
         auto compact_lock = lock_storage_shared();
+        auto payload_lock = lock_payload_shared();
         std::shared_lock lock{*translator_mutex_};
 
         // Bounds checking.
@@ -1852,6 +2134,8 @@ class MutableVamanaIndex {
     /// This function is meant to provide a means for implementing experimental algorithms
     /// on the contained data structures. The entry-point span is a snapshot valid
     /// only during the callback; it is empty when no routing anchor exists.
+    /// The caller holds storage and payload protection through `f` and any borrowed
+    /// views. See `lock_payload_shared()` and the worker-task contract there.
     template <typename F> void experimental_escape_hatch(F&& f) const {
         const Idx seed = entry_point();
         std::invoke(
@@ -1984,6 +2268,7 @@ class MutableVamanaIndex {
         // compact_mutex_ shared guards data_ against compact()'s shrink;
         // translator_mutex_ shared guards the ID translation read.
         auto compact_lock = lock_storage_shared();
+        auto payload_lock = lock_payload_shared();
         std::shared_lock lock{*translator_mutex_};
 
         // Check if the external ID exists
@@ -2017,7 +2302,8 @@ class MutableVamanaIndex {
     /// the greedy search may return fewer than ``target_window()`` valid neighbors. This
     /// supplements the buffer by scanning the ID translation.
     ///
-    /// **Precondition:** the caller holds ``compact_mutex_`` shared (``search()`` does).
+    /// **Precondition:** the caller holds storage and payload protection (`search()`
+    /// does). These guards are also required by `experimental_escape_hatch` readers.
     /// This is why the generic ``extensions::check_and_supplement_search_buffer`` is not
     /// used here: it reaches back through ``index.get_distance()``, which takes
     /// ``compact_mutex_`` shared a *second* time on the same thread. Recursive shared
