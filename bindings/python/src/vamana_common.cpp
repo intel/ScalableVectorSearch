@@ -85,7 +85,7 @@ Attributes:
     search_window_size (int, read-only): The number of valid entries in the buffer
         that will be used to determine stopping conditions for graph search.
     search_buffer_capacity (int, read-only): The (expected) number of valid entries that
-        will be available. Must be at least as large as `search_window_size`.
+        will be available. Raised to `search_window_size` if smaller.
 )"};
 
     config.def(py::init<>())
@@ -102,7 +102,8 @@ Configure with a given search window size. This constructor implicitly defaults
             py::arg("search_buffer_capacity"),
             R"(
 Configure with a given search window size and capacity.
-Raises ``svs.ANNException`` if ``search_buffer_capacity < search_window_size``.)"
+If ``search_buffer_capacity < search_window_size``, the capacity is raised to
+``search_window_size``.)"
         )
         .def_property_readonly(
             "search_window_size", &SearchBufferConfig::get_search_window_size
