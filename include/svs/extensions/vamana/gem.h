@@ -31,6 +31,7 @@
 #include <cstdint>
 #include <span>
 #include <type_traits>
+#include <utility>
 #include <vector>
 
 namespace svs::index::vamana {
@@ -87,7 +88,11 @@ template <std::integral I> struct GemRoutedInitializer {
         thread_local svs::distance::GemRouter::QueryScratch route_scratch;
         thread_local std::vector<uint32_t> routed;
         router->route_query(
-            distance_->table(), distance_->query_tokens(), routed, route_scratch
+            distance_->table(),
+            distance_->query_tokens(),
+            routed,
+            route_scratch,
+            distance_->nprobe_override()
         );
 
         thread_local std::vector<I> merged;
@@ -97,6 +102,49 @@ template <std::integral I> struct GemRoutedInitializer {
         }
         std::sort(merged.begin(), merged.end());
         merged.erase(std::unique(merged.begin(), merged.end()), merged.end());
+
+        // push() truncates in id order once the buffer is full; when seeds outnumber the
+        // buffer, keep the closest ones by score instead, with entry_points_ unconditional.
+        if constexpr (requires(const Buffer& b) { b.capacity(); }) {
+            size_t capacity = buffer.capacity();
+            if (capacity > 0 && merged.size() > capacity) {
+                thread_local std::vector<I> routed_only;
+                routed_only.clear();
+                for (I id : merged) {
+                    if (std::find(entry_points_.begin(), entry_points_.end(), id) ==
+                        entry_points_.end()) {
+                        routed_only.push_back(id);
+                    }
+                }
+                size_t entry_count = merged.size() - routed_only.size();
+                size_t remaining = capacity > entry_count ? capacity - entry_count : 0;
+
+                thread_local std::vector<std::pair<float, I>> scored;
+                scored.clear();
+                scored.reserve(routed_only.size());
+                for (I id : routed_only) {
+                    scored.emplace_back(computer(id), id);
+                }
+                size_t keep = std::min(remaining, scored.size());
+                std::partial_sort(
+                    scored.begin(),
+                    scored.begin() + static_cast<std::ptrdiff_t>(keep),
+                    scored.end(),
+                    [](const auto& a, const auto& b) {
+                        return svs::distance::QChamferExactQuery::compare{}(
+                            a.first, b.first
+                        );
+                    }
+                );
+
+                merged.assign(entry_points_.begin(), entry_points_.end());
+                for (size_t i = 0; i < keep; ++i) {
+                    merged.push_back(scored[i].second);
+                }
+                std::sort(merged.begin(), merged.end());
+                merged.erase(std::unique(merged.begin(), merged.end()), merged.end());
+            }
+        }
 
         for (I id : merged) {
             push(id);

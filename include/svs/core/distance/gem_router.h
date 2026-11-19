@@ -209,15 +209,23 @@ struct GemRouter {
         return build(std::move(coarse_of_fine), num_coarse, docs, pool, nprobe);
     }
 
+    /// Sentinel for `route_query`'s `nprobe_override`: use this router's own `nprobe`.
+    static constexpr size_t kUseStoredNprobe = std::numeric_limits<size_t>::max();
+
     /// Scores cluster c for query token i as the max of `table[f * n_query + i]` over its
-    /// fine centroids f, picks the `nprobe` best clusters per token (ties to lower id),
-    /// and writes their representatives to `out`, deduplicated and sorted ascending.
+    /// fine centroids f, picks the best clusters per token (ties to lower id), and writes
+    /// their representatives to `out`, deduplicated and sorted ascending. `nprobe_override`
+    /// overrides the stored `nprobe` for this call only (e.g. a per-search runtime knob);
+    /// `kUseStoredNprobe` (default) keeps the stored value, including 0 to probe none.
     void route_query(
         const float* table,
         size_t n_query,
         std::vector<uint32_t>& out,
-        QueryScratch& scratch
+        QueryScratch& scratch,
+        size_t nprobe_override = kUseStoredNprobe
     ) const {
+        size_t effective_nprobe =
+            nprobe_override == kUseStoredNprobe ? nprobe : nprobe_override;
         size_t nc = num_coarse();
         scratch.coarse_score.assign(nc * n_query, -std::numeric_limits<float>::infinity());
         size_t k = num_fine();
@@ -231,7 +239,7 @@ struct GemRouter {
         }
 
         scratch.picked.clear();
-        size_t take = std::min(nprobe, nc);
+        size_t take = std::min(effective_nprobe, nc);
         for (size_t i = 0; i < n_query; ++i) {
             scratch.candidates.clear();
             scratch.candidates.reserve(nc);
@@ -323,11 +331,10 @@ struct GemRouter {
         out.erase(std::unique(out.begin(), out.end()), out.end());
     }
 
-    void save(const std::filesystem::path& path) const {
-        std::ofstream out(path, std::ios::binary);
-        if (!out) {
-            throw ANNEXCEPTION("GemRouter::save: cannot open {}", path.string());
-        }
+    /// Writes the same layout `save(path)` does (header, then the two id arrays) to an
+    /// already-open stream, so a caller embedding a router in a larger stream format
+    /// (e.g. the GEM runtime index) is not forced through a standalone file.
+    void save(std::ostream& out) const {
         Header header{};
         header.k = num_fine();
         header.num_coarse_val = num_coarse();
@@ -342,34 +349,35 @@ struct GemRouter {
             static_cast<std::streamsize>(representative.size() * sizeof(uint32_t))
         );
         if (!out) {
-            throw ANNEXCEPTION("GemRouter::save: short write to {}", path.string());
+            throw ANNEXCEPTION("GemRouter::save: short write to stream");
         }
     }
 
-    static GemRouter load(const std::filesystem::path& path) {
-        std::ifstream in(path, std::ios::binary);
-        if (!in) {
-            throw ANNEXCEPTION("GemRouter::load: cannot open {}", path.string());
+    void save(const std::filesystem::path& path) const {
+        std::ofstream out(path, std::ios::binary);
+        if (!out) {
+            throw ANNEXCEPTION("GemRouter::save: cannot open {}", path.string());
         }
+        save(out);
+    }
+
+    /// Reads the layout `save(std::ostream&)` writes. Same validation as the path version.
+    static GemRouter load(std::istream& in) {
         Header header{};
         in.read(reinterpret_cast<char*>(&header), sizeof(header));
         if (!in) {
-            throw ANNEXCEPTION(
-                "GemRouter::load: {} is too short to hold a GemRouter header", path.string()
-            );
+            throw ANNEXCEPTION("GemRouter::load: stream is too short to hold a header");
         }
         if (header.magic != kMagic) {
             throw ANNEXCEPTION(
-                "GemRouter::load: {} has magic {:#x}, expected {:#x}",
-                path.string(),
+                "GemRouter::load: stream has magic {:#x}, expected {:#x}",
                 header.magic,
                 kMagic
             );
         }
         if (header.version != kVersion) {
             throw ANNEXCEPTION(
-                "GemRouter::load: {} has version {}, expected {}",
-                path.string(),
+                "GemRouter::load: stream has version {}, expected {}",
                 header.version,
                 kVersion
             );
@@ -388,9 +396,17 @@ struct GemRouter {
             static_cast<std::streamsize>(header.num_coarse_val * sizeof(uint32_t))
         );
         if (!in) {
-            throw ANNEXCEPTION("GemRouter::load: {} is truncated", path.string());
+            throw ANNEXCEPTION("GemRouter::load: stream is truncated");
         }
         return result;
+    }
+
+    static GemRouter load(const std::filesystem::path& path) {
+        std::ifstream in(path, std::ios::binary);
+        if (!in) {
+            throw ANNEXCEPTION("GemRouter::load: cannot open {}", path.string());
+        }
+        return load(in);
     }
 
   private:

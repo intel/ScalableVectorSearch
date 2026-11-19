@@ -704,6 +704,15 @@ class QChamferExactQuery {
 
     const std::shared_ptr<const GemRouter>& router() const { return router_; }
 
+    /// Sets the per-search `nprobe` override on this object. Call this only on the
+    /// shallow_copy a search already owns (e.g. scratchspace's distance copy): every
+    /// concurrent search gets its own copy, so this is never shared mutable state.
+    void set_nprobe_override(size_t nprobe) { nprobe_override_ = nprobe; }
+
+    /// Current per-search `nprobe` override passed to `GemRouter::route_query` by
+    /// `GemRoutedInitializer`; `GemRouter::kUseStoredNprobe` means "use the router's own".
+    size_t nprobe_override() const { return nprobe_override_; }
+
     /// The per-query (K x n_query) dot table built by the last fix_argument() call.
     const float* table() const { return table_.data(); }
 
@@ -774,6 +783,7 @@ class QChamferExactQuery {
 
     std::shared_ptr<const FineCentroids> centroids_;
     std::shared_ptr<const GemRouter> router_;
+    size_t nprobe_override_ = GemRouter::kUseStoredNprobe;
     PackedOperand packed_query_;
     std::vector<float> table_;
     size_t n_query_ = 0;
