@@ -99,12 +99,20 @@ elseif(NOT SVS_EXPERIMENTAL_LINK_STATIC_MKL)
 else() # if static link and not custom mkl
     message(STATUS "Statically linking ${target} to Intel(R) MKL")
     function(link_mkl_static target)
+        # MKL_ROOT is unset in a scope that did not run find_package(MKL) itself; MKL_DIR
+        # is <root>/lib/cmake/mkl. oneMKL 2024+ moved the archives from lib/intel64 to lib.
+        set(_mkl_root "${MKL_ROOT}")
+        if (NOT _mkl_root)
+            get_filename_component(_mkl_root "${MKL_DIR}/../../.." ABSOLUTE)
+        endif()
+        set(_mkl_libs)
+        foreach(_lib mkl_intel_lp64 mkl_sequential mkl_core)
+            find_file(_mkl_${_lib} lib${_lib}.a
+                PATHS "${_mkl_root}/lib/intel64" "${_mkl_root}/lib" NO_DEFAULT_PATH REQUIRED)
+            list(APPEND _mkl_libs ${_mkl_${_lib}})
+        endforeach()
         target_link_libraries(${target} PRIVATE
-            -Wl,--start-group
-            ${MKL_ROOT}/lib/intel64/libmkl_intel_lp64.a
-            ${MKL_ROOT}/lib/intel64/libmkl_sequential.a
-            ${MKL_ROOT}/lib/intel64/libmkl_core.a
-            -Wl,--end-group -lpthread -lm -ldl
+            -Wl,--start-group ${_mkl_libs} -Wl,--end-group -lpthread -lm -ldl
         )
         target_include_directories(
             ${target} PRIVATE $<TARGET_PROPERTY:MKL::MKL,INTERFACE_INCLUDE_DIRECTORIES>
