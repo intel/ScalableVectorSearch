@@ -71,7 +71,10 @@ namespace runtime {
 class GemIndexImpl {
   public:
     using IdSets = svs::data::VectorSetData<uint32_t>;
-    using Graph = svs::graphs::SimpleGraph<uint32_t, svs::HugepageAllocator<uint32_t>>;
+    // Not svs::HugepageAllocator: this process mmaps many files concurrently (many
+    // segment builds plus a load), and GenericHugepageAllocator::deallocate throws on
+    // munmap failure from inside a destructor, which aborts the process.
+    using Graph = svs::graphs::SimpleGraph<uint32_t, svs::lib::Allocator<uint32_t>>;
     using Dist = svs::distance::QChamferExactQuery;
     using VIndex = svs::index::vamana::VamanaIndex<Graph, IdSets, Dist>;
 
@@ -156,8 +159,15 @@ class GemIndexImpl {
             prune_to,
             false};
 
+        // Explicit allocator argument (rather than build_gem_graph's hugepage default)
+        // deduces its Allocator template parameter to match Graph above.
         auto [graph, report] = svs::index::vamana::build_gem_graph(
-            quantized.ids, build_distance, vamana_params, pool, entry_point
+            quantized.ids,
+            build_distance,
+            vamana_params,
+            pool,
+            entry_point,
+            svs::lib::Allocator<uint32_t>()
         );
         (void)report;
 

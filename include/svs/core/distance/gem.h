@@ -68,18 +68,20 @@ inline Ground parse_ground(std::string_view s) {
 
 /// Owns a dense K x K matrix of pairwise centroid distances, row-major. Built either by
 /// loading a precomputed file or in-process from centroids (see from_centroids()).
-/// Backed by the hugepage allocator (see `svs::HugepageAllocator`, used the same way by
-/// `svs::data::VectorSetData` and `svs::graphs::SimpleGraph`): random lookups into a
-/// K=16384 table (1 GiB) are TLB/cache-miss bound, and hugepages shrink the TLB footprint.
+/// Backed by the standard allocator (`svs::lib::Allocator`): a GEM runtime process mmaps
+/// many segments concurrently, and `svs::HugepageAllocator::deallocate` throws on munmap
+/// failure (e.g. ENOMEM against vm.max_map_count) from inside a destructor, which
+/// terminates the process. Random lookups into a large table are still TLB/cache-miss
+/// bound without hugepages, but that cost is preferred over a process abort.
 struct CentroidTable {
     size_t K;
-    svs::data::SimpleData<float, svs::Dynamic, svs::HugepageAllocator<float>> data;
+    svs::data::SimpleData<float, svs::Dynamic, svs::lib::Allocator<float>> data;
     // True only for a table from_centroids() built; see the comment where it is set.
     bool symmetric = false;
 
     CentroidTable(size_t k, std::vector<float> table)
         : K{k}
-        , data{k, k, svs::HugepageAllocator<float>()} {
+        , data{k, k, svs::lib::Allocator<float>()} {
         if (table.size() != K * K) {
             throw std::invalid_argument("CentroidTable: data size does not match K*K");
         }
@@ -238,7 +240,7 @@ struct CentroidTable {
     // a trivial float that writes nothing, matching make_unique_for_overwrite's intent.
     CentroidTable(size_t k, uninitialized_tag)
         : K{k}
-        , data{k, k, svs::HugepageAllocator<float>()} {}
+        , data{k, k, svs::lib::Allocator<float>()} {}
 };
 
 /// Owns the raw K x dim fine-centroid vectors (row-major, not a pairwise table), as
