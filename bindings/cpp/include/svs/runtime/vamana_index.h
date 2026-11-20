@@ -39,10 +39,8 @@ struct VamanaSearchParameters {
     size_t search_buffer_capacity = Unspecify<size_t>();
     size_t prefetch_lookahead = Unspecify<size_t>();
     size_t prefetch_step = Unspecify<size_t>();
-    // Minimum filter hit rate to continue filtered search.
-    // If the hit rate after the first round falls below this threshold,
-    // stop and return empty results (caller can fall back to exact search).
-    // Default unspecified means never give up (treated as 0).
+    // Minimum filter hit rate to continue a filtered search; below it the search
+    // returns empty results. Unspecified means never give up.
     float filter_stop = Unspecify<float>();
     // Enable pre-search filter sampling to estimate hit rate before graph traversal.
     // Uses a random sample of IDs to set initial batch size and trigger early exit.
@@ -127,6 +125,30 @@ struct SVS_RUNTIME_API VamanaIndex {
     static Status load(
         VamanaIndex** index, std::istream& in, MetricType metric, StorageKind storage_kind
     ) noexcept;
+
+    // Grouped search: one element per group, `k` counts groups, a null `grouper` is
+    // the ungrouped search. No defaults, so the existing overloads stay unambiguous.
+    virtual Status search(
+        size_t n,
+        const float* x,
+        size_t k,
+        float* distances,
+        size_t* labels,
+        const SearchParams* params,
+        IDFilter* filter,
+        IDGrouper* grouper
+    ) const noexcept = 0;
+
+    // Grouped range search: the best element of each group within the radius.
+    virtual Status range_search(
+        size_t n,
+        const float* x,
+        float radius,
+        const ResultsAllocator& results,
+        const SearchParams* params,
+        IDFilter* filter,
+        IDGrouper* grouper
+    ) const noexcept = 0;
 
     // Load from a memory-mapped file.
     // The file is expected to be in the format produced by save().
