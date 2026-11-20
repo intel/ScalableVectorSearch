@@ -70,6 +70,31 @@ struct GemIndexManager : public GemIndex {
 
 GemIndex::~GemIndex() = default;
 
+namespace {
+// `make_pool` runs inside `runtime_error_wrapper`, so a rejected injected pool (size 0)
+// returns INVALID_ARGUMENT instead of escaping a noexcept function.
+template <typename PoolFactory>
+Status build_with_pool(
+    GemIndex** index,
+    size_t dim,
+    size_t n_docs,
+    const float* tokens,
+    const size_t* offsets,
+    PoolFactory&& make_pool,
+    const GemBuildParameters& build_params,
+    const GemSearchParameters& default_search
+) noexcept {
+    *index = nullptr;
+    return runtime_error_wrapper([&] {
+        auto pool = make_pool();
+        auto impl = std::make_unique<GemIndexImpl>(
+            dim, n_docs, tokens, offsets, pool, build_params, default_search
+        );
+        *index = new GemIndexManager{std::move(impl)};
+    });
+}
+} // namespace
+
 Status GemIndex::build(
     GemIndex** index,
     size_t dim,
@@ -79,13 +104,45 @@ Status GemIndex::build(
     const GemBuildParameters& build_params,
     const GemSearchParameters& default_search
 ) noexcept {
-    *index = nullptr;
-    return runtime_error_wrapper([&] {
-        auto impl = std::make_unique<GemIndexImpl>(
-            dim, n_docs, tokens, offsets, build_params, default_search
-        );
-        *index = new GemIndexManager{std::move(impl)};
-    });
+    return build_with_pool(
+        index,
+        dim,
+        n_docs,
+        tokens,
+        offsets,
+        [&] {
+            size_t num_threads = build_params.num_threads == 0
+                                     ? static_cast<size_t>(omp_get_max_threads())
+                                     : build_params.num_threads;
+            return svs::threads::ThreadPoolHandle(
+                svs::threads::DefaultThreadPool(num_threads)
+            );
+        },
+        build_params,
+        default_search
+    );
+}
+
+Status GemIndex::build(
+    GemIndex** index,
+    size_t dim,
+    size_t n_docs,
+    const float* tokens,
+    const size_t* offsets,
+    ThreadPoolInterface& pool,
+    const GemBuildParameters& build_params,
+    const GemSearchParameters& default_search
+) noexcept {
+    return build_with_pool(
+        index,
+        dim,
+        n_docs,
+        tokens,
+        offsets,
+        [&] { return svs::threads::ThreadPoolHandle(InjectedThreadPool(pool)); },
+        build_params,
+        default_search
+    );
 }
 
 Status GemIndex::destroy(GemIndex* index) noexcept {

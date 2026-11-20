@@ -18,7 +18,9 @@
 
 #include <svs/runtime/version.h>
 
+#include <cstddef>
 #include <cstdint>
+#include <functional>
 #include <limits>
 #include <span>
 
@@ -189,6 +191,20 @@ struct SVS_RUNTIME_API_INTERFACE IDFilter {
 
     // Helper method to allow using IDFilter instances as callable objects
     bool operator()(size_t id) const { return this->is_member(id); }
+};
+
+/// A caller-owned thread pool the runtime runs its work on instead of spawning threads.
+/// Mirrors `svs_threadpool_interface_ops` of the C API.
+struct SVS_RUNTIME_API_INTERFACE ThreadPoolInterface {
+    /// Number of workers; must be non-zero. The runtime splits work into this many parts.
+    virtual size_t size() const = 0;
+
+    /// Calls `fn(i)` exactly once for each `i` in `[0, n)`, blocks until every call has
+    /// returned, then rethrows the first exception a call threw. The calls may run in any
+    /// order and need not run concurrently.
+    virtual void parallel_for(size_t n, const std::function<void(size_t)>& fn) = 0;
+
+    virtual ~ThreadPoolInterface() = default;
 };
 
 struct SearchResultsStorage {

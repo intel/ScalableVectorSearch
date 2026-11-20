@@ -83,6 +83,7 @@ class GemIndexImpl {
         size_t n_docs,
         const float* tokens,
         const size_t* offsets,
+        svs::threads::ThreadPoolHandle& pool,
         const GemBuildParameters& build_params,
         const GemSearchParameters& default_search
     )
@@ -95,11 +96,6 @@ class GemIndexImpl {
         if (n_docs == 0) {
             throw StatusException{ErrorCode::INVALID_ARGUMENT, "n_docs must be non-zero"};
         }
-
-        size_t num_threads = build_params.num_threads == 0
-                                 ? static_cast<size_t>(omp_get_max_threads())
-                                 : build_params.num_threads;
-        auto pool = svs::threads::DefaultThreadPool(num_threads);
 
         std::vector<uint64_t> offsets64(offsets, offsets + n_docs + 1);
         size_t total_tokens = static_cast<size_t>(offsets64.back());
@@ -417,7 +413,7 @@ class GemIndexImpl {
         const float* tokens,
         const std::vector<uint64_t>& offsets64,
         size_t dim,
-        svs::threads::DefaultThreadPool& pool
+        svs::threads::ThreadPoolHandle& pool
     ) {
         size_t total = static_cast<size_t>(offsets64.back());
         auto matrix = svs::data::SimpleData<svs::Float16>(total, dim);

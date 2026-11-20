@@ -74,6 +74,19 @@ struct SVS_RUNTIME_API GemIndex {
         const GemSearchParameters& default_search = {}
     ) noexcept;
 
+    /// As above, but every build step runs on `pool` and the runtime starts no thread.
+    /// `pool` is borrowed for this call only; `GemBuildParameters::num_threads` is ignored.
+    static Status build(
+        GemIndex** index,
+        size_t dim,
+        size_t n_docs,
+        const float* tokens,
+        const size_t* offsets,
+        ThreadPoolInterface& pool,
+        const GemBuildParameters& = {},
+        const GemSearchParameters& default_search = {}
+    ) noexcept;
+
     static Status destroy(GemIndex* index) noexcept;
 
     /// Scores are qChamfer distances, smaller is closer. `labels` are doc ordinals.

@@ -25,6 +25,7 @@
 #include <random>
 #include <set>
 #include <sstream>
+#include <stdexcept>
 #include <vector>
 
 namespace {
@@ -79,6 +80,31 @@ GemBuildParameters small_build_params(bool keep_tokens = false) {
 struct ExcludeFilter : IDFilter {
     std::set<size_t> excluded;
     bool is_member(size_t id) const override { return excluded.count(id) == 0; }
+};
+
+using svs::runtime::ThreadPoolInterface;
+
+// Runs every `fn(i)` serially on the calling thread and counts the `parallel_for` calls.
+struct CountingThreadPool : ThreadPoolInterface {
+    size_t pool_size = 1;
+    size_t num_calls = 0;
+
+    size_t size() const override { return pool_size; }
+
+    void parallel_for(size_t n, const std::function<void(size_t)>& fn) override {
+        ++num_calls;
+        for (size_t i = 0; i < n; ++i) {
+            fn(i);
+        }
+    }
+};
+
+struct ThrowingThreadPool : ThreadPoolInterface {
+    size_t size() const override { return 1; }
+
+    void parallel_for(size_t /*n*/, const std::function<void(size_t)>& /*fn*/) override {
+        throw std::runtime_error("injected pool failed");
+    }
 };
 
 } // namespace
@@ -309,4 +335,89 @@ CATCH_TEST_CASE("GemIndex native_rerank works when tokens are kept", "[runtime][
     CATCH_REQUIRE(labels[0] < kNumDocs);
 
     GemIndex::destroy(index);
+}
+
+CATCH_TEST_CASE("GemIndex build runs on the injected pool", "[runtime][gem]") {
+    auto corpus = make_corpus(kNumDocs, 0xaaaa);
+    CountingThreadPool pool;
+    pool.pool_size = 4;
+
+    GemIndex* index = nullptr;
+    Status status = GemIndex::build(
+        &index,
+        kDim,
+        kNumDocs,
+        corpus.tokens.data(),
+        corpus.offsets.data(),
+        pool,
+        small_build_params()
+    );
+    CATCH_REQUIRE(status.ok());
+    CATCH_REQUIRE(index != nullptr);
+
+    CATCH_REQUIRE(pool.num_calls > 0);
+
+    auto queries = make_corpus(5, 0xbbbb);
+    constexpr size_t k = 10;
+    std::vector<float> distances(5 * k);
+    std::vector<size_t> labels(5 * k);
+    status = index->search(
+        5, queries.tokens.data(), queries.offsets.data(), k, distances.data(), labels.data()
+    );
+    CATCH_REQUIRE(status.ok());
+    for (size_t q = 0; q < 5; ++q) {
+        bool found_valid = false;
+        for (size_t i = 0; i < k; ++i) {
+            size_t label = labels[q * k + i];
+            if (label != static_cast<size_t>(-1)) {
+                CATCH_REQUIRE(label < kNumDocs);
+                found_valid = true;
+            }
+        }
+        CATCH_REQUIRE(found_valid);
+    }
+
+    GemIndex::destroy(index);
+}
+
+CATCH_TEST_CASE(
+    "GemIndex build fails cleanly when the injected pool throws", "[runtime][gem]"
+) {
+    auto corpus = make_corpus(kNumDocs, 0xcccc);
+    ThrowingThreadPool pool;
+
+    GemIndex* index = nullptr;
+    Status status = GemIndex::build(
+        &index,
+        kDim,
+        kNumDocs,
+        corpus.tokens.data(),
+        corpus.offsets.data(),
+        pool,
+        small_build_params()
+    );
+    CATCH_REQUIRE_FALSE(status.ok());
+    CATCH_REQUIRE(index == nullptr);
+}
+
+CATCH_TEST_CASE(
+    "GemIndex build rejects an injected pool with size() == 0", "[runtime][gem]"
+) {
+    auto corpus = make_corpus(kNumDocs, 0xdddd);
+    CountingThreadPool pool;
+    pool.pool_size = 0;
+
+    GemIndex* index = nullptr;
+    Status status = GemIndex::build(
+        &index,
+        kDim,
+        kNumDocs,
+        corpus.tokens.data(),
+        corpus.offsets.data(),
+        pool,
+        small_build_params()
+    );
+    CATCH_REQUIRE_FALSE(status.ok());
+    CATCH_REQUIRE(status.code == ErrorCode::INVALID_ARGUMENT);
+    CATCH_REQUIRE(index == nullptr);
 }
