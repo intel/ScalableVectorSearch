@@ -114,6 +114,13 @@ class IDGrouperNone : public svs::runtime::v0::IDGrouper {
     size_t get_group(size_t) const override { return NO_GROUP; }
 };
 
+class IDGrouperThrows : public svs::runtime::v0::IDGrouper {
+  public:
+    size_t get_group(size_t) const override {
+        throw std::runtime_error("get_group failed");
+    }
+};
+
 // Custom results allocator for testing
 class TestResultsAllocator : public svs::runtime::v0::ResultsAllocator {
   private:

@@ -1174,6 +1174,52 @@ CATCH_TEST_CASE("RangeSearchWithIDGrouper", "[runtime][grouped_search]") {
     svs::runtime::v0::DynamicVamanaIndex::destroy(index);
 }
 
+CATCH_TEST_CASE("GrouperExceptionBecomesStatus", "[runtime][grouped_search]") {
+    const auto data = create_grouped_test_data();
+    svs::runtime::v0::DynamicVamanaIndex* index = nullptr;
+    svs::runtime::v0::VamanaIndex::BuildParams build_params{64};
+    svs::runtime::v0::Status status = svs::runtime::v0::DynamicVamanaIndex::build(
+        &index,
+        test_d,
+        svs::runtime::v0::MetricType::L2,
+        svs::runtime::v0::StorageKind::FP32,
+        build_params
+    );
+    CATCH_REQUIRE(status.ok());
+    CATCH_REQUIRE(index != nullptr);
+
+    std::vector<size_t> labels(test_n);
+    std::iota(labels.begin(), labels.end(), 0);
+    status = index->add(test_n, labels.data(), data.data());
+    CATCH_REQUIRE(status.ok());
+
+    test_utils::IDGrouperThrows grouper;
+    const std::vector<float> query(test_d, 0.0f);
+    const size_t k = 5;
+    std::vector<float> distances(k);
+    std::vector<size_t> result_labels(k);
+    status = index->search(
+        1,
+        query.data(),
+        k,
+        distances.data(),
+        result_labels.data(),
+        nullptr,
+        nullptr,
+        &grouper
+    );
+    CATCH_REQUIRE(!status.ok());
+    CATCH_REQUIRE(status.code == svs::runtime::v0::ErrorCode::RUNTIME_ERROR);
+
+    test_utils::TestResultsAllocator allocator;
+    status =
+        index->range_search(1, query.data(), 150.0f, allocator, nullptr, nullptr, &grouper);
+    CATCH_REQUIRE(!status.ok());
+    CATCH_REQUIRE(status.code == svs::runtime::v0::ErrorCode::RUNTIME_ERROR);
+
+    svs::runtime::v0::DynamicVamanaIndex::destroy(index);
+}
+
 CATCH_TEST_CASE(
     "GroupedSearchFilterStopEarlyExit", "[runtime][grouped_search][filtered_search]"
 ) {

@@ -231,7 +231,7 @@ class VamanaIndexImpl {
 
         auto threadpool = default_threadpool();
 
-        svs::threads::parallel_for(
+        parallel_for_rethrow(
             threadpool, svs::threads::StaticPartition{queries.size()}, search_closure
         );
     }
@@ -331,7 +331,7 @@ class VamanaIndexImpl {
 
         auto threadpool = default_threadpool();
 
-        svs::threads::parallel_for(
+        parallel_for_rethrow(
             threadpool, svs::threads::StaticPartition{n}, range_search_closure
         );
 

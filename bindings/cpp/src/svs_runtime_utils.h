@@ -54,8 +54,10 @@ inline bool lvq_leanvec_enabled() { return false; }
 
 #include <algorithm>
 #include <concepts>
+#include <exception>
 #include <functional>
 #include <memory>
+#include <mutex>
 #include <random>
 #include <type_traits>
 #include <variant>
@@ -470,6 +472,30 @@ inline svs::threads::ThreadPoolHandle default_threadpool() {
     );
 }
 
+// Rethrows the first exception from `f` after the region; the OpenMP pool has no handler.
+template <typename Pool, typename Partition, typename F>
+void parallel_for_rethrow(Pool& pool, Partition&& partition, F&& f) {
+    std::exception_ptr first;
+    std::mutex mutex;
+    svs::threads::parallel_for(
+        pool,
+        std::forward<Partition>(partition),
+        [&](const auto& range, uint64_t tid) {
+            try {
+                f(range, tid);
+            } catch (...) {
+                std::lock_guard lock{mutex};
+                if (!first) {
+                    first = std::current_exception();
+                }
+            }
+        }
+    );
+    if (first) {
+        std::rethrow_exception(first);
+    }
+}
+
 inline std::function<bool(float, float)> distance_closer(MetricType metric) {
     svs::DistanceDispatcher dispatcher(to_svs_distance(metric));
     return dispatcher([](auto&& dist) {
@@ -514,7 +540,7 @@ void grouped_search(
         }
     };
     auto threadpool = default_threadpool();
-    svs::threads::parallel_for(
+    parallel_for_rethrow(
         threadpool, svs::threads::StaticPartition{queries.size()}, closure
     );
 }
