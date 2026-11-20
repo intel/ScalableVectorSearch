@@ -586,4 +586,53 @@ inline svs::threads::ThreadPoolHandle default_threadpool() {
     return svs::threads::ThreadPoolHandle(svs::threads::OMPThreadPool(omp_get_max_threads())
     );
 }
+
+inline std::function<bool(float, float)> distance_closer(MetricType metric) {
+    svs::DistanceDispatcher dispatcher(to_svs_distance(metric));
+    return dispatcher([](auto&& dist) {
+        return std::function<bool(float, float)>{svs::distance::comparator(dist)};
+    });
+}
+
+// Grouped top-k for every query; rows are padded to `k`.
+template <typename Index, typename Compare>
+void grouped_search(
+    Index& index,
+    svs::QueryResultView<size_t>& result,
+    const svs::data::ConstSimpleDataView<float>& queries,
+    size_t k,
+    IDFilter* filter,
+    float filter_stop,
+    const IDGrouper& grouper,
+    const Compare& closer,
+    size_t initial_batch_size,
+    size_t max_batch_size
+) {
+    auto closure = [&](const auto& range, uint64_t SVS_UNUSED(tid)) {
+        for (auto i : range) {
+            auto iterator = index.batch_iterator(queries.get_datum(i));
+            auto best = grouped_topk(
+                iterator,
+                k,
+                filter,
+                filter_stop,
+                grouper,
+                closer,
+                initial_batch_size,
+                max_batch_size
+            );
+            size_t found = 0;
+            for (; found < best.size(); ++found) {
+                result.set(best[found], i, found);
+            }
+            for (size_t j = found; j < k; ++j) {
+                result.set(Neighbor{Unspecify<size_t>(), Unspecify<float>()}, i, j);
+            }
+        }
+    };
+    auto threadpool = default_threadpool();
+    svs::threads::parallel_for(
+        threadpool, svs::threads::StaticPartition{queries.size()}, closure
+    );
+}
 } // namespace svs::runtime

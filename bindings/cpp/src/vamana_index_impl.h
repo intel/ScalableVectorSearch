@@ -176,38 +176,17 @@ class VamanaIndexImpl {
 
         // Grouped search (optionally filtered)
         if (grouper != nullptr) {
-            svs::DistanceDispatcher distance_dispatcher(to_svs_distance(metric_type_));
-            std::function<bool(float, float)> closer = distance_dispatcher([](auto&& dist) {
-                return std::function<bool(float, float)>{svs::distance::comparator(dist)};
-            });
-
-            auto grouped_closure = [&](const auto& range, uint64_t SVS_UNUSED(tid)) {
-                for (auto i : range) {
-                    auto query = queries.get_datum(i);
-                    auto iterator = get_impl()->batch_iterator(query);
-                    auto best = grouped_topk(
-                        iterator,
-                        k,
-                        filter,
-                        filter_stop,
-                        *grouper,
-                        closer,
-                        initial_batch_size,
-                        max_batch_size
-                    );
-                    size_t found = 0;
-                    for (; found < best.size(); ++found) {
-                        result.set(best[found], i, found);
-                    }
-                    for (size_t j = found; j < k; ++j) {
-                        result.set(Neighbor{Unspecify<size_t>(), Unspecify<float>()}, i, j);
-                    }
-                }
-            };
-
-            auto threadpool = default_threadpool();
-            svs::threads::parallel_for(
-                threadpool, svs::threads::StaticPartition{queries.size()}, grouped_closure
+            grouped_search(
+                *get_impl(),
+                result,
+                queries,
+                k,
+                filter,
+                filter_stop,
+                *grouper,
+                distance_closer(metric_type_),
+                initial_batch_size,
+                max_batch_size
             );
             return;
         }
@@ -296,11 +275,7 @@ class VamanaIndexImpl {
             res.reserve(result_capacity);
         }
 
-        svs::DistanceDispatcher distance_dispatcher(to_svs_distance(metric_type_));
-
-        std::function<bool(float, float)> compare = distance_dispatcher([](auto&& dist) {
-            return std::function<bool(float, float)>{svs::distance::comparator(dist)};
-        });
+        auto compare = distance_closer(metric_type_);
 
         std::function<bool(size_t)> select = [](size_t) { return true; };
         if (filter != nullptr) {
