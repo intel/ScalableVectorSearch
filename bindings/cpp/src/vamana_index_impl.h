@@ -293,6 +293,9 @@ class VamanaIndexImpl {
                 auto query = queries.get_datum(i);
 
                 auto iterator = get_impl()->batch_iterator(query);
+                GroupedBest<svs::Neighbor<size_t>> grouped(
+                    grouper != nullptr ? result_capacity : 0
+                );
                 bool in_range = true;
 
                 do {
@@ -304,7 +307,13 @@ class VamanaIndexImpl {
                         if (in_range) {
                             // Selective search with IDSelector
                             if (select(neighbor.id())) {
-                                all_results[i].push_back(neighbor);
+                                if (grouper != nullptr) {
+                                    grouped.offer(
+                                        neighbor, grouper->get_group(neighbor.id()), compare
+                                    );
+                                } else {
+                                    all_results[i].push_back(neighbor);
+                                }
                             }
                         } else {
                             // Since iterator.results() are ordered by distance, we
@@ -314,9 +323,8 @@ class VamanaIndexImpl {
                     }
                 } while (in_range && !iterator.done());
 
-                // Grouped range search: best element of each group within the radius.
                 if (grouper != nullptr) {
-                    reduce_to_group_best(all_results[i], *grouper, compare);
+                    all_results[i] = grouped.take();
                 }
             }
         };

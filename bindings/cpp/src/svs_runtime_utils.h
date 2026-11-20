@@ -453,29 +453,6 @@ inline size_t sample_size_for_filter_stop(float filter_stop) {
     return std::max(kFilterSampleSize, static_cast<size_t>(1.0f / filter_stop));
 }
 
-// In place: keep the best element per group (first-seen group order); NO_GROUP ids stay.
-template <typename Compare>
-void reduce_to_group_best(
-    std::vector<Neighbor<size_t>>& results, const IDGrouper& grouper, const Compare& closer
-) {
-    std::unordered_map<size_t, size_t> group_slot; // group id -> index in kept prefix
-    size_t kept = 0;
-    for (const auto& neighbor : results) {
-        const size_t group = grouper.get_group(neighbor.id());
-        if (group == IDGrouper::NO_GROUP) {
-            results[kept++] = neighbor;
-            continue;
-        }
-        auto [slot, inserted] = group_slot.try_emplace(group, kept);
-        if (inserted) {
-            results[kept++] = neighbor;
-        } else if (closer(neighbor.distance(), results[slot->second].distance())) {
-            results[slot->second] = neighbor;
-        }
-    }
-    results.resize(kept);
-}
-
 // Fill all result slots with unspecified values.
 // Required when early-exiting before search: the caller-allocated result buffer
 // may contain uninitialized data, so we must write valid "no result" markers.
