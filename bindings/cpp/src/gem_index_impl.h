@@ -35,9 +35,12 @@
 #include <svs/lib/saveload.h>
 #include <svs/lib/threads.h>
 #include <svs/quantization/gem/codebook.h>
+#include <svs/quantization/gem/codebook_timed.h>
 
 #include <algorithm>
+#include <chrono>
 #include <cstdint>
+#include <cstdio>
 #include <istream>
 #include <limits>
 #include <memory>
@@ -97,6 +100,12 @@ class GemIndexImpl {
             throw StatusException{ErrorCode::INVALID_ARGUMENT, "n_docs must be non-zero"};
         }
 
+        auto build_start = std::chrono::steady_clock::now();
+        auto elapsed_s = [](std::chrono::steady_clock::time_point since) {
+            return std::chrono::duration<double>(std::chrono::steady_clock::now() - since)
+                .count();
+        };
+
         std::vector<uint64_t> offsets64(offsets, offsets + n_docs + 1);
         size_t total_tokens = static_cast<size_t>(offsets64.back());
         auto token_view = svs::data::ConstVectorSetView<float>(
@@ -109,17 +118,24 @@ class GemIndexImpl {
         codebook_params.num_centroids = build_params.num_centroids;
         codebook_params.seed = build_params.seed;
 
-        auto quantized =
-            svs::quantization::gem::quantize(token_view, codebook_params, pool);
+        auto [quantized, quantize_timings] =
+            svs::quantization::gem::quantize_timed(token_view, codebook_params, pool);
+        double train_s =
+            quantize_timings.sample + quantize_timings.train + quantize_timings.normalize;
+        double assign_s = quantize_timings.assign;
+        double ground_s = quantize_timings.ground_table + quantize_timings.coarse;
         num_centroids_ = quantized.K;
         fine_centroids_ = quantized.fine_centroids;
 
+        auto entry_start = std::chrono::steady_clock::now();
         uint32_t entry_point = svs::lib::narrow_cast<uint32_t>(
             svs::index::vamana::extensions::gem_pooled_entry_point(
                 quantized.ids.view(), *fine_centroids_, pool
             )
         );
+        double entry_s = elapsed_s(entry_start);
 
+        auto router_start = std::chrono::steady_clock::now();
         if (build_params.build_router) {
             auto built = svs::distance::GemRouter::build(
                 quantized.coarse_of_fine,
@@ -130,6 +146,7 @@ class GemIndexImpl {
             );
             router_ = std::make_shared<const svs::distance::GemRouter>(std::move(built));
         }
+        double router_s = elapsed_s(router_start);
 
         auto start = build_params.start == GemTransportStart::NorthWest
                          ? svs::distance::TransportStart::NorthWest
@@ -157,6 +174,7 @@ class GemIndexImpl {
 
         // Explicit allocator argument (rather than build_gem_graph's hugepage default)
         // deduces its Allocator template parameter to match Graph above.
+        auto graph_start = std::chrono::steady_clock::now();
         auto [graph, report] = svs::index::vamana::build_gem_graph(
             quantized.ids,
             build_distance,
@@ -166,11 +184,15 @@ class GemIndexImpl {
             svs::lib::Allocator<uint32_t>()
         );
         (void)report;
+        double graph_s = elapsed_s(graph_start);
 
+        auto tokens_start = std::chrono::steady_clock::now();
         if (keep_tokens_) {
             tokens_ = make_fp16_tokens(tokens, offsets64, dim, pool);
         }
+        double tokens_s = elapsed_s(tokens_start);
 
+        auto assemble_start = std::chrono::steady_clock::now();
         // The K*K centroid_table (build-only) is dropped here: `quantized` and
         // `build_distance` (its last owners) go out of scope at the end of this
         // constructor.
@@ -183,6 +205,29 @@ class GemIndexImpl {
             serving_pool()
         );
         index_->set_search_parameters(make_vamana_search_parameters(default_search_));
+        double assemble_s = elapsed_s(assemble_start);
+        double total_s = elapsed_s(build_start);
+
+        std::fprintf(
+            stderr,
+            "SVS_GEM_BUILD_PHASES n_docs=%zu n_tokens=%zu K=%zu threads=%zu "
+            "train_s=%.3f assign_s=%.3f ground_s=%.3f entry_s=%.3f router_s=%.3f "
+            "graph_s=%.3f tokens_s=%.3f assemble_s=%.3f total_s=%.3f\n",
+            n_docs,
+            total_tokens,
+            num_centroids_,
+            pool.size(),
+            train_s,
+            assign_s,
+            ground_s,
+            entry_s,
+            router_s,
+            graph_s,
+            tokens_s,
+            assemble_s,
+            total_s
+        );
+        std::fflush(stderr);
     }
 
     size_t size() const { return index_->size(); }
