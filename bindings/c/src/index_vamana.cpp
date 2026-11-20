@@ -89,6 +89,39 @@ std::pair<svs::QueryResult<size_t>, std::vector<size_t>> IndexVamana::search(
     return {results, found_neighbors_per_query};
 }
 
+void IndexVamana::search_range(
+    SearchResults& out_results,
+    svs::data::ConstSimpleDataView<float> queries,
+    float radius,
+    size_t max_results,
+    const std::shared_ptr<Algorithm::SearchParams>& search_params,
+    const IDFilterInterface* id_filter
+) {
+    auto vamana_search_params =
+        std::static_pointer_cast<AlgorithmVamana::SearchParams>(search_params);
+
+    auto params = index.get_search_parameters();
+    if (vamana_search_params) {
+        vamana_search_params->apply_to(params);
+    }
+
+    std::mt19937 rng(42);
+    std::uniform_int_distribution<size_t> dist(0, index.size() - 1);
+    auto sample_generator = [&]() -> size_t { return dist(rng); };
+
+    filtered_range_search(
+        index,
+        out_results,
+        queries,
+        radius,
+        max_results,
+        to_distance_type(builder->distance_metric),
+        params,
+        id_filter,
+        sample_generator
+    );
+}
+
 void IndexVamana::set_num_threads(size_t num_threads) {
     builder->pool_builder.resize(num_threads);
     index.set_threadpool(builder->pool_builder.build());
@@ -113,6 +146,34 @@ DynamicIndexVamana::DynamicIndexVamana(
     auto params = this->index.get_search_parameters();
     algorithm_parameters->apply_to(params);
     this->index.set_search_parameters(params);
+}
+
+std::function<size_t()> DynamicIndexVamana::make_sample_generator() const {
+    std::mt19937 rng(42);
+    const size_t lo = min_id.load(std::memory_order_relaxed);
+    const size_t hi = std::max(lo, max_id.load(std::memory_order_relaxed));
+    std::uniform_int_distribution<size_t> dist(lo, hi);
+    // DynamicVamana index IDs provided by user and may have any values and gaps, so we
+    // need to sample until we find a valid ID.
+    // The most reliable way would be get all IDs and sample from them, but that may be
+    // expensive for large indexes. So we sample from the range of IDs and check if they
+    // exist in the index. If not, we sample again. We limit the number of attempts to
+    // avoid infinite loops in case of sparse IDs. The maximum number of
+    // attempts is set to the ratio of the ID range to the index size, or at least 4
+    // attempts. This ensures that we have a reasonable chance of finding a valid ID
+    // without excessive sampling.
+    // Note: (index.size() + 1) - to avoid division by zero in case the index is empty.
+    const size_t max_attempts = std::max((hi - lo) / (index.size() + 1), size_t{4});
+
+    return [this, rng, dist, max_attempts]() mutable -> size_t {
+        for (size_t attempt = 0; attempt < max_attempts; ++attempt) {
+            size_t id = dist(rng);
+            if (index.has_id(id)) {
+                return id;
+            }
+        }
+        return static_cast<size_t>(-1); // Return an invalid ID if no valid ID is found
+    };
 }
 
 std::pair<svs::QueryResult<size_t>, std::vector<size_t>> DynamicIndexVamana::search(
@@ -156,39 +217,43 @@ std::pair<svs::QueryResult<size_t>, std::vector<size_t>> DynamicIndexVamana::sea
         return {std::move(results), std::move(found_neighbors_per_query)};
     }
 
-    std::mt19937 rng(42);
-    const size_t lo = min_id.load(std::memory_order_relaxed);
-    const size_t hi = std::max(lo, max_id.load(std::memory_order_relaxed));
-    std::uniform_int_distribution<size_t> dist(lo, hi);
-    // DynamicVamana index IDs provided by user and may have any values and gaps, so we
-    // need to sample until we find a valid ID.
-    // The most reliable way would be get all IDs and sample from them, but that may be
-    // expensive for large indexes. So we sample from the range of IDs and check if they
-    // exist in the index. If not, we sample again. We limit the number of attempts to
-    // avoid infinite loops in case of sparse IDs. The maximum number of
-    // attempts is set to the ratio of the ID range to the index size, or at least 4
-    // attempts. This ensures that we have a reasonable chance of finding a valid ID
-    // without excessive sampling.
-    // Note: (index.size() + 1) - to avoid division by zero in case the index is empty.
-    const size_t max_attempts = std::max((hi - lo) / (index.size() + 1), size_t{4});
-
-    auto sample_generator = [&]() -> size_t {
-        for (size_t attempt = 0; attempt < max_attempts; ++attempt) {
-            size_t id = dist(rng);
-            if (index.has_id(id)) {
-                return id;
-            }
-        }
-        return static_cast<size_t>(-1); // Return an invalid ID if no valid ID is found
-    };
-
     auto batch_hint =
         std::max(num_neighbors, params.buffer_config_.get_search_window_size());
 
     auto found_neighbors_per_query = filtered_topk_search(
-        index, results, queries, batch_hint, id_filter, sample_generator
+        index, results, queries, batch_hint, id_filter, make_sample_generator()
     );
     return {results, found_neighbors_per_query};
+}
+
+void DynamicIndexVamana::search_range(
+    SearchResults& out_results,
+    svs::data::ConstSimpleDataView<float> queries,
+    float radius,
+    size_t max_results,
+    const std::shared_ptr<Algorithm::SearchParams>& search_params,
+    const IDFilterInterface* id_filter
+) {
+    auto lock = read_lock();
+    auto vamana_search_params =
+        std::static_pointer_cast<AlgorithmVamana::SearchParams>(search_params);
+
+    auto params = index.get_search_parameters();
+    if (vamana_search_params) {
+        vamana_search_params->apply_to(params);
+    }
+
+    filtered_range_search(
+        index,
+        out_results,
+        queries,
+        radius,
+        max_results,
+        to_distance_type(builder->distance_metric),
+        params,
+        id_filter,
+        make_sample_generator()
+    );
 }
 
 size_t DynamicIndexVamana::add_points(
@@ -290,6 +355,25 @@ std::pair<svs::QueryResult<size_t>, std::vector<size_t>> ConcurrentIndexVamana::
         );
     }
     return DynamicIndexVamana::search(queries, num_neighbors, search_params, id_filter);
+}
+
+void ConcurrentIndexVamana::search_range(
+    SearchResults& out_results,
+    svs::data::ConstSimpleDataView<float> queries,
+    float radius,
+    size_t max_results,
+    const std::shared_ptr<Algorithm::SearchParams>& search_params,
+    const IDFilterInterface* id_filter
+) {
+    assert(sync_kind == SVS_SYNC_KIND_FINE_GRAIN);
+    if (queries.size() > 1) {
+        throw not_implemented(
+            "FINE GRAIN dynamic index only supports searching one query at a time."
+        );
+    }
+    DynamicIndexVamana::search_range(
+        out_results, queries, radius, max_results, search_params, id_filter
+    );
 }
 
 size_t ConcurrentIndexVamana::add_points(

@@ -208,6 +208,7 @@ When both specializations apply (e.g. a save or load variant), `_stream` and
 | Function | Breakdown | Description |
 |----------|-----------|-------------|
 | `svs_index_search_topk()` | `svs` + `index` + `search_topk` | TopK index search (with optional ID filter) |
+| `svs_index_search_range()` | `svs` + `index` + `search_range` | Range index search (with optional ID filter) |
 | `svs_algorithm_create_vamana()` | `svs` + `algorithm` + `create` + `vamana` | Create a Vamana algorithm configuration |
 | `svs_algorithm_vamana_set_alpha()` | `svs` + `algorithm` + `vamana` + `set_alpha` | Set `alpha` on a Vamana algorithm |
 | `svs_storage_create_lvq()` | `svs` + `storage` + `create` + `lvq` | Create LVQ storage configuration |
@@ -244,6 +245,8 @@ The main search structure providing vector similarity search operations.
 **Current Capabilities:**
 - **TopK Search** - Find the k nearest neighbors for query vectors
 - **Filtered TopK Search** - Optional caller-provided ID filter applied during topk search
+- **Range Search** - Find all neighbors closer than a distance (or similarity)
+  threshold, with an optional ID filter
 - Configurable search parameters (window size, etc.)
 - Multiple distance metrics (Euclidean, Cosine, Dot Product)
 - **Persistence** - Save an index to disk and reload it later
@@ -287,6 +290,9 @@ Synchronization limits:
   need an exclusive lock.
 - With `SVS_SYNC_KIND_FINE_GRAIN`, add/delete counts and the index size are a snapshot
   and may be affected by concurrent updates.
+- With `SVS_SYNC_KIND_FINE_GRAIN`, TopK search, range search, add points and delete
+  points accept one query, vector or ID per call; larger batches fail with
+  `SVS_ERROR_NOT_IMPLEMENTED`.
 - The concurrent index keeps a reverse-edge list per node; its memory is reported (and
   estimated, when `sync_kind` is passed to
   `svs_index_builder_estimate_memory_dynamic_ex`) as part of `graph_bytes`.
@@ -306,7 +312,6 @@ svs_index_h index = svs_index_build_dynamic_ex(
 ```
 
 **Future Extensions:**
-- Range search (all neighbors within distance threshold)
 - Additional algorithms (Flat, IVF)
 
 ### 2. Index Builder
@@ -530,12 +535,34 @@ svs_index_search_topk(
     index, queries, num_queries, k, &results, NULL, NULL, err
 );
 
+// Range search: rows have a variable length, read them with svs_search_results_row()
+svs_index_search_range(
+    index, queries, num_queries, radius, /*max_results=*/0, &results, NULL, NULL, err
+);
+for (size_t q = 0; q < results.num_queries; ++q) {
+    const size_t* ids;
+    const float* dists;
+    size_t count;
+    svs_search_results_row(&results, q, &ids, &dists, &count);
+}
+
 svs_search_results_free(&results);
 ```
 
+**Range search radius** is in the units of the index metric and is exclusive: Euclidean
+returns distances (squared L2) below `radius`, Dot Product and Cosine return
+similarities above it. Each row is ordered from closest to farthest. A non-zero
+`max_results` keeps at most that many of the closest in-range neighbors per query and
+stops the search for a query once its row is full. The result count is
+not known in advance, so caller-owned buffers
+(`SVS_INIT_SEARCH_RESULTS_WITH_BUFFERS()`) that turn out too small fail the call with
+`SVS_ERROR_INVALID_ARGUMENT` and leave the results unchanged; with `max_results` set,
+`num_queries * max_results` results always suffice.
+
 ### 8. ID Filter (optional)
 
-A caller-supplied ID filter can be passed to `svs_index_search_topk()` to restrict
+A caller-supplied ID filter can be passed to `svs_index_search_topk()` or
+`svs_index_search_range()` to restrict
 results to a subset of vector IDs. Like the thread pool, the filter is a versioned
 ops table plus an opaque `self` pointer.
 
@@ -658,7 +685,7 @@ for full signatures, parameters, and Doxygen documentation.
 | **Index lifecycle** | `svs_index_build`, `svs_index_build_dynamic[_ex]`, `svs_index_convert`, `svs_index_convert_dynamic[_ex]`, `svs_index_load`, `svs_index_load_dynamic[_ex]`, `svs_index_load_stream`, `svs_index_load_stream_dynamic[_ex]`, `svs_index_save`, `svs_index_save_stream`, `svs_index_free` |
 | **Dynamic ops** | `svs_index_dynamic_{add_points,delete_points,has_id,consolidate,compact,get_sync_kind}` |
 | **Introspection** | `svs_index_get_num_threads` / `set_num_threads`, `svs_index_get_distance`, `svs_index_reconstruct`, `svs_index_get_memory_usage`, `svs_index_get_memory_breakdown` |
-| **Search** | `svs_index_search_topk` (+ deprecated `svs_index_search`), `svs_search_results_free` |
+| **Search** | `svs_index_search_topk` (+ deprecated `svs_index_search`), `svs_index_search_range`, `svs_search_results_row`, `svs_search_results_free` |
 
 ### Conventions
 
@@ -670,7 +697,7 @@ for full signatures, parameters, and Doxygen documentation.
 - LVQ/LeanVec require the compression backend and specific x86 ISA support; when
   unavailable, `svs_storage_create_{lvq,leanvec}` return `NULL` with
   `SVS_ERROR_NOT_IMPLEMENTED` or `SVS_ERROR_UNSUPPORTED_HW`.
-- `svs_index_search_topk` writes results into a caller-provided
+- `svs_index_search_topk` and `svs_index_search_range` write results into a caller-provided
   `svs_search_results_t` (init with `SVS_INIT_SEARCH_RESULTS()` for library-owned
   buffers, or `SVS_INIT_SEARCH_RESULTS_WITH_BUFFERS()` for caller-owned). Rows use
   a CSR layout (`offsets`/`indices`/`distances`); read them with

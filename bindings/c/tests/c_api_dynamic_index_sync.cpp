@@ -254,6 +254,31 @@ void run_concurrent_workload(SyncFixture& fx, svs_index_h index) {
 
             bool has_id = false;
             const size_t base_id = (r * 31 + iter) % NUM_VECTORS;
+
+            // FINE_GRAIN dynamic index only supports one query at a time.
+            const size_t range_queries =
+                sync_kind == SVS_SYNC_KIND_FINE_GRAIN ? 1 : NUM_QUERIES;
+            bool range_ok = svs_index_search_range(
+                index,
+                fx.queries.data(),
+                range_queries,
+                1.0f,
+                0,
+                &results,
+                nullptr,
+                nullptr,
+                err
+            );
+            log.check(range_ok, err, "search_range");
+            if (range_ok) {
+                for (size_t i = 0; i < results.total_results; ++i) {
+                    log.check(
+                        is_known_id(results.indices[i], NUM_WRITER_IDS),
+                        err,
+                        "range search returned unknown id"
+                    );
+                }
+            }
             log.check(
                 svs_index_dynamic_has_id(index, base_id, &has_id, err), err, "has_id"
             );
@@ -568,6 +593,18 @@ CATCH_TEST_CASE("C API Dynamic Index Sync Sequential", "[c_api][index][dynamic][
     CATCH_REQUIRE(svs_index_search_topk(
         index, fx.queries.data(), queries_to_search, K, &results, nullptr, nullptr, fx.error
     ));
+    CATCH_REQUIRE(svs_index_search_range(
+        index,
+        fx.queries.data(),
+        queries_to_search,
+        1.0f,
+        K,
+        &results,
+        nullptr,
+        nullptr,
+        fx.error
+    ));
+    CATCH_REQUIRE(results.num_queries == queries_to_search);
     svs_search_results_free(&results);
 
     float distance = 0.0f;
