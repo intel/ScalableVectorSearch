@@ -499,7 +499,9 @@ class VamanaIndex {
                 query,
                 distance,
                 buffer,
-                vamana::EntryPointInitializer<Idx>{lib::as_const_span(entry_point_)},
+                extensions::search_initializer(
+                    data_, distance, lib::as_const_span(entry_point_)
+                ),
                 internal_search_builder(),
                 prefetch_parameters,
                 cancel

@@ -27,6 +27,11 @@
 #include "svs/lib/preprocessor.h"
 #include "svs/lib/threads.h"
 
+// stl
+#include <concepts>
+#include <span>
+#include <vector>
+
 namespace svs::index::vamana::extensions {
 
 /////
@@ -281,9 +286,65 @@ DefaultBuildAdaptor<Distance> svs_invoke(
     return DefaultBuildAdaptor<Distance>{};
 }
 
+/// Builds the per-insert start nodes `generate_neighbors` uses. Default: entry_points
+/// unchanged. An extension may route to per-node starts instead (GEM, gem.h); `scratch`
+/// is per-thread storage it may fill and return a span over, avoiding allocation.
+struct BuildEntryPointsType {
+    template <typename Data, typename Distance, std::integral Idx>
+    std::span<const Idx> operator()(
+        const Data& data,
+        const Distance& distance,
+        Idx node_id,
+        std::span<const Idx> entry_points,
+        std::vector<Idx>& scratch
+    ) const {
+        return svs::svs_invoke(*this, data, distance, node_id, entry_points, scratch);
+    }
+};
+
+inline constexpr BuildEntryPointsType build_entry_points{};
+
+// Default Implementation.
+template <typename Data, typename Distance, std::integral Idx>
+std::span<const Idx> svs_invoke(
+    svs::tag_t<build_entry_points>,
+    const Data& SVS_UNUSED(data),
+    const Distance& SVS_UNUSED(distance),
+    Idx SVS_UNUSED(node_id),
+    std::span<const Idx> entry_points,
+    std::vector<Idx>& SVS_UNUSED(scratch)
+) {
+    return entry_points;
+}
+
 /////
 ///// SEARCH EXTENSIONS
 /////
+
+/// Builds the greedy-search initializer for a query. Default: EntryPointInitializer over
+/// the index's fixed entry points; an extension may start per-query instead (GEM, gem.h).
+/// Invoked inside greedy_search after fix_argument, so it may read per-query state.
+struct SearchInitializerType {
+    template <typename Data, typename Distance, std::integral Idx>
+    auto operator()(
+        const Data& data, const Distance& distance, std::span<const Idx> entry_points
+    ) const {
+        return svs::svs_invoke(*this, data, distance, entry_points);
+    }
+};
+
+inline constexpr SearchInitializerType search_initializer{};
+
+// Default Implementation.
+template <typename Data, typename Distance, std::integral Idx>
+vamana::EntryPointInitializer<Idx> svs_invoke(
+    svs::tag_t<search_initializer>,
+    const Data& SVS_UNUSED(data),
+    const Distance& SVS_UNUSED(distance),
+    std::span<const Idx> entry_points
+) {
+    return vamana::EntryPointInitializer<Idx>{entry_points};
+}
 
 /// Preprartion steps for single search.
 struct VamanaSingleSearchSetupType {

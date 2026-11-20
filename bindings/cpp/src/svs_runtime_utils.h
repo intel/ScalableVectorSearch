@@ -24,6 +24,7 @@
 #include <svs/extensions/vamana/scalar.h>
 #include <svs/lib/exception.h>
 #include <svs/lib/float16.h>
+#include <svs/lib/threads.h>
 #include <svs/orchestrators/dynamic_vamana.h>
 #include <svs/quantization/scalar/scalar.h>
 
@@ -492,6 +493,29 @@ pad_empty_results(svs::QueryResultView<size_t>& result, size_t num_queries, size
         }
     }
 }
+
+// Adapts a caller-owned `ThreadPoolInterface` to `svs::threads::ThreadPool`, so a GEM
+// build can run on it via `ThreadPoolHandle` instead of a pool the runtime spawns itself.
+class InjectedThreadPool {
+  public:
+    explicit InjectedThreadPool(ThreadPoolInterface& pool)
+        : pool_{&pool} {
+        if (pool.size() == 0) {
+            throw StatusException(
+                ErrorCode::INVALID_ARGUMENT, "Injected thread pool must have size() > 0"
+            );
+        }
+    }
+
+    size_t size() const { return pool_->size(); }
+
+    void parallel_for(std::function<void(size_t)> f, size_t n) {
+        pool_->parallel_for(n, f);
+    }
+
+  private:
+    ThreadPoolInterface* pool_;
+};
 
 inline svs::threads::ThreadPoolHandle default_threadpool() {
     return svs::threads::ThreadPoolHandle(svs::threads::OMPThreadPool(omp_get_max_threads())

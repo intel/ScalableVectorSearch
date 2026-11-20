@@ -109,11 +109,17 @@ set(TEST_SOURCES
     ${TEST_DIR}/svs/core/data/simple.cpp
     ${TEST_DIR}/svs/core/data/serialization.cpp
     ${TEST_DIR}/svs/core/data/view.cpp
+    ${TEST_DIR}/svs/core/data/vector_set_view.cpp
+    ${TEST_DIR}/svs/core/data/vector_set.cpp
     ${TEST_DIR}/svs/core/distance.cpp
     ${TEST_DIR}/svs/core/distances/simd_utils.cpp
     ${TEST_DIR}/svs/core/distances/distance_euclidean.cpp
     ${TEST_DIR}/svs/core/distances/inner_product.cpp
+    ${TEST_DIR}/svs/core/distances/inner_product_matrix.cpp
     ${TEST_DIR}/svs/core/distances/cosine.cpp
+    ${TEST_DIR}/svs/core/distances/gem.cpp
+    ${TEST_DIR}/svs/core/distances/gem_router.cpp
+    ${TEST_DIR}/svs/core/distances/maxsim.cpp
     ${TEST_DIR}/svs/core/graph.cpp
     ${TEST_DIR}/svs/core/io/vecs.cpp
     ${TEST_DIR}/svs/core/io/binary.cpp
@@ -132,9 +138,15 @@ set(TEST_SOURCES
     ${TEST_DIR}/svs/index/flat/flat.cpp
     ${TEST_DIR}/svs/index/flat/dynamic_flat.cpp
     ${TEST_DIR}/svs/index/vamana/build_parameters.cpp
+    ${TEST_DIR}/svs/index/vamana/build_stats.cpp
+    ${TEST_DIR}/svs/index/vamana/connectivity.cpp
     ${TEST_DIR}/svs/index/vamana/consolidate.cpp
     ${TEST_DIR}/svs/index/vamana/filter.cpp
+    ${TEST_DIR}/svs/index/vamana/gem_build.cpp
+    ${TEST_DIR}/svs/index/vamana/gem_routing.cpp
+    ${TEST_DIR}/svs/index/vamana/gem_vector_set.cpp
     ${TEST_DIR}/svs/index/vamana/index.cpp
+    ${TEST_DIR}/svs/index/vamana/maxsim_rerank.cpp
     ${TEST_DIR}/svs/index/vamana/prune.cpp
     ${TEST_DIR}/svs/index/vamana/search_buffer.cpp
     ${TEST_DIR}/svs/index/vamana/search_parameters.cpp
@@ -229,6 +241,20 @@ if (SVS_EXPERIMENTAL_ENABLE_IVF)
         ${TEST_DIR}/svs/index/ivf/index.cpp
         ${TEST_DIR}/svs/index/ivf/dynamic_ivf.cpp
         ${TEST_DIR}/svs/index/ivf/iterator.cpp
+    )
+endif()
+
+if (SVS_EXPERIMENTAL_ENABLE_IVF OR SVS_EXPERIMENTAL_ENABLE_MULTI_VECTOR)
+    message("Enabling shared k-means tests!")
+    list(APPEND TEST_SOURCES
+        ${TEST_DIR}/svs/core/kmeans_training.cpp
+    )
+endif()
+
+if (SVS_EXPERIMENTAL_ENABLE_MULTI_VECTOR)
+    message("Enabling GEM codebook tests!")
+    list(APPEND TEST_SOURCES
+        ${TEST_DIR}/svs/quantization/gem/codebook.cpp
     )
 endif()
 

@@ -21,6 +21,7 @@
 #include "svs/concepts/distance.h"
 #include "svs/core/logging.h"
 #include "svs/index/vamana/build_params.h"
+#include "svs/index/vamana/build_stats.h"
 #include "svs/index/vamana/extensions.h"
 #include "svs/index/vamana/greedy_search.h"
 #include "svs/index/vamana/prune.h"
@@ -42,11 +43,13 @@
 
 // stdlib
 #include <algorithm>
+#include <atomic>
 #include <bit>
 #include <concepts>
 #include <memory>
 #include <optional>
 #include <tuple>
+#include <type_traits>
 #include <vector>
 
 namespace svs::index::vamana {
@@ -166,7 +169,8 @@ template <
     graphs::MemoryGraph Graph,
     data::ImmutableMemoryDataset Data,
     typename Dist,
-    threads::ThreadPool Pool>
+    threads::ThreadPool Pool,
+    typename StatsCollector = DefaultBuildStats>
 class VamanaBuilder {
   public:
     // Type Aliases
@@ -357,6 +361,7 @@ class VamanaBuilder {
 
                 // Scratch space.
                 std::vector<Neighbor<Idx>> pool{};
+                std::vector<Idx> entry_point_scratch{};
                 auto search_buffer = search_buffer_type{params_.window_size};
 
                 // Enable use of the visited filter of the search buffer.
@@ -370,6 +375,7 @@ class VamanaBuilder {
                 auto&& graph_search_distance = build_adaptor.graph_search_distance();
                 auto&& general_distance = build_adaptor.general_distance();
                 auto general_accessor = build_adaptor.general_accessor();
+                StatsCollector stats{};
 
                 for (auto node_id : local_indices) {
                     pool.clear();
@@ -382,21 +388,33 @@ class VamanaBuilder {
 
                     // Perform the greedy search.
                     // The search tracker will be used if it is enabled.
+                    auto&& counted_graph_search_distance =
+                        stats.wrap_search(graph_search_distance);
                     {
+                        [[maybe_unused]] auto search_timer = stats.time_search();
+                        // local_indices' element type varies; narrow to avoid two Idx's.
+                        auto node_entry_points = extensions::build_entry_points(
+                            data_,
+                            distance_function_,
+                            lib::narrow_cast<Idx>(node_id),
+                            lib::as_const_span(entry_points),
+                            entry_point_scratch
+                        );
                         auto accessor = build_adaptor.graph_search_accessor();
                         greedy_search(
                             graph_,
                             data_,
                             accessor,
                             graph_search_query,
-                            graph_search_distance,
+                            counted_graph_search_distance,
                             search_buffer,
-                            vamana::EntryPointInitializer{lib::as_const_span(entry_points)},
+                            vamana::EntryPointInitializer{node_entry_points},
                             NeighborBuilder(),
                             tracker,
                             prefetch_hint_
                         );
                     }
+                    stats.finish_search();
 
                     const auto& post_search_query = build_adaptor.modify_post_search_query(
                         data_, node_id, graph_search_query
@@ -435,6 +453,7 @@ class VamanaBuilder {
                     }
 
                     // Add neighbors of the query that are not part of `visited`.
+                    auto&& counted_pool_distance = stats.wrap_pool(general_distance);
                     for (auto id : graph_.get_node(node_id)) {
                         assert(id != node_id);
                         // Try to emplace the node id into the visited set.
@@ -445,13 +464,14 @@ class VamanaBuilder {
                             pool.emplace_back(
                                 id,
                                 distance::compute(
-                                    general_distance,
+                                    counted_pool_distance,
                                     post_search_query,
                                     general_accessor(data_, id)
                                 )
                             );
                         }
                     }
+                    stats.finish_pool();
 
                     std::sort(
                         pool.begin(),
@@ -463,18 +483,24 @@ class VamanaBuilder {
                     // Prune and wait for an update.
                     thread_local_updates.emplace_back(node_id, std::vector<Idx>{});
                     auto& pruned_results = thread_local_updates.back().second;
-                    heuristic_prune_neighbors(
-                        prune_strategy(distance_function_),
-                        params_.graph_max_degree,
-                        alpha,
-                        data_,
-                        general_accessor,
-                        general_distance,
-                        node_id,
-                        lib::as_const_span(pool),
-                        pruned_results
-                    );
+                    auto&& counted_prune_distance = stats.wrap_prune(general_distance);
+                    {
+                        [[maybe_unused]] auto prune_timer = stats.time_prune();
+                        heuristic_prune_neighbors(
+                            prune_strategy(distance_function_),
+                            params_.graph_max_degree,
+                            alpha,
+                            data_,
+                            general_accessor,
+                            counted_prune_distance,
+                            node_id,
+                            lib::as_const_span(pool),
+                            pruned_results
+                        );
+                    }
+                    stats.finish_prune();
                 }
+                stats.merge();
             }
         );
 
@@ -524,71 +550,103 @@ class VamanaBuilder {
         // that were recorded in the previous process.
         //
         // Take care to avoid duplicate entries.
+        //
+        // One work unit per node, largest overflow first: hub nodes no longer serialize a
+        // batch's tail on a few threads. Pointers stay valid since nothing mutates buckets.
         auto prune_timer = timer.push_back("pruning backedges");
-        threads::parallel_for(
-            threadpool_,
-            threads::DynamicPartition{backedge_buffer_.buckets(), 1},
-            [&](auto& buckets, uint64_t SVS_UNUSED(tid)) {
-                // Thread local auxiliary data structures.
-                std::vector<Neighbor<Idx>> candidates{};
-                std::vector<Idx> pruned_results{};
-                auto build_adaptor = extensions::build_adaptor(data_, distance_function_);
+        using entry_type = typename BackedgeBuffer<Idx>::map_type::value_type;
+        auto& buckets = backedge_buffer_.buckets();
+        size_t total_entries = 0;
+        for (const auto& bucket : buckets) {
+            total_entries += bucket.size();
+        }
+        std::vector<const entry_type*> worklist{};
+        worklist.reserve(total_entries);
+        for (const auto& bucket : buckets) {
+            for (const auto& kv : bucket) {
+                worklist.push_back(&kv);
+            }
+        }
+        // Ties on ``src`` keep the schedule deterministic.
+        std::sort(worklist.begin(), worklist.end(), [](const auto* a, const auto* b) {
+            if (a->second.size() != b->second.size()) {
+                return a->second.size() > b->second.size();
+            }
+            return a->first < b->first;
+        });
 
-                auto general_accessor = build_adaptor.general_accessor();
-                auto&& general_distance = build_adaptor.general_distance();
+        // Setup runs once per thread, not per node: this path also serves cheap distances,
+        // where per-node setup would rival the prune itself.
+        std::atomic<size_t> cursor{0};
+        threads::parallel_for(threadpool_, [&](uint64_t SVS_UNUSED(tid)) {
+            // Thread local auxiliary data structures.
+            std::vector<Neighbor<Idx>> candidates{};
+            std::vector<Idx> pruned_results{};
+            auto build_adaptor = extensions::build_adaptor(data_, distance_function_);
 
-                auto cmp = distance::comparator(general_distance);
-                for (auto& bucket : buckets) {
-                    for (const auto& kv : bucket) {
-                        // The ``neighbors`` class is a set.
-                        auto src = kv.first;
-                        const auto& neighbors = kv.second;
-                        const auto& src_data = general_accessor(data_, src);
-                        distance::maybe_fix_argument(general_distance, src_data);
+            auto general_accessor = build_adaptor.general_accessor();
+            auto&& general_distance = build_adaptor.general_distance();
 
-                        // Helper lambda to make distance computations look a little
-                        // cleaner.
-                        auto make_neighbor = [&](auto i) {
-                            return Neighbor<Idx>{
-                                i,
-                                distance::compute(
-                                    general_distance, src_data, general_accessor(data_, i)
-                                )};
-                        };
+            auto cmp = distance::comparator(general_distance);
+            StatsCollector stats{};
+            // Backedge counting spans the whole thread, so wrap once and reuse below.
+            auto&& counted_backedge_distance = stats.wrap_backedge_prune(general_distance);
+            for (size_t w = cursor.fetch_add(1, std::memory_order_relaxed);
+                 w < worklist.size();
+                 w = cursor.fetch_add(1, std::memory_order_relaxed)) {
+                const auto* entry = worklist[w];
+                // The ``neighbors`` class is a set.
+                auto src = entry->first;
+                const auto& neighbors = entry->second;
+                const auto& src_data = general_accessor(data_, src);
+                distance::maybe_fix_argument(general_distance, src_data);
 
-                        candidates.clear();
-                        // Add the overflow candidates.
-                        for (auto n : neighbors) {
-                            candidates.push_back(make_neighbor(n));
-                        }
+                // Helper lambda to make distance computations look a little
+                // cleaner.
+                auto make_neighbor = [&](auto i) {
+                    return Neighbor<Idx>{
+                        i,
+                        distance::compute(
+                            counted_backedge_distance, src_data, general_accessor(data_, i)
+                        )};
+                };
 
-                        // Add the old adjacency list.
-                        for (auto n : graph_.get_node(src)) {
-                            if (!neighbors.contains(n)) {
-                                candidates.push_back(make_neighbor(n));
-                            }
-                        }
-                        std::sort(candidates.begin(), candidates.end(), TotalOrder(cmp));
-                        candidates.resize(
-                            std::min(candidates.size(), params_.max_candidate_pool_size)
-                        );
+                candidates.clear();
+                // Add the overflow candidates.
+                for (auto n : neighbors) {
+                    candidates.push_back(make_neighbor(n));
+                }
 
-                        heuristic_prune_neighbors(
-                            prune_strategy(distance_function_),
-                            params_.prune_to,
-                            alpha,
-                            data_,
-                            general_accessor,
-                            general_distance,
-                            src,
-                            lib::as_const_span(candidates),
-                            pruned_results
-                        );
-                        graph_.replace_node(src, pruned_results);
+                // Add the old adjacency list.
+                for (auto n : graph_.get_node(src)) {
+                    if (!neighbors.contains(n)) {
+                        candidates.push_back(make_neighbor(n));
                     }
                 }
+                std::sort(candidates.begin(), candidates.end(), TotalOrder(cmp));
+                candidates.resize(
+                    std::min(candidates.size(), params_.max_candidate_pool_size)
+                );
+
+                {
+                    [[maybe_unused]] auto backedge_prune_timer =
+                        stats.time_backedge_prune();
+                    heuristic_prune_neighbors(
+                        prune_strategy(distance_function_),
+                        params_.prune_to,
+                        alpha,
+                        data_,
+                        general_accessor,
+                        counted_backedge_distance,
+                        src,
+                        lib::as_const_span(candidates),
+                        pruned_results
+                    );
+                }
+                graph_.replace_node(src, pruned_results);
             }
-        );
+            stats.merge();
+        });
     }
 
   private:
