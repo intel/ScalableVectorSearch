@@ -135,6 +135,7 @@ install(
     DIRECTORY "${PROJECT_SOURCE_DIR}/include/svs"
     DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}"
     FILES_MATCHING PATTERN "*.h"
+    PATTERN "dispatch_surface.h" EXCLUDE
 )
 install(
     EXPORT svs-targets

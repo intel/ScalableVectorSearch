@@ -37,6 +37,9 @@ set(SVS_DISPATCH_SURFACE_FILE "${SVS_DEFAULT_DISPATCH_SURFACE_FILE}"
     CACHE FILEPATH
     "Declaration of the ahead-of-time distance-kernel dispatch surface"
 )
+option(SVS_UPDATE_DEFAULT_DISPATCH_HEADER
+    "Overwrite the committed default dispatch_surface.h with the generated one" OFF
+)
 
 #####
 ##### Read the declaration
@@ -124,6 +127,39 @@ function(svs_dispatch_emit_header template_file dim_count dim_loop target_loop
 endfunction()
 
 #####
+##### Check the committed default
+#####
+
+# Keeps include/svs/core/distance/dispatch_surface.h equal to the default declaration's output.
+function(svs_dispatch_check_committed_default generated_header)
+    if(NOT "${SVS_DISPATCH_SURFACE_FILE}" STREQUAL "${SVS_DEFAULT_DISPATCH_SURFACE_FILE}")
+        return()
+    endif()
+    set(committed "${SVS_DISPATCH_SOURCE_ROOT}/include/svs/core/distance/dispatch_surface.h")
+    set(matches FALSE)
+    if(EXISTS "${committed}")
+        file(READ "${generated_header}" generated_text)
+        file(READ "${committed}" committed_text)
+        if(generated_text STREQUAL committed_text)
+            set(matches TRUE)
+        endif()
+    endif()
+    if(matches)
+        return()
+    endif()
+    if(SVS_UPDATE_DEFAULT_DISPATCH_HEADER)
+        file(COPY_FILE "${generated_header}" "${committed}")
+        message(STATUS "Updated the committed default dispatch header: ${committed}")
+    else()
+        message(FATAL_ERROR
+            "The committed default dispatch header is stale: ${committed}\n"
+            "It no longer matches cmake/dispatch-surface.cmake. Reconfigure once with "
+            "-DSVS_UPDATE_DEFAULT_DISPATCH_HEADER=ON and commit the result."
+        )
+    endif()
+endfunction()
+
+#####
 ##### Emit the manifest
 #####
 
@@ -170,8 +206,8 @@ function(svs_generate_dispatch_surface out_tu_specs out_header)
         tu_specs levels level_report
     )
 
-    # The build compiles against this copy, ahead of the source include directory. Installed
-    # public headers include it too, so dropping the install breaks every find_package consumer.
+    # The build compiles against this copy, ahead of the source include directory. Header-only use
+    # falls back to the committed default; installed headers include the generated copy.
     set(generated_include_dir "${CMAKE_CURRENT_BINARY_DIR}/generated/include")
     svs_dispatch_emit_header(
         "${SVS_DISPATCH_GEN_CMAKE_DIR}/templates/dispatch_surface.h.in"
@@ -179,6 +215,7 @@ function(svs_generate_dispatch_surface out_tu_specs out_header)
         "${generated_include_dir}"
         header
     )
+    svs_dispatch_check_committed_default("${header}")
     target_include_directories(
         ${SVS_LIB} BEFORE INTERFACE $<BUILD_INTERFACE:${generated_include_dir}>
     )

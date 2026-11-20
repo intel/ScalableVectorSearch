@@ -23,8 +23,9 @@
 #####   - the object library each ISA level's translation unit is compiled into,
 #####     and the instruction budget it is compiled at
 #####
-##### Edit this file. The header is not in the source tree at all: it is written
-##### into the build directory on every configure and installed from there.
+##### Edit this file. The header is written into the build directory on every
+##### configure and installed from there. A copy is committed for header-only use;
+##### configure fails if it is stale, and -DSVS_UPDATE_DEFAULT_DISPATCH_HEADER=ON refreshes it.
 #####
 ##### A build may point somewhere else with -DSVS_DISPATCH_SURFACE_FILE=<file>,
 ##### in which case only that build tree describes the overridden surface.

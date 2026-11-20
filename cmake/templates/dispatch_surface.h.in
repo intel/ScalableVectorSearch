@@ -18,6 +18,8 @@
 
 #pragma once
 
+// clang-format off
+
 // Number of extents with a fixed-extent kernel, including svs::Dynamic.
 #define SVS_SUPPORTED_DIM_COUNT @SVS_GEN_DIM_COUNT@
 
