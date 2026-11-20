@@ -16,6 +16,7 @@
 
 #pragma once
 
+#include "grouped_topk.h"
 #include "svs/runtime/api_defs.h"
 
 #include <svs/core/data.h>
@@ -57,7 +58,6 @@ inline bool lvq_leanvec_enabled() { return false; }
 #include <memory>
 #include <random>
 #include <type_traits>
-#include <unordered_map>
 #include <variant>
 #include <vector>
 
@@ -405,35 +405,6 @@ auto dispatch_storage_kind(StorageKind kind, F&& f, Args&&... args) {
 }
 } // namespace storage
 
-// Predict how many more items need to be processed to reach the goal,
-// based on the observed hit rate so far.
-// If no hits yet, returns `hint` unchanged.
-// Result is capped at `max_value` (e.g., number of vectors in the index).
-inline size_t predict_further_processing(
-    size_t processed, size_t hits, size_t goal, size_t hint, size_t max_value
-) {
-    if (hits == 0 || hits >= goal) {
-        return std::min(hint, max_value);
-    }
-    float batch_size = static_cast<float>(goal - hits) * processed / hits;
-    return std::min(std::max(static_cast<size_t>(batch_size), size_t{1}), max_value);
-}
-
-// Check if the filtered search should stop early based on the observed hit rate.
-// Returns true if the hit rate is below the threshold, meaning the caller should
-// give up and let the caller fall back to exact search.
-inline bool
-should_stop_filtered_search(size_t total_checked, size_t found, float filter_stop) {
-    if (filter_stop <= 0 || total_checked == 0) {
-        return false;
-    }
-    if (found == 0) {
-        return true;
-    }
-    float hit_rate = static_cast<float>(found) / total_checked;
-    return hit_rate < filter_stop;
-}
-
 // Default number of IDs to sample when estimating filter hit rate.
 constexpr size_t kFilterSampleSize = 200;
 
@@ -480,71 +451,6 @@ inline size_t sample_size_for_filter_stop(float filter_stop) {
         return kFilterSampleSize;
     }
     return std::max(kFilterSampleSize, static_cast<size_t>(1.0f / filter_stop));
-}
-
-// Grouped top-k over a batch iterator: pull batches until `k` distinct groups are
-// found or the iterator is exhausted, keeping the best element per group.
-// NO_GROUP ids each count as their own group; `filter` is applied first, and the
-// search gives up (empty result) while short of `k` groups if the filter hit rate
-// falls below `filter_stop`, as in the filtered search.
-template <typename BatchIterator, typename Compare>
-std::vector<Neighbor<size_t>> grouped_topk(
-    BatchIterator& iterator,
-    size_t k,
-    IDFilter* filter,
-    float filter_stop,
-    const IDGrouper& grouper,
-    const Compare& closer, // closer(a, b): distance `a` is closer than `b`
-    size_t initial_batch_size,
-    size_t max_batch_size
-) {
-    std::vector<Neighbor<size_t>> best;
-    best.reserve(k);
-    std::unordered_map<size_t, size_t> group_slot; // group id -> index in `best`
-    size_t total_checked = 0;
-    size_t filter_hits = 0;
-    auto batch_size = initial_batch_size;
-    do {
-        batch_size = predict_further_processing(
-            total_checked, best.size(), k, batch_size, max_batch_size
-        );
-        iterator.next(batch_size);
-        total_checked += iterator.size();
-        for (auto& neighbor : iterator.results()) {
-            // Batches are sorted by distance: with k groups kept, nothing later in
-            // the batch can improve them.
-            if (best.size() == k) {
-                break;
-            }
-            if (filter != nullptr && !filter->is_member(neighbor.id())) {
-                continue;
-            }
-            filter_hits++;
-            const size_t group = grouper.get_group(neighbor.id());
-            const auto candidate = Neighbor<size_t>{neighbor.id(), neighbor.distance()};
-            if (group == IDGrouper::NO_GROUP) {
-                // Ungrouped id: counts as its own group, never deduplicated.
-                best.push_back(candidate);
-                continue;
-            }
-            auto [slot, inserted] = group_slot.try_emplace(group, best.size());
-            if (inserted) {
-                best.push_back(candidate);
-            } else if (closer(candidate.distance(), best[slot->second].distance())) {
-                best[slot->second] = candidate;
-            }
-        }
-        if (best.size() < k &&
-            should_stop_filtered_search(total_checked, filter_hits, filter_stop)) {
-            return {};
-        }
-    } while (best.size() < k && !iterator.done());
-
-    // Replacements can break the by-distance order; restore it.
-    std::stable_sort(best.begin(), best.end(), [&](const auto& a, const auto& b) {
-        return closer(a.distance(), b.distance());
-    });
-    return best;
 }
 
 // In place: keep the best element per group (first-seen group order); NO_GROUP ids stay.
