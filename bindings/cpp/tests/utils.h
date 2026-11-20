@@ -109,7 +109,6 @@ class IDGrouperTable : public svs::runtime::v0::IDGrouper {
     }
 };
 
-// Every id is NO_GROUP: must behave like an ungrouped search.
 class IDGrouperNone : public svs::runtime::v0::IDGrouper {
   public:
     size_t get_group(size_t) const override { return NO_GROUP; }

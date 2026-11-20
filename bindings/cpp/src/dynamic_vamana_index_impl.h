@@ -170,9 +170,7 @@ class DynamicVamanaIndexImpl {
             );
         }
 
-        // Grouped search (optionally filtered): pull batches until k distinct
-        // groups are found, the filter hit rate drops below filter_stop, or the
-        // index is exhausted.
+        // Grouped search (optionally filtered)
         if (grouper != nullptr) {
             svs::DistanceDispatcher distance_dispatcher(to_svs_distance(metric_type_));
             std::function<bool(float, float)> closer = distance_dispatcher([](auto&& dist) {

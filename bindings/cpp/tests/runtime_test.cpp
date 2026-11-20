@@ -77,8 +77,8 @@ struct UsageInfo {
     size_t rss_increase;
 };
 
-// Grouped-search dataset: ids 0-89 form one crowded group next to the origin, ids
-// 90-99 are singleton groups at distances 10..19; all distances from the origin differ.
+// ids 0-89: one crowded group next to the origin; ids 90-99: singletons at
+// distances 10..19.
 constexpr size_t grouped_crowd_size = 90;
 constexpr size_t grouped_num_groups = 11;
 
@@ -93,7 +93,6 @@ std::vector<float> create_grouped_test_data() {
     return data;
 }
 
-// Group 0 for the crowded block, 1-10 for the singletons.
 std::vector<size_t> create_grouped_test_table() {
     std::vector<size_t> table(test_n, 0);
     for (size_t i = grouped_crowd_size; i < test_n; ++i) {
@@ -916,7 +915,6 @@ CATCH_TEST_CASE("SearchWithIDGrouper", "[runtime][grouped_search]") {
     const std::vector<float> query(test_d, 0.0f);
     const size_t k = 5;
 
-    // A plain top-k is entirely crowded out by group 0
     std::vector<float> distances(k);
     std::vector<size_t> result_labels(k);
     status = index->search(1, query.data(), k, distances.data(), result_labels.data());
@@ -925,7 +923,6 @@ CATCH_TEST_CASE("SearchWithIDGrouper", "[runtime][grouped_search]") {
         CATCH_REQUIRE(result_labels[i] < grouped_crowd_size);
     }
 
-    // Grouped: the best of group 0, then the singletons in distance order
     status = index->search(
         1,
         query.data(),
@@ -945,7 +942,6 @@ CATCH_TEST_CASE("SearchWithIDGrouper", "[runtime][grouped_search]") {
         }
     }
 
-    // More groups requested than exist: every group once, then padding
     const size_t big_k = grouped_num_groups + 4;
     std::vector<float> big_distances(big_k);
     std::vector<size_t> big_labels(big_k);
@@ -995,7 +991,6 @@ CATCH_TEST_CASE("SearchWithIDGrouperAndFilter", "[runtime][grouped_search]") {
     CATCH_REQUIRE(status.ok());
 
     test_utils::IDGrouperTable grouper(create_grouped_test_table());
-    // The filter excludes group 0 entirely
     test_utils::IDFilterRange filter(grouped_crowd_size, test_n);
     const std::vector<float> query(test_d, 0.0f);
     const size_t k = 5;
@@ -1014,7 +1009,6 @@ CATCH_TEST_CASE("SearchWithIDGrouperAndFilter", "[runtime][grouped_search]") {
     );
     CATCH_REQUIRE(status.ok());
 
-    // Only the singletons remain: ids 90-94 in distance order
     for (size_t i = 0; i < k; ++i) {
         CATCH_REQUIRE(result_labels[i] == grouped_crowd_size + i);
     }
@@ -1066,7 +1060,6 @@ CATCH_TEST_CASE("SearchWithNoGroupIsUngrouped", "[runtime][grouped_search]") {
     );
     CATCH_REQUIRE(status.ok());
 
-    // Every id ungrouped: must equal the plain search
     for (size_t i = 0; i < k; ++i) {
         CATCH_REQUIRE(result_labels[i] == plain_labels[i]);
         CATCH_REQUIRE(distances[i] == plain_distances[i]);
@@ -1143,10 +1136,8 @@ CATCH_TEST_CASE("RangeSearchWithIDGrouper", "[runtime][grouped_search]") {
 
     test_utils::IDGrouperTable grouper(create_grouped_test_table());
     const std::vector<float> query(test_d, 0.0f);
-    // Covers all of group 0 and the singletons at ids 90-92 (squared L2 100, 121, 144)
     const float radius = 150.0f;
 
-    // Ungrouped reference
     test_utils::TestResultsAllocator plain_allocator;
     status = index->range_search(1, query.data(), radius, plain_allocator);
     CATCH_REQUIRE(status.ok());
@@ -1157,7 +1148,6 @@ CATCH_TEST_CASE("RangeSearchWithIDGrouper", "[runtime][grouped_search]") {
     );
     CATCH_REQUIRE(status.ok());
 
-    // Grouped result == per-group minimum of the ungrouped reference
     std::map<size_t, std::pair<size_t, float>> expected;
     const auto& plain_labels = plain_allocator.labels();
     const auto& plain_distances = plain_allocator.distances();
@@ -1208,7 +1198,6 @@ CATCH_TEST_CASE(
     CATCH_REQUIRE(status.ok());
 
     test_utils::IDGrouperTable grouper(create_grouped_test_table());
-    // 10% selectivity: the filter admits only the singletons, ids 90-99
     test_utils::IDFilterRange filter(grouped_crowd_size, test_n);
     const std::vector<float> query(test_d, 0.0f);
     const size_t k = 5;
@@ -1216,7 +1205,6 @@ CATCH_TEST_CASE(
     std::vector<float> distances(k);
     std::vector<size_t> result_labels(k);
 
-    // filter_stop = 0.5 (50%): the pre-search sample sees ~10% and gives up
     svs::runtime::v0::VamanaIndex::SearchParams search_params;
     search_params.filter_stop = 0.5f;
     status = index->search(
@@ -1234,8 +1222,6 @@ CATCH_TEST_CASE(
         CATCH_REQUIRE(!svs::runtime::v0::is_specified(result_labels[i]));
     }
 
-    // Same without the sample: a first batch of max(k, search_window_size) ids holds
-    // only the crowd (ninety ids), so the per-batch hit-rate check gives up
     search_params.filter_estimate_batch = false;
     search_params.search_window_size = 10;
     status = index->search(
@@ -1253,7 +1239,6 @@ CATCH_TEST_CASE(
         CATCH_REQUIRE(!svs::runtime::v0::is_specified(result_labels[i]));
     }
 
-    // Without filter_stop the search reaches the singletons: ids 90-94 in distance order
     status = index->search(
         1,
         query.data(),
@@ -1295,7 +1280,6 @@ CATCH_TEST_CASE(
     CATCH_REQUIRE(status.ok());
 
     test_utils::IDGrouperTable grouper(create_grouped_test_table());
-    // 10% selectivity: the filter admits only the singletons, ids 90-99
     test_utils::IDFilterRange filter(grouped_crowd_size, test_n);
     const std::vector<float> query(test_d, 0.0f);
     const size_t k = 5;
@@ -1303,7 +1287,6 @@ CATCH_TEST_CASE(
     std::vector<float> distances(k);
     std::vector<size_t> result_labels(k);
 
-    // filter_stop = 0.5 (50%): the pre-search sample sees ~10% and gives up
     svs::runtime::v0::VamanaIndex::SearchParams search_params;
     search_params.filter_stop = 0.5f;
     status = index->search(
@@ -1321,8 +1304,6 @@ CATCH_TEST_CASE(
         CATCH_REQUIRE(!svs::runtime::v0::is_specified(result_labels[i]));
     }
 
-    // Same without the sample: a first batch of max(k, search_window_size) ids holds
-    // only the crowd (ninety ids), so the per-batch hit-rate check gives up
     search_params.filter_estimate_batch = false;
     search_params.search_window_size = 10;
     status = index->search(
@@ -1340,7 +1321,6 @@ CATCH_TEST_CASE(
         CATCH_REQUIRE(!svs::runtime::v0::is_specified(result_labels[i]));
     }
 
-    // Without filter_stop the search reaches the singletons: ids 90-94 in distance order
     status = index->search(
         1,
         query.data(),

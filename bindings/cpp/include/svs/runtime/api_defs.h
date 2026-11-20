@@ -194,8 +194,7 @@ struct SVS_RUNTIME_API_INTERFACE IDFilter {
 // Defined when VamanaIndex::search / range_search accept an IDGrouper.
 #define SVS_RUNTIME_HAVE_IDGROUPER 1
 
-// Maps an element id to its group id; NO_GROUP means ungrouped (its own group).
-// Must be thread-safe, like IDFilter::is_member.
+// Maps an element id to its group id; NO_GROUP means ungrouped. Must be thread-safe.
 struct SVS_RUNTIME_API_INTERFACE IDGrouper {
     static constexpr size_t NO_GROUP = std::numeric_limits<size_t>::max();
 
