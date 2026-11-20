@@ -27,6 +27,10 @@ include_guard(GLOBAL)
 include("${CMAKE_CURRENT_LIST_DIR}/dispatch-levels.cmake")
 
 set(SVS_DISPATCH_GEN_CMAKE_DIR "${CMAKE_CURRENT_LIST_DIR}")
+# Paths must not depend on PROJECT_SOURCE_DIR: parent projects include this file.
+cmake_path(ABSOLUTE_PATH SVS_DISPATCH_SOURCE_ROOT
+           BASE_DIRECTORY "${SVS_DISPATCH_GEN_CMAKE_DIR}/.."
+           NORMALIZE)
 
 set(SVS_DEFAULT_DISPATCH_SURFACE_FILE "${CMAKE_CURRENT_LIST_DIR}/dispatch-surface.cmake")
 set(SVS_DISPATCH_SURFACE_FILE "${SVS_DEFAULT_DISPATCH_SURFACE_FILE}"
@@ -143,7 +147,7 @@ endfunction()
 # how cmake/multi-arch.cmake receives them; nothing here escapes via a bare
 # file-scope set().
 function(svs_generate_dispatch_surface out_tu_specs out_header)
-    set(x86_src_dir "${PROJECT_SOURCE_DIR}/include/svs/multi-arch/x86")
+    set(x86_src_dir "${SVS_DISPATCH_SOURCE_ROOT}/include/svs/multi-arch/x86")
 
     svs_dispatch_read_declaration(
         "${SVS_DISPATCH_SURFACE_FILE}" "${x86_src_dir}"
@@ -199,7 +203,7 @@ function(svs_generate_dispatch_surface out_tu_specs out_header)
 
     # Every enumerator without a translation unit is still reachable -- the entry
     # points fall back to it -- so its kernels are built by each consumer instead.
-    set(enum_header "${PROJECT_SOURCE_DIR}/include/svs/core/distance/distance_core.h")
+    set(enum_header "${SVS_DISPATCH_SOURCE_ROOT}/include/svs/core/distance/distance_core.h")
     if(EXISTS "${enum_header}")
         file(READ "${enum_header}" enum_text)
         if(enum_text MATCHES "enum class AVX_AVAILABILITY[ \t\r\n]*{([^}]*)}")
