@@ -808,22 +808,32 @@ struct GroundStructures {
 /// Builds the bf16 FineCentroids and the pairwise CentroidTable from trained centroids;
 /// the pair quantize's distances need but neither centroid_table nor FineCentroids'
 /// constructor derives from the other, so they are built together here once.
+template <threads::ThreadPool Pool>
+GroundStructures build_ground_structures(
+    const svs::data::SimpleData<float>& centroids,
+    const CodebookParameters& parameters,
+    Pool& threadpool
+) {
+    size_t K = centroids.size();
+    size_t dim = centroids.dimensions();
+    auto fine_centroids = std::make_shared<const svs::distance::FineCentroids>(
+        K, dim, centroids.data(), threadpool
+    );
+    auto centroid_table = std::make_shared<const svs::distance::CentroidTable>(
+        svs::distance::CentroidTable::from_centroids(
+            centroids.data(), K, dim, parameters.ground, threadpool
+        )
+    );
+    return GroundStructures{std::move(fine_centroids), std::move(centroid_table)};
+}
+
 inline GroundStructures build_ground_structures(
     const svs::data::SimpleData<float>& centroids,
     const CodebookParameters& parameters,
     size_t num_threads
 ) {
-    size_t K = centroids.size();
-    size_t dim = centroids.dimensions();
-    auto fine_centroids = std::make_shared<const svs::distance::FineCentroids>(
-        K, dim, centroids.data(), num_threads
-    );
-    auto centroid_table = std::make_shared<const svs::distance::CentroidTable>(
-        svs::distance::CentroidTable::from_centroids(
-            centroids.data(), K, dim, parameters.ground, num_threads
-        )
-    );
-    return GroundStructures{std::move(fine_centroids), std::move(centroid_table)};
+    svs::threads::DefaultThreadPool pool(num_threads);
+    return build_ground_structures(centroids, parameters, pool);
 }
 
 /// Full pipeline: train, assign, build the bf16 FineCentroids and the pairwise
@@ -851,8 +861,7 @@ quantize(const Data& tokens, const CodebookParameters& parameters, Pool& threadp
     auto ids = assign_tokens(tokens, trained.centroids, parameters, threadpool);
 
     size_t K = trained.centroids.size();
-    size_t num_threads = threadpool.size();
-    auto ground = build_ground_structures(trained.centroids, parameters, num_threads);
+    auto ground = build_ground_structures(trained.centroids, parameters, threadpool);
     auto coarse = coarse_clusters(trained.centroids, parameters, threadpool);
 
     return Quantized{

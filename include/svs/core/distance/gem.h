@@ -127,18 +127,25 @@ struct CentroidTable {
     /// it, and the same float is stored at T[i][j] and T[j][i] (never two
     /// independently-computed dot products); that holds regardless of which operand role
     /// bf16-rounding was applied to, since both row and column blocks are rounded
-    /// identically before either is used. Parallelized over tiles on `num_threads`
-    /// threads, dynamically scheduled so no two tiles ever write the same cell; the
-    /// result is bit-for-bit identical regardless of `num_threads`. Uses an uninitialized
-    /// allocation (see the private constructor below) and writes every cell exactly once
-    /// (off-diagonal tiles) or twice with the same value (diagonal tiles' upper/lower
+    /// identically before either is used. Parallelized over tiles on `pool`, dynamically
+    /// scheduled so no two tiles ever write the same cell; the result is bit-for-bit
+    /// identical regardless of the pool's size. Uses an uninitialized allocation (see the
+    /// private constructor below) and writes every cell exactly once (off-diagonal tiles)
+    /// or twice with the same value (diagonal tiles' upper/lower
     /// halves), so no thread does a sequential full-matrix pass.
     static CentroidTable from_centroids(
         const float* centroids, size_t k, size_t dim, Ground ground, size_t num_threads
     ) {
+        svs::threads::DefaultThreadPool pool(num_threads);
+        return from_centroids(centroids, k, dim, ground, pool);
+    }
+
+    template <svs::threads::ThreadPool Pool>
+    static CentroidTable from_centroids(
+        const float* centroids, size_t k, size_t dim, Ground ground, Pool& pool
+    ) {
         CentroidTable result{k, uninitialized_tag{}};
         float* out = result.data.data();
-        svs::threads::DefaultThreadPool pool(num_threads);
 
         // Tile edge: an operand block (tile * dim * 4 bytes, 128 KiB at dim=128) and the
         // tile buffer (tile * tile * 4 bytes, 256 KiB) together stay well inside a
@@ -261,10 +268,15 @@ struct FineCentroids {
     /// `num_threads` threads. Peak memory is `flat`'s own K * dim_ * 4 bytes plus this
     /// object's K * dim_ * 2 bytes: no second float32 buffer is allocated here.
     FineCentroids(size_t k, size_t dim_, const float* flat, size_t num_threads = 1)
-        : K{k}
-        , dim{dim_}
-        , data{std::make_unique_for_overwrite<svs::BFloat16[]>(k * dim_)} {
-        round_rows(flat, data.get(), k * dim_, num_threads);
+        : FineCentroids{k, dim_, uninitialized_tag{}} {
+        svs::threads::DefaultThreadPool pool(num_threads);
+        round_rows(flat, data.get(), k * dim_, pool);
+    }
+
+    template <svs::threads::ThreadPool Pool>
+    FineCentroids(size_t k, size_t dim_, const float* flat, Pool& pool)
+        : FineCentroids{k, dim_, uninitialized_tag{}} {
+        round_rows(flat, data.get(), k * dim_, pool);
     }
 
     // Raw file of K rows of `dim` floats with no header, so K comes from the file size.
@@ -323,11 +335,11 @@ struct FineCentroids {
         , data{std::make_unique_for_overwrite<svs::BFloat16[]>(k * dim_)} {}
 
     // Rounds `count` contiguous float32 values to bfloat16, statically partitioned
-    // across `num_threads` threads; shared by the constructor and the per-chunk path in
+    // across the threads of `pool`; shared by the constructors and the per-chunk path in
     // `load` so there is exactly one place that performs this conversion.
+    template <svs::threads::ThreadPool Pool>
     static void
-    round_rows(const float* flat, svs::BFloat16* out, size_t count, size_t num_threads) {
-        svs::threads::DefaultThreadPool pool(num_threads);
+    round_rows(const float* flat, svs::BFloat16* out, size_t count, Pool& pool) {
         svs::threads::parallel_for(
             pool,
             svs::threads::StaticPartition{count},
@@ -337,6 +349,12 @@ struct FineCentroids {
                 }
             }
         );
+    }
+
+    static void
+    round_rows(const float* flat, svs::BFloat16* out, size_t count, size_t num_threads) {
+        svs::threads::DefaultThreadPool pool(num_threads);
+        round_rows(flat, out, count, pool);
     }
 };
 
