@@ -42,6 +42,7 @@ set(SVS_C_API_SOURCES
     src/index_builder.hpp
     src/leanvec_training_data.hpp
     src/logger.hpp
+    src/search_results.hpp
     src/storage.hpp
     src/stream.hpp
     src/threadpool.hpp

@@ -26,6 +26,7 @@
 
 #include <atomic>
 #include <filesystem>
+#include <functional>
 #include <limits>
 #include <memory>
 #include <ostream>
@@ -43,6 +44,15 @@ struct IndexVamana : public Index {
     std::pair<svs::QueryResult<size_t>, std::vector<size_t>> search(
         svs::data::ConstSimpleDataView<float> queries,
         size_t num_neighbors,
+        const std::shared_ptr<Algorithm::SearchParams>& search_params,
+        const IDFilterInterface* id_filter
+    ) override;
+
+    void search_range(
+        SearchResults& out_results,
+        svs::data::ConstSimpleDataView<float> queries,
+        float radius,
+        size_t max_results,
         const std::shared_ptr<Algorithm::SearchParams>& search_params,
         const IDFilterInterface* id_filter
     ) override;
@@ -92,6 +102,15 @@ struct DynamicIndexVamana : public DynamicIndex {
     std::pair<svs::QueryResult<size_t>, std::vector<size_t>> search(
         svs::data::ConstSimpleDataView<float> queries,
         size_t num_neighbors,
+        const std::shared_ptr<Algorithm::SearchParams>& search_params,
+        const IDFilterInterface* id_filter
+    ) override;
+
+    void search_range(
+        SearchResults& out_results,
+        svs::data::ConstSimpleDataView<float> queries,
+        float radius,
+        size_t max_results,
         const std::shared_ptr<Algorithm::SearchParams>& search_params,
         const IDFilterInterface* id_filter
     ) override;
@@ -150,6 +169,8 @@ struct DynamicIndexVamana : public DynamicIndex {
     }
 
   protected:
+    // Samples live IDs from the tracked ID range for filter hit-rate estimation.
+    std::function<size_t()> make_sample_generator() const;
     void track_id_range(std::span<const size_t> ids);
     size_t delete_points_unlocked(std::span<const size_t> ids);
     void compact_unlocked(size_t batchsize);
@@ -169,6 +190,15 @@ struct ConcurrentIndexVamana : public DynamicIndexVamana {
     std::pair<svs::QueryResult<size_t>, std::vector<size_t>> search(
         svs::data::ConstSimpleDataView<float> queries,
         size_t num_neighbors,
+        const std::shared_ptr<Algorithm::SearchParams>& search_params,
+        const IDFilterInterface* id_filter
+    ) override;
+
+    void search_range(
+        SearchResults& out_results,
+        svs::data::ConstSimpleDataView<float> queries,
+        float radius,
+        size_t max_results,
         const std::shared_ptr<Algorithm::SearchParams>& search_params,
         const IDFilterInterface* id_filter
     ) override;

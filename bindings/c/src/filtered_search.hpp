@@ -17,11 +17,14 @@
 
 #include "svs/c/svs_c.h"
 
+#include "search_results.hpp"
 #include "types_support.hpp"
 
 #include <svs/concepts/data.h>
+#include <svs/core/distance.h>
 #include <svs/core/query_result.h>
 #include <svs/lib/misc.h>
+#include <svs/lib/neighbor.h>
 #include <svs/lib/threads.h>
 
 #include <algorithm>
@@ -234,6 +237,81 @@ std::vector<size_t> filtered_topk_search(
         search_closure
     );
     return found_neighbors_per_query;
+}
+
+// Collect the neighbors closer than `radius` that pass the optional filter by iterating
+// over batches of candidates in distance order, keeping at most `max_results` per query
+// (0 = unlimited). Results are written into `results`.
+template <typename IndexType, typename ParamsType>
+void filtered_range_search(
+    IndexType& index,
+    SearchResults& results,
+    svs::data::ConstSimpleDataView<float> queries,
+    float radius,
+    size_t max_results,
+    svs::DistanceType distance_type,
+    const ParamsType& params,
+    const IDFilterInterface* id_filter,
+    const std::function<size_t()>& sample_generator
+) {
+    const size_t MIN_SAMPLE_SIZE = 200;
+    const auto batch_size =
+        std::max(size_t{1}, params.buffer_config_.get_search_window_size());
+    std::vector<std::vector<svs::Neighbor<size_t>>> neighbors(queries.size());
+
+    // A zero estimate means the sampled hit rate is below the filter rate.
+    if (id_filter != nullptr &&
+        estimate_initial_batch_size(
+            id_filter, sample_generator, MIN_SAMPLE_SIZE, 1, batch_size, index.size()
+        ) == 0) {
+        results.assign(neighbors);
+        return;
+    }
+    const float filter_rate = id_filter == nullptr ? 0.0f : id_filter->filter_rate();
+
+    svs::DistanceDispatcher{distance_type}([&](auto distance) {
+        const auto compare = svs::distance::comparator(distance);
+        auto search_closure = [&](const auto& range, uint64_t SVS_UNUSED(tid)) {
+            for (auto i : range) {
+                auto& found = neighbors[i];
+                auto iterator = index.batch_iterator(queries.get_datum(i));
+                size_t in_range = 0;
+                bool done = false;
+                do {
+                    iterator.next(batch_size);
+                    for (const auto& neighbor : iterator.results()) {
+                        // Batches are ordered by distance: the first miss ends the range.
+                        if (!compare(neighbor.distance(), radius)) {
+                            done = true;
+                            break;
+                        }
+                        ++in_range;
+                        if (id_filter == nullptr || id_filter->is_member(neighbor.id())) {
+                            found.push_back(neighbor);
+                            if (found.size() == max_results) {
+                                done = true;
+                                break;
+                            }
+                        }
+                    }
+                    const bool full = max_results != 0 && found.size() == max_results;
+                    if (!full &&
+                        !hit_rate_sufficient(in_range, found.size(), filter_rate)) {
+                        found.clear();
+                        break;
+                    }
+                } while (!done && !iterator.done());
+            }
+        };
+
+        svs::threads::parallel_for(
+            index.get_threadpool_handle(),
+            svs::threads::StaticPartition{queries.size()},
+            search_closure
+        );
+    });
+
+    results.assign(neighbors);
 }
 
 } // namespace svs::c_runtime

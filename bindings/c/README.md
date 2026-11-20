@@ -21,7 +21,7 @@ C applications and any language with C FFI support.
 
 The API is built around a small set of opaque handles and a builder pattern:
 configure an *algorithm*, optional *storage* and *thread pool*, hand them to an
-*index builder*, then use the resulting *index* to run TopK searches (with
+*index builder*, then use the resulting *index* to run TopK and range searches (with
 optional ID filtering), save/load the index to disk or a caller-supplied stream,
 and — for dynamic indices — add or delete points at runtime.
 

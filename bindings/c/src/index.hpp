@@ -18,6 +18,7 @@
 #include "svs/c/svs_c.h"
 
 #include "algorithm.hpp"
+#include "search_results.hpp"
 #include "threadpool.hpp"
 #include "types_support.hpp"
 
@@ -48,6 +49,14 @@ struct Index {
     virtual std::pair<svs::QueryResult<size_t>, std::vector<size_t>> search(
         svs::data::ConstSimpleDataView<float> queries,
         size_t num_neighbors,
+        const std::shared_ptr<Algorithm::SearchParams>& search_params,
+        const IDFilterInterface* id_filter = nullptr
+    ) = 0;
+    virtual void search_range(
+        SearchResults& out_results,
+        svs::data::ConstSimpleDataView<float> queries,
+        float radius,
+        size_t max_results,
         const std::shared_ptr<Algorithm::SearchParams>& search_params,
         const IDFilterInterface* id_filter = nullptr
     ) = 0;
