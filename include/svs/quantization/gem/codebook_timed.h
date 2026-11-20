@@ -130,11 +130,10 @@ quantize_timed(const Data& tokens, const CodebookParameters& parameters, Pool& t
             .count();
 
     size_t K = trained.centroids.size();
-    size_t num_threads = threadpool.size();
 
     // Timed with the pairwise table build; neither has its own QuantizeTimings field.
     auto ground_start = std::chrono::steady_clock::now();
-    auto ground = build_ground_structures(trained.centroids, parameters, num_threads);
+    auto ground = build_ground_structures(trained.centroids, parameters, threadpool);
     timings.ground_table =
         std::chrono::duration<double>(std::chrono::steady_clock::now() - ground_start)
             .count();
