@@ -184,7 +184,7 @@ class GemIndexImpl {
             std::move(quantized.ids),
             entry_point,
             std::move(serve_distance),
-            std::move(pool)
+            serving_pool()
         );
         index_->set_search_parameters(make_vamana_search_parameters(default_search_));
     }
@@ -338,13 +338,12 @@ class GemIndexImpl {
 
         Dist serve_distance{result->fine_centroids_, result->router_};
 
-        size_t num_threads = static_cast<size_t>(omp_get_max_threads());
         result->index_ = std::make_unique<VIndex>(
             std::move(graph),
             std::move(ids),
             svs::lib::narrow_cast<uint32_t>(header.entry_point),
             std::move(serve_distance),
-            svs::threads::DefaultThreadPool(num_threads)
+            serving_pool()
         );
         result->index_->set_search_parameters(
             make_vamana_search_parameters(result->default_search_)
@@ -353,6 +352,12 @@ class GemIndexImpl {
     }
 
   private:
+    // A host such as Knowhere loads one index per segment and searches from its own pool; a
+    // per-index pool of omp_get_max_threads() workers exhausted threads and memory maps.
+    static svs::threads::DefaultThreadPool serving_pool() {
+        return svs::threads::DefaultThreadPool(1);
+    }
+
     // Tag-dispatched constructor `load()` uses to build an otherwise-empty instance
     // before filling in every member from the stream.
     struct PrivateLoadTag {};
