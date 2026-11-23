@@ -22,6 +22,12 @@ on:
     paths-ignore:
     - 'bindings/**'
     - '**.md'
+    - '.github/CODEOWNERS'
+    - '.github/dependabot.yml'
+    - '.github/workflows/cibuildwheel.yml'
+    - '.github/workflows/skywalking-eyes.yml'
+    - 'LICENSE*'
+    - 'THIRD-PARTY-PROGRAMS'
   workflow_dispatch:
 
 permissions:
@@ -30,7 +36,7 @@ permissions:
 # This allows a subsequently queued workflow run to interrupt previous runs
 concurrency:
   group: ${{ github.workflow }} @ ${{ github.event.pull_request.head.label || github.head_ref || github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   build:
@@ -62,8 +68,7 @@ jobs:
               -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} \
               -DSVS_BUILD_BINARIES=YES \
               -DSVS_BUILD_TESTS=YES \
-              -DSVS_BUILD_EXAMPLES=YES \
-              -DSVS_EXPERIMENTAL_LEANVEC=YES
+              -DSVS_BUILD_EXAMPLES=YES
 
     - name: Build Tests and Utilities
       working-directory: ${{ runner.temp }}/build
