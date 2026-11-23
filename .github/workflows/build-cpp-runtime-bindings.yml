@@ -15,14 +15,13 @@
 name: Build and test C++ Runtime Bindings
 
 on:
-  push:
-    branches:
-      - main
   pull_request:
     paths-ignore:
       - 'bindings/c/**'
       - 'bindings/python/**'
       - '**.md'
+  merge_group:
+    types: [checks_requested]
   workflow_dispatch:
 
 permissions:

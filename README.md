@@ -16,8 +16,8 @@
 
 # Scalable Vector Search
 
-[![Linux Build and Test](https://github.com/intel/ScalableVectorSearch/actions/workflows/build-linux.yml/badge.svg?event=push)](https://github.com/intel/ScalableVectorSearch/actions/workflows/build-linux.yml)
-[![CIBuildWheel](https://github.com/intel/ScalableVectorSearch/actions/workflows/cibuildwheel.yml/badge.svg?event=push)](https://github.com/intel/ScalableVectorSearch/actions/workflows/cibuildwheel.yml)
+[![Linux Build and Test](https://github.com/intel/ScalableVectorSearch/actions/workflows/build-linux.yml/badge.svg?event=merge_group)](https://github.com/intel/ScalableVectorSearch/actions/workflows/build-linux.yml)
+[![CIBuildWheel](https://github.com/intel/ScalableVectorSearch/actions/workflows/cibuildwheel.yml/badge.svg?event=merge_group)](https://github.com/intel/ScalableVectorSearch/actions/workflows/cibuildwheel.yml)
 [![License](https://img.shields.io/badge/License-Apache%202.0-silver.svg)](https://github.com/intel/ScalableVectorSearch/blob/main/LICENSE)
 
 **Scalable Vector Search (SVS)** is a performance library for vector [similarity search](https://en.wikipedia.org/wiki/Similarity_search).

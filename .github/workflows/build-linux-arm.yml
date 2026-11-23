@@ -14,14 +14,11 @@
 
 name: Linux Build and Test on ARM
 
+# Builds only in the merge queue; on pull requests every job is skipped so the required check is satisfied.
 on:
-  push:
-    branches:
-    - main
   pull_request:
-    paths-ignore:
-    - 'bindings/**'
-    - '**.md'
+  merge_group:
+    types: [checks_requested]
   workflow_dispatch:
 
 permissions:
@@ -35,6 +32,7 @@ concurrency:
 jobs:
   build:
     name: ${{ matrix.cxx }}, ${{ matrix.build_type }}
+    if: github.event_name != 'pull_request'
     runs-on: ubuntu-22.04-arm
     strategy:
       matrix:
@@ -74,3 +72,15 @@ jobs:
         CTEST_OUTPUT_ON_FAILURE: 1
       working-directory: ${{ runner.temp }}/build/tests
       run: ctest -C ${{ matrix.build_type }}
+
+  linux-arm-passed:
+    # Skipped (shown grey) when nothing ran, so the PR page doesn't show a green check for unbuilt work.
+    name: linux-arm-passed
+    if: always() && github.event_name != 'pull_request'
+    needs: build
+    runs-on: ubuntu-22.04
+    steps:
+    - name: Require the build to have run and succeeded
+      run: |
+        echo "build=${{ needs.build.result }}"
+        [[ "${{ needs.build.result }}" == success ]]
