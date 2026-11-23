@@ -86,6 +86,11 @@ class L2 {
   public:
     template <typename Ea, typename Eb>
     static constexpr float compute(const Ea* a, const Eb* b, size_t N) {
+        if (__builtin_expect(svs::detail::avx_runtime_flags.is_avx512fp16_supported(), 1)) {
+            return L2Impl<Dynamic, Ea, Eb, AVX_AVAILABILITY::AVX512_FP16>::compute(
+                a, b, lib::MaybeStatic(N)
+            );
+        }
         if (__builtin_expect(svs::detail::avx_runtime_flags.is_avx512f_supported(), 1)) {
             return L2Impl<Dynamic, Ea, Eb, AVX_AVAILABILITY::AVX512>::compute(
                 a, b, lib::MaybeStatic(N)
@@ -103,6 +108,17 @@ class L2 {
 
     template <size_t N, typename Ea, typename Eb>
     static constexpr float compute(const Ea* a, const Eb* b) {
+        if (__builtin_expect(svs::detail::avx_runtime_flags.is_avx512fp16_supported(), 1)) {
+            if constexpr (is_dim_supported<N>()) {
+                return L2Impl<N, Ea, Eb, AVX_AVAILABILITY::AVX512_FP16>::compute(
+                    a, b, lib::MaybeStatic<N>()
+                );
+            } else {
+                return L2Impl<Dynamic, Ea, Eb, AVX_AVAILABILITY::AVX512_FP16>::compute(
+                    a, b, lib::MaybeStatic(N)
+                );
+            }
+        }
         if (__builtin_expect(svs::detail::avx_runtime_flags.is_avx512f_supported(), 1)) {
             if constexpr (is_dim_supported<N>()) {
                 return L2Impl<N, Ea, Eb, AVX_AVAILABILITY::AVX512>::compute(
@@ -358,6 +374,11 @@ template <size_t N> struct L2Impl<N, Float16, Float16, AVX_AVAILABILITY::AVX512>
 };
 
 #endif
+
+// Everything not natively overridden in avx512_fp16.cpp reuses the AVX512 implementation.
+template <size_t N, typename Ea, typename Eb>
+struct L2Impl<N, Ea, Eb, AVX_AVAILABILITY::AVX512_FP16>
+    : L2Impl<N, Ea, Eb, AVX_AVAILABILITY::AVX512> {};
 
 /////
 ///// Intel(R) AVX2 Implementations
