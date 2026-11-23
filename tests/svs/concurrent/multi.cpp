@@ -126,7 +126,10 @@ CATCH_TEMPLATE_TEST_CASE(
         std::vector<size_t> test_indices(num_points);
         std::iota(test_indices.begin(), test_indices.end(), 0);
 
-        auto test_index = cc::MultiMutableVamanaIndex(
+        auto test_index = cc::MultiMutableVamanaIndex<
+            ccg::SimpleBlockedGraph<uint32_t>,
+            decltype(to_segmented(data)),
+            Distance>(
             build_parameters, to_segmented(data), test_indices, Distance(), num_threads
         );
 
@@ -148,7 +151,10 @@ CATCH_TEMPLATE_TEST_CASE(
         std::vector<size_t> test_indices(num_points);
         std::iota(test_indices.begin(), test_indices.end(), 0);
 
-        auto test_index = cc::MultiMutableVamanaIndex(
+        auto test_index = cc::MultiMutableVamanaIndex<
+            ccg::SimpleBlockedGraph<uint32_t>,
+            decltype(to_segmented(data)),
+            Distance>(
             build_parameters, to_segmented(data), test_indices, Distance(), num_threads
         );
 
@@ -209,7 +215,10 @@ CATCH_TEMPLATE_TEST_CASE(
             ++start;
         }
 
-        auto test_index = cc::MultiMutableVamanaIndex(
+        auto test_index = cc::MultiMutableVamanaIndex<
+            ccg::SimpleBlockedGraph<uint32_t>,
+            decltype(to_segmented(data)),
+            Distance>(
             build_parameters, to_segmented(data), test_indices, Distance(), num_threads
         );
         test_index.add_points(data, test_indices);
@@ -252,7 +261,10 @@ CATCH_TEMPLATE_TEST_CASE(
         std::vector<size_t> test_indices(num_points);
         std::iota(test_indices.begin(), test_indices.end(), 0);
 
-        auto test_index = cc::MultiMutableVamanaIndex(
+        auto test_index = cc::MultiMutableVamanaIndex<
+            ccg::SimpleBlockedGraph<uint32_t>,
+            decltype(to_segmented(data)),
+            Distance>(
             build_parameters, to_segmented(data), test_indices, Distance(), num_threads
         );
 
@@ -273,7 +285,10 @@ CATCH_TEMPLATE_TEST_CASE(
         for (auto& i : test_indices) {
             i = std::rand() % num_labels;
         }
-        auto test_index = cc::MultiMutableVamanaIndex(
+        auto test_index = cc::MultiMutableVamanaIndex<
+            ccg::SimpleBlockedGraph<uint32_t>,
+            decltype(to_segmented(data)),
+            Distance>(
             build_parameters, to_segmented(data), test_indices, Distance(), num_threads
         );
         auto test_results = svs::QueryResult<size_t>(queries.size(), num_neighbors);
@@ -359,7 +374,10 @@ CATCH_TEST_CASE(
         i = std::rand() % num_labels;
     }
 
-    auto index = cc::MultiMutableVamanaIndex(
+    auto index = cc::MultiMutableVamanaIndex<
+        ccg::SimpleBlockedGraph<uint32_t>,
+        decltype(to_segmented(data)),
+        Distance>(
         build_parameters, to_segmented(data), test_indices, Distance(), num_threads
     );
     auto results = svs::QueryResult<size_t>(queries.size(), num_neighbors);
@@ -487,9 +505,10 @@ CATCH_TEST_CASE(
     std::iota(indices.begin(), indices.end(), 0);
 
     svs::index::vamana::VamanaBuildParameters parameters{1.2, 64, 10, 20, 10, true};
-    auto index = cc::MultiMutableVamanaIndex(
-        parameters, to_segmented(data), indices, Distance(), num_threads
-    );
+    auto index = cc::MultiMutableVamanaIndex<
+        ccg::SimpleBlockedGraph<uint32_t>,
+        decltype(to_segmented(data)),
+        Distance>(parameters, to_segmented(data), indices, Distance(), num_threads);
 
     // Shift by one and re-add: label 1 now groups two externals (its own original
     // point and the re-added point 0), so the rename below has to move every external

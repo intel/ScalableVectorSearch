@@ -84,8 +84,6 @@ inline void atomic_max(std::atomic<size_t>& target, size_t value) {
 
 // Forward declaration
 template <typename Index, typename QueryType> class BatchIterator;
-template <graphs::MemoryGraph Graph, typename Data, typename Dist>
-class MultiMutableVamanaIndex;
 
 /////
 ///// MutableVamanaIndex
@@ -173,7 +171,7 @@ class ValidBuilder {
 
 template <graphs::MemoryGraph Graph, typename Data, typename Dist>
 class MutableVamanaIndex {
-    friend class MultiMutableVamanaIndex<Graph, Data, Dist>;
+    friend class vamana::MultiMutableVamanaIndex<Graph, Data, Dist>;
     template <typename, typename> friend class BatchIterator;
 
   public:
