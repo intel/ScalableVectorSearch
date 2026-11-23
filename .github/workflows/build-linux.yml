@@ -66,9 +66,17 @@ jobs:
             -DSVS_BUILD_EXAMPLES=NO
            # skip longer-running tests
           ctest_args: -LE long
+        # ivf=OFF RelWithDebInfo is a strict subset of ivf=ON for the same
+        # compiler (IVF only appends sources and links MKL; no non-IVF source
+        # includes MKL headers). g++-12 keeps ivf=OFF as its only job, and
+        # clang++-18 ASAN keeps the no-MKL build covered.
         exclude:
         - cxx: g++-12
           ivf: ON
+        - cxx: g++-11
+          ivf: OFF
+        - cxx: clang++-15
+          ivf: OFF
 
     steps:
     - uses: actions/checkout@v6
