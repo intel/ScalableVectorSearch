@@ -16,6 +16,7 @@
 
 #pragma once
 
+#include "svs/core/distance/conversion.h"
 #include "svs/core/distance/cosine.h"
 #include "svs/core/distance/euclidean.h"
 #include "svs/core/distance/inner_product.h"

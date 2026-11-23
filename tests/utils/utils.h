@@ -24,13 +24,16 @@
 #include <memory>
 #include <sstream>
 #include <string>
+#include <string_view>
 #include <type_traits>
 
 #include "svs/core/data/simple.h"
 #include "svs/core/query_result.h"
+#include "svs/lib/avx_detection.h"
 #include "svs/lib/exception.h"
 #include "svs/lib/float16.h"
 #include "svs/lib/misc.h"
+#include "svs/lib/scopeguard.h"
 #include "svs/third-party/fmt.h"
 #include "svs/third-party/toml.h"
 
@@ -317,4 +320,36 @@ struct GetDistanceTester {
         }
     }
 };
+
+/////
+///// Instruction-set dispatch
+/////
+
+///
+/// @brief Invoke ``f(isa_name)`` once per instruction-set level the host supports.
+///
+/// Covers each level the ``svs::distance`` dispatchers select between, from the highest
+/// down to the generic path. Lower levels are reached by temporarily clearing the runtime
+/// flags the dispatchers read, so every level's kernels run on a single machine. The flags
+/// are restored before returning, including when ``f`` throws, because every later test
+/// in the process dispatches on them.
+///
+template <typename F> void for_each_supported_isa(F&& f) {
+#if defined(__x86_64__)
+    auto& flags = const_cast<svs::detail::AVXRuntimeFlags&>(svs::detail::avx_runtime_flags);
+    const auto original = flags;
+    auto restore = svs::lib::make_scope_guard([&]() noexcept { flags = original; });
+
+    if (original.avx512f) {
+        f(std::string_view{"AVX512"});
+    }
+    flags.avx512vnni = false;
+    flags.avx512f = false;
+    if (original.avx2) {
+        f(std::string_view{"AVX2"});
+    }
+    flags.avx2 = false;
+#endif
+    f(std::string_view{"generic"});
+}
 } // namespace svs_test

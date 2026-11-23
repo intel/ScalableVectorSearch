@@ -15,6 +15,7 @@
  */
 
 #if defined(__x86_64__)
+#include "svs/core/distance/conversion.h"
 #include "svs/core/distance/cosine.h"
 #include "svs/core/distance/euclidean.h"
 #include "svs/core/distance/inner_product.h"
@@ -51,6 +52,8 @@ DISTANCE_CS_INSTANTIATE_TEMPLATE(200, AVX_AVAILABILITY::AVX512);
 DISTANCE_CS_INSTANTIATE_TEMPLATE(512, AVX_AVAILABILITY::AVX512);
 DISTANCE_CS_INSTANTIATE_TEMPLATE(768, AVX_AVAILABILITY::AVX512);
 DISTANCE_CS_INSTANTIATE_TEMPLATE(Dynamic, AVX_AVAILABILITY::AVX512);
+
+DISTANCE_CONVERT_INSTANTIATE_TEMPLATE(AVX_AVAILABILITY::AVX512);
 
 } // namespace svs::distance
 

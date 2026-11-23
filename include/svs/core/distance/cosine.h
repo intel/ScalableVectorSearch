@@ -178,6 +178,15 @@ float compute(DistanceCosineSimilarity distance, std::span<Ea, Da> a, std::span<
     }
 }
 
+// The cosine kernels convert `Float16` operands to `float` on every SIMD step. An operand
+// converted once ahead of time selects the mixed `float` kernel, which loads it directly.
+// Removing this sends the iterative prune back to reconverting its query for every
+// candidate.
+template <size_t Extent>
+struct distance_argument<DistanceCosineSimilarity, std::span<const Float16, Extent>> {
+    using type = std::span<const float, Extent>;
+};
+
 /////
 ///// Generic Implementation
 /////

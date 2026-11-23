@@ -111,6 +111,7 @@ set(TEST_SOURCES
     ${TEST_DIR}/svs/core/data/view.cpp
     ${TEST_DIR}/svs/core/distance.cpp
     ${TEST_DIR}/svs/core/distances/simd_utils.cpp
+    ${TEST_DIR}/svs/core/distances/conversion.cpp
     ${TEST_DIR}/svs/core/distances/distance_euclidean.cpp
     ${TEST_DIR}/svs/core/distances/inner_product.cpp
     ${TEST_DIR}/svs/core/distances/cosine.cpp

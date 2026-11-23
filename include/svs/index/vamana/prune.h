@@ -19,6 +19,7 @@
 #include "svs/concepts/data.h"
 #include "svs/concepts/distance.h"
 #include "svs/core/distance.h"
+#include "svs/core/distance/conversion.h"
 #include "svs/lib/neighbor.h"
 #include "svs/lib/type_traits.h"
 
@@ -89,6 +90,21 @@ inline PruneState reenable(PruneState state) {
 inline bool excluded(PruneState state) { return state != PruneState::Available; }
 
 ///
+/// @brief Pre-allocated storage for the query of the ``IterativePruneStrategy`` overload of
+///     ``heuristic_prune_neighbors``.
+///
+/// @tparam Data The full type of the dataset passed to the prune.
+/// @tparam Accessor The accessor passed to the prune.
+/// @tparam Dist The distance functor passed to the prune.
+///
+/// Construct with ``dataset.dimensions()`` and reuse across prune calls on one thread.
+///
+template <typename Data, typename Accessor, typename Dist>
+using prune_query_storage_t = distance::PreconvertedArgument<
+    std::remove_cvref_t<Dist>,
+    std::remove_cvref_t<std::invoke_result_t<const Accessor&, const Data&, size_t>>>;
+
+///
 /// @brief Function to prune neighbors using MRNG rule (extended with alpha as in Vamana).
 ///
 /// @tparam Data The full type of the given dataset.
@@ -96,6 +112,10 @@ inline bool excluded(PruneState state) { return state != PruneState::Available; 
 /// @tparam Neighbors The full neighbor-type of the candidate pool.
 /// @tparam I The type of the resulting index for each neighbor.
 /// @tparam Alloc Allocator for the result vector.
+///
+/// @param query_storage Storage the query of each pruning step is converted into, so the
+///     comparisons against the remaining candidates do not reconvert it. Must have been
+///     constructed with ``dataset.dimensions()``. Its contents on return are unspecified.
 ///
 template <
     data::ImmutableMemoryDataset Data,
@@ -113,7 +133,8 @@ void heuristic_prune_neighbors(
     Dist& distance_function,
     size_t current_node_id,
     const std::span<const Neighbors>& pool,
-    std::vector<I, Alloc>& result
+    std::vector<I, Alloc>& result,
+    prune_query_storage_t<Data, Accessor, Dist>& query_storage
 ) {
     auto cmp = distance::comparator(distance_function);
     assert(std::is_sorted(pool.begin(), pool.end(), cmp));
@@ -142,7 +163,15 @@ void heuristic_prune_neighbors(
 
             // Only once we know this item needs to be processed to we retrieve
             // the corresponding data and perform preprocessing.
-            const auto& query = accessor(dataset, id);
+            const auto& query = query_storage(accessor(dataset, id));
+            static_assert(
+                distance::Distance<
+                    Dist,
+                    std::remove_cvref_t<decltype(query)>,
+                    std::remove_cvref_t<decltype(accessor(dataset, id))>>,
+                "The distance functor has no `compute` overload for the converted query "
+                "type named by `distance::distance_argument`."
+            );
             distance::maybe_fix_argument(distance_function, query);
             result.push_back(detail::construct_as(lib::Type<I>(), pool[start]));
             for (size_t t = start + 1; t < poolsize; ++t) {
@@ -171,6 +200,45 @@ void heuristic_prune_neighbors(
         }
         current_alpha *= alpha;
     }
+}
+
+///
+/// @brief Function to prune neighbors using MRNG rule (extended with alpha as in Vamana).
+///
+/// Allocates the query storage for this call only. Callers that prune repeatedly should
+/// hold a ``prune_query_storage_t`` and pass it to the overload that takes one.
+///
+template <
+    data::ImmutableMemoryDataset Data,
+    data::AccessorFor<Data> Accessor,
+    distance::Distance<data::const_value_type_t<Data>, data::const_value_type_t<Data>> Dist,
+    NeighborLike Neighbors,
+    detail::IntegerOrNeighbor I,
+    typename Alloc>
+void heuristic_prune_neighbors(
+    IterativePruneStrategy dispatch,
+    size_t max_result_size,
+    float alpha,
+    const Data& dataset,
+    const Accessor& accessor,
+    Dist& distance_function,
+    size_t current_node_id,
+    const std::span<const Neighbors>& pool,
+    std::vector<I, Alloc>& result
+) {
+    auto query_storage = prune_query_storage_t<Data, Accessor, Dist>(dataset.dimensions());
+    heuristic_prune_neighbors(
+        dispatch,
+        max_result_size,
+        alpha,
+        dataset,
+        accessor,
+        distance_function,
+        current_node_id,
+        pool,
+        result,
+        query_storage
+    );
 }
 
 template <
@@ -305,5 +373,47 @@ void heuristic_prune_neighbors(
         }
         ++start;
     }
+}
+
+///
+/// @brief Prune with a strategy that does not use pre-allocated query storage.
+///
+/// Lets a caller that holds a ``prune_query_storage_t`` pass it whichever strategy its
+/// distance functor selects. ``ProgressivePruneStrategy`` and ``LegacyPruneStrategy`` do
+/// not convert their query, so ``query_storage`` is ignored.
+///
+template <
+    typename Strategy,
+    data::ImmutableMemoryDataset Data,
+    data::AccessorFor<Data> Accessor,
+    distance::Distance<data::const_value_type_t<Data>, data::const_value_type_t<Data>> Dist,
+    NeighborLike Neighbors,
+    detail::IntegerOrNeighbor I,
+    typename Alloc>
+    requires std::same_as<Strategy, ProgressivePruneStrategy> ||
+             std::same_as<Strategy, LegacyPruneStrategy>
+void heuristic_prune_neighbors(
+    Strategy dispatch,
+    size_t max_result_size,
+    float alpha,
+    const Data& dataset,
+    const Accessor& accessor,
+    Dist& distance_function,
+    size_t current_node_id,
+    const std::span<const Neighbors>& pool,
+    std::vector<I, Alloc>& result,
+    prune_query_storage_t<Data, Accessor, Dist>& SVS_UNUSED(query_storage)
+) {
+    heuristic_prune_neighbors(
+        dispatch,
+        max_result_size,
+        alpha,
+        dataset,
+        accessor,
+        distance_function,
+        current_node_id,
+        pool,
+        result
+    );
 }
 } // namespace svs::index::vamana
