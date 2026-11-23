@@ -84,7 +84,7 @@ std::pair<svs::QueryResult<size_t>, std::vector<size_t>> IndexVamana::search(
         std::max(num_neighbors, params.buffer_config_.get_search_window_size());
 
     auto found_neighbors_per_query = filtered_topk_search(
-        index, results, queries, batch_hint, id_filter, sample_generator
+        index, params, results, queries, batch_hint, id_filter, sample_generator
     );
     return {results, found_neighbors_per_query};
 }
@@ -186,7 +186,7 @@ std::pair<svs::QueryResult<size_t>, std::vector<size_t>> DynamicIndexVamana::sea
         std::max(num_neighbors, params.buffer_config_.get_search_window_size());
 
     auto found_neighbors_per_query = filtered_topk_search(
-        index, results, queries, batch_hint, id_filter, sample_generator
+        index, params, results, queries, batch_hint, id_filter, sample_generator
     );
     return {results, found_neighbors_per_query};
 }
