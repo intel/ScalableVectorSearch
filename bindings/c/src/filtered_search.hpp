@@ -281,9 +281,9 @@ void filtered_range_search(
                     iterator.next(batch_size);
                     for (const auto& neighbor : iterator.results()) {
                         // Batches are ordered by distance: the first miss ends the range.
-                        if (!compare(neighbor.distance(), radius)) {
+                        if (compare(radius, neighbor.distance())) {
                             done = true;
-                            break;
+                            continue; // try to collect more neighbors within the batch
                         }
                         ++in_range;
                         if (id_filter == nullptr || id_filter->is_member(neighbor.id())) {

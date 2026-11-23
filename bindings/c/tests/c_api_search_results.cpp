@@ -122,6 +122,9 @@ struct SearchFixture {
         return metric == SVS_DISTANCE_METRIC_EUCLIDEAN ? a < b : a > b;
     }
 
+    // Range search includes neighbors exactly at the radius.
+    bool within(float a, float radius) const { return !closer(radius, a); }
+
     float pick_radius() const {
         std::vector<float> kth;
         for (size_t q = 0; q < NUM_QUERIES; ++q) {
@@ -140,16 +143,16 @@ struct SearchFixture {
         return kth[NUM_QUERIES / 2];
     }
 
-    // A radius no vector can be strictly closer than.
+    // A radius no vector can be within: squared L2 is never negative.
     float empty_radius() const {
-        return metric == SVS_DISTANCE_METRIC_EUCLIDEAN ? 0.0f
+        return metric == SVS_DISTANCE_METRIC_EUCLIDEAN ? -1.0f
                                                        : std::numeric_limits<float>::max();
     }
 
     std::vector<size_t> expected(size_t q, float radius, const Keep& keep) const {
         std::vector<size_t> ids;
         for (size_t id = 0; id < NUM_VECTORS; ++id) {
-            if (keep(id) && closer(distance(q, id), radius)) {
+            if (keep(id) && within(distance(q, id), radius)) {
                 ids.push_back(id);
             }
         }
@@ -183,7 +186,7 @@ void check_range_row(
     for (size_t j = 0; j < count; ++j) {
         CATCH_REQUIRE(ids[j] < NUM_VECTORS);
         CATCH_REQUIRE(keep(ids[j]));
-        CATCH_REQUIRE(fx.closer(dists[j], radius));
+        CATCH_REQUIRE(fx.within(dists[j], radius));
         const float reference = fx.distance(q, ids[j]);
         CATCH_REQUIRE(
             std::abs(dists[j] - reference) <= 1e-3f * std::max(1.0f, std::abs(reference))

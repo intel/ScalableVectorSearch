@@ -536,7 +536,9 @@ static inline void svs_search_results_row(
     const float** out_distances,
     size_t* out_count
 ) {
-    if (q >= results->num_queries) {
+    size_t begin = q < results->num_queries ? results->offsets[q] : 0;
+    size_t end = q < results->num_queries ? results->offsets[q + 1] : 0;
+    if (begin == end) {
         if (out_ids) {
             *out_ids = NULL;
         }
@@ -548,8 +550,6 @@ static inline void svs_search_results_row(
         }
         return;
     }
-    size_t begin = results->offsets[q];
-    size_t end = results->offsets[q + 1];
     if (out_ids) {
         *out_ids = results->indices + begin;
     }
@@ -1528,8 +1528,8 @@ SVS_API bool svs_index_search_topk(
 );
 
 /// @brief Range search the index with the provided queries and an optional ID filter
-/// @details Returns, for each query, every neighbor strictly closer than @p radius:
-/// distance < @p radius for SVS_DISTANCE_METRIC_EUCLIDEAN (squared L2), and similarity >
+/// @details Returns, for each query, every neighbor meeting the inclusive radius threshold:
+/// distance <= @p radius for SVS_DISTANCE_METRIC_EUCLIDEAN (squared L2), and similarity >=
 /// @p radius for SVS_DISTANCE_METRIC_DOT_PRODUCT and SVS_DISTANCE_METRIC_COSINE. Results
 /// are approximate, like TopK search, and each row is ordered from closest to farthest.
 /// Rows have a variable number of results, possibly zero, capped by @p max_results;

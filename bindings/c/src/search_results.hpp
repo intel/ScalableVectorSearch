@@ -69,13 +69,30 @@ class SearchResults {
             );
             return;
         }
+
+        std::unique_ptr<size_t[]> new_offsets;
+        std::unique_ptr<size_t[]> new_indices;
+        std::unique_ptr<float[]> new_distances;
         if (r_.offsets_capacity < offsets_capacity) {
-            replace_buffer(r_.offsets, offsets_capacity);
-            r_.offsets_capacity = offsets_capacity;
+            new_offsets = std::make_unique_for_overwrite<size_t[]>(offsets_capacity);
         }
         if (r_.results_capacity < results_capacity) {
-            replace_buffer(r_.indices, results_capacity);
-            replace_buffer(r_.distances, results_capacity);
+            new_indices = std::make_unique_for_overwrite<size_t[]>(results_capacity);
+            new_distances = std::make_unique_for_overwrite<float[]>(results_capacity);
+        }
+
+        // Commit only after every required allocation has succeeded, preserving
+        // the existing CSR results if any allocation above throws.
+        if (new_offsets) {
+            delete[] r_.offsets;
+            r_.offsets = new_offsets.release();
+            r_.offsets_capacity = offsets_capacity;
+        }
+        if (new_indices) {
+            delete[] r_.indices;
+            r_.indices = new_indices.release();
+            delete[] r_.distances;
+            r_.distances = new_distances.release();
             r_.results_capacity = results_capacity;
         }
     }
@@ -146,13 +163,6 @@ class SearchResults {
     }
 
   private:
-    // Allocates before freeing so the old buffer survives a failed allocation.
-    template <typename T> static void replace_buffer(T*& ptr, size_t size) {
-        auto buffer = std::make_unique_for_overwrite<T[]>(size);
-        delete[] ptr;
-        ptr = buffer.release();
-    }
-
     svs_search_results_t& r_;
 };
 
