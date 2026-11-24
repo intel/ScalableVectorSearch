@@ -73,7 +73,9 @@ template <typename IFace> class ManagerInterface : public IFace {
     virtual void set_search_parameters(const search_parameters_type&) = 0;
 
     // Cancel callback is not thread safe and can be called multiple times
-    // Cancel does not return the partial results
+    // Vamana: after a cancel, `results` holds the neighbors found so far, padded with the
+    // invalid-neighbor marker (see VamanaIndex::search). Other index types: contents of
+    // `results` are unspecified after a cancel.
     // Cancel is not templated as this is a pure virtual function
     virtual void search(
         svs::QueryResultView<size_t> results,
