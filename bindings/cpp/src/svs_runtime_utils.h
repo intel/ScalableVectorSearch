@@ -16,6 +16,7 @@
 
 #pragma once
 
+#include "grouped_topk.h"
 #include "svs/runtime/api_defs.h"
 
 #include <svs/core/data.h>
@@ -53,8 +54,10 @@ inline bool lvq_leanvec_enabled() { return false; }
 
 #include <algorithm>
 #include <concepts>
+#include <exception>
 #include <functional>
 #include <memory>
+#include <mutex>
 #include <random>
 #include <type_traits>
 #include <variant>
@@ -404,35 +407,6 @@ auto dispatch_storage_kind(StorageKind kind, F&& f, Args&&... args) {
 }
 } // namespace storage
 
-// Predict how many more items need to be processed to reach the goal,
-// based on the observed hit rate so far.
-// If no hits yet, returns `hint` unchanged.
-// Result is capped at `max_value` (e.g., number of vectors in the index).
-inline size_t predict_further_processing(
-    size_t processed, size_t hits, size_t goal, size_t hint, size_t max_value
-) {
-    if (hits == 0 || hits >= goal) {
-        return std::min(hint, max_value);
-    }
-    float batch_size = static_cast<float>(goal - hits) * processed / hits;
-    return std::min(std::max(static_cast<size_t>(batch_size), size_t{1}), max_value);
-}
-
-// Check if the filtered search should stop early based on the observed hit rate.
-// Returns true if the hit rate is below the threshold, meaning the caller should
-// give up and let the caller fall back to exact search.
-inline bool
-should_stop_filtered_search(size_t total_checked, size_t found, float filter_stop) {
-    if (filter_stop <= 0 || total_checked == 0) {
-        return false;
-    }
-    if (found == 0) {
-        return true;
-    }
-    float hit_rate = static_cast<float>(found) / total_checked;
-    return hit_rate < filter_stop;
-}
-
 // Default number of IDs to sample when estimating filter hit rate.
 constexpr size_t kFilterSampleSize = 200;
 
@@ -495,6 +469,79 @@ pad_empty_results(svs::QueryResultView<size_t>& result, size_t num_queries, size
 
 inline svs::threads::ThreadPoolHandle default_threadpool() {
     return svs::threads::ThreadPoolHandle(svs::threads::OMPThreadPool(omp_get_max_threads())
+    );
+}
+
+// Rethrows the first exception from `f` after the region; the OpenMP pool has no handler.
+template <typename Pool, typename Partition, typename F>
+void parallel_for_rethrow(Pool& pool, Partition&& partition, F&& f) {
+    std::exception_ptr first;
+    std::mutex mutex;
+    svs::threads::parallel_for(
+        pool,
+        std::forward<Partition>(partition),
+        [&](const auto& range, uint64_t tid) {
+            try {
+                f(range, tid);
+            } catch (...) {
+                std::lock_guard lock{mutex};
+                if (!first) {
+                    first = std::current_exception();
+                }
+            }
+        }
+    );
+    if (first) {
+        std::rethrow_exception(first);
+    }
+}
+
+inline std::function<bool(float, float)> distance_closer(MetricType metric) {
+    svs::DistanceDispatcher dispatcher(to_svs_distance(metric));
+    return dispatcher([](auto&& dist) {
+        return std::function<bool(float, float)>{svs::distance::comparator(dist)};
+    });
+}
+
+// Grouped top-k for every query; rows are padded to `k`.
+template <typename Index, typename Compare>
+void grouped_search(
+    Index& index,
+    svs::QueryResultView<size_t>& result,
+    const svs::data::ConstSimpleDataView<float>& queries,
+    size_t k,
+    IDFilter* filter,
+    float filter_stop,
+    const IDGrouper& grouper,
+    const Compare& closer,
+    size_t initial_batch_size,
+    size_t max_batch_size
+) {
+    auto closure = [&](const auto& range, uint64_t SVS_UNUSED(tid)) {
+        for (auto i : range) {
+            auto iterator = index.batch_iterator(queries.get_datum(i));
+            auto best = grouped_topk(
+                iterator,
+                k,
+                filter,
+                filter_stop,
+                grouper,
+                closer,
+                initial_batch_size,
+                max_batch_size
+            );
+            size_t found = 0;
+            for (; found < best.size(); ++found) {
+                result.set(best[found], i, found);
+            }
+            for (size_t j = found; j < k; ++j) {
+                result.set(Neighbor{Unspecify<size_t>(), Unspecify<float>()}, i, j);
+            }
+        }
+    };
+    auto threadpool = default_threadpool();
+    parallel_for_rethrow(
+        threadpool, svs::threads::StaticPartition{queries.size()}, closure
     );
 }
 } // namespace svs::runtime

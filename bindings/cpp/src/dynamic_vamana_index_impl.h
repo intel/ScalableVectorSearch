@@ -27,6 +27,7 @@
 #include <svs/extensions/vamana/scalar.h>
 #include <svs/lib/file.h>
 #include <svs/lib/float16.h>
+#include <svs/lib/scopeguard.h>
 #include <svs/orchestrators/dynamic_vamana.h>
 #include <svs/quantization/scalar/scalar.h>
 
@@ -106,7 +107,8 @@ class DynamicVamanaIndexImpl {
         svs::QueryResultView<size_t> result,
         svs::data::ConstSimpleDataView<float> queries,
         const VamanaIndex::SearchParams* params = nullptr,
-        IDFilter* filter = nullptr
+        IDFilter* filter = nullptr,
+        IDGrouper* grouper = nullptr
     ) const {
         if (!impl_) {
             auto& dists = result.distances();
@@ -128,13 +130,15 @@ class DynamicVamanaIndexImpl {
         auto sp = make_search_parameters(params);
 
         // Simple search
-        if (filter == nullptr) {
+        if (filter == nullptr && grouper == nullptr) {
             impl_->search(result, queries, sp);
             return;
         }
 
-        // Selective search with IDSelector
         auto old_sp = impl_->get_search_parameters();
+        auto sp_restore = svs::lib::make_scope_guard([&]() noexcept {
+            impl_->set_search_parameters(old_sp);
+        });
         impl_->set_search_parameters(sp);
         float filter_stop = 0.0f;
         bool filter_estimate_batch = true;
@@ -150,7 +154,7 @@ class DynamicVamanaIndexImpl {
         const auto sws = sp.buffer_config_.get_search_window_size();
         const auto initial_batch_hint = std::max(k, sws);
         auto initial_batch_size = initial_batch_hint;
-        if (filter_estimate_batch) {
+        if (filter != nullptr && filter_estimate_batch) {
             std::tie(sampled, sample_hits) = sample_filter_hits(
                 *filter,
                 max_batch_size,
@@ -159,7 +163,6 @@ class DynamicVamanaIndexImpl {
             );
             if (should_stop_filtered_search(sampled, sample_hits, filter_stop)) {
                 pad_empty_results(result, queries.size(), k);
-                impl_->set_search_parameters(old_sp);
                 return;
             }
             initial_batch_size = predict_further_processing(
@@ -167,6 +170,24 @@ class DynamicVamanaIndexImpl {
             );
         }
 
+        // Grouped search (optionally filtered)
+        if (grouper != nullptr) {
+            grouped_search(
+                *impl_,
+                result,
+                queries,
+                k,
+                filter,
+                filter_stop,
+                *grouper,
+                distance_closer(metric_type_),
+                initial_batch_size,
+                max_batch_size
+            );
+            return;
+        }
+
+        // Selective search with IDSelector
         auto search_closure = [&](const auto& range, uint64_t SVS_UNUSED(tid)) {
             for (auto i : range) {
                 auto query = queries.get_datum(i);
@@ -206,11 +227,9 @@ class DynamicVamanaIndexImpl {
 
         auto threadpool = default_threadpool();
 
-        svs::threads::parallel_for(
+        parallel_for_rethrow(
             threadpool, svs::threads::StaticPartition{queries.size()}, search_closure
         );
-
-        impl_->set_search_parameters(old_sp);
     }
 
     void range_search(
@@ -218,7 +237,8 @@ class DynamicVamanaIndexImpl {
         float radius,
         const ResultsAllocator& results,
         const VamanaIndex::SearchParams* params = nullptr,
-        IDFilter* filter = nullptr
+        IDFilter* filter = nullptr,
+        IDGrouper* grouper = nullptr
     ) const {
         if (!impl_) {
             throw StatusException{ErrorCode::NOT_INITIALIZED, "Index not initialized"};
@@ -251,11 +271,7 @@ class DynamicVamanaIndexImpl {
             res.reserve(result_capacity);
         }
 
-        svs::DistanceDispatcher distance_dispatcher(to_svs_distance(metric_type_));
-
-        std::function<bool(float, float)> compare = distance_dispatcher([](auto&& dist) {
-            return std::function<bool(float, float)>{svs::distance::comparator(dist)};
-        });
+        auto compare = distance_closer(metric_type_);
 
         std::function<bool(size_t)> select = [](size_t) { return true; };
         if (filter != nullptr) {
@@ -271,6 +287,9 @@ class DynamicVamanaIndexImpl {
                 auto query = queries.get_datum(i);
 
                 auto iterator = impl_->batch_iterator(query);
+                GroupedBest<svs::Neighbor<size_t>> grouped(
+                    grouper != nullptr ? result_capacity : 0
+                );
                 bool in_range = true;
 
                 do {
@@ -282,7 +301,13 @@ class DynamicVamanaIndexImpl {
                         if (in_range) {
                             // Selective search with IDSelector
                             if (select(neighbor.id())) {
-                                all_results[i].push_back(neighbor);
+                                if (grouper != nullptr) {
+                                    grouped.offer(
+                                        neighbor, grouper->get_group(neighbor.id()), compare
+                                    );
+                                } else {
+                                    all_results[i].push_back(neighbor);
+                                }
                             }
                         } else {
                             // Since iterator.results() are ordered by distance, we
@@ -291,12 +316,16 @@ class DynamicVamanaIndexImpl {
                         }
                     }
                 } while (in_range && !iterator.done());
+
+                if (grouper != nullptr) {
+                    all_results[i] = grouped.take();
+                }
             }
         };
 
         auto threadpool = default_threadpool();
 
-        svs::threads::parallel_for(
+        parallel_for_rethrow(
             threadpool, svs::threads::StaticPartition{n}, range_search_closure
         );
 

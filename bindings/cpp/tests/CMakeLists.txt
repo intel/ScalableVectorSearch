@@ -42,6 +42,7 @@ set(CMAKE_CXX_STANDARD ${PRESET_CMAKE_CXX_STANDARD})
 # Add test executable
 set(TEST_SOURCES
     ${CMAKE_CURRENT_LIST_DIR}/runtime_test.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/grouped_topk_test.cpp
 )
 
 if (SVS_RUNTIME_ENABLE_IVF)
@@ -68,6 +69,7 @@ set_target_properties(svs_runtime_test PROPERTIES
 target_include_directories(svs_runtime_test PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}
     ${CMAKE_CURRENT_SOURCE_DIR}/../include
+    ${CMAKE_CURRENT_SOURCE_DIR}/../src
 )
 
 # Pass IVF enable flag to tests
