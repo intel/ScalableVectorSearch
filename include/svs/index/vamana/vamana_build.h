@@ -507,8 +507,9 @@ class VamanaBuilder {
             [&](const auto& is, uint64_t SVS_UNUSED(tid)) {
                 std::vector<Idx> node_neighbors{};
                 for (auto node_id : is) {
-                    // Another thread may append to node_id's list under its lock, so an
-                    // unlocked read of the degree word would be a data race.
+                    // Another thread may append to node_id's list under its lock. Common in
+                    // the second pass, where batch members list each other: a's thread
+                    // appends a to b while b's thread reads b's degree word unlocked.
                     {
                         std::lock_guard lock{vertex_locks_[node_id]};
                         const auto& node_list = graph_.get_node(node_id);
