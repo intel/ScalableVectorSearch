@@ -26,6 +26,7 @@ The tests are organized into separate files by functionality:
 - **c_api_algorithm.cpp**: Tests for algorithm creation and configuration (Vamana)
 - **c_api_storage.cpp**: Tests for storage configurations (Simple, LeanVec, LVQ, SQ)
 - **c_api_search_params.cpp**: Tests for search parameter creation and configuration
+- **c_api_search_cancel.cpp**: Tests for the search cancellation callback (poll counts, partial-result semantics, static/dynamic/filtered/multi-threaded searches)
 - **c_api_index_builder.cpp**: Tests for index builder creation and configuration
 - **c_api_index.cpp**: Tests for index building, searching, and basic operations
 - **c_api_dynamic_index.cpp**: Tests for dynamic index operations (add, delete, consolidate, compact)

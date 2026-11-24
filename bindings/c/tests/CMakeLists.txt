@@ -50,6 +50,7 @@ set(C_API_TEST_SOURCES
     c_api_algorithm.cpp
     c_api_storage.cpp
     c_api_search_params.cpp
+    c_api_search_cancel.cpp
     c_api_index_builder.cpp
     c_api_index.cpp
     c_api_index_convert.cpp

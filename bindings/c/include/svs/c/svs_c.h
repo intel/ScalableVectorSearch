@@ -55,6 +55,9 @@ enum svs_error_code {
     SVS_ERROR_UNSUPPORTED_HW = 6,
     SVS_ERROR_RUNTIME = 7,
     SVS_ERROR_INVALID_OPERATION = 8,
+    /// A search was stopped by the callback set with
+    /// svs_search_params_set_cancel_callback().
+    SVS_ERROR_CANCELLED = 9,
     SVS_ERROR_UNKNOWN = 1000
 };
 
@@ -933,6 +936,35 @@ SVS_API svs_search_params_h svs_search_params_create_vamana(
 /// @param params The search parameters handle to free
 SVS_API void svs_search_params_free(svs_search_params_h params);
 
+/// @brief Cancellation predicate for searches.
+/// @param userdata The opaque pointer given to svs_search_params_set_cancel_callback()
+/// @return true to ask the search to stop, false to let it continue
+/// @remarks The callback must not throw or longjmp out of the library, and must not call
+/// back into the SVS C API.
+typedef bool (*svs_is_cancelled_fn)(void* userdata);
+
+/// @brief Set a callback that lets the caller interrupt searches that use @p params
+/// @details Used by svs_index_search_topk() (also filtered). It is polled once per visited
+/// node, before each query, and per filtered batch. It may be called concurrently from
+/// several threads, so it must be thread-safe and cheap. After it returns true, other
+/// threads may still call it a few more times before they stop. The search then returns
+/// false with SVS_ERROR_CANCELLED and @c out_results holds, per query, the neighbors found
+/// so far (possibly fewer than k or none; queries that never started have none). A call
+/// can be reported cancelled even if it had finished.
+/// @param params The search parameters handle
+/// @param fn The cancellation predicate, or NULL to remove a previously set callback
+/// @param userdata Opaque pointer passed to @p fn on every call; the caller owns it and
+/// it must stay valid for every search that uses @p params while the callback is set
+/// @param out_err An optional error handle to capture errors
+/// @return true on success, false on failure
+/// @error SVS_ERROR_INVALID_ARGUMENT if @p params is NULL
+SVS_API bool svs_search_params_set_cancel_callback(
+    svs_search_params_h params,
+    svs_is_cancelled_fn fn,
+    void* userdata,
+    svs_error_h out_err /*=NULL*/
+);
+
 /// @brief Create a simple storage configuration
 /// @param data_type The data type of the vectors
 /// @param out_err An optional error handle to capture errors
@@ -1513,6 +1545,8 @@ SVS_API bool svs_index_get_size(
 /// @return true on success, false on failure
 /// @error SVS_ERROR_NOT_IMPLEMENTED if @p index is a dynamic index with
 /// SVS_SYNC_KIND_FINE_GRAIN and @p num_queries is greater than 1
+/// @error SVS_ERROR_CANCELLED if the cancel callback of @p search_params returned true;
+/// @p out_results then holds partial results (see svs_search_params_set_cancel_callback())
 SVS_API bool svs_index_search_topk(
     svs_index_h index,
     const float* queries,

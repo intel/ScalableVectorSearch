@@ -28,6 +28,9 @@ namespace svs::c_runtime {
 struct Algorithm {
     struct SearchParams {
         svs_algorithm_type type;
+        // Set by svs_search_params_set_cancel_callback(); polled by searches.
+        svs_is_cancelled_fn cancel_fn = nullptr;
+        void* cancel_userdata = nullptr;
         SearchParams(svs_algorithm_type type)
             : type(type) {}
         virtual ~SearchParams() = default;

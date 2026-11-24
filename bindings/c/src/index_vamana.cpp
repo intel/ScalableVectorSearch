@@ -55,11 +55,38 @@ IndexVamana::IndexVamana(const IndexBuilder& builder, svs::Vamana&& index)
     this->index.set_search_parameters(params);
 }
 
+namespace {
+// Move the entries that hold a real ID to the front of each row (IDs and distances
+// together, as the CSR exporter consumes each row's counted prefix) and set the per-row
+// found counts. Slots left empty by a concurrent consolidation or by a cancelled search
+// hold `no_external_id`.
+void compact_found(
+    svs::QueryResult<size_t>& results, std::vector<size_t>& found_per_query
+) {
+    for (size_t i = 0; i < results.n_queries(); ++i) {
+        size_t found = 0;
+        for (size_t j = 0; j < results.n_neighbors(); ++j) {
+            const auto id = results.index(i, j);
+            if (id == svs::index::vamana::concurrent::no_external_id) {
+                continue;
+            }
+            if (found != j) {
+                results.index(i, found) = id;
+                results.distance(i, found) = results.distance(i, j);
+            }
+            ++found;
+        }
+        found_per_query[i] = found;
+    }
+}
+} // namespace
+
 std::pair<svs::QueryResult<size_t>, std::vector<size_t>> IndexVamana::search(
     svs::data::ConstSimpleDataView<float> queries,
     size_t num_neighbors,
     const std::shared_ptr<Algorithm::SearchParams>& search_params,
-    const IDFilterInterface* id_filter
+    const IDFilterInterface* id_filter,
+    const lib::DefaultPredicate& cancel
 ) {
     auto vamana_search_params =
         std::static_pointer_cast<AlgorithmVamana::SearchParams>(search_params);
@@ -71,9 +98,13 @@ std::pair<svs::QueryResult<size_t>, std::vector<size_t>> IndexVamana::search(
     }
 
     if (id_filter == nullptr) {
-        index.search(results.view(), queries, params);
-        // assuming all neighbors found
-        return {results, std::vector<size_t>(queries.size(), num_neighbors)};
+        index.search(results.view(), queries, params, cancel);
+        auto found_neighbors_per_query = std::vector<size_t>(queries.size(), num_neighbors);
+        if (cancel()) {
+            // Cancelled slots hold no_external_id.
+            compact_found(results, found_neighbors_per_query);
+        }
+        return {results, std::move(found_neighbors_per_query)};
     }
 
     std::mt19937 rng(42);
@@ -84,7 +115,7 @@ std::pair<svs::QueryResult<size_t>, std::vector<size_t>> IndexVamana::search(
         std::max(num_neighbors, params.buffer_config_.get_search_window_size());
 
     auto found_neighbors_per_query = filtered_topk_search(
-        index, results, queries, batch_hint, id_filter, sample_generator
+        index, results, queries, batch_hint, id_filter, sample_generator, cancel
     );
     return {results, found_neighbors_per_query};
 }
@@ -119,7 +150,8 @@ std::pair<svs::QueryResult<size_t>, std::vector<size_t>> DynamicIndexVamana::sea
     svs::data::ConstSimpleDataView<float> queries,
     size_t num_neighbors,
     const std::shared_ptr<Algorithm::SearchParams>& search_params,
-    const IDFilterInterface* id_filter
+    const IDFilterInterface* id_filter,
+    const lib::DefaultPredicate& cancel
 ) {
     auto lock = read_lock();
     auto vamana_search_params =
@@ -132,26 +164,11 @@ std::pair<svs::QueryResult<size_t>, std::vector<size_t>> DynamicIndexVamana::sea
     }
 
     if (id_filter == nullptr) {
-        index.search(results.view(), queries, params);
+        index.search(results.view(), queries, params, cancel);
         auto found_neighbors_per_query = std::vector<size_t>(queries.size(), num_neighbors);
-        if (sync_kind == SVS_SYNC_KIND_FINE_GRAIN) {
-            // Consolidation can erase buffered IDs before translation. The CSR exporter
-            // consumes each row's counted prefix, so move IDs and distances together.
-            for (size_t i = 0; i < results.n_queries(); ++i) {
-                size_t found = 0;
-                for (size_t j = 0; j < results.n_neighbors(); ++j) {
-                    const auto id = results.index(i, j);
-                    if (id == svs::index::vamana::concurrent::no_external_id) {
-                        continue;
-                    }
-                    if (found != j) {
-                        results.index(i, found) = id;
-                        results.distance(i, found) = results.distance(i, j);
-                    }
-                    ++found;
-                }
-                found_neighbors_per_query[i] = found;
-            }
+        if (sync_kind == SVS_SYNC_KIND_FINE_GRAIN || cancel()) {
+            // Erased IDs (consolidation) and cancelled slots hold no_external_id.
+            compact_found(results, found_neighbors_per_query);
         }
         return {std::move(results), std::move(found_neighbors_per_query)};
     }
@@ -186,7 +203,7 @@ std::pair<svs::QueryResult<size_t>, std::vector<size_t>> DynamicIndexVamana::sea
         std::max(num_neighbors, params.buffer_config_.get_search_window_size());
 
     auto found_neighbors_per_query = filtered_topk_search(
-        index, results, queries, batch_hint, id_filter, sample_generator
+        index, results, queries, batch_hint, id_filter, sample_generator, cancel
     );
     return {results, found_neighbors_per_query};
 }
@@ -281,7 +298,8 @@ std::pair<svs::QueryResult<size_t>, std::vector<size_t>> ConcurrentIndexVamana::
     svs::data::ConstSimpleDataView<float> queries,
     size_t num_neighbors,
     const std::shared_ptr<Algorithm::SearchParams>& search_params,
-    const IDFilterInterface* id_filter
+    const IDFilterInterface* id_filter,
+    const lib::DefaultPredicate& cancel
 ) {
     assert(sync_kind == SVS_SYNC_KIND_FINE_GRAIN);
     if (queries.size() > 1) {
@@ -289,7 +307,9 @@ std::pair<svs::QueryResult<size_t>, std::vector<size_t>> ConcurrentIndexVamana::
             "FINE GRAIN dynamic index only supports searching one query at a time."
         );
     }
-    return DynamicIndexVamana::search(queries, num_neighbors, search_params, id_filter);
+    return DynamicIndexVamana::search(
+        queries, num_neighbors, search_params, id_filter, cancel
+    );
 }
 
 size_t ConcurrentIndexVamana::add_points(
