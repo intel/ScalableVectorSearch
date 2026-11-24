@@ -262,23 +262,22 @@ if (SVS_TEST_CONCURRENT_FULL_SIZE)
 endif()
 
 #####
-##### ThreadSanitizer targets for the concurrent index and the static build
+##### ThreadSanitizer targets for the concurrent index
 #####
 
-# The correctness of `svs::index::vamana::concurrent`, and of locking in the static
-# `VamanaBuilder`, rests almost entirely on memory ordering, which a non-instrumented test
-# can only fail to disprove. These targets are opt-in because TSan costs roughly an order
-# of magnitude in both time and memory:
+# The correctness of `svs::index::vamana::concurrent` rests almost entirely on memory
+# ordering, which a non-instrumented test can only fail to disprove. These targets are
+# opt-in because TSan costs roughly an order of magnitude in both time and memory:
 #
 #   cmake -DSVS_EXPERIMENTAL_ENABLE_CONCURRENT_TSAN=YES ...
 #   ctest -L tsan
 #
 # `svs::svs` and Catch2 are not instrumented here, only the test translation units. That is
-# enough: `svs::svs` is a header-only INTERFACE library, so the accesses under test -- the
-# adjacency lists, the sequence-lock counters, the slot metadata, the builder's per-vertex
-# locks -- are all inlined into the instrumented TUs.
+# enough: the concurrent index is header-only, so the accesses under test -- the adjacency
+# lists, the sequence-lock counters, the slot metadata -- are all inlined into the
+# instrumented TUs.
 option(SVS_EXPERIMENTAL_ENABLE_CONCURRENT_TSAN
-    "Build ThreadSanitizer targets for the concurrent and static Vamana builds (slow)" OFF
+    "Build ThreadSanitizer targets for the concurrent Vamana index (slow)" OFF
 )
 
 if (SVS_EXPERIMENTAL_ENABLE_CONCURRENT_TSAN)
@@ -323,21 +322,4 @@ if (SVS_EXPERIMENTAL_ENABLE_CONCURRENT_TSAN)
     target_include_directories(concurrent_tsan_negative PRIVATE ${PROJECT_SOURCE_DIR})
     add_test(NAME concurrent_tsan_negative COMMAND concurrent_tsan_negative)
     set_tests_properties(concurrent_tsan_negative PROPERTIES WILL_FAIL TRUE LABELS "tsan")
-
-    # The builder's per-vertex spinlocks order most cross-thread accesses, hub vertices above
-    # all, so a clean run here is weak evidence that any one unlocked read is race-free.
-    add_executable(vamana_build_tsan
-        ${TEST_DIR}/svs/index/vamana/build_tsan.cpp
-        ${TEST_DIR}/utils/test_dataset.cpp
-    )
-    target_compile_options(vamana_build_tsan PRIVATE -fsanitize=thread -g -O1)
-    target_link_options(vamana_build_tsan PRIVATE -fsanitize=thread)
-    target_compile_definitions(vamana_build_tsan PRIVATE SVS_TEST_DATA_DIR="${DATA_DIRECTORY}")
-    target_link_libraries(vamana_build_tsan PRIVATE svs::svs Catch2::Catch2WithMain)
-    target_link_libraries(
-      vamana_build_tsan PRIVATE svs_compile_options svs_x86_options_base
-    )
-    target_include_directories(vamana_build_tsan PRIVATE ${PROJECT_SOURCE_DIR})
-    add_test(NAME vamana_build_tsan COMMAND vamana_build_tsan)
-    set_tests_properties(vamana_build_tsan PROPERTIES LABELS "tsan")
 endif()
