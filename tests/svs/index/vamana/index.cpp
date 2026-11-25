@@ -41,8 +41,15 @@
 // svsbenchmark
 #include "svs-benchmark/benchmark.h"
 // stl
+#include <algorithm>
+#include <atomic>
+#include <cmath>
+#include <numeric>
+#include <random>
 #include <sstream>
 #include <string_view>
+#include <unordered_set>
+#include <vector>
 
 namespace {
 
@@ -846,4 +853,126 @@ CATCH_TEST_CASE("Vamana Index Bugcheck and Regression", "[vamana][index][regress
         CATCH_CHECK(build_and_search(64, 1536));
         CATCH_CHECK(build_and_search(64, 3072));
     }
+}
+
+CATCH_TEST_CASE("Vamana Index Predicated And Range Search", "[vamana][index]") {
+    const size_t dims = 16;
+    const size_t num_points = 1000;
+    const size_t num_queries = 20;
+    const size_t k = 10;
+    std::mt19937 rng(4321);
+    std::normal_distribution<float> normal(0, 1);
+    // Unit vectors: graphs built for inner product reach unnormalized points poorly.
+    auto make_data = [&](size_t n) {
+        auto data = svs::data::SimpleData<float>(n, dims);
+        std::vector<float> datum(dims);
+        for (size_t i = 0; i < n; ++i) {
+            std::generate(datum.begin(), datum.end(), [&]() { return normal(rng); });
+            float norm = std::sqrt(
+                std::inner_product(datum.begin(), datum.end(), datum.begin(), 0.0f)
+            );
+            for (auto& x : datum) {
+                x /= norm;
+            }
+            data.set_datum(i, datum);
+        }
+        return data;
+    };
+    const auto points = make_data(num_points);
+    const auto queries = make_data(num_queries);
+    auto build_params = svs::index::vamana::VamanaBuildParameters{};
+    build_params.graph_max_degree = 32;
+    build_params.window_size = 64;
+
+    auto run_test = [&]<typename Dist>(Dist distance) {
+        auto index = svs::index::vamana::auto_build(build_params, points, distance, 2);
+        const auto compare = svs::distance::comparator(distance);
+        using buffer_type =
+            svs::index::vamana::MutableBuffer<uint32_t, svs::distance::compare_t<Dist>>;
+
+        // Brute-force distances and a radius that holds about 30 neighbors per query.
+        auto distances = std::vector<std::vector<float>>(num_queries);
+        float radius = 0;
+        for (size_t q = 0; q < num_queries; ++q) {
+            for (size_t i = 0; i < num_points; ++i) {
+                distances[q].push_back(svs::distance::compute(
+                    distance, queries.get_datum(q), points.get_datum(i)
+                ));
+            }
+            auto sorted = distances[q];
+            std::nth_element(sorted.begin(), sorted.begin() + 30, sorted.end(), compare);
+            radius += sorted[30];
+        }
+        radius /= static_cast<float>(num_queries);
+
+        auto sp = index.get_search_parameters();
+
+        auto check_range_results = [&](const auto& results, size_t max_results) {
+            CATCH_REQUIRE(results.size() == num_queries);
+            size_t num_expected = 0;
+            size_t num_found = 0;
+            for (size_t q = 0; q < num_queries; ++q) {
+                const auto& result = results[q];
+                CATCH_REQUIRE(result.size() <= max_results);
+                auto seen = std::unordered_set<size_t>{};
+                for (size_t j = 0; j < result.size(); ++j) {
+                    CATCH_REQUIRE(compare(result[j].distance(), radius));
+                    if (j > 0) {
+                        CATCH_REQUIRE(
+                            !compare(result[j].distance(), result[j - 1].distance())
+                        );
+                    }
+                    CATCH_REQUIRE(seen.insert(result[j].id()).second);
+                }
+                for (size_t i = 0; i < num_points; ++i) {
+                    if (compare(distances[q][i], radius)) {
+                        ++num_expected;
+                        num_found += seen.contains(i);
+                    }
+                }
+            }
+            return static_cast<double>(num_found) / static_cast<double>(num_expected);
+        };
+
+        // The default stop reproduces the regular search.
+        sp.buffer_config({20, 40});
+        auto expected = svs::QueryResult<size_t>(num_queries, k);
+        index.search(expected.view(), queries, sp);
+        auto actual = svs::QueryResult<size_t>(num_queries, k);
+        index.predicated_search(
+            actual.view(), queries, sp, svs::index::vamana::DefaultStop{}
+        );
+        for (size_t q = 0; q < num_queries; ++q) {
+            for (size_t j = 0; j < k; ++j) {
+                CATCH_REQUIRE(actual.index(q, j) == expected.index(q, j));
+                CATCH_REQUIRE(actual.distance(q, j) == expected.distance(q, j));
+            }
+        }
+
+        // Unbounded range search.
+        sp.buffer_config({10, buffer_type::unbounded_capacity});
+        auto results = index.range_search(queries, radius, sp);
+        CATCH_REQUIRE(check_range_results(results, num_points) >= 0.95);
+
+        // Bounded range search.
+        sp.buffer_config({10, 20});
+        auto bounded = index.range_search(queries, radius, sp);
+        check_range_results(bounded, 20);
+        CATCH_REQUIRE(std::any_of(bounded.begin(), bounded.end(), [](const auto& r) {
+            return r.size() == 20;
+        }));
+
+        // Cancellation keeps partial results and leaves unstarted queries empty.
+        sp.buffer_config({10, buffer_type::unbounded_capacity});
+        std::atomic<size_t> calls{0};
+        auto partial =
+            index.range_search(queries, radius, sp, [&]() { return ++calls > 50; });
+        check_range_results(partial, num_points);
+        CATCH_REQUIRE(std::any_of(partial.begin(), partial.end(), [](const auto& r) {
+            return r.empty();
+        }));
+    };
+
+    CATCH_SECTION("L2") { run_test(svs::distance::DistanceL2()); }
+    CATCH_SECTION("Inner Product") { run_test(svs::distance::DistanceIP()); }
 }
