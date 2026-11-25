@@ -17,12 +17,15 @@
 // header under test.
 #include "svs/index/vamana/dynamic_index.h"
 #include "svs/index/vamana/consolidate.h"
+#include "svs/index/vamana/index.h"
 
 // stl
 #include <algorithm>
+#include <atomic>
 #include <cstdint>
 #include <filesystem>
 #include <iostream>
+#include <limits>
 #include <memory>
 #include <numeric>
 #include <sstream>
@@ -463,4 +466,110 @@ CATCH_TEST_CASE("MutableVamana Index Memory Usage", "[graph_index][dynamic_index
     CATCH_REQUIRE(breakdown.total() == expected_total_bytes);
     const size_t usage = index.get_memory_breakdown().total();
     CATCH_REQUIRE(usage == expected_total_bytes);
+}
+
+CATCH_TEST_CASE("Vamana Cancelled Search", "[graph_index][dynamic_index][cancel]") {
+    using Distance = svs::distance::DistanceL2;
+    const size_t num_neighbors = 10;
+    auto data = test_dataset::data_f32();
+    auto queries = test_dataset::queries();
+    auto sp = svs::index::vamana::VamanaSearchParameters{};
+    sp.buffer_config_ = svs::index::vamana::SearchBufferConfig{20};
+    svs::index::vamana::VamanaBuildParameters parameters{1.2, 64, 10, 20, 10, true};
+
+    // ``to_row`` maps a returned ID to the row of ``data`` holding its vector; ``live``
+    // says whether that row is still in the index.
+    auto check = [&](auto& index, auto to_row, auto live) {
+        auto exact = [&](size_t id, size_t q) {
+            float sum = 0;
+            for (size_t d = 0; d < queries.dimensions(); ++d) {
+                float diff = data.get_datum(to_row(id))[d] - queries.get_datum(q)[d];
+                sum += diff * diff;
+            }
+            return sum;
+        };
+        const size_t marker = std::numeric_limits<size_t>::max();
+        auto search = [&](auto cancel) {
+            svs::QueryResult<size_t> results{queries.size(), num_neighbors};
+            index.search(results.view(), queries.cview(), sp, cancel);
+            return results;
+        };
+
+        // A predicate that never fires gives the same results as no predicate.
+        svs::QueryResult<size_t> reference{queries.size(), num_neighbors};
+        index.search(reference.view(), queries.cview(), sp);
+        auto never = search(svs::lib::Returns(svs::lib::Const<false>()));
+        for (size_t q = 0; q < queries.size(); ++q) {
+            for (size_t j = 0; j < num_neighbors; ++j) {
+                CATCH_REQUIRE(reference.index(q, j) != marker);
+                CATCH_REQUIRE(live(to_row(reference.index(q, j))));
+                CATCH_REQUIRE(never.index(q, j) == reference.index(q, j));
+                CATCH_REQUIRE(never.distance(q, j) == reference.distance(q, j));
+            }
+        }
+
+        // Fire after a number of polls: each row is a prefix of live neighbors (nearest
+        // first, exact distances), followed only by markers.
+        std::atomic<size_t> polls{0};
+        auto results = search([&]() { return polls.fetch_add(1) >= 500; });
+        size_t partial = 0;
+        for (size_t q = 0; q < queries.size(); ++q) {
+            size_t valid = 0;
+            while (valid < num_neighbors && results.index(q, valid) != marker) {
+                size_t id = results.index(q, valid);
+                CATCH_REQUIRE(live(to_row(id)));
+                CATCH_REQUIRE(results.distance(q, valid) == Catch::Approx(exact(id, q)));
+                CATCH_REQUIRE(
+                    (valid == 0 ||
+                     results.distance(q, valid - 1) <= results.distance(q, valid))
+                );
+                ++valid;
+            }
+            for (size_t j = valid; j < num_neighbors; ++j) {
+                CATCH_REQUIRE(results.index(q, j) == marker);
+            }
+            partial += valid < num_neighbors;
+        }
+        CATCH_REQUIRE(partial > 0);
+    };
+
+    CATCH_SECTION("Static index") {
+        auto index = svs::index::vamana::auto_build(parameters, data, Distance(), 2);
+        check(
+            index, [](size_t id) { return id; }, [](size_t) { return true; }
+        );
+    }
+
+    CATCH_SECTION("Dynamic index with deletions and external IDs") {
+        std::vector<size_t> ids(data.size());
+        for (size_t i = 0; i < ids.size(); ++i) {
+            ids[i] = 1000 + 3 * i;
+        }
+        auto index = svs::index::vamana::MutableVamanaIndex(
+            parameters, test_dataset::data_blocked_f32(), ids, Distance(), 2
+        );
+        std::vector<size_t> deleted;
+        for (size_t i = 0; i < ids.size(); i += 7) {
+            deleted.push_back(ids[i]);
+        }
+        // Row `i` has external ID `1000 + 3 * i`; delete every 7th row.
+        index.delete_entries(deleted);
+        check(
+            index,
+            [](size_t id) { return (id - 1000) / 3; },
+            [](size_t row) { return row % 7 != 0; }
+        );
+
+        // The batch iterator forwards ``cancel`` too: a search cancelled before it starts
+        // is not topped up from the live IDs, while an uncancelled one fills the batch.
+        const size_t batch = 50;
+        auto query_datum = queries.get_datum(0);
+        auto query = std::span<const float>(query_datum.data(), query_datum.size());
+        auto full = index.make_batch_iterator(query);
+        full.next(batch);
+        CATCH_REQUIRE(full.size() == batch);
+        auto cancelled = index.make_batch_iterator(query);
+        cancelled.next(batch, []() { return true; });
+        CATCH_REQUIRE(cancelled.size() < batch);
+    }
 }

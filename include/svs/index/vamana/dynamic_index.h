@@ -630,12 +630,18 @@ class MutableVamanaIndex {
         requires(std::tuple_size_v<Dims> == 2)
     void translate_to_external(DenseArray<size_t, Dims, Base>& ids) {
         // N.B.: lib::narrow_cast should be valid because the origin of the IDs is internal.
+        constexpr size_t invalid_id =
+            type_traits::sentinel_v<Neighbor<size_t>, std::less<>>.id();
         threads::parallel_for(
             threadpool_,
             threads::StaticPartition{getsize<0>(ids)},
             [&](const auto is, uint64_t /*tid*/) {
                 for (auto i : is) {
                     for (size_t j = 0, jmax = getsize<1>(ids); j < jmax; ++j) {
+                        // Skip the invalid-neighbor marker written by a cancelled search.
+                        if (ids.at(i, j) == invalid_id) {
+                            continue;
+                        }
                         auto internal = lib::narrow_cast<Idx>(ids.at(i, j));
                         ids.at(i, j) = translate_internal_id(internal);
                     }
@@ -718,10 +724,13 @@ class MutableVamanaIndex {
             scratch.scratch,
             query,
             greedy_search_closure(scratch.prefetch_parameters, cancel),
-            *this
+            *this,
+            cancel
         );
     }
 
+    // If ``cancel`` returns ``true``, ``results`` holds the (external) neighbors found so
+    // far, followed by the invalid-neighbor marker. See ``VamanaIndex::search``.
     template <typename I, data::ImmutableMemoryDataset Queries>
     void search(
         QueryResultView<I> results,
@@ -761,13 +770,10 @@ class MutableVamanaIndex {
             }
         );
 
-        // Check if request to cancel the search
-        if (cancel()) {
-            return;
-        }
-
         // After the search procedure, the indices in `results` are internal.
         // Perform one more pass to convert these to external ids.
+        // This also runs when the search was cancelled so that the partial results are
+        // external; slots holding the invalid-neighbor marker are left untouched.
         translate_to_external(results.indices());
     }
 

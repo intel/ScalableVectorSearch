@@ -533,7 +533,8 @@ class VamanaIndex {
             scratch.scratch,
             query,
             greedy_search_closure(scratch.prefetch_parameters, cancel),
-            *this
+            *this,
+            cancel
         );
     }
 
@@ -552,9 +553,16 @@ class VamanaIndex {
     /// @param search_parameters search parameters to use for the search.
     /// @param cancel A predicate called during the search to determine if the search should
     /// be cancelled.
-    //      Return ``true`` if the search should be cancelled. This functor must implement
-    //      ``bool operator()()``. Note: This predicate should be thread-safe as it can be
-    //      called concurrently by different threads during the search.
+    ///     Return ``true`` if the search should be cancelled. This functor must implement
+    ///     ``bool operator()()``. Note: This predicate should be thread-safe as it can be
+    ///     called concurrently by different threads during the search. Once it returns
+    ///     ``true`` it must keep returning ``true`` for the rest of the call.
+    ///     After a cancel, each row holds the neighbors found so far (nearest first,
+    ///     final distances, external IDs), followed by the invalid-neighbor marker
+    ///     ``type_traits::sentinel_v<Neighbor<I>, Cmp>`` (max ID, worst distance).
+    ///     Queries that had not started may hold only their entry points. Treat every
+    ///     slot whose ID is the marker as empty: in the concurrent index a marker can
+    ///     also appear mid-row.
     ///
     /// Perform a multi-threaded graph search over the index, overwriting the contents
     /// of ``result`` with the results of search.

@@ -430,12 +430,18 @@ struct VamanaSingleSearchType {
 /// and the graph becomes sparsely connected. It's a corner case and should
 /// not happen frequently, but when it does, we may need to supplement the buffer
 /// with additional results.
+///
+/// The top-up is skipped if ``cancel`` returns ``true``, so that a cancelled search keeps
+/// exactly the candidates it found before being interrupted.
 template <typename Index, typename SearchBuffer, typename Query>
 void check_and_supplement_search_buffer(
-    const Index& index, SearchBuffer& search_buffer, const Query& query
+    const Index& index,
+    SearchBuffer& search_buffer,
+    const Query& query,
+    const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>())
 ) {
     if (search_buffer.valid() < search_buffer.target_window() &&
-        search_buffer.valid() < index.size()) {
+        search_buffer.valid() < index.size() && !cancel()) {
         search_buffer.sort();
         for (auto external_id : index.external_ids()) {
             auto internal_id = index.translate_external_id(external_id);
@@ -452,9 +458,9 @@ void check_and_supplement_search_buffer(
 /// Customization point object for processing single queries.
 inline constexpr VamanaSingleSearchType single_search{};
 
-/// In this function, cancel does not need to be called since search will call cancel
-/// However, lvq requires cancel to be called to skip reranking
-/// Here we have cancel to make the interface consistent with lvq
+/// ``search`` polls ``cancel`` itself; after a cancel the buffer holds the candidates found
+/// so far (a query that never started holds only its entry points). Compressed datasets
+/// (LVQ, LeanVec) take the same argument and rerank those candidates.
 template <
     typename Data,
     typename SearchBuffer,
@@ -472,16 +478,46 @@ SVS_FORCE_INLINE void svs_invoke(
     const Index& index,
     const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>())
 ) {
-    // Check if request to cancel the search
-    if (cancel()) {
-        return;
-    }
     // Perform graph search.
     auto accessor = data::GetDatumAccessor();
     search(query, accessor, distance, search_buffer);
 
     if constexpr (Index::needs_id_translation) {
-        check_and_supplement_search_buffer(index, search_buffer, query);
+        check_and_supplement_search_buffer(index, search_buffer, query, cancel);
+    }
+}
+
+///
+/// @brief Copy the results of ``search_buffer`` into row ``query`` of ``result``.
+///
+/// Normally all ``result.n_neighbors()`` entries are copied. If the buffer holds fewer
+/// entries than that and ``cancel`` returns ``true``, only the entries found so far are
+/// copied and the rest of the row is padded with the invalid-neighbor marker
+/// (``type_traits::sentinel_v<Neighbor<I>, Cmp>``: the largest ``I`` as the id and the
+/// worst distance).
+///
+template <typename SearchBuffer, std::integral I>
+void copy_results(
+    const SearchBuffer& search_buffer,
+    QueryResultView<I>& result,
+    size_t query,
+    const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>())
+) {
+    size_t num_neighbors = result.n_neighbors();
+    size_t found = search_buffer.size();
+    if (found < num_neighbors && cancel()) {
+        for (size_t j = 0; j < found; ++j) {
+            result.set(search_buffer[j], query, j);
+        }
+        constexpr auto marker =
+            type_traits::sentinel_v<Neighbor<I>, typename SearchBuffer::compare_type>;
+        for (size_t j = found; j < num_neighbors; ++j) {
+            result.set(marker, query, j);
+        }
+        return;
+    }
+    for (size_t j = 0; j < num_neighbors; ++j) {
+        result.set(search_buffer[j], query, j);
     }
 }
 
@@ -573,21 +609,16 @@ void svs_invoke(
     const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>())
 ) {
     // Fallback implementation
-    size_t num_neighbors = result.n_neighbors();
     for (auto i : thread_indices) {
-        // Check if request to cancel the search
-        if (cancel()) {
-            return;
-        }
-        // Perform search - results will be queued in the search buffer.
+        // Perform search - results will be queued in the search buffer. If ``cancel``
+        // fires, the buffer holds what was found so far (only the entry points if the
+        // query never started) and ``copy_results`` pads the rest of the row.
         single_search(
             dataset, search_buffer, distance, queries.get_datum(i), search, index, cancel
         );
 
         // Copy back results.
-        for (size_t j = 0; j < num_neighbors; ++j) {
-            result.set(search_buffer[j], i, j);
-        }
+        copy_results(search_buffer, result, i, cancel);
     }
 }
 

@@ -810,6 +810,10 @@ class MutableVamanaIndex {
             [&](const auto is, uint64_t /*tid*/) {
                 for (auto i : is) {
                     for (size_t j = 0, jmax = getsize<1>(ids); j < jmax; ++j) {
+                        // Skip the invalid-neighbor marker written by a cancelled search.
+                        if (ids.at(i, j) == no_external_id) {
+                            continue;
+                        }
                         auto internal = lib::narrow_cast<Idx>(ids.at(i, j));
                         ids.at(i, j) = unsafe_translate_internal_id(internal);
                     }
@@ -948,10 +952,13 @@ class MutableVamanaIndex {
             scratch.scratch,
             query,
             greedy_search_closure(scratch.prefetch_parameters, cancel),
-            *this
+            *this,
+            cancel
         );
     }
 
+    // On cancel, see ``VamanaIndex::search``. Here a marker can also appear mid-row (an
+    // ID consolidated concurrently translates to the marker ID).
     template <typename I, data::ImmutableMemoryDataset Queries>
     void search(
         QueryResultView<I> results,
@@ -997,13 +1004,10 @@ class MutableVamanaIndex {
             );
         }
 
-        // Check if request to cancel the search
-        if (cancel()) {
-            return;
-        }
-
         // After the search procedure, the indices in `results` are internal.
         // Perform one more pass to convert these to external ids.
+        // This also runs when the search was cancelled so that the partial results are
+        // external; slots holding the invalid-neighbor marker are left untouched.
         translate_to_external(results.indices());
     }
 
