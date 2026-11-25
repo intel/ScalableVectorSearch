@@ -17,7 +17,9 @@
 #if defined(__x86_64__)
 #include "svs/core/distance/cosine.h"
 #include "svs/core/distance/euclidean.h"
+#include "svs/core/distance/gem.h"
 #include "svs/core/distance/inner_product.h"
+#include "svs/core/distance/inner_product_matrix.h"
 
 namespace svs::distance {
 
@@ -51,6 +53,11 @@ DISTANCE_CS_INSTANTIATE_TEMPLATE(200, AVX_AVAILABILITY::AVX2);
 DISTANCE_CS_INSTANTIATE_TEMPLATE(512, AVX_AVAILABILITY::AVX2);
 DISTANCE_CS_INSTANTIATE_TEMPLATE(768, AVX_AVAILABILITY::AVX2);
 DISTANCE_CS_INSTANTIATE_TEMPLATE(Dynamic, AVX_AVAILABILITY::AVX2);
+
+template struct QEmdImpl<AVX_AVAILABILITY::AVX2>;
+template struct QChamferImpl<AVX_AVAILABILITY::AVX2>;
+template struct QChamferExactImpl<AVX_AVAILABILITY::AVX2>;
+template struct InnerProductMatrixImpl<AVX_AVAILABILITY::AVX2>;
 
 } // namespace svs::distance
 

@@ -19,13 +19,23 @@
 #include "svs/index/vamana/vamana_build.h"
 
 // svs
+#include "svs/core/data/simple.h"
+#include "svs/core/distance.h"
+#include "svs/core/graph.h"
+#include "svs/index/vamana/extensions.h"
+#include "svs/lib/narrow.h"
 #include "svs/lib/threads.h"
 
 // catch2
 #include "catch2/catch_test_macros.hpp"
 
+// tests
+#include "tests/utils/test_dataset.h"
+
 // stl
+#include <algorithm>
 #include <chrono>
+#include <optional>
 #include <random>
 #include <thread>
 
@@ -141,4 +151,44 @@ CATCH_TEST_CASE("Index Build Utilities", "[vamana][vamana_build]") {
             CATCH_REQUIRE(b.empty());
         }
     }
+}
+
+CATCH_TEST_CASE(
+    "Static Vamana build is deterministic with one thread", "[vamana][vamana_build]"
+) {
+    // With more threads, back-edge lock order changes the resulting graph.
+    auto data = svs::data::SimpleData<float, 128>::load(test_dataset::data_svs_file());
+    auto params = vamana::VamanaBuildParameters{1.2F, 16, 32, 750, 60, true};
+    auto pool = svs::threads::DefaultThreadPool(1);
+    auto entry_point =
+        svs::lib::narrow<uint32_t>(vamana::extensions::compute_entry_point(data, pool));
+
+    auto build = [&]() {
+        auto graph = svs::default_graph<uint32_t>(data.size(), params.graph_max_degree);
+        auto builder = vamana::VamanaBuilder(
+            graph,
+            data,
+            svs::distance::DistanceL2{},
+            params,
+            pool,
+            vamana::extensions::estimate_prefetch_parameters(data)
+        );
+        builder.construct(1.0F, entry_point);
+        builder.construct(params.alpha, entry_point);
+        return graph;
+    };
+
+    auto graph_a = build();
+    auto graph_b = build();
+
+    CATCH_REQUIRE(graph_a.n_nodes() == graph_b.n_nodes());
+    std::optional<size_t> first_mismatch;
+    for (size_t i = 0; i < graph_a.n_nodes(); ++i) {
+        if (!std::ranges::equal(graph_a.get_node(i), graph_b.get_node(i))) {
+            first_mismatch = i;
+            break;
+        }
+    }
+    CATCH_INFO("first mismatching node: " << first_mismatch.value_or(0));
+    CATCH_REQUIRE(!first_mismatch.has_value());
 }

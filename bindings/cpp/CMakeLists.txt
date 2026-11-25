@@ -19,6 +19,11 @@ set(TARGET_NAME svs_runtime)
 # IVF requires MKL, so it's optional
 option(SVS_RUNTIME_ENABLE_IVF "Enable compilation of SVS runtime with IVF support (requires MKL)" OFF)
 
+# GEM (multi-vector / late-interaction) requires MKL for its k-means codebook trainer,
+# and only builds from source (SVS_RUNTIME_ENABLE_LVQ_LEANVEC must be OFF): see the
+# SVS_RUNTIME_ENABLE_LVQ_LEANVEC check below.
+option(SVS_RUNTIME_ENABLE_GEM "Enable compilation of SVS runtime with GEM (multi-vector) support (requires MKL)" OFF)
+
 set(SVS_RUNTIME_HEADERS
     include/svs/runtime/version.h
     include/svs/runtime/api_defs.h
@@ -58,12 +63,34 @@ else()
     message(STATUS "SVS runtime will be built without IVF support")
 endif()
 
+# Add GEM files if enabled
+if (SVS_RUNTIME_ENABLE_GEM)
+    message(STATUS "SVS runtime will be built with GEM support (requires MKL)")
+    list(APPEND SVS_RUNTIME_HEADERS
+        include/svs/runtime/gem_index.h
+    )
+    list(APPEND SVS_RUNTIME_SOURCES
+        src/gem_index_impl.h
+        src/gem_index.cpp
+    )
+else()
+    message(STATUS "SVS runtime will be built without GEM support")
+endif()
+
 # The non-LTO fallback below is correct but slower, so nothing fails and CI stays
 # green. Set this where the LTO archive is the point (CI) to make the drop an error.
 option(SVS_REQUIRE_LTO_ARCHIVE
     "Fail instead of warn when the compiler cannot consume the LVQ/LeanVec LTO archive" OFF)
 
 option(SVS_RUNTIME_ENABLE_LVQ_LEANVEC "Enable compilation of SVS runtime with LVQ and LeanVec support" ON)
+if (SVS_RUNTIME_ENABLE_GEM AND SVS_RUNTIME_ENABLE_LVQ_LEANVEC)
+    message(FATAL_ERROR
+        "SVS_RUNTIME_ENABLE_GEM cannot be combined with SVS_RUNTIME_ENABLE_LVQ_LEANVEC: "
+        "GEM only builds from source (it needs SVS_EXPERIMENTAL_ENABLE_MULTI_VECTOR on the "
+        "inner SVS build), while the LVQ/LeanVec path links a pre-built svs library. "
+        "Configure with -DSVS_RUNTIME_ENABLE_LVQ_LEANVEC=OFF."
+    )
+endif()
 if (SVS_RUNTIME_ENABLE_LVQ_LEANVEC)
     message(STATUS "SVS runtime will be built with LVQ support")
 else()
@@ -199,6 +226,10 @@ else()
         if (SVS_RUNTIME_ENABLE_IVF)
             set(SVS_EXPERIMENTAL_ENABLE_IVF ON CACHE BOOL "" FORCE)
         endif()
+        # Pass the multi-vector (GEM) flag to the parent build the same way.
+        if (SVS_RUNTIME_ENABLE_GEM)
+            set(SVS_EXPERIMENTAL_ENABLE_MULTI_VECTOR ON CACHE BOOL "" FORCE)
+        endif()
         add_subdirectory("../.." "${CMAKE_CURRENT_BINARY_DIR}/svs")
     endif()
     target_link_libraries(${TARGET_NAME} PRIVATE
@@ -206,11 +237,32 @@ else()
        svs_compile_options
        svs_x86_options_base
     )
+
+    # `link_mkl_static` (cmake/mkl.cmake) is defined while building the inner `../..`
+    # tree above, but that definition lives in that add_subdirectory's own scope and
+    # does not propagate back out (CMake functions, unlike variables, only flow down a
+    # directory tree). Re-including the script here, in this directory's scope, is the
+    # smallest way to get a callable `link_mkl_static` for this target.
+    if (SVS_RUNTIME_ENABLE_GEM)
+        set(SVS_EXPERIMENTAL_LINK_STATIC_MKL ON)
+        include("${CMAKE_CURRENT_SOURCE_DIR}/../../cmake/mkl.cmake")
+        link_mkl_static(${TARGET_NAME})
+    endif()
 endif()
 
 # IVF requires Intel(R) MKL support
 if (SVS_RUNTIME_ENABLE_IVF)
     target_compile_definitions(${TARGET_NAME} PRIVATE SVS_RUNTIME_ENABLE_IVF SVS_HAVE_MKL=1)
+endif()
+
+# GEM requires Intel(R) MKL support (the codebook k-means trainer); SVS_RUNTIME_HAS_GEM is
+# PUBLIC so an installed-target consumer (e.g. Knowhere's faiss fork) can detect it via
+# INTERFACE_COMPILE_DEFINITIONS without parsing this project's own CMake cache.
+if (SVS_RUNTIME_ENABLE_GEM)
+    target_compile_definitions(${TARGET_NAME}
+        PRIVATE SVS_RUNTIME_ENABLE_GEM SVS_HAVE_MKL=1
+        PUBLIC SVS_RUNTIME_HAS_GEM=1
+    )
 endif()
 
 # installing

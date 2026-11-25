@@ -114,6 +114,17 @@ consteval bool is_one_or_zero(const char* ptr) {
 #define SVS_OMP 0
 #endif
 
+// Set uniformly by cmake/multi-arch.cmake on every consumer of the library, unlike
+// SVS_AVX512_F/SVS_AMX_TILE_BF16 below which read the *current* TU's own -march flags:
+// PackedOperand::pack_rounded_to_bf16 runs in TUs that never pass -mamx-tile themselves
+// (gem.h, maxsim.h, tests), so it needs a build-wide answer to "does amx.cpp exist in
+// this build at all" to decide whether filling the AMX tile layout is worth its cost.
+#if defined(SVS_AMX_TILE_BF16_SUPPORTED)
+#define SVS_AMX_COMPILED_IN 1
+#else
+#define SVS_AMX_COMPILED_IN 0
+#endif
+
 /////
 ///// Intel(R) AVX extensions
 /////
@@ -168,6 +179,17 @@ inline constexpr bool have_avx512_avx2 = true;
 #else
 #define SVS_AVX2 0
 inline constexpr bool have_avx512_avx2 = true;
+#endif
+
+// AMX tile load/store/config and the bf16 dot-product tile instruction. Both gate the
+// same translation unit (amx.cpp is compiled with -mamx-tile -mamx-bf16 together, see
+// cmake/multi-arch.cmake), so one guard covers both rather than two that could disagree.
+#if defined(__AMX_TILE__) && defined(__AMX_BF16__)
+#define SVS_AMX_TILE_BF16 1
+inline constexpr bool have_amx_tile_bf16 = true;
+#else
+#define SVS_AMX_TILE_BF16 0
+inline constexpr bool have_amx_tile_bf16 = false;
 #endif
 
 } // namespace svs::arch
