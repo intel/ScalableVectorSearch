@@ -24,6 +24,7 @@
 #include "c_api_test_utils.h"
 
 // Standard library
+#include <algorithm>
 #include <vector>
 
 CATCH_TEST_CASE("C API Dynamic Index", "[c_api][index][dynamic]") {

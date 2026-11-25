@@ -88,4 +88,77 @@ CATCH_TEST_CASE("C API Search Parameters", "[c_api][search_params]") {
 
         svs_error_free(error);
     }
+    CATCH_SECTION("Vamana Search Parameters Buffer Capacity") {
+        svs_error_h error = svs_error_create();
+        svs_search_params_h params = svs_search_params_create_vamana(100, error);
+        CATCH_REQUIRE(params != nullptr);
+
+        size_t window_size = 0;
+        size_t buffer_capacity = 0;
+        CATCH_REQUIRE(svs_search_params_vamana_get_window_size(params, &window_size, error)
+        );
+        CATCH_REQUIRE(window_size == 100);
+        CATCH_REQUIRE(
+            svs_search_params_vamana_get_buffer_capacity(params, &buffer_capacity, error)
+        );
+        CATCH_REQUIRE(buffer_capacity == 100);
+
+        CATCH_REQUIRE(svs_search_params_vamana_set_buffer_capacity(params, 250, error));
+        CATCH_REQUIRE(svs_error_ok(error));
+        CATCH_REQUIRE(
+            svs_search_params_vamana_get_buffer_capacity(params, &buffer_capacity, error)
+        );
+        CATCH_REQUIRE(buffer_capacity == 250);
+        CATCH_REQUIRE(svs_search_params_vamana_get_window_size(params, &window_size, error)
+        );
+        CATCH_REQUIRE(window_size == 100);
+
+        // Equal to the window size is the lower bound and is accepted.
+        CATCH_REQUIRE(svs_search_params_vamana_set_buffer_capacity(params, 100, error));
+        CATCH_REQUIRE(
+            svs_search_params_vamana_get_buffer_capacity(params, &buffer_capacity, error)
+        );
+        CATCH_REQUIRE(buffer_capacity == 100);
+
+        // Below the window size is rejected and leaves the capacity unchanged.
+        CATCH_REQUIRE_FALSE(svs_search_params_vamana_set_buffer_capacity(params, 99, error)
+        );
+        CATCH_REQUIRE(svs_error_get_code(error) == SVS_ERROR_INVALID_ARGUMENT);
+        CATCH_REQUIRE(
+            svs_search_params_vamana_get_buffer_capacity(params, &buffer_capacity, nullptr)
+        );
+        CATCH_REQUIRE(buffer_capacity == 100);
+
+        svs_search_params_free(params);
+        svs_error_free(error);
+    }
+
+    CATCH_SECTION("Vamana Search Parameters Accessors with NULL Arguments") {
+        svs_error_h error = svs_error_create();
+        size_t value = 0;
+
+        CATCH_REQUIRE_FALSE(svs_search_params_vamana_get_window_size(nullptr, &value, error)
+        );
+        CATCH_REQUIRE(svs_error_get_code(error) == SVS_ERROR_INVALID_ARGUMENT);
+        CATCH_REQUIRE_FALSE(
+            svs_search_params_vamana_get_buffer_capacity(nullptr, &value, error)
+        );
+        CATCH_REQUIRE(svs_error_get_code(error) == SVS_ERROR_INVALID_ARGUMENT);
+        CATCH_REQUIRE_FALSE(svs_search_params_vamana_set_buffer_capacity(nullptr, 10, error)
+        );
+        CATCH_REQUIRE(svs_error_get_code(error) == SVS_ERROR_INVALID_ARGUMENT);
+
+        svs_search_params_h params = svs_search_params_create_vamana(10, error);
+        CATCH_REQUIRE(params != nullptr);
+        CATCH_REQUIRE_FALSE(svs_search_params_vamana_get_window_size(params, nullptr, error)
+        );
+        CATCH_REQUIRE(svs_error_get_code(error) == SVS_ERROR_INVALID_ARGUMENT);
+        CATCH_REQUIRE_FALSE(
+            svs_search_params_vamana_get_buffer_capacity(params, nullptr, error)
+        );
+        CATCH_REQUIRE(svs_error_get_code(error) == SVS_ERROR_INVALID_ARGUMENT);
+
+        svs_search_params_free(params);
+        svs_error_free(error);
+    }
 }

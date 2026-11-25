@@ -45,21 +45,19 @@ struct Algorithm {
 
 struct AlgorithmVamana : public Algorithm {
     struct SearchParams : public Algorithm::SearchParams {
-        size_t search_window_size;
+        svs::index::vamana::SearchBufferConfig buffer_config;
         SearchParams(size_t search_window_size)
             : Algorithm::SearchParams{SVS_ALGORITHM_TYPE_VAMANA}
-            , search_window_size(search_window_size) {}
+            , buffer_config(search_window_size) {}
 
         svs::index::vamana::VamanaSearchParameters get_search_parameters() const {
             svs::index::vamana::VamanaSearchParameters params;
-            params.buffer_config_ =
-                svs::index::vamana::SearchBufferConfig{search_window_size};
+            params.buffer_config_ = buffer_config;
             return params;
         }
 
         void apply_to(svs::index::vamana::VamanaSearchParameters& params) const {
-            params.buffer_config_ =
-                svs::index::vamana::SearchBufferConfig{search_window_size};
+            params.buffer_config_ = buffer_config;
         }
     };
 
