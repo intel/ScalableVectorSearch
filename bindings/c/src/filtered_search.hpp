@@ -152,6 +152,8 @@ inline void set_empty_result(svs::QueryResult<size_t>& result) {
 // keeping only those that pass the filter. The batch size is estimated adaptively based on
 // the observed hit rate. Results are written into `results`.
 // returns a vector containing the number of neighbors found for each query.
+// Once `cancel` returns true the search stops. Each row then holds the neighbors accepted
+// so far (the returned count), followed by padding; queries that never started have 0.
 template <typename IndexType>
 std::vector<size_t> filtered_topk_search(
     IndexType& index,
@@ -159,7 +161,8 @@ std::vector<size_t> filtered_topk_search(
     svs::data::ConstSimpleDataView<float> queries,
     size_t initial_batch_hint,
     const IDFilterInterface* id_filter,
-    const std::function<size_t()>& sample_generator
+    const std::function<size_t()>& sample_generator,
+    const svs::lib::DefaultPredicate& cancel
 ) {
     // Minimum number of samples to estimate the filter hit rate. This is a trade-off
     // between accuracy and performance. A larger sample size gives a more accurate
@@ -193,6 +196,9 @@ std::vector<size_t> filtered_topk_search(
 
     auto search_closure = [&](const auto& range, uint64_t SVS_UNUSED(tid)) {
         for (auto i : range) {
+            if (cancel()) {
+                return;
+            }
             auto query = queries.get_datum(i);
             auto iterator = index.batch_iterator(query);
             size_t found = 0;
@@ -202,7 +208,9 @@ std::vector<size_t> filtered_topk_search(
                 batch_size = estimate_batch_size(
                     total_checked, found, num_neighbors, batch_size, index_size
                 );
-                iterator.next(batch_size);
+                iterator.next(batch_size, cancel);
+                // After a cancel, results() still holds the valid prefix of the batch
+                // with external IDs; keep what passes the filter and stop below.
                 total_checked += iterator.size();
                 for (auto& neighbor : iterator.results()) {
                     if (id_filter->is_member(neighbor.id())) {
@@ -212,6 +220,9 @@ std::vector<size_t> filtered_topk_search(
                             break;
                         }
                     }
+                }
+                if (found < num_neighbors && cancel()) {
+                    break;
                 }
                 // TODO: clarify the contract here - should we return partial or no
                 // result if the hit rate is too low

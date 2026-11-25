@@ -44,7 +44,8 @@ struct IndexVamana : public Index {
         svs::data::ConstSimpleDataView<float> queries,
         size_t num_neighbors,
         const std::shared_ptr<Algorithm::SearchParams>& search_params,
-        const IDFilterInterface* id_filter
+        const IDFilterInterface* id_filter,
+        const lib::DefaultPredicate& cancel
     ) override;
 
     void save(const std::filesystem::path& directory) override {
@@ -93,7 +94,8 @@ struct DynamicIndexVamana : public DynamicIndex {
         svs::data::ConstSimpleDataView<float> queries,
         size_t num_neighbors,
         const std::shared_ptr<Algorithm::SearchParams>& search_params,
-        const IDFilterInterface* id_filter
+        const IDFilterInterface* id_filter,
+        const lib::DefaultPredicate& cancel
     ) override;
 
     void save(const std::filesystem::path& directory) override;
@@ -170,7 +172,8 @@ struct ConcurrentIndexVamana : public DynamicIndexVamana {
         svs::data::ConstSimpleDataView<float> queries,
         size_t num_neighbors,
         const std::shared_ptr<Algorithm::SearchParams>& search_params,
-        const IDFilterInterface* id_filter
+        const IDFilterInterface* id_filter,
+        const lib::DefaultPredicate& cancel
     ) override;
 
     size_t add_points(

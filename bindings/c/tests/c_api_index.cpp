@@ -25,7 +25,10 @@
 
 // Standard library
 #include <algorithm>
+#include <atomic>
 #include <cmath>
+#include <numeric>
+#include <random>
 #include <vector>
 
 CATCH_TEST_CASE("C API Index Build and Search", "[c_api][index][build][search]") {
@@ -1547,4 +1550,175 @@ CATCH_TEST_CASE("C API Filtered Search topK", "[c_api][index][search][filter]") 
         svs_algorithm_free(algorithm);
         svs_error_free(error);
     }
+}
+
+namespace {
+// Cancel callback: counts its polls and returns true from poll number `cancel_after` + 1.
+struct CancelState {
+    std::atomic<size_t> calls{0};
+    size_t cancel_after = static_cast<size_t>(-1);
+};
+
+bool cancel_after_polls(void* userdata) {
+    auto* state = static_cast<CancelState*>(userdata);
+    return state->calls.fetch_add(1) >= state->cancel_after;
+}
+} // namespace
+
+CATCH_TEST_CASE("C API Search Cancel Callback", "[c_api][index][search][cancel]") {
+    const size_t NUM_VECTORS = 1000;
+    const size_t NUM_QUERIES = 5;
+    const size_t DIMENSION = 32;
+    const size_t K = 10;
+    const size_t INVALID_ID = static_cast<size_t>(-1);
+
+    // Random data: the periodic generate_test_data() pattern has duplicate vectors, which
+    // starves a filtered search.
+    std::mt19937 rng(1);
+    std::uniform_real_distribution<float> uniform(-1.0f, 1.0f);
+    std::vector<float> data(NUM_VECTORS * DIMENSION);
+    std::vector<float> queries(NUM_QUERIES * DIMENSION);
+    for (auto& x : data) {
+        x = uniform(rng);
+    }
+    for (auto& x : queries) {
+        x = uniform(rng);
+    }
+
+    svs_error_h error = svs_error_create();
+    svs_algorithm_h algorithm = svs_algorithm_create_vamana(16, 32, 100, error);
+    svs_index_builder_h builder = svs_index_builder_create(
+        SVS_DISTANCE_METRIC_EUCLIDEAN, DIMENSION, algorithm, error
+    );
+    CATCH_REQUIRE(
+        svs_index_builder_set_threadpool(builder, SVS_THREADPOOL_KIND_NATIVE, 4, error)
+    );
+    svs_search_params_h params = svs_search_params_create_vamana(100, error);
+    svs_id_filter_interface_ops odd_ops =
+        SVS_INIT_ID_FILTER_OPS(filter_is_odd, filter_rate_odd);
+    svs_id_filter_interface odd_filter = SVS_MAKE_INTERFACE(nullptr, odd_ops);
+
+    // Runs the cancel checks on `index`; `live(id)` says whether `id` may be returned.
+    auto check = [&](svs_index_h index, svs_id_filter_i filter, auto live) {
+        auto search = [&](svs_search_results_t* results) {
+            return svs_index_search_topk(
+                index, queries.data(), NUM_QUERIES, K, results, params, filter, error
+            );
+        };
+        auto set_callback = [&](CancelState* state) {
+            CATCH_REQUIRE(svs_search_params_set_cancel_callback(
+                params, state ? cancel_after_polls : nullptr, state, error
+            ));
+        };
+
+        svs_search_results_t expected = SVS_INIT_SEARCH_RESULTS();
+        CATCH_REQUIRE(search(&expected));
+        CATCH_REQUIRE(expected.total_results > 0);
+
+        // A callback that never fires, or no callback, gives the same results.
+        CancelState never;
+        for (CancelState* state : {&never, static_cast<CancelState*>(nullptr)}) {
+            set_callback(state);
+            svs_search_results_t results = SVS_INIT_SEARCH_RESULTS();
+            CATCH_REQUIRE(search(&results));
+            CATCH_REQUIRE(results.total_results == expected.total_results);
+            for (size_t i = 0; i < expected.total_results; ++i) {
+                CATCH_REQUIRE(results.indices[i] == expected.indices[i]);
+                CATCH_REQUIRE(results.distances[i] == expected.distances[i]);
+            }
+            svs_search_results_free(&results);
+        }
+        CATCH_REQUIRE(never.calls.load() > 0);
+
+        // Cancelled before the search starts: no results.
+        CancelState always;
+        always.cancel_after = 0;
+        set_callback(&always);
+        svs_search_results_t results = SVS_INIT_SEARCH_RESULTS();
+        CATCH_REQUIRE_FALSE(search(&results));
+        CATCH_REQUIRE(svs_error_get_code(error) == SVS_ERROR_CANCELLED);
+        CATCH_REQUIRE(results.total_results == 0);
+        svs_search_results_free(&results);
+
+        // Cancelled in the middle: only live IDs, never the invalid-neighbor marker.
+        CancelState mid;
+        mid.cancel_after = never.calls.load() / 2;
+        set_callback(&mid);
+        results = SVS_INIT_SEARCH_RESULTS();
+        CATCH_REQUIRE_FALSE(search(&results));
+        CATCH_REQUIRE(svs_error_get_code(error) == SVS_ERROR_CANCELLED);
+        CATCH_REQUIRE(results.total_results > 0);
+        CATCH_REQUIRE(results.offsets[NUM_QUERIES] == results.total_results);
+        for (size_t q = 0; q < NUM_QUERIES; ++q) {
+            CATCH_REQUIRE(results.offsets[q + 1] - results.offsets[q] <= K);
+        }
+        for (size_t i = 0; i < results.total_results; ++i) {
+            CATCH_REQUIRE(results.indices[i] != INVALID_ID);
+            CATCH_REQUIRE(live(results.indices[i]));
+        }
+        svs_search_results_free(&results);
+        svs_search_results_free(&expected);
+        set_callback(nullptr);
+    };
+
+    CATCH_SECTION("Static index") {
+        svs_index_h index = svs_index_build(builder, data.data(), NUM_VECTORS, error);
+        CATCH_REQUIRE(index != nullptr);
+        check(index, nullptr, [&](size_t id) { return id < NUM_VECTORS; });
+        svs_index_free(index);
+    }
+
+    CATCH_SECTION("Static index, filtered") {
+        svs_index_h index = svs_index_build(builder, data.data(), NUM_VECTORS, error);
+        CATCH_REQUIRE(index != nullptr);
+        check(index, &odd_filter, [&](size_t id) { return id < NUM_VECTORS && id % 2; });
+        svs_index_free(index);
+    }
+
+    CATCH_SECTION("Dynamic index with deletions") {
+        // Row i has external ID 5000 + i; every 5th vector is deleted.
+        std::vector<size_t> ids(NUM_VECTORS);
+        std::iota(ids.begin(), ids.end(), size_t{5000});
+        svs_index_h index = svs_index_build_dynamic(
+            builder, data.data(), ids.data(), NUM_VECTORS, 1024 * 1024, error
+        );
+        CATCH_REQUIRE(index != nullptr);
+        std::vector<size_t> deleted;
+        for (size_t i = 0; i < NUM_VECTORS; i += 5) {
+            deleted.push_back(ids[i]);
+        }
+        CATCH_REQUIRE(svs_index_dynamic_delete_points(
+            index, deleted.data(), deleted.size(), nullptr, error
+        ));
+        check(index, nullptr, [&](size_t id) {
+            return id >= 5000 && id < 5000 + NUM_VECTORS && (id - 5000) % 5 != 0;
+        });
+        svs_index_free(index);
+    }
+
+    CATCH_SECTION("Dynamic index with deletions, filtered") {
+        // Row i has external ID 5000 + i; every 5th vector is deleted, odd IDs pass.
+        std::vector<size_t> ids(NUM_VECTORS);
+        std::iota(ids.begin(), ids.end(), size_t{5000});
+        svs_index_h index = svs_index_build_dynamic(
+            builder, data.data(), ids.data(), NUM_VECTORS, 1024 * 1024, error
+        );
+        CATCH_REQUIRE(index != nullptr);
+        std::vector<size_t> deleted;
+        for (size_t i = 0; i < NUM_VECTORS; i += 5) {
+            deleted.push_back(ids[i]);
+        }
+        CATCH_REQUIRE(svs_index_dynamic_delete_points(
+            index, deleted.data(), deleted.size(), nullptr, error
+        ));
+        check(index, &odd_filter, [&](size_t id) {
+            return id >= 5000 && id < 5000 + NUM_VECTORS && (id - 5000) % 5 != 0 && id % 2;
+        });
+        svs_index_free(index);
+    }
+
+    svs_search_params_free(params);
+    svs_index_builder_free(builder);
+    svs_algorithm_free(algorithm);
+    svs_error_free(error);
 }

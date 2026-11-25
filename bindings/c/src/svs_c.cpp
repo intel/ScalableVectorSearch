@@ -28,6 +28,8 @@
 #include "threadpool.hpp"
 #include "types_support.hpp"
 
+#include <algorithm>
+#include <atomic>
 #include <bit>
 #include <cstddef>
 #include <filesystem>
@@ -369,6 +371,21 @@ svs_search_params_create_vamana(size_t search_window_size, svs_error_h out_err) 
 }
 
 extern "C" void svs_search_params_free(svs_search_params_h params) { delete params; }
+
+extern "C" bool svs_search_params_set_cancel_callback(
+    svs_search_params_h params, svs_is_cancelled_fn fn, void* userdata, svs_error_h out_err
+) {
+    using namespace svs::c_runtime;
+    return wrap_exceptions(
+        [&]() {
+            EXPECT_ARG_NOT_NULL(params);
+            params->impl->cancel_fn = fn;
+            params->impl->cancel_userdata = fn == nullptr ? nullptr : userdata;
+            return true;
+        },
+        out_err
+    );
+}
 
 extern "C" svs_storage_h
 svs_storage_create_simple(svs_data_type_t data_type, svs_error_h out_err) {
@@ -1478,11 +1495,38 @@ extern "C" bool svs_index_search_topk(
 
             IDFilterAdapter id_filter_adapter(id_filter);
 
+            // Latch the first `true` so every thread stops and we can report it below.
+            std::atomic<bool> fired{false};
+            svs::lib::DefaultPredicate cancel = svs::lib::Returns(svs::lib::Const<false>());
+            if (search_params != nullptr && search_params->impl->cancel_fn != nullptr) {
+                cancel = [&,
+                          fn = search_params->impl->cancel_fn,
+                          ud = search_params->impl->cancel_userdata]() {
+                    if (fired.load(std::memory_order_relaxed)) {
+                        return true;
+                    }
+                    if (fn(ud)) {
+                        fired.store(true, std::memory_order_relaxed);
+                        return true;
+                    }
+                    return false;
+                };
+            }
+
+            // Cancelled before the search starts: report no results, search nothing.
+            if (cancel()) {
+                out_results->num_queries = num_queries;
+                out_results->total_results = 0;
+                std::fill_n(out_results->offsets, num_queries + 1, size_t{0});
+                throw coded_error(SVS_ERROR_CANCELLED, "Search cancelled by callback");
+            }
+
             auto [search_results, found_neighbors_per_query] = index_ptr->search(
                 queries_view,
                 k,
                 search_params == nullptr ? nullptr : search_params->impl,
-                id_filter == nullptr ? nullptr : &id_filter_adapter
+                id_filter == nullptr ? nullptr : &id_filter_adapter,
+                cancel
             );
 
             out_results->num_queries = num_queries;
@@ -1503,6 +1547,9 @@ extern "C" bool svs_index_search_topk(
             }
             out_results->offsets[num_queries] = result_index; // sentinel
 
+            if (cancel()) {
+                throw coded_error(SVS_ERROR_CANCELLED, "Search cancelled by callback");
+            }
             return true;
         },
         out_err

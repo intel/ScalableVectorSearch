@@ -89,3 +89,24 @@ CATCH_TEST_CASE("C API Search Parameters", "[c_api][search_params]") {
         svs_error_free(error);
     }
 }
+
+CATCH_TEST_CASE(
+    "C API Search Cancel Callback arguments", "[c_api][search_params][cancel]"
+) {
+    svs_error_h error = svs_error_create();
+    svs_is_cancelled_fn never = [](void*) { return false; };
+
+    CATCH_REQUIRE_FALSE(
+        svs_search_params_set_cancel_callback(nullptr, never, nullptr, error)
+    );
+    CATCH_REQUIRE(svs_error_get_code(error) == SVS_ERROR_INVALID_ARGUMENT);
+
+    svs_search_params_h params = svs_search_params_create_vamana(100, nullptr);
+    CATCH_REQUIRE(params != nullptr);
+    // A NULL error handle is allowed, and a NULL callback removes the callback.
+    CATCH_REQUIRE(svs_search_params_set_cancel_callback(params, never, nullptr, nullptr));
+    CATCH_REQUIRE(svs_search_params_set_cancel_callback(params, nullptr, nullptr, nullptr));
+
+    svs_search_params_free(params);
+    svs_error_free(error);
+}

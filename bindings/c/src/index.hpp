@@ -49,7 +49,8 @@ struct Index {
         svs::data::ConstSimpleDataView<float> queries,
         size_t num_neighbors,
         const std::shared_ptr<Algorithm::SearchParams>& search_params,
-        const IDFilterInterface* id_filter = nullptr
+        const IDFilterInterface* id_filter = nullptr,
+        const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>())
     ) = 0;
     virtual void save(const std::filesystem::path& directory) = 0;
     virtual void save(std::ostream& stream) = 0;
