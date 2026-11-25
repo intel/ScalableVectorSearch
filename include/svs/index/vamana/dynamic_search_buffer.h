@@ -221,6 +221,18 @@ template <typename Idx, typename Cmp = std::less<>> class MutableBuffer {
         best_unvisited_ = 0;
     }
 
+    /// Keep only the ids now in the buffer in the visited set, so dropped ids can be
+    /// re-inserted.
+    void reset_visited_to_contents() {
+        if (!visited_set_enabled()) {
+            return;
+        }
+        visited_->reset();
+        for (const auto& neighbor : candidates_) {
+            visited_->emplace(neighbor.id());
+        }
+    }
+
     size_t capacity() const { return candidates_.capacity(); }
 
     /// @brief Return the number of valid elements currently contained in the buffer.
@@ -461,17 +473,7 @@ template <typename Idx, typename Cmp = std::less<>> class MutableBuffer {
 
     size_t insert_inner(value_type neighbor) {
         const auto start = begin();
-
-        // Binary search to the first location where `distance` is less than the stored
-        // neighbor.
-        auto pos = std::lower_bound(
-            start,
-            end(),
-            neighbor.distance(),
-            [&](const value_type& other, const float& d) {
-                return !compare_(d, other.distance());
-            }
-        );
+        auto pos = start + distance_upper_bound(view(), neighbor.distance(), compare_);
 
         // Because repeat ids can exist, we have to search until we're sure no repeat will
         // be found.
@@ -570,6 +572,9 @@ template <typename Idx, typename Cmp = std::less<>> class MutableBuffer {
     /// That is the only context in which non-internal interaction with the search buffer
     /// should operate.
     size_t size() const { return candidates_.size(); }
+
+    /// @brief Return a view of all stored candidates, both valid and invalid.
+    std::span<const value_type> view() const { return candidates_; }
 
     ///// Visited API
     bool visited_set_enabled() const { return visited_.has_value(); }
