@@ -1649,6 +1649,9 @@ CATCH_TEST_CASE("C API Search Cancel Callback", "[c_api][index][search][cancel]"
         CATCH_REQUIRE(svs_error_get_code(error) == SVS_ERROR_CANCELLED);
         CATCH_REQUIRE(results.total_results > 0);
         CATCH_REQUIRE(results.offsets[NUM_QUERIES] == results.total_results);
+        for (size_t q = 0; q < NUM_QUERIES; ++q) {
+            CATCH_REQUIRE(results.offsets[q + 1] - results.offsets[q] <= K);
+        }
         for (size_t i = 0; i < results.total_results; ++i) {
             CATCH_REQUIRE(results.indices[i] != INVALID_ID);
             CATCH_REQUIRE(live(results.indices[i]));
@@ -1689,6 +1692,27 @@ CATCH_TEST_CASE("C API Search Cancel Callback", "[c_api][index][search][cancel]"
         ));
         check(index, nullptr, [&](size_t id) {
             return id >= 5000 && id < 5000 + NUM_VECTORS && (id - 5000) % 5 != 0;
+        });
+        svs_index_free(index);
+    }
+
+    CATCH_SECTION("Dynamic index with deletions, filtered") {
+        // Row i has external ID 5000 + i; every 5th vector is deleted, odd IDs pass.
+        std::vector<size_t> ids(NUM_VECTORS);
+        std::iota(ids.begin(), ids.end(), size_t{5000});
+        svs_index_h index = svs_index_build_dynamic(
+            builder, data.data(), ids.data(), NUM_VECTORS, 1024 * 1024, error
+        );
+        CATCH_REQUIRE(index != nullptr);
+        std::vector<size_t> deleted;
+        for (size_t i = 0; i < NUM_VECTORS; i += 5) {
+            deleted.push_back(ids[i]);
+        }
+        CATCH_REQUIRE(svs_index_dynamic_delete_points(
+            index, deleted.data(), deleted.size(), nullptr, error
+        ));
+        check(index, &odd_filter, [&](size_t id) {
+            return id >= 5000 && id < 5000 + NUM_VECTORS && (id - 5000) % 5 != 0 && id % 2;
         });
         svs_index_free(index);
     }

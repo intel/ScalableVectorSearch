@@ -944,15 +944,15 @@ SVS_API void svs_search_params_free(svs_search_params_h params);
 typedef bool (*svs_is_cancelled_fn)(void* userdata);
 
 /// @brief Set a callback that lets the caller interrupt searches that use @p params
-/// @details Used by svs_index_search_topk() (also filtered). It is polled once per visited
-/// node, before each query, and per filtered batch. It may be called concurrently from
-/// several threads, so it must be thread-safe and cheap. After it returns true, other
-/// threads may still call it a few more times before they stop. The search then returns
-/// false with SVS_ERROR_CANCELLED and @c out_results holds, per query, the neighbors found
-/// so far (possibly fewer than k; queries that had not started when the cancel fired may
-/// hold a few candidates). If the callback already returns true when the call starts, no
-/// search is run and @c out_results holds no results. A call can be reported cancelled even
-/// if it had finished.
+/// @details Used by svs_index_search_topk() (also filtered). It is polled once at call
+/// start, once per visited node, and per query and per batch for filtered search. It may be
+/// called concurrently from several threads, so it must be thread-safe and cheap. After it
+/// returns true, other threads may still call it a few more times before they stop. The
+/// search then returns false with SVS_ERROR_CANCELLED and @c out_results holds, per query,
+/// the neighbors found so far (possibly fewer than k; queries that had not started when the
+/// cancel fired may hold a few candidates). If the callback already returns true when the
+/// call starts, no search is run and @c out_results holds no results. A call can be
+/// reported cancelled even if it had finished.
 /// @param params The search parameters handle
 /// @param fn The cancellation predicate, or NULL to remove a previously set callback
 /// @param userdata Opaque pointer passed to @p fn on every call; the caller owns it and
