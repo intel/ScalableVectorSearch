@@ -44,7 +44,14 @@ class DynamicVamanaInterface : public VamanaInterface {
     ) = 0;
 
     virtual void delete_points(std::span<const size_t> ids) = 0;
+    // The internal-ID operations below are provided by the concurrent index only.
+    // Like delete_points; also appends the internal ID of each deleted entry and
+    // returns how many were deleted.
+    virtual size_t
+    delete_points(std::span<const size_t> ids, std::vector<size_t>& internal_ids) = 0;
     virtual void consolidate() = 0;
+    // Consolidates only the listed soft-deleted internal IDs
+    virtual size_t repair_incomming_connections(std::span<const size_t> internal_ids) = 0;
     virtual void compact(size_t batchsize = 1'000'000) = 0;
 
     // ID inspection.
@@ -85,6 +92,30 @@ class DynamicVamanaImpl : public VamanaImpl<QueryTypes, Impl, DynamicVamanaInter
 
     void delete_points(std::span<const size_t> ids) override { impl().delete_entries(ids); }
     void consolidate() override { impl().consolidate(); }
+    size_t
+    delete_points(std::span<const size_t> ids, std::vector<size_t>& internal_ids) override {
+        using Index = std::remove_cvref_t<decltype(impl())>;
+        if constexpr (requires(std::vector<typename Index::internal_id_type> * out) {
+                          impl().delete_entries(ids, out);
+                      }) {
+            std::vector<typename Index::internal_id_type> slots;
+            const size_t deleted = impl().delete_entries(ids, &slots);
+            internal_ids.insert(internal_ids.end(), slots.begin(), slots.end());
+            return deleted;
+        } else {
+            throw ANNEXCEPTION("Reporting internal IDs is not supported by this index type."
+            );
+        }
+    }
+    size_t repair_incomming_connections(std::span<const size_t> internal_ids) override {
+        if constexpr (requires { impl().repair_incomming_connections(internal_ids); }) {
+            return impl().repair_incomming_connections(internal_ids);
+        } else {
+            throw ANNEXCEPTION(
+                "Consolidating internal IDs is not supported by this index type."
+            );
+        }
+    }
     void compact(size_t batchsize) override { impl().compact(batchsize); }
 
     // ID inspection.
@@ -178,6 +209,10 @@ class DynamicVamana : public manager::IndexManager<DynamicVamanaInterface> {
         return *this;
     }
 
+    size_t repair_incomming_connections(std::span<const size_t> internal_ids) {
+        return impl_->repair_incomming_connections(internal_ids);
+    }
+
     DynamicVamana& compact(size_t batchsize = 1'000'000) {
         impl_->compact(batchsize);
         return *this;
@@ -197,6 +232,10 @@ class DynamicVamana : public manager::IndexManager<DynamicVamanaInterface> {
     DynamicVamana& delete_points(std::span<const size_t> ids) {
         impl_->delete_points(ids);
         return *this;
+    }
+
+    size_t delete_points(std::span<const size_t> ids, std::vector<size_t>& internal_ids) {
+        return impl_->delete_points(ids, internal_ids);
     }
 
     // Accessors

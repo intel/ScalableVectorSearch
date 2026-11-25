@@ -25,6 +25,8 @@
 #include "tsl/robin_map.h"
 
 // stl
+#include <span>
+#include <utility>
 #include <vector>
 
 namespace svs {
@@ -83,6 +85,24 @@ void compact_data(
         );
         start = stop;
     }
+}
+
+/// Each pair is (old, new). No new ID may also be an old ID, so the copies run in
+/// parallel and need no buffer.
+template <data::MemoryDataset Data, std::integral I, threads::ThreadPool Pool>
+void compact_data(
+    Data& data, std::span<const std::pair<I, I>> old_to_new, Pool& threadpool
+) {
+    threads::parallel_for(
+        threadpool,
+        threads::StaticPartition{old_to_new.size()},
+        [&](const auto& is, uint64_t SVS_UNUSED(tid)) {
+            for (auto i : is) {
+                const auto& [old_id, new_id] = old_to_new[i];
+                data.set_datum(new_id, data.get_datum(old_id));
+            }
+        }
+    );
 }
 
 } // namespace svs

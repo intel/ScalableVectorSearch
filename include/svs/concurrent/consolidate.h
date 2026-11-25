@@ -23,6 +23,7 @@
 #include "svs/index/vamana/consolidate.h"
 #include "svs/index/vamana/extensions.h"
 #include "svs/lib/array.h"
+#include "svs/lib/misc.h"
 #include "svs/lib/threads.h"
 #include "svs/lib/timing.h"
 
@@ -118,10 +119,14 @@ class GraphConsolidator {
     ///        will contain the full set of neighbor candidate indices.
     /// @param neighbors The current neighbors of the vertex being processed.
     /// @param is_deleted Callable functor returning `true` of a vertex is deleted.
+    /// @param eligible Callable functor returning `true` if a vertex may get a new edge.
     ///
-    template <typename Neighbors, typename Deleted>
+    template <typename Neighbors, typename Deleted, typename Eligible>
     void populate_candidates(
-        set_type& all_candidates, const Neighbors& neighbors, const Deleted& is_deleted
+        set_type& all_candidates,
+        const Neighbors& neighbors,
+        const Deleted& is_deleted,
+        const Eligible& eligible
     ) const {
         all_candidates.clear();
         for (auto dst : neighbors) {
@@ -135,7 +140,13 @@ class GraphConsolidator {
                         continue;
                     }
                     const auto& others = graph_.get_node(dst);
-                    all_candidates.insert(others.begin(), others.end());
+                    // A new neighbor must be eligible: another consolidation may
+                    // already have collected the in-neighbors of a Deleted one.
+                    for (auto other : others) {
+                        if (eligible(other)) {
+                            all_candidates.insert(other);
+                        }
+                    }
                     if (graph_.seq_counters()[dst].read_validate(*maybe_seq)) {
                         break;
                     }
@@ -171,12 +182,13 @@ class GraphConsolidator {
         std::sort(valid_candidates.begin(), valid_candidates.end(), Compare{});
     }
 
-    template <typename GlobalIds, typename Deleted>
+    template <typename GlobalIds, typename Deleted, typename Eligible>
     void generate_updates(
         const GlobalIds& global_ids,
         const threads::UnitRange<size_t>& local_ids,
         ConsolidateThreadLocal<I>& tls,
-        const Deleted& is_deleted
+        const Deleted& is_deleted,
+        const Eligible& eligible
     ) const {
         auto& [all_candidates, valid_candidates, final_candidates] = tls;
 
@@ -200,7 +212,7 @@ class GraphConsolidator {
             }
 
             // Other nodes still use seqlock validation in populate_candidates().
-            populate_candidates(all_candidates, neighbors, is_deleted);
+            populate_candidates(all_candidates, neighbors, is_deleted, eligible);
             filter_candidates(
                 valid_candidates,
                 all_candidates,
@@ -224,7 +236,9 @@ class GraphConsolidator {
                 lib::as_const_span(valid_candidates),
                 final_candidates
             );
-            graph_.replace_node(src, lib::as_const_span(final_candidates), node_lock);
+            graph_.replace_node(
+                src, lib::as_const_span(final_candidates), node_lock, eligible
+            );
         }
     }
 
@@ -260,8 +274,12 @@ class GraphConsolidator {
     ///
     /// Update an explicit list of source nodes `work_ids`.
     ///
-    template <typename Deleted>
-    void run_driver(const std::vector<size_t>& work_ids, const Deleted& is_deleted) {
+    template <typename Deleted, typename Eligible>
+    void run_driver(
+        const std::vector<size_t>& work_ids,
+        const Deleted& is_deleted,
+        const Eligible& eligible
+    ) {
         const size_t num_work = work_ids.size();
         const size_t update_batch_size = std::min(params_.update_batch_size, num_work);
         const size_t thread_batch_size = 500;
@@ -284,7 +302,8 @@ class GraphConsolidator {
                         global_ids,
                         threads::UnitRange(local_ids),
                         thread_local_scratch,
-                        is_deleted
+                        is_deleted,
+                        eligible
                     );
                 }
             );
@@ -296,12 +315,15 @@ class GraphConsolidator {
     ///
     /// Reverse-edge-driven consolidation: process only the in-neighbors of the deleted
     /// nodes `deleted_ids`, discovered via the graph's reverse-edge index.
+    /// `eligible` returns `true` if a vertex may get a new edge.
     ///
-    template <typename DeletedSet, typename Deleted>
-    void operator()(const DeletedSet& deleted_ids, const Deleted& is_deleted) {
+    template <typename DeletedSet, typename Deleted, typename Eligible>
+    void operator()(
+        const DeletedSet& deleted_ids, const Deleted& is_deleted, const Eligible& eligible
+    ) {
         auto work_ids = gather_work_set(deleted_ids, is_deleted);
         assert(int(work_ids.size()) > -1);
-        run_driver(work_ids, is_deleted);
+        run_driver(work_ids, is_deleted, eligible);
     }
 
     ///
@@ -331,7 +353,8 @@ class GraphConsolidator {
                         global_ids,
                         threads::UnitRange(local_ids),
                         thread_local_scratch,
-                        is_deleted
+                        is_deleted,
+                        lib::ReturnsTrueType{}
                     );
                 }
             );
@@ -366,6 +389,7 @@ void consolidate(
 ///
 /// Reverse-edge-driven consolidation over an explicit deleted set `deleted_ids`. Requires
 /// `graph.reverse_edges() != nullptr`; only the in-neighbors of `deleted_ids` are visited.
+/// `eligible` returns `true` if a vertex may get a new edge.
 ///
 template <
     graphs::MemoryGraph Graph,
@@ -373,7 +397,8 @@ template <
     threads::ThreadPool Pool,
     typename Distance,
     typename DeletedSet,
-    typename Deleted>
+    typename Deleted,
+    typename Eligible>
 void consolidate(
     Graph& graph,
     const Data& data,
@@ -383,11 +408,12 @@ void consolidate(
     float alpha,
     const Distance& distance,
     const DeletedSet& deleted_ids,
-    Deleted&& is_deleted
+    Deleted&& is_deleted,
+    const Eligible& eligible
 ) {
     ConsolidationParameters params{200'000, prune_to, max_candidate_pool_size, alpha};
     auto consolidator = GraphConsolidator{graph, data, threadpool, distance, params};
-    consolidator(deleted_ids, is_deleted);
+    consolidator(deleted_ids, is_deleted, eligible);
 }
 
 } // namespace svs::index::vamana::concurrent
