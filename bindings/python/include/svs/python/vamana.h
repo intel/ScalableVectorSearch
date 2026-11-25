@@ -158,7 +158,10 @@ This property is experimental and subject to change without a deprecation warnin
         &Manager::set_search_window_size,
         R"(
 Read/Write (int): Get/set the size of the internal search buffer.
-A larger value will likely yield more accurate results at the cost of speed.)"
+A larger value will likely yield more accurate results at the cost of speed.
+
+If this value is less than the number of neighbors requested in a search, it is
+temporarily raised to that number for the search. The stored value is not changed.)"
     );
 
     manager.def_property(
