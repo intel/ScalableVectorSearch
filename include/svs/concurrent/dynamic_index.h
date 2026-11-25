@@ -33,7 +33,6 @@
 // svs
 #include "svs/concepts/distance.h"
 #include "svs/concurrent/consolidate.h"
-#include "svs/concurrent/dynamic_search_buffer.h"
 #include "svs/concurrent/graph.h"
 #include "svs/concurrent/greedy_search.h"
 #include "svs/concurrent/vamana_build.h"
@@ -46,6 +45,7 @@
 #include "svs/core/recall.h"
 #include "svs/core/translation.h"
 #include "svs/index/vamana/dynamic_index.h"
+#include "svs/index/vamana/dynamic_search_buffer.h"
 #include "svs/index/vamana/index.h"
 #include "svs/lib/boundscheck.h"
 #include "svs/lib/neighbor.h"
@@ -195,7 +195,7 @@ class MutableVamanaIndex {
     static constexpr Idx NO_ENTRY = std::numeric_limits<Idx>::max();
 
     using distance_type = Dist;
-    using search_buffer_type = MutableBuffer<Idx, distance::compare_t<Dist>>;
+    using search_buffer_type = vamana::MutableBuffer<Idx, distance::compare_t<Dist>>;
 
     using graph_type = Graph;
     using data_type = Data;

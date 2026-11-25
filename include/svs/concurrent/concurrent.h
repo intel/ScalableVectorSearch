@@ -30,7 +30,6 @@
 #include "svs/concurrent/blocked_data.h"
 #include "svs/concurrent/consolidate.h"
 #include "svs/concurrent/dynamic_index.h"
-#include "svs/concurrent/dynamic_search_buffer.h"
 #include "svs/concurrent/graph.h"
 #include "svs/concurrent/graph_concepts.h"
 #include "svs/concurrent/greedy_search.h"
