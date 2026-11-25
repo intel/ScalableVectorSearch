@@ -370,6 +370,77 @@ svs_search_params_create_vamana(size_t search_window_size, svs_error_h out_err) 
 
 extern "C" void svs_search_params_free(svs_search_params_h params) { delete params; }
 
+#define EXPECT_VAMANA_SEARCH_PARAMS(params)                      \
+    EXPECT_ARG_NOT_NULL(params);                                 \
+    INVALID_ARGUMENT_IF(                                         \
+        (params->impl->type != SVS_ALGORITHM_TYPE_VAMANA),       \
+        "Search parameters type does not support this operation" \
+    )
+
+extern "C" bool svs_search_params_vamana_get_window_size(
+    svs_search_params_h params, size_t* out_window_size, svs_error_h out_err
+) {
+    using namespace svs::c_runtime;
+    return wrap_exceptions(
+        [&]() {
+            EXPECT_VAMANA_SEARCH_PARAMS(params);
+            EXPECT_ARG_NOT_NULL(out_window_size);
+            auto vamana_params =
+                std::static_pointer_cast<AlgorithmVamana::SearchParams>(params->impl);
+            *out_window_size = vamana_params->buffer_config.get_search_window_size();
+            return true;
+        },
+        out_err
+    );
+}
+
+extern "C" bool svs_search_params_vamana_get_buffer_capacity(
+    svs_search_params_h params, size_t* out_buffer_capacity, svs_error_h out_err
+) {
+    using namespace svs::c_runtime;
+    return wrap_exceptions(
+        [&]() {
+            EXPECT_VAMANA_SEARCH_PARAMS(params);
+            EXPECT_ARG_NOT_NULL(out_buffer_capacity);
+            auto vamana_params =
+                std::static_pointer_cast<AlgorithmVamana::SearchParams>(params->impl);
+            *out_buffer_capacity = vamana_params->buffer_config.get_total_capacity();
+            return true;
+        },
+        out_err
+    );
+}
+
+extern "C" bool svs_search_params_vamana_set_buffer_capacity(
+    svs_search_params_h params, size_t buffer_capacity, svs_error_h out_err
+) {
+    using namespace svs::c_runtime;
+    return wrap_exceptions(
+        [&]() {
+            EXPECT_VAMANA_SEARCH_PARAMS(params);
+            auto vamana_params =
+                std::static_pointer_cast<AlgorithmVamana::SearchParams>(params->impl);
+            auto window_size = vamana_params->buffer_config.get_search_window_size();
+            // Checked here because SearchBufferConfig reports a violated invariant as
+            // ANNException, which would surface as a generic error instead of
+            // SVS_ERROR_INVALID_ARGUMENT.
+            INVALID_ARGUMENT_IF(
+                buffer_capacity < window_size,
+                fmt::format(
+                    "buffer_capacity ({}) should be greater than or equal to the search "
+                    "window size ({})",
+                    buffer_capacity,
+                    window_size
+                )
+            );
+            vamana_params->buffer_config =
+                svs::index::vamana::SearchBufferConfig{window_size, buffer_capacity};
+            return true;
+        },
+        out_err
+    );
+}
+
 extern "C" svs_storage_h
 svs_storage_create_simple(svs_data_type_t data_type, svs_error_h out_err) {
     using namespace svs::c_runtime;

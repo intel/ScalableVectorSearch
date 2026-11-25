@@ -933,6 +933,35 @@ SVS_API svs_search_params_h svs_search_params_create_vamana(
 /// @param params The search parameters handle to free
 SVS_API void svs_search_params_free(svs_search_params_h params);
 
+/// @brief Get the search window size of Vamana search parameters
+/// @param params The Vamana search parameters handle
+/// @param out_window_size Pointer to store the search window size
+/// @param out_err An optional error handle to capture errors
+/// @return true on success, false on failure
+SVS_API bool svs_search_params_vamana_get_window_size(
+    svs_search_params_h params, size_t* out_window_size, svs_error_h out_err /*=NULL*/
+);
+
+/// @brief Get the search buffer capacity of Vamana search parameters
+/// @param params The Vamana search parameters handle
+/// @param out_buffer_capacity Pointer to store the search buffer capacity
+/// @param out_err An optional error handle to capture errors
+/// @return true on success, false on failure
+SVS_API bool svs_search_params_vamana_get_buffer_capacity(
+    svs_search_params_h params, size_t* out_buffer_capacity, svs_error_h out_err /*=NULL*/
+);
+
+/// @brief Set the search buffer capacity of Vamana search parameters
+/// @param params The Vamana search parameters handle
+/// @param buffer_capacity The search buffer capacity
+/// @param out_err An optional error handle to capture errors
+/// @return true on success, false on failure
+/// @error SVS_ERROR_INVALID_ARGUMENT if buffer_capacity is less than the search window
+/// size
+SVS_API bool svs_search_params_vamana_set_buffer_capacity(
+    svs_search_params_h params, size_t buffer_capacity, svs_error_h out_err /*=NULL*/
+);
+
 /// @brief Create a simple storage configuration
 /// @param data_type The data type of the vectors
 /// @param out_err An optional error handle to capture errors

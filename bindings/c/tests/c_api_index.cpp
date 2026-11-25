@@ -99,6 +99,30 @@ CATCH_TEST_CASE("C API Index Build and Search", "[c_api][index][build][search]")
             CATCH_REQUIRE(results.distances[i] >= 0.0f);
         }
 
+        // Search with a buffer capacity above the search window size.
+        CATCH_REQUIRE(
+            svs_search_params_vamana_set_buffer_capacity(search_params, 100, error)
+        );
+        svs_search_results_t capacity_results = SVS_INIT_SEARCH_RESULTS();
+        CATCH_REQUIRE(svs_index_search_topk(
+            index,
+            queries.data(),
+            NUM_QUERIES,
+            K,
+            &capacity_results,
+            search_params,
+            nullptr,
+            error
+        ));
+        CATCH_REQUIRE(svs_error_ok(error));
+        CATCH_REQUIRE(capacity_results.num_queries == NUM_QUERIES);
+        for (size_t i = 0; i < NUM_QUERIES; ++i) {
+            CATCH_REQUIRE(
+                capacity_results.offsets[i + 1] - capacity_results.offsets[i] == K
+            );
+        }
+        svs_search_results_free(&capacity_results);
+
         // Cleanup
         svs_search_results_free(&results);
         svs_search_params_free(search_params);
@@ -1134,6 +1158,21 @@ CATCH_TEST_CASE("C API Index Memory Management", "[c_api][index][memory]") {
         CATCH_REQUIRE(success);
         CATCH_REQUIRE(svs_error_ok(error));
         CATCH_REQUIRE(many_neighbors_size >= params_size);
+
+        // A buffer capacity above the search window size grows the estimate.
+        svs_search_params_h capacity_params = svs_search_params_create_vamana(50, error);
+        CATCH_REQUIRE(capacity_params != nullptr);
+        CATCH_REQUIRE(
+            svs_search_params_vamana_set_buffer_capacity(capacity_params, 400, error)
+        );
+        size_t capacity_size = 0;
+        success = svs_index_builder_estimate_search_memory(
+            builder, NUM_QUERIES, K, capacity_params, nullptr, &capacity_size, error
+        );
+        CATCH_REQUIRE(success);
+        CATCH_REQUIRE(svs_error_ok(error));
+        CATCH_REQUIRE(capacity_size > params_size);
+        svs_search_params_free(capacity_params);
 
         // The estimate grows if filtering is applied.
         bool (*is_member)(void*, size_t) = [](void*, size_t) { return true; };
