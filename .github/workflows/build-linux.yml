@@ -15,13 +15,9 @@
 name: Linux Build and Test
 
 on:
-  push:
-    branches:
-    - main
   pull_request:
-    paths-ignore:
-    - 'bindings/**'
-    - '**.md'
+  merge_group:
+    types: [checks_requested]
   workflow_dispatch:
 
 permissions:
@@ -33,26 +29,43 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # Skip the builds on pull requests that only touch paths this workflow ignores.
+  changes:
+    name: Detect changes
+    runs-on: ubuntu-22.04
+    permissions:
+      pull-requests: read
+    outputs:
+      relevant: ${{ github.event_name != 'pull_request' || steps.filter.outputs.relevant == 'true' }}
+    steps:
+    - id: filter
+      if: github.event_name == 'pull_request'
+      env:
+        GH_TOKEN: ${{ github.token }}
+      run: |
+        files=$(gh api --paginate "repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}/files" --jq '.[].filename')
+        # relevant if any changed file is outside the ignored paths
+        if grep -qvE '^bindings/|\.md$' <<< "$files"; then echo relevant=true; else echo relevant=false; fi >> "$GITHUB_OUTPUT"
+
   build:
-    name: ${{ matrix.cxx }}, ${{ matrix.build_type }}, ivf=${{ matrix.ivf }}, asan=${{ matrix.asan }}
+    name: ${{ matrix.toolchain.cxx }}, ${{ matrix.build_type }}, ivf=${{ matrix.ivf }}, asan=${{ matrix.asan }}
+    needs: changes
+    if: needs.changes.outputs.relevant == 'true'
     runs-on: ubuntu-22.04
     strategy:
       matrix:
         build_type: [RelWithDebInfo]
         ivf: [OFF, ON]
-        cxx: [g++-11, g++-12, clang++-15]
+        # cc rides with cxx in one object so the pull request exclusions below can't strand an include.
+        toolchain:
+        - {cxx: g++-11, cc: gcc-11}
+        - {cxx: g++-12, cc: gcc-12}
+        - {cxx: clang++-15, cc: clang-15}
         asan: [OFF]
         cmake_extra_args: [-DSVS_BUILD_BINARIES=YES -DSVS_BUILD_EXAMPLES=YES]
         ctest_args: ['']
         include:
-        - cxx: g++-11
-          cc: gcc-11
-        - cxx: g++-12
-          cc: gcc-12
-        - cxx: clang++-15
-          cc: clang-15
-        - cxx: clang++-18
-          cc: clang-18
+        - toolchain: {cxx: clang++-18, cc: clang-18}
           build_type: Debug
           ivf: OFF
           asan: ON
@@ -66,9 +79,8 @@ jobs:
             -DSVS_BUILD_EXAMPLES=NO
            # skip longer-running tests
           ctest_args: -LE long
-        exclude:
-        - cxx: g++-12
-          ivf: ON
+        # Pull requests run g++-11 ivf=ON and ASan; the merge queue runs the full matrix.
+        exclude: ${{ fromJSON(github.event_name == 'pull_request' && '[{"toolchain":{"cxx":"g++-12","cc":"gcc-12"}},{"toolchain":{"cxx":"clang++-15","cc":"clang-15"}},{"toolchain":{"cxx":"g++-11","cc":"gcc-11"},"ivf":"OFF"}]' || '[{"toolchain":{"cxx":"g++-12","cc":"gcc-12"},"ivf":"ON"}]') }}
 
     steps:
     - uses: actions/checkout@v6
@@ -83,7 +95,7 @@ jobs:
         printenv >> $GITHUB_ENV
 
     - name: Install Clang 18
-      if: matrix.cxx == 'clang++-18'
+      if: matrix.toolchain.cxx == 'clang++-18'
       run: |
         wget https://apt.llvm.org/llvm.sh
         chmod +x llvm.sh
@@ -92,8 +104,8 @@ jobs:
     - name: Configure build
       working-directory: ${{ runner.temp }}
       env:
-        CXX: ${{ matrix.cxx }}
-        CC: ${{ matrix.cc }}
+        CXX: ${{ matrix.toolchain.cxx }}
+        CC: ${{ matrix.toolchain.cc }}
         TEMP_WORKSPACE: ${{ runner.temp }}
       run: |
         cmake -B${TEMP_WORKSPACE}/build -S${GITHUB_WORKSPACE} \
@@ -119,3 +131,16 @@ jobs:
         CTEST_OUTPUT_ON_FAILURE: 1
       working-directory: ${{ runner.temp }}/build/examples/cpp
       run: ctest -C ${{ matrix.build_type }}
+
+  # Fixed-name required check; matrix job names can't be required because they change with the matrix.
+  linux-passed:
+    # Skipped (shown grey) when nothing ran; still runs if change detection itself failed.
+    name: linux-passed
+    if: always() && (needs.changes.result != 'success' || needs.changes.outputs.relevant == 'true')
+    needs: [changes, build]
+    runs-on: ubuntu-22.04
+    steps:
+    - name: Require every job to have run and succeeded
+      run: |
+        echo "changes=${{ needs.changes.result }} build=${{ needs.build.result }}"
+        [[ "${{ needs.changes.result }}" == success && "${{ needs.build.result }}" == success ]]
