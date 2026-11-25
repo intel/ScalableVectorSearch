@@ -611,8 +611,8 @@ void svs_invoke(
     // Fallback implementation
     for (auto i : thread_indices) {
         // Perform search - results will be queued in the search buffer. If ``cancel``
-        // fires, the buffer holds what was found so far (empty if the query never
-        // started) and ``copy_results`` pads the rest of the row with the marker.
+        // fires, the buffer holds what was found so far (only the entry points if the
+        // query never started) and ``copy_results`` pads the rest of the row.
         single_search(
             dataset, search_buffer, distance, queries.get_datum(i), search, index, cancel
         );
