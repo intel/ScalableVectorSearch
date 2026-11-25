@@ -27,6 +27,7 @@
 #include <concepts>
 #include <limits>
 #include <memory>
+#include <utility>
 #include <variant>
 
 namespace svs {
@@ -482,6 +483,13 @@ class SQDataset {
         requires is_resizeable<Alloc>
     {
         data_.compact(new_to_old, threadpool, batchsize);
+    }
+
+    template <std::integral I, threads::ThreadPool Pool>
+    void compact(std::span<const std::pair<I, I>> old_to_new, Pool& threadpool)
+        requires is_resizeable<Alloc>
+    {
+        data_.compact(old_to_new, threadpool);
     }
 
     /// @brief Resize the dataset
