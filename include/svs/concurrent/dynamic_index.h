@@ -1589,7 +1589,9 @@ class MutableVamanaIndex {
                 std::vector<Idx> buffer{};
                 auto in_neighbors = tsl::robin_set<size_t>{};
                 for (auto i : is) {
-                    const auto& [old_id, new_id] = moves[i];
+                    // Not a structured binding: clang 15 cannot capture one in a lambda.
+                    const Idx old_id = moves[i].first;
+                    const Idx new_id = moves[i].second;
 
                     buffer.clear();
                     in_neighbors.clear();
