@@ -18,6 +18,7 @@
 #include "svs/core/logging.h"
 #include "svs/lib/file.h"
 #include "svs/lib/saveload/load.h"
+#include "svs/lib/scopeguard.h"
 #include "svs/orchestrators/exhaustive.h"
 
 // tests
@@ -29,6 +30,9 @@
 
 // spd log
 #include "spdlog/sinks/callback_sink.h"
+
+// stl
+#include <algorithm>
 
 CATCH_TEST_CASE("FlatIndex Logging Test", "[logging]") {
     // Vector to store captured log messages
@@ -55,6 +59,13 @@ CATCH_TEST_CASE("FlatIndex Logging Test", "[logging]") {
     global_callback_sink->set_level(spdlog::level::trace);
     auto original_logger = svs::logging::get();
     original_logger->sinks().push_back(global_callback_sink);
+    // The sink captures a local vector: remove it before the vector goes out of scope.
+    auto remove_sink = svs::lib::make_scope_guard([&]() noexcept {
+        auto& sinks = original_logger->sinks();
+        sinks.erase(
+            std::remove(sinks.begin(), sinks.end(), global_callback_sink), sinks.end()
+        );
+    });
 
     std::vector<float> data{1.0f, 2.0f};
     auto dataView = svs::data::SimpleDataView<float>(data.data(), 2, 1);
