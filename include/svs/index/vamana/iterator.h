@@ -309,7 +309,8 @@ class BatchIteratorBase {
                 scratchspace_.scratch,
                 lib::as_const_span(query_),
                 search_closure,
-                *parent_
+                *parent_,
+                cancel
             );
         });
 

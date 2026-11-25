@@ -496,11 +496,15 @@ CATCH_TEST_CASE("Vamana Cancelled Search", "[graph_index][dynamic_index][cancel]
         };
 
         // A predicate that never fires gives the same results as no predicate.
-        auto reference = search(svs::lib::Returns(svs::lib::Const<false>()));
+        svs::QueryResult<size_t> reference{queries.size(), num_neighbors};
+        index.search(reference.view(), queries.cview(), sp);
+        auto never = search(svs::lib::Returns(svs::lib::Const<false>()));
         for (size_t q = 0; q < queries.size(); ++q) {
             for (size_t j = 0; j < num_neighbors; ++j) {
                 CATCH_REQUIRE(reference.index(q, j) != marker);
                 CATCH_REQUIRE(live(to_row(reference.index(q, j))));
+                CATCH_REQUIRE(never.index(q, j) == reference.index(q, j));
+                CATCH_REQUIRE(never.distance(q, j) == reference.distance(q, j));
             }
         }
 
@@ -555,5 +559,17 @@ CATCH_TEST_CASE("Vamana Cancelled Search", "[graph_index][dynamic_index][cancel]
             [](size_t id) { return (id - 1000) / 3; },
             [](size_t row) { return row % 7 != 0; }
         );
+
+        // The batch iterator forwards ``cancel`` too: a search cancelled before it starts
+        // is not topped up from the live IDs, while an uncancelled one fills the batch.
+        const size_t batch = 50;
+        auto query_datum = queries.get_datum(0);
+        auto query = std::span<const float>(query_datum.data(), query_datum.size());
+        auto full = index.make_batch_iterator(query);
+        full.next(batch);
+        CATCH_REQUIRE(full.size() == batch);
+        auto cancelled = index.make_batch_iterator(query);
+        cancelled.next(batch, []() { return true; });
+        CATCH_REQUIRE(cancelled.size() < batch);
     }
 }
