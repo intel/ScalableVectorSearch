@@ -1,0 +1,50 @@
+# Copyright 2026 Intel Corporation
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# ABI check suppression rules for the SVS C++ runtime bindings.
+#
+# Every rule below drops libstdc++ template instantiations that leak into
+# libsvs_runtime.so's exports -- 66 of 138 symbols. All 72 survivors name an svs type,
+# so the compared surface is SVS's own. Re-check with nm after a toolchain bump.
+#
+# The leak is not a missing -fvisibility=hidden (bindings/cpp/CMakeLists.txt sets it);
+# it tracks the build path -- linking the prebuilt LTO archive exports 138 symbols,
+# compiling svs in-tree exports 276. Only a linker version script closes that gap.
+
+version: 1
+suppressions:
+  - symbol_pattern: "^_ZNSt.*"
+    reason: "C++ standard library symbols (leaked template instantiations)"
+    label: "stdlib"
+
+  - symbol_pattern: "^_ZSt.*"
+    reason: "C++ standard library functions"
+    label: "stdlib"
+
+  - symbol_pattern: "^_ZT[VIST]N?St.*"
+    reason: "RTTI/vtable/VTT for std:: types (thread::_State_impl, future); mangles _ZT[VIST], not _ZNSt"
+    label: "stdlib"
+
+  - symbol_pattern: "^_ZZNSt9once_flag18_Prepare_execution.*"
+    reason: "std::call_once local statics; _ZZ-mangled in function scope, libstdc++ entities instantiated over svs types"
+    label: "stdlib"
+
+# No __gnu_cxx RTTI rule: the obvious `^_ZT[VIST].*__gnu_cxx.*` is unanchored, so it
+# only matches std:: types taking __gnu_cxx::_Lock_policy as a template argument, which
+# the rules above already cover. Nothing for fmt/spdlog/tsl/toml++ or __cxa_*: the
+# vendored deps ship as static archives that -Wl,--exclude-libs,ALL keeps out, and
+# __cxa_* are imports, never defined here.
+#
+# svs::...detail... is deliberately not suppressed: users reach it through template
+# instantiation, so a vtable or layout change there is a real break.

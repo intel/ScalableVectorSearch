@@ -27,3 +27,12 @@ updates:
       github-actions:
         patterns:
           - "*"
+
+  - package-ecosystem: "pip"
+    directory: "/.github/scripts"
+    schedule:
+      interval: "monthly"
+    commit-message:
+      prefix: "chore(abicheck)"
+    labels:
+      - dependencies
