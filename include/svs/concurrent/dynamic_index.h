@@ -1511,20 +1511,20 @@ class MutableVamanaIndex {
         retire_deleted_anchor();
 
         auto deleted = tsl::robin_set<Idx>{};
+        std::vector<Idx> empty;
         for (size_t i = 0, imax = status_.size(); i < imax; ++i) {
             if (status_[i] == SlotMetadata::Deleted) {
                 deleted.insert(lib::narrow_cast<Idx>(i));
+                empty.push_back(i);
+            } else if (status_[i] == SlotMetadata::Empty) {
+                empty.push_back(i);
             }
         }
 
         // Consolidate first, under the same exclusive lock. This folds any
         // outstanding soft-deletes (including the old anchor) into the graph.
         consolidate_locked(deleted);
-        // Deleted slots are Empty now. The walk reads them lazily, nothing is stored.
-        auto is_empty = [this](Idx i) { return status_[i] == SlotMetadata::Empty; };
-        auto ids_empty = std::views::iota(Idx{0}, lib::narrow_cast<Idx>(status_.size())) |
-                         std::views::filter(is_empty);
-        compact_locked(ids_empty);
+        compact_locked(empty);
         // No Empty slots are left.
         first_empty_->store(status_.size(), std::memory_order_release);
         first_reusable_->store(status_.size(), std::memory_order_release);
