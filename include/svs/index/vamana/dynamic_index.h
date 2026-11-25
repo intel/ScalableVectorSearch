@@ -113,20 +113,22 @@ class ValidBuilder {
 template <typename Filter> class FilteredValidBuilder {
   public:
     FilteredValidBuilder(const IDTranslator& translator, const Filter& filter)
-        : translator_{&translator}
-        , filter_{&filter} {}
+        : translator_{translator}
+        , filter_{filter} {}
 
     template <typename I>
     constexpr PredicatedSearchNeighbor<I> operator()(I i, float distance) const {
+        using id_type = typename IDTranslator::external_id_type;
+        constexpr id_type invalid_id = std::numeric_limits<id_type>::max();
         // delete_entries clears the translator entry, so a missing id means deleted.
-        auto id = translator_->get_external_or(i, IDTranslator::invalid_external_id);
-        bool invalid = id == IDTranslator::invalid_external_id || !(*filter_)(id);
-        return PredicatedSearchNeighbor<I>(i, distance, !invalid);
+        auto id = translator_.get_external_or(i, invalid_id);
+        bool valid = id != invalid_id && filter_(id);
+        return PredicatedSearchNeighbor<I>(i, distance, valid);
     }
 
   private:
-    const IDTranslator* translator_;
-    const Filter* filter_;
+    const IDTranslator& translator_;
+    const Filter& filter_;
 };
 
 namespace detail {
@@ -696,30 +698,24 @@ class MutableVamanaIndex {
 
     // Return a `greedy_search` compatible builder for this index.
     // This is an internal method, mostly used to help implement the batch iterator.
-    ValidBuilder internal_search_builder() const { return ValidBuilder{status_}; }
+    ValidBuilder internal_search_builder(const AcceptAll& SVS_UNUSED(filter) = {}) const {
+        return ValidBuilder{status_};
+    }
 
     template <typename Filter>
     FilteredValidBuilder<Filter> internal_search_builder(const Filter& filter) const {
         return FilteredValidBuilder<Filter>{translator_, filter};
     }
 
-    template <bool Filtered = false>
+    template <typename Builder>
     auto greedy_search_closure(
+        const Builder& builder,
         GreedySearchPrefetchParameters prefetch_parameters,
-        const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>()),
-        const std::function<bool(size_t)>* filter = nullptr
+        const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>())
     ) const {
         return [&,
                 prefetch_parameters,
-                filter](const auto& query, auto& accessor, auto& distance, auto& buffer) {
-            static_cast<void>(filter); // Unused in regular search.
-            auto builder = [&] {
-                if constexpr (Filtered) {
-                    return internal_search_builder(*filter);
-                } else {
-                    return internal_search_builder();
-                }
-            }();
+                builder](const auto& query, auto& accessor, auto& distance, auto& buffer) {
             // Perform the greedy search using the provided resources.
             greedy_search(
                 graph_,
@@ -751,18 +747,20 @@ class MutableVamanaIndex {
             scratch.buffer,
             scratch.scratch,
             query,
-            greedy_search_closure(scratch.prefetch_parameters, cancel),
+            greedy_search_closure(
+                internal_search_builder(), scratch.prefetch_parameters, cancel
+            ),
             *this
         );
     }
 
-    template <typename I, data::ImmutableMemoryDataset Queries>
+    template <typename I, data::ImmutableMemoryDataset Queries, typename Filter = AcceptAll>
     void search(
         QueryResultView<I> results,
         const Queries& queries,
         const search_parameters_type& sp,
         const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>()),
-        const std::function<bool(size_t)>* filter = nullptr
+        const Filter& filter = AcceptAll{}
     ) {
         threads::parallel_for(
             threadpool_,
@@ -782,25 +780,12 @@ class MutableVamanaIndex {
 
                 auto scratch = extensions::per_thread_batch_search_setup(data_, distance_);
 
-                if (filter != nullptr) {
-                    [&]() __attribute__((noinline)) {
-                        extensions::per_thread_batch_search(
-                            data_,
-                            buffer,
-                            scratch,
-                            queries,
-                            results,
-                            threads::UnitRange{is},
-                            greedy_search_closure<true>(
-                                prefetch_parameters, cancel, filter
-                            ),
-                            *this,
-                            cancel
-                        );
-                    }
-                    ();
-                    return;
-                }
+                // The buffer top-up ignores the filter, so a filtered search skips it.
+                using topup_index_type = std::conditional_t<
+                    std::is_same_v<Filter, AcceptAll>,
+                    const MutableVamanaIndex&,
+                    extensions::SupplementSuppressed<MutableVamanaIndex>>;
+
                 extensions::per_thread_batch_search(
                     data_,
                     buffer,
@@ -808,8 +793,10 @@ class MutableVamanaIndex {
                     queries,
                     results,
                     threads::UnitRange{is},
-                    greedy_search_closure(prefetch_parameters, cancel),
-                    *this,
+                    greedy_search_closure(
+                        internal_search_builder(filter), prefetch_parameters, cancel
+                    ),
+                    static_cast<topup_index_type>(*this),
                     cancel
                 );
             }

@@ -449,6 +449,15 @@ void check_and_supplement_search_buffer(
     }
 }
 
+/// @brief Passed to ``single_search`` in place of the index to skip the buffer top-up.
+///
+/// The search extensions read nothing but ``needs_id_translation`` from the index.
+template <typename Index> struct SupplementSuppressed {
+    SupplementSuppressed() = default;
+    explicit SupplementSuppressed(const Index&) {}
+    static constexpr bool needs_id_translation = false;
+};
+
 /// Customization point object for processing single queries.
 inline constexpr VamanaSingleSearchType single_search{};
 

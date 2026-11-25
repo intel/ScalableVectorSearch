@@ -38,7 +38,6 @@
 #include <functional>
 #include <iterator>
 #include <string_view>
-#include <utility>
 
 namespace svs {
 
@@ -125,7 +124,6 @@ class IDTranslator {
             if (!lib::all_unique(int_begin, int_end)) {
                 throw ANNEXCEPTION("Internal IDs contain repeat elements!");
             }
-            check_external_not_reserved(ext_begin, ext_end);
             check_external_free(ext_begin, ext_end);
             check_internal_free(int_begin, int_end);
         }
@@ -184,8 +182,6 @@ class IDTranslator {
         if (!lib::all_unique(int_begin, int_end)) {
             throw ANNEXCEPTION("Internal IDs contain repeat elements!");
         }
-
-        check_external_not_reserved(ext_begin, ext_end);
 
         // Validation pass
         for (auto e = ext_begin; e != ext_end; ++e) {
@@ -382,16 +378,6 @@ class IDTranslator {
     /// @param end End forward iterator to the external IDs to check.
     ///
     template <class Begin, class End>
-    void check_external_not_reserved(const Begin& begin, const End& end) const {
-        check(
-            begin,
-            end,
-            [](auto e) { return std::cmp_equal(e, invalid_external_id); },
-            "Reserved external"
-        );
-    }
-
-    template <class Begin, class End>
     void check_external_free(const Begin& begin, const End& end) const {
         check(begin, end, external_to_internal_, "Index already contains external");
     }
@@ -531,27 +517,7 @@ class IDTranslator {
     }
 
     tsl::robin_map<external_id_type, internal_id_type> external_to_internal_{};
-    // Vector for lock-free reads; TODO: moves to #447 (same table), not in this PR.
-    lib::SegmentedVector<external_id_type> internal_to_external_{};
-
-    external_id_type load_external(internal_id_type i) const {
-        if (i >= internal_to_external_.size()) {
-            return invalid_external_id;
-        }
-        return std::atomic_ref<external_id_type>(
-                   const_cast<external_id_type&>(internal_to_external_[i])
-        )
-            .load(std::memory_order_acquire);
-    }
-
-    // Writers only; grows the table first when `i` is beyond it.
-    void store_external(size_t i, external_id_type e) {
-        if (i >= internal_to_external_.size()) {
-            internal_to_external_.resize(i + 1, invalid_external_id);
-        }
-        std::atomic_ref<external_id_type>(internal_to_external_[i])
-            .store(e, std::memory_order_release);
-    }
+    tsl::robin_map<internal_id_type, external_id_type> internal_to_external_{};
 };
 
 } // namespace svs

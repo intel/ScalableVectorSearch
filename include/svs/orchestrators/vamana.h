@@ -301,7 +301,7 @@ class VamanaImpl : public manager::ManagerImpl<QueryTypes, Impl, IFace> {
     ) override {
         this->dispatch_queries(queries, [&](const auto& view) {
             impl().search(
-                results, view, search_parameters, lib::Returns(lib::Const<false>()), &filter
+                results, view, search_parameters, lib::Returns(lib::Const<false>()), filter
             );
         });
     }

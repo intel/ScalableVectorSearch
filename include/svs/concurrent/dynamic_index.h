@@ -195,32 +195,42 @@ template <typename Filter> class FilteredValidBuilder {
     FilteredValidBuilder(
         const lib::SegmentedVector<SlotMetadata>& status,
         const IDTranslator& translator,
+        std::shared_mutex& translator_mutex,
         const Filter& filter,
         const void* owner
     )
         : status_{status}
-        , translator_{&translator}
-        , filter_{&filter}
+        , translator_{translator}
+        , translator_mutex_{translator_mutex}
+        , filter_{filter}
         , owner_{owner} {}
 
     template <typename I>
     PredicatedSearchNeighbor<I> operator()(I i, float distance) const {
-        bool invalid =
+        bool valid =
             std::atomic_ref<SlotMetadata>(const_cast<SlotMetadata&>(getindex(status_, i)))
-                .load(std::memory_order_acquire) != SlotMetadata::Valid;
-        if (!invalid) {
-            // Lock-free read; an erased slot has no external id and fails.
-            size_t external = translator_->get_external_or(i, no_external_id);
+                .load(std::memory_order_acquire) == SlotMetadata::Valid;
+        if (valid) {
+            size_t external;
+            // TODO: refactor translator to provide a more efficient way to get the external
+            // id without locking.
+            {
+                // Released before the filter runs so a slow filter cannot stall writers.
+                std::shared_lock lock{translator_mutex_};
+                external = translator_.get_external_or(i, no_external_id);
+            }
+            // An erased slot has no external id and fails.
             FilterScope scope{owner_};
-            invalid = external == no_external_id || !(*filter_)(external);
+            valid = external != no_external_id && filter_(external);
         }
-        return PredicatedSearchNeighbor<I>(i, distance, !invalid);
+        return PredicatedSearchNeighbor<I>(i, distance, valid);
     }
 
   private:
     const lib::SegmentedVector<SlotMetadata>& status_;
-    const IDTranslator* translator_;
-    const Filter* filter_;
+    const IDTranslator& translator_;
+    std::shared_mutex& translator_mutex_;
+    const Filter& filter_;
     const void* owner_;
 };
 
@@ -932,11 +942,14 @@ class MutableVamanaIndex {
 
     // Return a `greedy_search` compatible builder for this index.
     // This is an internal method, mostly used to help implement the batch iterator.
-    ValidBuilder internal_search_builder() const { return ValidBuilder{status_}; }
+    ValidBuilder internal_search_builder(const AcceptAll& SVS_UNUSED(filter) = {}) const {
+        return ValidBuilder{status_};
+    }
 
     template <typename Filter>
     FilteredValidBuilder<Filter> internal_search_builder(const Filter& filter) const {
-        return FilteredValidBuilder<Filter>{status_, translator_, filter, this};
+        return FilteredValidBuilder<Filter>{
+            status_, translator_, *translator_mutex_, filter, this};
     }
 
     /// @brief RAII shared lock guarding data_/graph_ against compact()'s shrink
@@ -958,28 +971,20 @@ class MutableVamanaIndex {
         return std::shared_lock<std::shared_mutex>(*translator_mutex_);
     }
 
-    template <bool Filtered = false>
+    template <typename Builder>
     auto greedy_search_closure(
+        const Builder& builder,
         GreedySearchPrefetchParameters prefetch_parameters,
-        const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>()),
-        const std::function<bool(size_t)>* filter = nullptr
+        const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>())
     ) const {
         return [&,
                 prefetch_parameters,
-                filter](const auto& query, auto& accessor, auto& distance, auto& buffer) {
-            static_cast<void>(filter); // Unused in regular search.
+                builder](const auto& query, auto& accessor, auto& distance, auto& buffer) {
             const Idx seed = entry_point();
             if (seed == NO_ENTRY) {
                 buffer.clear();
                 return;
             }
-            auto builder = [&] {
-                if constexpr (Filtered) {
-                    return internal_search_builder(*filter);
-                } else {
-                    return internal_search_builder();
-                }
-            }();
             // Perform the greedy search using the provided resources.
             concurrent::greedy_search(
                 graph_,
@@ -1015,18 +1020,20 @@ class MutableVamanaIndex {
             scratch.buffer,
             scratch.scratch,
             query,
-            greedy_search_closure(scratch.prefetch_parameters, cancel),
+            greedy_search_closure(
+                internal_search_builder(), scratch.prefetch_parameters, cancel
+            ),
             *this
         );
     }
 
-    template <typename I, data::ImmutableMemoryDataset Queries>
+    template <typename I, data::ImmutableMemoryDataset Queries, typename Filter = AcceptAll>
     void search(
         QueryResultView<I> results,
         const Queries& queries,
         const search_parameters_type& sp,
         const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>()),
-        const std::function<bool(size_t)>* filter = nullptr
+        const Filter& filter = AcceptAll{}
     ) {
         // Internal IDs must retain their meaning until translation has completed.
         auto compact_lock = lock_storage_shared();
@@ -1051,25 +1058,12 @@ class MutableVamanaIndex {
                     auto scratch =
                         extensions::per_thread_batch_search_setup(data_, distance_);
 
-                    if (filter != nullptr) {
-                        [&]() __attribute__((noinline)) {
-                            extensions::per_thread_batch_search(
-                                data_,
-                                buffer,
-                                scratch,
-                                queries,
-                                results,
-                                threads::UnitRange{is},
-                                greedy_search_closure<true>(
-                                    prefetch_parameters, cancel, filter
-                                ),
-                                *this,
-                                cancel
-                            );
-                        }
-                        ();
-                        return;
-                    }
+                    // The buffer top-up ignores the filter, so a filtered search skips it.
+                    using topup_index_type = std::conditional_t<
+                        std::is_same_v<Filter, AcceptAll>,
+                        const MutableVamanaIndex&,
+                        extensions::SupplementSuppressed<MutableVamanaIndex>>;
+
                     extensions::per_thread_batch_search(
                         data_,
                         buffer,
@@ -1077,8 +1071,10 @@ class MutableVamanaIndex {
                         queries,
                         results,
                         threads::UnitRange{is},
-                        greedy_search_closure(prefetch_parameters, cancel),
-                        *this,
+                        greedy_search_closure(
+                            internal_search_builder(filter), prefetch_parameters, cancel
+                        ),
+                        static_cast<topup_index_type>(*this),
                         cancel
                     );
                 }
@@ -1094,7 +1090,7 @@ class MutableVamanaIndex {
         // Perform one more pass to convert these to external ids.
         translate_to_external(results.indices());
 
-        if (filter != nullptr) {
+        if constexpr (!std::is_same_v<Filter, AcceptAll>) {
             // A concurrent remap may have changed the answer: re-check the final ids.
             const float worst = distance::worst_distance(distance_);
             for (size_t i = 0; i < results.n_queries(); ++i) {
@@ -1102,7 +1098,7 @@ class MutableVamanaIndex {
                     auto id = results.index(i, j);
                     if (id != static_cast<I>(-1)) {
                         FilterScope scope{this};
-                        if (!(*filter)(id)) {
+                        if (!filter(id)) {
                             results.index(i, j) = static_cast<I>(-1);
                         }
                     }
@@ -2147,19 +2143,11 @@ class MutableVamanaIndex {
         search_buffer.sort();
 
         // translator_mutex_ shared: guards both the traversal of ``translator_`` and the
-        // internal IDs it yields against erasure by consolidate()/compact(). A filtered
-        // search already holds it (see ``search()``); locking again would be recursive.
-        std::shared_lock translator_lock{*translator_mutex_, std::defer_lock};
-        if (filter == nullptr) {
-            translator_lock.lock();
-        }
+        // internal IDs it yields against erasure by consolidate()/compact().
+        std::shared_lock translator_lock{*translator_mutex_};
         auto builder = internal_search_builder();
         for (auto pair : translator_) {
             auto internal_id = pair.second;
-            // `pair.first` is the external id, read under the lock held above.
-            if (filter != nullptr && !(*filter)(pair.first)) {
-                continue;
-            }
             // Skip slots pending deferred translator cleanup, reserved by an in-flight
             // add_points, or otherwise not live.
             if (std::atomic_ref<SlotMetadata>(const_cast<SlotMetadata&>(status_[internal_id]
@@ -2182,22 +2170,6 @@ class MutableVamanaIndex {
     ) const {
         return BatchIterator(*this, query, extra_search_buffer_capacity);
     }
-};
-
-///
-/// @brief Hides an index's id translation from the search extensions.
-///
-/// Every ``extensions::single_search`` implementation tops the search buffer up itself, by
-/// calling the generic ``extensions::check_and_supplement_search_buffer`` under
-/// ``if constexpr (Index::needs_id_translation)``. That routine is unsafe for this index --
-/// see ``MutableVamanaIndex::supplement_search_buffer`` -- and it is a plain function, not
-/// a customization point, so it cannot be overridden. Passing this wrapper in place of the
-/// index makes that branch disappear, leaving the top-up to the index itself.
-///
-/// The implementations touch nothing else on the index, so nothing else needs forwarding.
-///
-template <typename Index> struct SupplementSuppressed {
-    static constexpr bool needs_id_translation = false;
 };
 
 ///
@@ -2242,7 +2214,7 @@ SVS_FORCE_INLINE void svs_invoke(
         scratch,
         query,
         search,
-        SupplementSuppressed<index_type>{},
+        vamana::extensions::SupplementSuppressed<index_type>{},
         cancel
     );
 
