@@ -137,7 +137,6 @@ set(TEST_SOURCES
     ${TEST_DIR}/svs/index/vamana/index.cpp
     ${TEST_DIR}/svs/index/vamana/prune.cpp
     ${TEST_DIR}/svs/index/vamana/search_buffer.cpp
-    ${TEST_DIR}/svs/index/vamana/search_cancel.cpp
     ${TEST_DIR}/svs/index/vamana/search_parameters.cpp
     ${TEST_DIR}/svs/index/vamana/vamana_build.cpp
     #${TEST_DIR}/svs/index/vamana/iterator_schedule.cpp

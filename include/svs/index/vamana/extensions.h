@@ -458,10 +458,9 @@ void check_and_supplement_search_buffer(
 /// Customization point object for processing single queries.
 inline constexpr VamanaSingleSearchType single_search{};
 
-/// If ``cancel`` returns ``true`` before the search starts, the search buffer is cleared
-/// and nothing is searched. Otherwise ``search`` polls ``cancel`` itself and leaves the
-/// candidates found so far in the buffer. Compressed datasets (LVQ, LeanVec) take the same
-/// argument; they rerank those candidates even after a cancel.
+/// ``search`` polls ``cancel`` itself; after a cancel the buffer holds the candidates found
+/// so far (a query that never started holds only its entry points). Compressed datasets
+/// (LVQ, LeanVec) take the same argument and rerank those candidates.
 template <
     typename Data,
     typename SearchBuffer,
@@ -479,12 +478,6 @@ SVS_FORCE_INLINE void svs_invoke(
     const Index& index,
     const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>())
 ) {
-    // Check if request to cancel the search
-    if (cancel()) {
-        // Nothing was searched: drop stale candidates from a previous query.
-        search_buffer.clear();
-        return;
-    }
     // Perform graph search.
     auto accessor = data::GetDatumAccessor();
     search(query, accessor, distance, search_buffer);
@@ -495,26 +488,13 @@ SVS_FORCE_INLINE void svs_invoke(
 }
 
 ///
-/// @brief Pad ``result[query, first:]`` with the invalid-neighbor marker.
-///
-/// The marker is ``type_traits::sentinel_v<Neighbor<I>, Cmp>``: the largest value of ``I``
-/// as the id and the worst possible distance with respect to ``Cmp``. It marks result
-/// slots that were not filled because the search was cancelled.
-///
-template <typename Cmp, std::integral I>
-void pad_invalid_results(QueryResultView<I>& result, size_t query, size_t first) {
-    constexpr auto marker = type_traits::sentinel_v<Neighbor<I>, Cmp>;
-    for (size_t j = first, jmax = result.n_neighbors(); j < jmax; ++j) {
-        result.set(marker, query, j);
-    }
-}
-
-///
 /// @brief Copy the results of ``search_buffer`` into row ``query`` of ``result``.
 ///
 /// Normally all ``result.n_neighbors()`` entries are copied. If the buffer holds fewer
 /// entries than that and ``cancel`` returns ``true``, only the entries found so far are
-/// copied and the rest of the row is padded with the invalid-neighbor marker.
+/// copied and the rest of the row is padded with the invalid-neighbor marker
+/// (``type_traits::sentinel_v<Neighbor<I>, Cmp>``: the largest ``I`` as the id and the
+/// worst distance).
 ///
 template <typename SearchBuffer, std::integral I>
 void copy_results(
@@ -529,7 +509,11 @@ void copy_results(
         for (size_t j = 0; j < found; ++j) {
             result.set(search_buffer[j], query, j);
         }
-        pad_invalid_results<typename SearchBuffer::compare_type>(result, query, found);
+        constexpr auto marker =
+            type_traits::sentinel_v<Neighbor<I>, typename SearchBuffer::compare_type>;
+        for (size_t j = found; j < num_neighbors; ++j) {
+            result.set(marker, query, j);
+        }
         return;
     }
     for (size_t j = 0; j < num_neighbors; ++j) {
