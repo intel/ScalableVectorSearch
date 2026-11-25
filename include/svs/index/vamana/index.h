@@ -560,9 +560,9 @@ class VamanaIndex {
     ///     After a cancel, each row holds the neighbors found so far (nearest first,
     ///     final distances, external IDs), followed by the invalid-neighbor marker
     ///     ``type_traits::sentinel_v<Neighbor<I>, Cmp>`` (max ID, worst distance).
-    ///     Queries that never started hold only markers. Treat every slot whose ID is
-    ///     the marker as empty: in the concurrent index a marker can also appear
-    ///     mid-row.
+    ///     Queries that had not started may hold only their entry points. Treat every
+    ///     slot whose ID is the marker as empty: in the concurrent index a marker can
+    ///     also appear mid-row.
     ///
     /// Perform a multi-threaded graph search over the index, overwriting the contents
     /// of ``result`` with the results of search.
