@@ -28,6 +28,7 @@
 #include "threadpool.hpp"
 #include "types_support.hpp"
 
+#include <algorithm>
 #include <atomic>
 #include <bit>
 #include <cstddef>
@@ -1510,6 +1511,14 @@ extern "C" bool svs_index_search_topk(
                     }
                     return false;
                 };
+            }
+
+            // Cancelled before the search starts: report no results, search nothing.
+            if (cancel()) {
+                out_results->num_queries = num_queries;
+                out_results->total_results = 0;
+                std::fill_n(out_results->offsets, num_queries + 1, size_t{0});
+                throw coded_error(SVS_ERROR_CANCELLED, "Search cancelled by callback");
             }
 
             auto [search_results, found_neighbors_per_query] = index_ptr->search(

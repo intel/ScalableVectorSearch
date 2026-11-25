@@ -949,8 +949,10 @@ typedef bool (*svs_is_cancelled_fn)(void* userdata);
 /// several threads, so it must be thread-safe and cheap. After it returns true, other
 /// threads may still call it a few more times before they stop. The search then returns
 /// false with SVS_ERROR_CANCELLED and @c out_results holds, per query, the neighbors found
-/// so far (possibly fewer than k or none; queries that never started have none). A call
-/// can be reported cancelled even if it had finished.
+/// so far (possibly fewer than k; queries that had not started when the cancel fired may
+/// hold a few candidates). If the callback already returns true when the call starts, no
+/// search is run and @c out_results holds no results. A call can be reported cancelled even
+/// if it had finished.
 /// @param params The search parameters handle
 /// @param fn The cancellation predicate, or NULL to remove a previously set callback
 /// @param userdata Opaque pointer passed to @p fn on every call; the caller owns it and
