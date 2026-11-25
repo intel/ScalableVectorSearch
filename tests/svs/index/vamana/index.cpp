@@ -29,10 +29,12 @@
 #include "svs/quantization/scalar/scalar.h"
 
 // catch2
+#include "catch2/catch_template_test_macros.hpp"
 #include "catch2/catch_test_macros.hpp"
 #include <catch2/catch_approx.hpp>
 
 // tests
+#include "tests/utils/filtered_search.h"
 #include "tests/utils/generators.h"
 #include "tests/utils/test_dataset.h"
 #include "tests/utils/utils.h"
@@ -41,6 +43,7 @@
 // svsbenchmark
 #include "svs-benchmark/benchmark.h"
 // stl
+#include <functional>
 #include <sstream>
 #include <string_view>
 
@@ -845,5 +848,71 @@ CATCH_TEST_CASE("Vamana Index Bugcheck and Regression", "[vamana][index][regress
         CATCH_CHECK(build_and_search(32, 1536));
         CATCH_CHECK(build_and_search(64, 1536));
         CATCH_CHECK(build_and_search(64, 3072));
+    }
+}
+
+CATCH_TEMPLATE_TEST_CASE(
+    "Static VamanaIndex Filtered Search",
+    "[vamana][index][filtered]",
+    svs::distance::DistanceL2,
+    svs::distance::DistanceIP
+) {
+    using Distance = TestType;
+    const size_t num_threads = 2;
+    const size_t num_neighbors = 10;
+
+    // Enough queries for each search thread to get a batch of its own.
+    auto reference = svs_test::FilteredSearchReference<Distance>(64);
+    const auto& queries = reference.queries();
+    const auto parameters = reference.build_parameters();
+    auto search_parameters = svs::index::vamana::VamanaSearchParameters{};
+    search_parameters.buffer_config_ = svs::index::vamana::SearchBufferConfig{100};
+    auto unfiltered = svs::QueryResult<size_t>(queries.size(), num_neighbors);
+
+    CATCH_SECTION("Index") {
+        auto index = svs::index::vamana::auto_build(
+            parameters, test_dataset::data_f32(), Distance(), num_threads
+        );
+        auto search = [&](const auto& filter) {
+            auto results = svs::QueryResult<size_t>(queries.size(), num_neighbors);
+            index.search(
+                results.view(),
+                queries.cview(),
+                search_parameters,
+                svs::lib::Returns(svs::lib::Const<false>()),
+                filter
+            );
+            return results;
+        };
+        index.search(unfiltered.view(), queries.cview(), search_parameters);
+        svs_test::check_filtered_search(reference, search, unfiltered);
+    }
+
+    CATCH_SECTION("Orchestrator") {
+        auto index = svs::Vamana::build<float>(
+            parameters, test_dataset::data_f32(), Distance(), num_threads
+        );
+        auto search = [&](const std::function<bool(size_t)>& filter) {
+            auto results = svs::QueryResult<size_t>(queries.size(), num_neighbors);
+            index.filtered_search(
+                results.view(), queries.cview(), search_parameters, filter
+            );
+            return results;
+        };
+        index.search(unfiltered.view(), queries.cview(), search_parameters);
+        svs_test::check_filtered_search(reference, search, unfiltered);
+
+        // The index was built for float queries only.
+        auto results = svs::QueryResult<size_t>(queries.size(), num_neighbors);
+        auto bytes = svs::data::SimpleData<uint8_t>(queries.size(), queries.dimensions());
+        CATCH_REQUIRE_THROWS_AS(
+            index.filtered_search(
+                results.view(),
+                bytes.cview(),
+                search_parameters,
+                [](size_t) { return true; }
+            ),
+            svs::ANNException
+        );
     }
 }
