@@ -185,6 +185,10 @@ class DynamicVamana : public manager::IndexManager<DynamicVamanaInterface> {
     ///
     /// @param search_window_size The new search window size.
     ///
+    /// If the search window size is less than the number of neighbors requested in a
+    /// search, it is temporarily set to the number of neighbors for that search. The stored
+    /// value is not changed.
+    ///
     DynamicVamana& set_search_window_size(size_t search_window_size) {
         auto parameters = get_search_parameters();
         parameters.buffer_config_ = {search_window_size};

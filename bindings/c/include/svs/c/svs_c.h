@@ -934,6 +934,35 @@ SVS_API svs_search_params_h svs_search_params_create_vamana(
 /// @param params The search parameters handle to free
 SVS_API void svs_search_params_free(svs_search_params_h params);
 
+/// @brief Get the search window size of Vamana search parameters
+/// @param params The Vamana search parameters handle
+/// @param out_window_size Pointer to store the search window size
+/// @param out_err An optional error handle to capture errors
+/// @return true on success, false on failure
+SVS_API bool svs_search_params_vamana_get_window_size(
+    svs_search_params_h params, size_t* out_window_size, svs_error_h out_err /*=NULL*/
+);
+
+/// @brief Get the search buffer capacity of Vamana search parameters
+/// @param params The Vamana search parameters handle
+/// @param out_buffer_capacity Pointer to store the search buffer capacity
+/// @param out_err An optional error handle to capture errors
+/// @return true on success, false on failure
+SVS_API bool svs_search_params_vamana_get_buffer_capacity(
+    svs_search_params_h params, size_t* out_buffer_capacity, svs_error_h out_err /*=NULL*/
+);
+
+/// @brief Set the search buffer capacity of Vamana search parameters
+/// @param params The Vamana search parameters handle
+/// @param buffer_capacity The search buffer capacity
+/// @param out_err An optional error handle to capture errors
+/// @return true on success, false on failure
+/// @error SVS_ERROR_INVALID_ARGUMENT if buffer_capacity is less than the search window
+/// size
+SVS_API bool svs_search_params_vamana_set_buffer_capacity(
+    svs_search_params_h params, size_t buffer_capacity, svs_error_h out_err /*=NULL*/
+);
+
 /// @brief Create a simple storage configuration
 /// @param data_type The data type of the vectors
 /// @param out_err An optional error handle to capture errors
@@ -1409,6 +1438,27 @@ SVS_API svs_index_h svs_index_load_stream_dynamic(
     svs_index_builder_h builder,
     svs_stream_i stream,
     size_t blocksize_bytes /*=0*/,
+    svs_error_h out_err /*=NULL*/
+);
+
+/// @brief Load a dynamic index from a caller-supplied stream with explicit parameters
+/// @param builder The index builder handle (used for configuration)
+/// @param stream The stream interface to read the index from
+/// @param params Pointer to the dynamic index parameters structure, or NULL for defaults
+/// @param out_err An optional error handle to capture errors
+/// @return A handle to the loaded dynamic index
+/// @remarks The block parameters only affect the in-memory layout, not the on-disk
+/// format. The sync kind is not persisted with the index and must be passed on every load.
+/// @remarks The operations table is copied, but @p stream->self is retained as-is. It only
+///   needs to remain valid until this function returns.
+/// @remarks Accepts both the native stream encoding and a packed directory archive. The
+///   native encoding carries no total length, so a load may read up to 64 KiB past the end
+///   of the index; frame the payload if embedding it in a larger stream.
+/// @error SVS_ERROR_INVALID_ARGUMENT if @p params is invalid (see svs_dynamic_index_params)
+SVS_API svs_index_h svs_index_load_stream_dynamic_ex(
+    svs_index_builder_h builder,
+    svs_stream_i stream,
+    const svs_dynamic_index_params_t* params /*=NULL*/,
     svs_error_h out_err /*=NULL*/
 );
 

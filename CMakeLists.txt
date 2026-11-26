@@ -63,6 +63,9 @@ target_compile_options(
     "-DSVS_VERSION_PATCH=${SVS_VERSION_PATCH}"
 )
 
+# Must precede the cmake/*.cmake includes: their install rules get empty, absolute paths otherwise.
+include(GNUInstallDirs)
+
 #####
 ##### Options and extra build steps
 #####
@@ -119,8 +122,6 @@ endif()
 ##### Install Logic
 #####
 
-include(GNUInstallDirs)
-
 # Location of auxiliary generated cmake files to help consumers of this package.
 set(LIB_CONFIG_INSTALL_DIR "${CMAKE_INSTALL_LIBDIR}/cmake/svs")
 
@@ -134,6 +135,7 @@ install(
     DIRECTORY "${PROJECT_SOURCE_DIR}/include/svs"
     DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}"
     FILES_MATCHING PATTERN "*.h"
+    PATTERN "dispatch_surface.h" EXCLUDE
 )
 install(
     EXPORT svs-targets

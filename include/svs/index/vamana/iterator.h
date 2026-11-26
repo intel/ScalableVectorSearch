@@ -54,6 +54,8 @@ template <std::integral I> struct RestartInitializer {
             return;
         }
 
+        // Let ids dropped from the buffer be inserted again in the larger window.
+        buffer.reset_visited_to_contents();
         // Otherwise, sort the buffer to prepare for the next search.
         buffer.sort();
     }

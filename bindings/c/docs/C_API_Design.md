@@ -258,7 +258,8 @@ The main search structure providing vector similarity search operations.
 **Dynamic Index Parameters:**
 
 The `_ex` variants of the dynamic functions (`svs_index_build_dynamic_ex`,
-`svs_index_load_dynamic_ex`, `svs_index_convert_dynamic_ex`,
+`svs_index_load_dynamic_ex`, `svs_index_load_stream_dynamic_ex`,
+`svs_index_convert_dynamic_ex`,
 `svs_index_builder_estimate_memory_dynamic_ex`,
 `svs_index_builder_estimate_search_memory_dynamic_ex`) take a versioned
 `const svs_dynamic_index_params_t*` instead of a bare `blocksize_bytes` argument.
@@ -651,10 +652,10 @@ for full signatures, parameters, and Doxygen documentation.
 | **Error** | `svs_error_create` / `_free` / `_set` / `_ok` / `_get_code` / `_get_message` |
 | **Algorithm** | `svs_algorithm_create_vamana`, `svs_algorithm_get_type`, `svs_algorithm_vamana_{get,set}_{alpha,graph_degree,build_window_size,use_search_history}`, `svs_algorithm_free` |
 | **Storage** | `svs_storage_create_{simple,sq,lvq,leanvec}`, `svs_storage_get_kind`, `svs_storage_free` |
-| **Search params** | `svs_search_params_create_vamana`, `svs_search_params_free` |
+| **Search params** | `svs_search_params_create_vamana`, `svs_search_params_vamana_get_window_size`, `svs_search_params_vamana_{get,set}_buffer_capacity`, `svs_search_params_free` |
 | **Builder** | `svs_index_builder_create`, `svs_index_builder_set_{storage,threadpool,threadpool_custom,allocator,allocator_custom}`, `svs_index_builder_free` |
 | **Memory estimation** | `svs_index_builder_estimate_memory`, `svs_index_builder_estimate_memory_dynamic[_ex]`, `svs_index_builder_estimate_search_memory`, `svs_index_builder_estimate_search_memory_dynamic[_ex]`, `svs_index_builder_get_default_blocksize_bytes` |
-| **Index lifecycle** | `svs_index_build`, `svs_index_build_dynamic[_ex]`, `svs_index_convert`, `svs_index_convert_dynamic[_ex]`, `svs_index_load`, `svs_index_load_dynamic[_ex]`, `svs_index_load_stream`, `svs_index_load_stream_dynamic`, `svs_index_save`, `svs_index_save_stream`, `svs_index_free` |
+| **Index lifecycle** | `svs_index_build`, `svs_index_build_dynamic[_ex]`, `svs_index_convert`, `svs_index_convert_dynamic[_ex]`, `svs_index_load`, `svs_index_load_dynamic[_ex]`, `svs_index_load_stream`, `svs_index_load_stream_dynamic[_ex]`, `svs_index_save`, `svs_index_save_stream`, `svs_index_free` |
 | **Dynamic ops** | `svs_index_dynamic_{add_points,delete_points,has_id,consolidate,compact,get_sync_kind}` |
 | **Introspection** | `svs_index_get_num_threads` / `set_num_threads`, `svs_index_get_distance`, `svs_index_reconstruct`, `svs_index_get_memory_usage`, `svs_index_get_memory_breakdown` |
 | **Search** | `svs_index_search_topk` (+ deprecated `svs_index_search`), `svs_search_results_free` |

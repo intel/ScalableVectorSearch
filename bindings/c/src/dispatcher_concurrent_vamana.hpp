@@ -53,6 +53,17 @@ svs::DynamicVamana dispatch_concurrent_vamana_index_load(
     svs::logging::logger_ptr logger
 );
 
+svs::DynamicVamana dispatch_concurrent_vamana_index_load_stream(
+    const svs::index::vamana::VamanaBuildParameters& build_params,
+    std::unique_ptr<std::istream> stream,
+    const Storage* storage,
+    svs::DistanceType distance_type,
+    svs::threads::ThreadPoolHandle pool,
+    const AllocatorBuilder& allocator_builder,
+    const svs::data::BlockingParameters& block_params,
+    svs::logging::logger_ptr logger
+);
+
 // Copies between a concurrent and a regular or concurrent dynamic index;
 // at least one of `src_concurrent` and `dst_concurrent` must be true.
 svs::DynamicVamana dispatch_concurrent_vamana_index_copy(
