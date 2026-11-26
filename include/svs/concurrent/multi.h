@@ -60,7 +60,21 @@ template <typename Index, typename QueryType> class MultiBatchIterator {
         : index_{index}
         , batch_iterator_{index.get_parent_index(), query, extra_search_buffer_capacity} {}
 
+    /// @brief Retrieve distinct labels under the parent's storage and payload guards.
+    /// @param batch_size Number of labels to request.
+    /// @param cancel Cancellation predicate; defaults to never cancelling.
     void next(
+        size_t batch_size,
+        const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>())
+    ) {
+        auto storage_lock = index_.get_parent_index().lock_storage_shared();
+        auto payload_lock = index_.get_parent_index().lock_payload_shared();
+        unsafe_next(batch_size, cancel);
+    }
+
+    /// @copydoc next
+    /// The caller holds the parent's storage and payload guards through this call.
+    void unsafe_next(
         size_t batch_size,
         const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>())
     ) {
@@ -70,7 +84,7 @@ template <typename Index, typename QueryType> class MultiBatchIterator {
 
         while (results_.size() < batch_size && !batch_iterator_.done()) {
             try {
-                batch_iterator_.next(batch_size, cancel);
+                batch_iterator_.unsafe_next(batch_size, cancel);
             } catch (const ANNException& error) {
                 results_ = std::move(results_copy);
                 throw error;
@@ -536,6 +550,8 @@ class MultiMutableVamanaIndex {
         const search_parameters_type& sp,
         const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>())
     ) {
+        auto storage_lock = index_->lock_storage_shared();
+        auto payload_lock = index_->lock_payload_shared();
         auto& borrow_threadpool = index_->get_threadpool_handle();
 
         threads::parallel_for(
@@ -549,7 +565,7 @@ class MultiMutableVamanaIndex {
                 // use batch iterator to search
                 for (auto i : is) {
                     auto batch_iterator = make_batch_iterator(queries.get_datum(i), 10);
-                    batch_iterator.next(batch_size, cancel);
+                    batch_iterator.unsafe_next(batch_size, cancel);
                     size_t j{0};
                     for (auto& res : batch_iterator) {
                         if (j == num_neighbors) {

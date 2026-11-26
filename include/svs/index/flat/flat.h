@@ -339,7 +339,7 @@ class FlatIndex {
         scratch.prepare();
 
         size_t start = 0;
-        while (start < data_.size()) {
+        while (start < data_max_size) {
             // Check if request to cancel the search
             if (cancel()) {
                 scratch.cleanup();
