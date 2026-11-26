@@ -50,7 +50,10 @@ namespace svs {
 
 namespace detail {
 
-template <typename T, bool MT> struct VectorMapTraits;
+// Storage and slot access for the internal->external table of ``BasicIDTranslator``.
+// ``load`` yields ``default_val`` for an index beyond the table, and ``store`` fills the
+// slots it has to add below the stored index with its last argument.
+template <typename T, bool Concurrent> struct VectorMapTraits;
 
 template <typename T> struct VectorMapTraits<T, false> {
     using value_type = T;
@@ -68,6 +71,9 @@ template <typename T> struct VectorMapTraits<T, false> {
     }
 };
 
+// Readers may run without a lock against one writer: ``SegmentedVector`` never relocates a
+// slot when it grows, and every slot access after construction is atomic. A plain read or
+// write of a slot here would race with those readers.
 template <typename T> struct VectorMapTraits<T, true> {
     using value_type = T;
     using vector_type = lib::SegmentedVector<value_type>;
@@ -76,6 +82,8 @@ template <typename T> struct VectorMapTraits<T, true> {
         if (i >= table.size()) {
             return default_val;
         }
+        // C++20 has no ``std::atomic_ref<const T>``; the cast only removes the constness
+        // of the table reference, the slot itself is never a const object.
         return std::atomic_ref<value_type>(const_cast<value_type&>(table[i]))
             .load(std::memory_order_acquire);
     }
@@ -90,7 +98,28 @@ template <typename T> struct VectorMapTraits<T, true> {
 };
 } // namespace detail
 
-template <bool Concurrent = false> class IDTranslator {
+///
+/// @brief Two-way translation between external IDs and internal IDs.
+///
+/// External IDs map to internal IDs through a hash map. Internal IDs map back through a
+/// table indexed by internal ID, so internal IDs are expected to be dense: the table
+/// holds one ``external_id_type`` per slot up to the largest internal ID ever stored.
+///
+/// @tparam Concurrent Selects the storage of the internal-to-external table. Use the
+///     aliases ``IDTranslator`` (``false``) and ``ConcurrentIDTranslator`` (``true``).
+///
+/// With ``Concurrent == false`` the translator offers no thread safety beyond concurrent
+/// ``const`` access.
+///
+/// With ``Concurrent == true``:
+/// * Mutating methods must be serialized by the caller (one writer at a time).
+/// * ``has_internal``, ``get_external`` and ``get_external_or`` may be called without a
+///   lock while a writer is running. They observe each slot either before or after the
+///   writer's update of that slot.
+/// * Every other method reads the external-to-internal hash map and must be synchronized
+///   with writers by the caller, e.g. with a shared lock.
+///
+template <bool Concurrent> class BasicIDTranslator {
   public:
     using internal_id_type = uint32_t;
     using external_id_type = uint64_t;
@@ -99,9 +128,8 @@ template <bool Concurrent = false> class IDTranslator {
         tsl::robin_map<external_id_type, internal_id_type>::const_iterator;
     using value_type = typename const_iterator::value_type;
 
-    using i_to_e_traits = detail::VectorMapTraits<external_id_type, Concurrent>;
-
-    /// Marks an unmapped slot in the internal-to-external table.
+    /// Marks an unmapped slot in the internal-to-external table. Reserved: it is rejected
+    /// as an external ID.
     static constexpr external_id_type invalid_external_id =
         std::numeric_limits<external_id_type>::max();
 
@@ -113,10 +141,22 @@ template <bool Concurrent = false> class IDTranslator {
         size_t n_;
     };
 
-    IDTranslator() = default;
-    IDTranslator(Identity tag) {
+    BasicIDTranslator() = default;
+    BasicIDTranslator(Identity tag) {
         auto ids = threads::UnitRange<size_t>{0, tag.n_};
         insert(ids, ids);
+    }
+
+    ///
+    /// @brief Construct from the other variant, keeping every translation.
+    ///
+    /// @param other The translator to take the translations from.
+    ///
+    explicit BasicIDTranslator(BasicIDTranslator<!Concurrent> other)
+        : external_to_internal_{std::move(other.external_to_internal_)} {
+        for (const auto& [external, internal] : external_to_internal_) {
+            store_external(internal, external);
+        }
     }
 
     ///
@@ -205,10 +245,23 @@ template <bool Concurrent = false> class IDTranslator {
         }
     }
 
+    ///
+    /// @brief Insert one translation without checking for an existing mapping.
+    ///
+    /// @param external_id The external ID. Must not be ``invalid_external_id``.
+    /// @param internal_id The internal ID.
+    ///
+    /// Throws without modifying the translator if either ID does not fit its ID type or
+    /// ``external_id`` is reserved. Only safe if neither ID has a mapping yet.
+    ///
     template <typename Ext, typename Int>
     void insert_translation(Ext external_id, Int internal_id) {
-        external_to_internal_[external_id] = lib::narrow<internal_id_type>(internal_id);
-        store_external(internal_id, lib::narrow<external_id_type>(external_id));
+        auto e = lib::narrow<external_id_type>(external_id);
+        auto i = lib::narrow<internal_id_type>(internal_id);
+        // Storing the reserved ID would leave `e` mapped while slot `i` reads as unmapped.
+        check_external_not_reserved(&e, &e + 1);
+        external_to_internal_[e] = i;
+        store_external(i, e);
     }
 
     ///
@@ -312,13 +365,24 @@ template <bool Concurrent = false> class IDTranslator {
         return e;
     }
 
-    /// @brief Return the external ID, or a default if not found.
+    ///
+    /// @brief Return the external ID mapped to by the internal ID, or a default.
+    ///
+    /// @param i The internal ID to translate to an external ID.
+    /// @param default_val The value returned when ``i`` has no mapping.
+    ///
     external_id_type
     get_external_or(internal_id_type i, external_id_type default_val) const {
-        return load_external(i, default_val);
+        auto e = load_external(i);
+        return e == invalid_external_id ? default_val : e;
     }
 
-    /// @brief Return the internal ID, or a default if not found.
+    ///
+    /// @brief Return the internal ID mapped to by the external ID, or a default.
+    ///
+    /// @param e The external ID to translate to an internal ID.
+    /// @param default_val The value returned when ``e`` has no mapping.
+    ///
     internal_id_type
     get_internal_or(external_id_type e, internal_id_type default_val) const {
         auto it = external_to_internal_.find(e);
@@ -361,14 +425,15 @@ template <bool Concurrent = false> class IDTranslator {
     /// @brief Remap the external ID, keeping the same internal ID.
     ///
     /// @param from The existing external ID to rename.
-    /// @param to The external ID to rename it to.
+    /// @param to The external ID to rename it to. Must not be ``invalid_external_id``.
     /// @param check Check that ``from`` exists and ``to`` does not yet exist. Only safe
     ///     to set to ``false`` if this holds true.
     ///
-    /// Note, if ``check == true`` and either condition fails, the underlying translation
-    /// tables will not be modified.
+    /// Note, if ``check == true`` and either condition fails, or if ``to`` is reserved,
+    /// the underlying translation tables will not be modified.
     ///
     void remap_external_id(external_id_type from, external_id_type to, bool check = true) {
+        check_external_not_reserved(&to, &to + 1);
         if (check) {
             if (!has_external(from)) {
                 throw ANNEXCEPTION("Index does not contain external ID {}!", from);
@@ -440,7 +505,8 @@ template <bool Concurrent = false> class IDTranslator {
     }
 
     ///
-    /// @brief Ensure that **none** of the external ids in the iterator exist yet.
+    /// @brief Ensure that **none** of the external ids in the iterator is the reserved
+    ///     ``invalid_external_id``.
     ///
     /// @param begin Start forward iterator to the external IDs to check.
     /// @param end End forward iterator to the external IDs to check.
@@ -455,6 +521,12 @@ template <bool Concurrent = false> class IDTranslator {
         );
     }
 
+    ///
+    /// @brief Ensure that **none** of the external ids in the iterator exist yet.
+    ///
+    /// @param begin Start forward iterator to the external IDs to check.
+    /// @param end End forward iterator to the external IDs to check.
+    ///
     template <class Begin, class End>
     void check_external_free(const Begin& begin, const End& end) const {
         check(
@@ -565,11 +637,12 @@ template <bool Concurrent = false> class IDTranslator {
         }
     }
 
-    static IDTranslator load(const lib::ContextFreeLoadTable& table, std::istream& is) {
-        IDTranslator::validate(table);
+    static BasicIDTranslator
+    load(const lib::ContextFreeLoadTable& table, std::istream& is) {
+        BasicIDTranslator::validate(table);
         auto num_points = lib::load_at<size_t>(table, "num_points");
 
-        auto translator = IDTranslator{};
+        auto translator = BasicIDTranslator{};
         for (size_t i = 0; i < num_points; ++i) {
             auto external_id = lib::read_binary<external_id_type>(is);
             auto internal_id = lib::read_binary<internal_id_type>(is);
@@ -578,17 +651,22 @@ template <bool Concurrent = false> class IDTranslator {
         return translator;
     }
 
-    static IDTranslator load(const lib::LoadTable& table) {
-        IDTranslator::validate(table);
+    static BasicIDTranslator load(const lib::LoadTable& table) {
+        BasicIDTranslator::validate(table);
 
         // Now that we've more-or-less validated the metadata, time to start loading
         // the points.
         auto resolved = table.resolve_at("filename");
         auto is = lib::open_read(resolved);
-        return IDTranslator::load(table, is);
+        return BasicIDTranslator::load(table, is);
     }
 
   private:
+    // The converting constructor takes the other variant's external->internal map.
+    friend class BasicIDTranslator<!Concurrent>;
+
+    using i_to_e_traits = detail::VectorMapTraits<external_id_type, Concurrent>;
+
     template <class Begin, class End, class Contains, class Modifier = lib::identity>
     void check(
         const Begin& begin,
@@ -605,26 +683,24 @@ template <bool Concurrent = false> class IDTranslator {
     }
 
     tsl::robin_map<external_id_type, internal_id_type> external_to_internal_{};
-    i_to_e_traits::vector_type internal_to_external_{};
+    // `typename` is required by compilers without P0634 (clang before 16).
+    typename i_to_e_traits::vector_type internal_to_external_{};
 
-    external_id_type load_external(
-        internal_id_type i, external_id_type default_value = invalid_external_id
-    ) const {
-        return i_to_e_traits::load(
-            internal_to_external_, static_cast<size_t>(i), default_value
-        );
+    // Returns `invalid_external_id` for a slot that is unmapped or beyond the table.
+    external_id_type load_external(internal_id_type i) const {
+        return i_to_e_traits::load(internal_to_external_, size_t{i}, invalid_external_id);
     }
 
-    // Writers only; grows the table first when `i` is beyond it.
-    void store_external(
-        internal_id_type i,
-        external_id_type e,
-        external_id_type default_value = invalid_external_id
-    ) {
-        i_to_e_traits::store(
-            internal_to_external_, static_cast<size_t>(i), e, default_value
-        );
+    // Writers only; grows the table with unmapped slots first when `i` is beyond it.
+    void store_external(internal_id_type i, external_id_type e) {
+        i_to_e_traits::store(internal_to_external_, size_t{i}, e, invalid_external_id);
     }
 };
+
+/// The translator for single-threaded use. See ``BasicIDTranslator``.
+using IDTranslator = BasicIDTranslator<false>;
+/// The translator whose internal-to-external lookups may run without a lock against one
+/// writer. See ``BasicIDTranslator``.
+using ConcurrentIDTranslator = BasicIDTranslator<true>;
 
 } // namespace svs

@@ -903,7 +903,6 @@ class MutableVamanaIndex {
         // Try to update the id translation now that we have internal ids.
         // If this fails, we still haven't mutated the index data structure so we're safe
         // to throw an exception.
-        translator_.reserve(status_.size());
         translator_.insert(external_ids, slots);
 
         // Copy the given points into the data and clear the adjacency lists for the graph.
@@ -1104,7 +1103,6 @@ class MutableVamanaIndex {
             }
         }
         status_.resize(max_index);
-        translator_.shrink(max_index);
 
         // Update entry points.
         for (auto& ep : entry_point_) {

@@ -286,6 +286,7 @@ if (SVS_EXPERIMENTAL_ENABLE_CONCURRENT_TSAN)
     set(CONCURRENT_TSAN_SOURCES
         ${TEST_DIR}/svs/concurrent/graph.cpp
         ${TEST_DIR}/svs/concurrent/concurrency.cpp
+        ${TEST_DIR}/svs/concurrent/translation.cpp
     )
 
     add_executable(concurrent_tsan ${CONCURRENT_TSAN_SOURCES})
