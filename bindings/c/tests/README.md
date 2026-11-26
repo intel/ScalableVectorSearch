@@ -142,6 +142,7 @@ The tests cover the following aspects of the C API:
 - Distance calculation
 - Vector reconstruction
 - Thread count management
+- Prefetch settings getters, including after save and load, and after conversion
 
 ### Logging
 

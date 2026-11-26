@@ -585,6 +585,10 @@ CATCH_TEST_CASE("C API Dynamic Index Sync Sequential", "[c_api][index][dynamic][
     CATCH_REQUIRE(svs_index_get_num_threads(index, &num_threads, fx.error));
     CATCH_REQUIRE(num_threads == 1);
 
+    size_t prefetch = 0;
+    CATCH_REQUIRE(svs_index_get_prefetch_lookahead(index, &prefetch, fx.error));
+    CATCH_REQUIRE(svs_index_get_prefetch_step(index, &prefetch, fx.error));
+
     size_t memory = 0;
     CATCH_REQUIRE(svs_index_get_memory_usage(index, &memory, fx.error));
     CATCH_REQUIRE(memory > 0);

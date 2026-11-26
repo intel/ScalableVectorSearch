@@ -1746,6 +1746,37 @@ SVS_API bool svs_index_set_num_threads(
     svs_index_h index, size_t num_threads, svs_error_h out_err /*=NULL*/
 );
 
+/// @brief Get the number of search iterations ahead for which the index prefetches
+/// candidate vectors
+/// @param index The index handle
+/// @param out_prefetch_lookahead Pointer to store the prefetch lookahead; 0 means
+/// prefetching is disabled
+/// @param out_err An optional error handle to capture errors
+/// @return true on success, false on failure
+/// @remarks The index estimates its prefetch settings from the size of its stored
+/// vectors when it is built or converted, and restores the saved settings when it is
+/// loaded.
+/// @error On failure, if out_err is provided, it will contain:
+/// - SVS_ERROR_INVALID_ARGUMENT if index or out_prefetch_lookahead is NULL
+/// - SVS_ERROR_RUNTIME for other runtime failures
+SVS_API bool svs_index_get_prefetch_lookahead(
+    svs_index_h index, size_t* out_prefetch_lookahead, svs_error_h out_err /*=NULL*/
+);
+
+/// @brief Get the prefetch step, which controls how quickly prefetching ramps up to the
+/// lookahead at the start of a search
+/// @param index The index handle
+/// @param out_prefetch_step Pointer to store the prefetch step
+/// @param out_err An optional error handle to capture errors
+/// @return true on success, false on failure
+/// @remarks See @ref svs_index_get_prefetch_lookahead for how the settings are chosen.
+/// @error On failure, if out_err is provided, it will contain:
+/// - SVS_ERROR_INVALID_ARGUMENT if index or out_prefetch_step is NULL
+/// - SVS_ERROR_RUNTIME for other runtime failures
+SVS_API bool svs_index_get_prefetch_step(
+    svs_index_h index, size_t* out_prefetch_step, svs_error_h out_err /*=NULL*/
+);
+
 /// @brief Get the total memory usage of the index in bytes
 /// @param index The index handle
 /// @param out_bytes Pointer to store the total memory usage in bytes

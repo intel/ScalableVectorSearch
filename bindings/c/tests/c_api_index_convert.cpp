@@ -25,7 +25,20 @@
 
 // Standard library
 #include <algorithm>
+#include <utility>
 #include <vector>
+
+namespace {
+
+std::pair<size_t, size_t> get_prefetch(svs_index_h index, svs_error_h error) {
+    std::pair<size_t, size_t> result{};
+    CATCH_REQUIRE(svs_index_get_prefetch_lookahead(index, &result.first, error));
+    CATCH_REQUIRE(svs_index_get_prefetch_step(index, &result.second, error));
+    CATCH_REQUIRE(svs_error_ok(error));
+    return result;
+}
+
+} // namespace
 
 CATCH_TEST_CASE("C API Index Conversion", "[c_api][index][convert]") {
     const size_t NUM_VECTORS = 100;
@@ -810,4 +823,79 @@ CATCH_TEST_CASE("C API Dynamic Index Conversion", "[c_api][index][dynamic][conve
         svs_algorithm_free(algorithm);
         svs_error_free(error);
     }
+}
+
+// Prefetch settings are estimated from the per-vector size of the stored data, so a
+// conversion that changes the storage must re-estimate them instead of inheriting the
+// source's.
+CATCH_TEST_CASE("C API Index Conversion Prefetch", "[c_api][index][convert]") {
+    const size_t NUM_VECTORS = 100;
+    // 256 dimensions put fp32 (1 KiB per vector) and fp16 (512 B per vector) in
+    // different prefetch estimate brackets.
+    const size_t DIMENSION = 256;
+    const size_t NUM_THREADS = 4;
+    const size_t BLOCK_SIZE = 1024 * 1024;
+
+    std::vector<float> data;
+    generate_test_data(data, NUM_VECTORS, DIMENSION);
+
+    svs_error_h error = svs_error_create();
+    svs_algorithm_h algorithm = svs_algorithm_create_vamana(16, 32, 50, error);
+    CATCH_REQUIRE(algorithm != nullptr);
+    svs_index_builder_h builder = svs_index_builder_create(
+        SVS_DISTANCE_METRIC_EUCLIDEAN, DIMENSION, algorithm, error
+    );
+    CATCH_REQUIRE(builder != nullptr);
+    CATCH_REQUIRE(svs_index_builder_set_threadpool(
+        builder, SVS_THREADPOOL_KIND_NATIVE, NUM_THREADS, error
+    ));
+    svs_storage_h fp32 = svs_storage_create_simple(SVS_DATA_TYPE_FLOAT32, error);
+    CATCH_REQUIRE(fp32 != nullptr);
+    svs_storage_h fp16 = svs_storage_create_simple(SVS_DATA_TYPE_FLOAT16, error);
+    CATCH_REQUIRE(fp16 != nullptr);
+
+    auto check = [&](bool dynamic) {
+        auto build = [&]() {
+            svs_index_h index =
+                dynamic ? svs_index_build_dynamic(
+                              builder, data.data(), nullptr, NUM_VECTORS, BLOCK_SIZE, error
+                          )
+                        : svs_index_build(builder, data.data(), NUM_VECTORS, error);
+            CATCH_REQUIRE(index != nullptr);
+            CATCH_REQUIRE(svs_error_ok(error));
+            return index;
+        };
+
+        CATCH_REQUIRE(svs_index_builder_set_storage(builder, fp16, error));
+        svs_index_h reference = build();
+
+        CATCH_REQUIRE(svs_index_builder_set_storage(builder, fp32, error));
+        svs_index_h src_index = build();
+
+        CATCH_REQUIRE(svs_index_builder_set_storage(builder, fp16, error));
+        svs_index_h copy_index =
+            dynamic ? svs_index_convert_dynamic(builder, src_index, BLOCK_SIZE, error)
+                    : svs_index_convert(builder, src_index, error);
+        CATCH_REQUIRE(copy_index != nullptr);
+        CATCH_REQUIRE(svs_error_ok(error));
+
+        const auto expected = get_prefetch(reference, error);
+        // Guards the test itself: if both storages estimate the same settings, the
+        // comparison below cannot detect settings inherited from the source.
+        CATCH_REQUIRE(get_prefetch(src_index, error) != expected);
+        CATCH_REQUIRE(get_prefetch(copy_index, error) == expected);
+
+        svs_index_free(copy_index);
+        svs_index_free(src_index);
+        svs_index_free(reference);
+    };
+
+    CATCH_SECTION("Static") { check(false); }
+    CATCH_SECTION("Dynamic") { check(true); }
+
+    svs_storage_free(fp16);
+    svs_storage_free(fp32);
+    svs_index_builder_free(builder);
+    svs_algorithm_free(algorithm);
+    svs_error_free(error);
 }

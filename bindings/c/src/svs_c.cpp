@@ -1858,6 +1858,43 @@ svs_index_set_num_threads(svs_index_h index, size_t num_threads, svs_error_h out
     );
 }
 
+extern "C" bool svs_index_get_prefetch_lookahead(
+    svs_index_h index, size_t* out_prefetch_lookahead, svs_error_h out_err
+) {
+    using namespace svs::c_runtime;
+    return wrap_exceptions(
+        [&]() {
+            EXPECT_ARG_NOT_NULL(index);
+            EXPECT_ARG_NOT_NULL(out_prefetch_lookahead);
+            auto& index_ptr = index->impl;
+            INVALID_ARGUMENT_IF(index_ptr == nullptr, "Invalid index handle");
+            *out_prefetch_lookahead =
+                index_ptr->get_search_parameters().prefetch_lookahead_;
+            return true;
+        },
+        out_err,
+        false
+    );
+}
+
+extern "C" bool svs_index_get_prefetch_step(
+    svs_index_h index, size_t* out_prefetch_step, svs_error_h out_err
+) {
+    using namespace svs::c_runtime;
+    return wrap_exceptions(
+        [&]() {
+            EXPECT_ARG_NOT_NULL(index);
+            EXPECT_ARG_NOT_NULL(out_prefetch_step);
+            auto& index_ptr = index->impl;
+            INVALID_ARGUMENT_IF(index_ptr == nullptr, "Invalid index handle");
+            *out_prefetch_step = index_ptr->get_search_parameters().prefetch_step_;
+            return true;
+        },
+        out_err,
+        false
+    );
+}
+
 extern "C" bool
 svs_index_get_memory_usage(svs_index_h index, size_t* out_bytes, svs_error_h out_err) {
     using namespace svs::c_runtime;

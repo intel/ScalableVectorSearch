@@ -26,6 +26,7 @@
 // Standard library
 #include <algorithm>
 #include <cmath>
+#include <utility>
 #include <vector>
 
 CATCH_TEST_CASE("C API Index Build and Search", "[c_api][index][build][search]") {
@@ -655,6 +656,73 @@ CATCH_TEST_CASE("C API Index Build and Search", "[c_api][index][build][search]")
         svs_algorithm_free(algorithm);
         svs_error_free(error);
     }
+}
+
+CATCH_TEST_CASE("C API Index Prefetch Getters", "[c_api][index]") {
+    const size_t NUM_VECTORS = 100;
+    const size_t DIMENSION = 32;
+    const size_t BLOCK_SIZE = 1024 * 1024;
+
+    std::vector<float> data;
+    generate_test_data(data, NUM_VECTORS, DIMENSION);
+
+    svs_error_h error = svs_error_create();
+    svs_algorithm_h algorithm = svs_algorithm_create_vamana(16, 32, 50, error);
+    CATCH_REQUIRE(algorithm != nullptr);
+    svs_index_builder_h builder = svs_index_builder_create(
+        SVS_DISTANCE_METRIC_EUCLIDEAN, DIMENSION, algorithm, error
+    );
+    CATCH_REQUIRE(builder != nullptr);
+
+    auto get_prefetch = [&](svs_index_h index) {
+        std::pair<size_t, size_t> result{};
+        CATCH_REQUIRE(svs_index_get_prefetch_lookahead(index, &result.first, error));
+        CATCH_REQUIRE(svs_index_get_prefetch_step(index, &result.second, error));
+        CATCH_REQUIRE(svs_error_ok(error));
+        return result;
+    };
+
+    auto check = [&](bool dynamic) {
+        svs_index_h index =
+            dynamic ? svs_index_build_dynamic(
+                          builder, data.data(), nullptr, NUM_VECTORS, BLOCK_SIZE, error
+                      )
+                    : svs_index_build(builder, data.data(), NUM_VECTORS, error);
+        CATCH_REQUIRE(index != nullptr);
+        CATCH_REQUIRE(svs_error_ok(error));
+        const auto built = get_prefetch(index);
+
+        size_t value = 0;
+        CATCH_REQUIRE_FALSE(svs_index_get_prefetch_lookahead(nullptr, &value, error));
+        CATCH_REQUIRE(svs_error_get_code(error) == SVS_ERROR_INVALID_ARGUMENT);
+        CATCH_REQUIRE_FALSE(svs_index_get_prefetch_lookahead(index, nullptr, error));
+        CATCH_REQUIRE(svs_error_get_code(error) == SVS_ERROR_INVALID_ARGUMENT);
+        CATCH_REQUIRE_FALSE(svs_index_get_prefetch_step(nullptr, &value, error));
+        CATCH_REQUIRE(svs_error_get_code(error) == SVS_ERROR_INVALID_ARGUMENT);
+        CATCH_REQUIRE_FALSE(svs_index_get_prefetch_step(index, nullptr, error));
+        CATCH_REQUIRE(svs_error_get_code(error) == SVS_ERROR_INVALID_ARGUMENT);
+
+        // Saving and loading preserves the settings.
+        TempDir dir;
+        CATCH_REQUIRE(svs_index_save(index, dir.string().c_str(), error));
+        svs_index_h loaded =
+            dynamic
+                ? svs_index_load_dynamic(builder, dir.string().c_str(), BLOCK_SIZE, error)
+                : svs_index_load(builder, dir.string().c_str(), error);
+        CATCH_REQUIRE(loaded != nullptr);
+        CATCH_REQUIRE(svs_error_ok(error));
+        CATCH_REQUIRE(get_prefetch(loaded) == built);
+
+        svs_index_free(loaded);
+        svs_index_free(index);
+    };
+
+    CATCH_SECTION("Static") { check(false); }
+    CATCH_SECTION("Dynamic") { check(true); }
+
+    svs_index_builder_free(builder);
+    svs_algorithm_free(algorithm);
+    svs_error_free(error);
 }
 
 CATCH_TEST_CASE("C API Threadpool Management", "[c_api][index][threadpool]") {

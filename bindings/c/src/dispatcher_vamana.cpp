@@ -26,6 +26,7 @@
 #include <svs/core/logging.h>
 #include <svs/core/query_result.h>
 #include <svs/index/vamana/build_params.h>
+#include <svs/index/vamana/extensions.h>
 #include <svs/lib/float16.h>
 #include <svs/orchestrators/vamana.h>
 
@@ -218,6 +219,14 @@ svs::Vamana copy_vamana_index(
     decltype(auto) src_data = src_builder.get_dataset(src_index_impl->view_data());
     using value_type = typename DstDataBuilder::allocator_type::value_type;
     auto data = dst_builder.build(src_data, pool, allocator_builder.build<value_type>());
+
+    // The source's search parameters carry prefetch settings estimated from the source
+    // data. Re-estimate them for the converted data, as a freshly built index would.
+    {
+        auto prefetch = svs::index::vamana::extensions::estimate_prefetch_parameters(data);
+        config.search_parameters.prefetch_lookahead(prefetch.lookahead)
+            .prefetch_step(prefetch.step);
+    }
 
     return svs::Vamana::assemble<float>(
         config,
