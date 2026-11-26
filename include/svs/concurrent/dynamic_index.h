@@ -17,14 +17,18 @@
 #pragma once
 
 // stdlib
+#include <algorithm>
 #include <atomic>
 #include <functional>
 #include <limits>
 #include <memory>
 #include <mutex>
+#include <ranges>
+#include <set>
 #include <shared_mutex>
 #include <span>
 #include <type_traits>
+#include <utility>
 #include <vector>
 
 // Include the flat index to spin-up exhaustive searches on demand.
@@ -1042,6 +1046,21 @@ class MutableVamanaIndex {
 
     ///// Mutable Interface
 
+  private:
+    // Whether `id` may get a new edge. A Deleted or Empty slot may not: a consolidation
+    // may already have collected its in-neighbors.
+    auto linkable(Idx anchor) {
+        return [this, anchor](Idx id) {
+            if (id == anchor) {
+                return true; // routing anchor is retained until exclusive compact()
+            }
+            auto state =
+                std::atomic_ref<SlotMetadata>(status_[id]).load(std::memory_order_acquire);
+            return state == SlotMetadata::Valid || state == SlotMetadata::Pending;
+        };
+    }
+
+  public:
     template <data::ImmutableMemoryDataset Points>
     void copy_points(const Points& points, const std::vector<size_t>& slots) {
         assert(points.size() == slots.size());
@@ -1189,6 +1208,8 @@ class MutableVamanaIndex {
         } catch (...) {
             // Release the reserved slots back to Empty.
             for (auto s : slots) {
+                // An Empty slot has an empty list. A grown slot holds garbage.
+                graph_.clear_node(lib::narrow_cast<Idx>(s));
                 std::atomic_ref<SlotMetadata>(status_[s])
                     .store(SlotMetadata::Empty, std::memory_order_release);
             }
@@ -1251,14 +1272,7 @@ class MutableVamanaIndex {
             auto sp = get_search_parameters();
             auto prefetch_parameters =
                 GreedySearchPrefetchParameters{sp.prefetch_lookahead_, sp.prefetch_step_};
-            auto eligible = [this, seed](Idx id) {
-                if (id == seed) {
-                    return true; // routing anchor is retained until exclusive compact()
-                }
-                auto state = std::atomic_ref<SlotMetadata>(status_[id])
-                                 .load(std::memory_order_acquire);
-                return state == SlotMetadata::Valid || state == SlotMetadata::Pending;
-            };
+            auto eligible = linkable(seed);
             std::vector<Idx> pending_candidates;
             if (single_insert) {
                 // Snapshot BEFORE graph search. An insertion that already left the
@@ -1314,9 +1328,20 @@ class MutableVamanaIndex {
     ///   Delete consolidation performs the actual removal of deleted entries from the
     ///   graph.
     ///
-    template <typename T> size_t delete_entries(const T& ids) {
+    /// @param ids External IDs to delete. Missing or already deleted IDs are skipped.
+    /// @param response If not null, it is overwritten with the internal ID of each entry
+    ///     deleted by this call and the current compaction epoch.
+    ///
+    template <typename T>
+    size_t delete_entries(const T& ids, DeleteResponse* response = nullptr) {
         auto compact_lock = lock_storage_shared();
         std::shared_lock lock{*translator_mutex_};
+
+        if (response != nullptr) {
+            response->internal_ids.clear();
+            response->epoch = compaction_epoch_;
+        }
+
         size_t deleted = 0;
         for (auto i : ids) {
             if (!translator_.has_external(i)) {
@@ -1328,6 +1353,9 @@ class MutableVamanaIndex {
             }
             delete_entry(internal);
             ++deleted;
+            if (response != nullptr) {
+                response->internal_ids.push_back(internal);
+            }
         }
         // Don't erase translator entries here — concurrent search may still
         // need them for translate_to_external(). Cleanup happens in
@@ -1393,16 +1421,9 @@ class MutableVamanaIndex {
         return indices;
     }
 
-    ///
-    /// @brief Compact the data and the graph.
-    ///
-    /// @param batch_size Granularity at which points are shuffled. Setting this higher can
-    ///     improve performance but requires more working memory.
-    ///
-    void compact(Idx batch_size = 1'000) {
-        std::lock_guard gatekeeper_lock{*compact_gatekeeper_};
-        std::lock_guard compact_lock{*compact_mutex_};
-
+  private:
+    // The caller holds compact_mutex_ exclusive.
+    void retire_deleted_anchor() {
         // All users of the old anchor have drained. A live medoid can now be
         // selected without a candidate-lifetime race or a Pending-slot scan.
         const Idx anchor = entry_point();
@@ -1419,97 +1440,196 @@ class MutableVamanaIndex {
             std::atomic_ref<Idx>(entry_point_[0])
                 .store(successor, std::memory_order_release);
         }
+    }
+
+  public:
+    ///
+    /// @brief Move slots from the end into the listed empty slots, then shrink.
+    ///
+    /// Listed Deleted slots are consolidated first. A deleted entry point is
+    /// replaced by a new medoid, old entry point is consolidated.
+    /// Other listed slots are skipped.
+    ///
+    /// @param ids Internal IDs. An ID outside the index throws.
+    ///     `delete_entries()` can report them.
+    ///
+    template <std::ranges::input_range Ids> void compact(Ids&& ids) {
+        std::lock_guard gatekeeper_lock{*compact_gatekeeper_};
+        std::lock_guard compact_lock{*compact_mutex_};
+
+        const size_t num_slots = status_.size();
+        auto listed = std::set<Idx>{};
+        auto deleted = tsl::robin_set<Idx>{};
+        for (auto i : ids) {
+            const auto id = static_cast<size_t>(i);
+            if (id >= num_slots) {
+                throw ANNEXCEPTION(
+                    "Internal ID {} is out of range: the index has {} slots!", id, num_slots
+                );
+            }
+            if (status_[id] != SlotMetadata::Valid)
+                listed.insert(lib::narrow_cast<Idx>(id));
+
+            if (is_deleted(id))
+                deleted.insert(lib::narrow_cast<Idx>(id));
+        }
+
+        if (listed.empty())
+            return;
+
+        // Process entry point
+        const Idx old_anchor = entry_point();
+        retire_deleted_anchor();
+        const Idx new_anchor = entry_point();
+        if (old_anchor != new_anchor) {
+            // Entry point was moved.
+            // Consolidate the old one
+            deleted.insert(old_anchor);
+        }
+
+        if (!deleted.empty())
+            consolidate_locked(deleted);
+
+        auto it = listed.begin();
+        while (it != listed.end()) {
+            if ((*first_empty_ == *it) && (*first_reusable_ == *it)) {
+                first_empty_->store(*it + 1, std::memory_order_release);
+                first_reusable_->store(*it + 1, std::memory_order_release);
+                it++;
+            } else {
+                break;
+            }
+        }
+
+        compact_locked(listed);
+    }
+
+    ///
+    /// @brief Compact the data and the graph.
+    ///
+    /// @param batch_size Not used. Kept so that existing calls still compile.
+    ///
+    void compact([[maybe_unused]] Idx batch_size = 1'000) {
+        std::lock_guard gatekeeper_lock{*compact_gatekeeper_};
+        std::lock_guard compact_lock{*compact_mutex_};
+
+        retire_deleted_anchor();
+
+        auto ids_deleted = tsl::robin_set<Idx>{};
+        std::vector<Idx> ids_empty;
+        for (size_t i = 0, imax = status_.size(); i < imax; ++i) {
+            if (status_[i] == SlotMetadata::Deleted) {
+                ids_deleted.insert(lib::narrow_cast<Idx>(i));
+                ids_empty.push_back(lib::narrow_cast<Idx>(i));
+            } else if (status_[i] == SlotMetadata::Empty) {
+                ids_empty.push_back(lib::narrow_cast<Idx>(i));
+            }
+        }
 
         // Consolidate first, under the same exclusive lock. This folds any
         // outstanding soft-deletes (including the old anchor) into the graph.
-        consolidate_locked();
-        compact_locked(batch_size);
+        consolidate_locked(ids_deleted);
+        compact_locked(ids_empty);
+        // No Empty slots are left.
+        first_empty_->store(status_.size(), std::memory_order_release);
+        first_reusable_->store(status_.size(), std::memory_order_release);
     }
 
     /// @brief Check if the index has been consolidated.
     /// @remarks compact() always call consolidate_locked(), this query always returns true.
     bool is_consolidated() const noexcept { return true; }
 
-    // Body of compact() with no compact_mutex_ locking. The caller MUST hold
-    // compact_mutex_ exclusive
-    void compact_locked(Idx batch_size = 1'000) {
-        // The graph is fully remapped below; every reverse-edge entry would be stale.
-        // Suppress recording during the remap and rebuild from the final graph at the end.
-        if (auto* re = graph_.reverse_edges()) {
-            re->set_recording(false);
+  private:
+    // The caller must hold compact_mutex_ exclusive and call retire_deleted_anchor()
+    // first. `ids_empty` holds Empty slots in increasing order. The lowest ones are
+    // filled with slots from the end, then the index shrinks.
+    template <std::ranges::forward_range Ids> void compact_locked(Ids&& ids_empty) {
+        assert(std::ranges::is_sorted(ids_empty));
+        // Slots below new_size keep their ID. A slot at or above it moves into a hole
+        // or is dropped. new_ids maps each moved slot to its hole.
+        auto moves = std::vector<std::pair<Idx, Idx>>{};
+        auto new_ids = tsl::robin_map<Idx, Idx>{};
+        size_t new_size = status_.size();
+        auto id_empty = std::ranges::begin(ids_empty);
+        const auto ids_end = std::ranges::end(ids_empty);
+        while (id_empty != ids_end && new_size > *id_empty) {
+            if (status_[new_size - 1] != SlotMetadata::Empty) {
+                const auto old_id = lib::narrow_cast<Idx>(new_size - 1);
+                moves.emplace_back(old_id, *id_empty);
+                new_ids.insert({old_id, *id_empty});
+                ++id_empty;
+            }
+            --new_size;
         }
+        // No list points at an Empty slot, so a dropped slot is never looked up.
+        auto new_id_of = [&](Idx src, Idx id) {
+            if (id < new_size) {
+                return id;
+            }
+            auto it = new_ids.find(id);
+            if (it == new_ids.end()) {
+                throw ANNEXCEPTION(
+                    "Slot {} points at slot {} ({}), which compaction drops.",
+                    src,
+                    id,
+                    svs::index::vamana::concurrent::name(status_[id])
+                );
+            }
+            return it->second;
+        };
 
-        // Step 1: Compute a prefix-sum matching each valid internal index to its new
-        // internal index.
-        //
-        // In the returned data structure, an entry `j` at index `i` means that the
-        // data at index `j` is to be moved to index `i`.
-        auto new_to_old_id_map = nonmissing_indices();
-
-        // Construct an associative data structure to facilitate graph adjacency list
-        // remapping.
-        auto old_to_new_id_map = tsl::robin_map<Idx, Idx>{};
-        for (Idx new_id = 0, imax = new_to_old_id_map.size(); new_id < imax; ++new_id) {
-            Idx old_id = new_to_old_id_map.at(new_id);
-            old_to_new_id_map.insert({old_id, new_id});
-        }
+        // The reverse edges are rebuilt at the end.
+        auto* reverse_edges = graph_.reverse_edges();
+        assert(reverse_edges != nullptr);
+        reverse_edges->set_recording(false);
 
         // Compact the data.
-        data_.compact(lib::as_const_span(new_to_old_id_map), threadpool_, batch_size);
+        data_.compact(lib::as_const_span(moves), threadpool_);
 
-        // Manually compact the graph.
-        auto temp_graph = graphs::SimpleGraph<Idx>(batch_size, graph_.max_degree());
+        // Remap connections.
+        threads::parallel_for(
+            threadpool_,
+            threads::StaticPartition{moves.size()},
+            [&](const auto& is, uint64_t /*tid*/) {
+                std::vector<Idx> buffer{};
+                auto in_neighbors = tsl::robin_set<size_t>{};
+                for (auto i : is) {
+                    // Not a structured binding: clang 15 cannot capture one in a lambda.
+                    const Idx old_id = moves[i].first;
+                    const Idx new_id = moves[i].second;
 
-        // TODO: Write helper classes to do this partitioning.
-        Idx start = 0;
-        Idx max_index = new_to_old_id_map.size();
-        while (start < max_index) {
-            Idx stop = std::min(start + batch_size, max_index);
-            // Remapping of start index to stop index.
-            auto batch_to_new_id_map = threads::UnitRange{start, stop};
-            auto this_batch = batch_to_new_id_map.eachindex();
-
-            // Copy the graph into the temporary buffer and remap the IDs.
-            // Edges to non-Valid (Deleted) slots are dropped — those slots
-            // do not survive compaction, so the edge would dangle.
-            threads::parallel_for(
-                threadpool_,
-                threads::StaticPartition(this_batch),
-                [&](const auto& batch_ids, uint64_t /*tid*/) {
-                    std::vector<Idx> buffer{};
-                    for (auto batch_id : batch_ids) {
-                        auto new_id = batch_to_new_id_map[batch_id];
-                        auto old_id = new_to_old_id_map[new_id];
-
-                        const auto& list = graph_.get_node(old_id);
-                        buffer.clear();
-                        buffer.reserve(list.size());
-
-                        for (auto neighbor_old : list) {
-                            auto it = old_to_new_id_map.find(neighbor_old);
-                            if (it != old_to_new_id_map.end()) {
-                                buffer.push_back(it->second);
-                            }
+                    buffer.clear();
+                    in_neighbors.clear();
+                    for (auto dst : graph_.get_node(old_id)) {
+                        buffer.push_back(new_id_of(old_id, dst));
+                        if (graph_.has_edge(dst, old_id)) {
+                            in_neighbors.insert(dst);
                         }
+                    }
+                    graph_.replace_node(new_id, buffer);
 
-                        temp_graph.replace_node(batch_id, buffer);
+                    reverse_edges->collect(old_id, in_neighbors, [&](size_t j) {
+                        return !graph_.has_edge(lib::narrow_cast<Idx>(j), old_id);
+                    });
+                    for (auto j : in_neighbors) {
+                        buffer.clear();
+                        const auto src = lib::narrow_cast<Idx>(j);
+
+                        auto lock = graph_.lock_node(src);
+                        // Map every moved neighbor at once. A later move then finds no
+                        // edge to its old ID here, and skips this list.
+                        bool changed = false;
+                        for (auto dst : graph_.get_node(src)) {
+                            changed = changed || dst >= new_size;
+                            buffer.push_back(new_id_of(src, dst));
+                        }
+                        if (changed) {
+                            graph_.replace_node(src, lib::as_const_span(buffer), lock);
+                        }
                     }
                 }
-            );
-
-            // Copy the entries in the temporary graph to the original graph.
-            threads::parallel_for(
-                threadpool_,
-                threads::StaticPartition(this_batch),
-                [&](const auto& batch_ids, uint64_t /*tid*/) {
-                    for (auto batch_id : batch_ids) {
-                        auto new_id = batch_to_new_id_map[batch_id];
-                        graph_.replace_node(new_id, temp_graph.get_node(batch_id));
-                    }
-                }
-            );
-            start = stop;
-        }
+            }
+        );
 
         ///// Finishing steps.
         {
@@ -1517,43 +1637,37 @@ class MutableVamanaIndex {
             // Shrink the graph and data. compact_mutex_ is held exclusive for the
             // whole compact(), so all in-flight readers have drained — freeing
             // trailing segments here cannot dangle a concurrent search.
-            graph_.unsafe_resize(max_index);
-            data_.resize(max_index);
-            first_empty_->store(max_index, std::memory_order_release);
-            first_reusable_->store(max_index, std::memory_order_release);
+            graph_.unsafe_resize(new_size);
+            data_.resize(new_size);
+            // Empty slots that are not filled stay.
+            detail::atomic_min(*first_empty_, new_size);
+            detail::atomic_min(*first_reusable_, new_size);
 
             // Compact metadata and ID remapping.
-            for (size_t new_id = 0; new_id < max_index; ++new_id) {
-                auto old_id = getindex(new_to_old_id_map, new_id);
-                if (new_id == old_id) {
-                    continue;
-                }
-
-                auto status = getindex(status_, old_id);
-                status_[new_id] = status;
-                if (status == SlotMetadata::Valid) {
+            for (const auto& [old_id, new_id] : moves) {
+                status_[new_id] = status_[old_id];
+                // A Deleted slot may have no mapping.
+                if (translator_.has_internal(old_id)) {
                     translator_.remap_internal_id(old_id, new_id);
                 }
             }
-            status_.resize(max_index);
+            status_.resize(new_size);
 
-            // Remap the surviving anchor, or publish the genuinely empty state.
-            auto ep = old_to_new_id_map.find(entry_point());
-            const Idx remapped = ep != old_to_new_id_map.end()
-                                     ? ep->second
-                                     : (max_index ? Idx{0} : NO_ENTRY);
-            std::atomic_ref<Idx>(entry_point_[0])
-                .store(remapped, std::memory_order_release);
+            // The entry point is Valid or NO_ENTRY here, so it moves or stays.
+            const Idx anchor = entry_point();
+            if (anchor != NO_ENTRY && anchor >= new_size) {
+                std::atomic_ref<Idx>(entry_point_[0])
+                    .store(new_ids.at(anchor), std::memory_order_release);
+            }
         }
 
         // Re-derive the reverse-edge index from the fully remapped graph.
-        if (auto* re = graph_.reverse_edges()) {
-            re->set_recording(true);
-        }
+        reverse_edges->set_recording(true);
         graph_.rebuild_reverse_edges(threadpool_);
         ++compaction_epoch_;
     }
 
+  public:
     ///// Threading Interface
 
     /// @brief Return the current number of threads used for search.
@@ -1654,7 +1768,8 @@ class MutableVamanaIndex {
             alpha_,
             distance_,
             deleted,
-            should_remove
+            should_remove,
+            linkable(anchor)
         );
 
         // After consolidation - clean up the removed slots under lock. O(|deleted|).
@@ -1677,6 +1792,9 @@ class MutableVamanaIndex {
             size_t min_freed = std::numeric_limits<size_t>::max();
             for (auto i : deleted) {
                 if (i != anchor && status_[i] == SlotMetadata::Deleted) {
+                    // An Empty slot has an empty list. Clear it first: once the slot
+                    // is Empty, an add may reuse it.
+                    graph_.clear_node(i);
                     std::atomic_ref<SlotMetadata>(status_[i])
                         .store(SlotMetadata::Empty, std::memory_order_release);
                     min_freed = std::min(min_freed, static_cast<size_t>(i));
@@ -1717,6 +1835,44 @@ class MutableVamanaIndex {
                     continue; // Not soft-deleted — nothing to consolidate.
                 }
                 targets.insert(lib::narrow_cast<Idx>(internal));
+            }
+        }
+
+        if (targets.empty()) {
+            return 0;
+        }
+        consolidate_locked(targets);
+        return targets.size();
+    }
+
+    ///
+    /// @brief Consolidate only the soft-deleted slots listed in `response`.
+    ///
+    /// * Same effect as `consolidate(ids)`, addressed by internal ID, so it also reaches
+    ///   a Deleted slot whose external ID was reassigned by a later `add_points`.
+    ///
+    /// * Does nothing if the index was compacted after `delete_entries()` filled
+    ///   `response`: its internal IDs may now name other slots.
+    ///
+    /// * Listed slots that are not currently Deleted, or are outside the index, are
+    ///   skipped.
+    ///
+    /// @param response What `delete_entries()` reported.
+    ///
+    /// @returns The number of listed slots that were consolidated
+    ///
+    size_t repair_incoming_connections(const DeleteResponse& response) {
+        auto compact_lock = lock_storage_shared();
+        if (response.epoch != compaction_epoch_) {
+            // compaction was launched between delete and repair calls
+            return 0;
+        }
+
+        tsl::robin_set<Idx> targets{};
+        for (auto i : response.internal_ids) {
+            const auto id = static_cast<size_t>(i);
+            if (id < status_.size() && is_deleted(id)) {
+                targets.insert(lib::narrow_cast<Idx>(id));
             }
         }
 

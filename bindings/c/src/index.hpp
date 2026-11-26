@@ -23,6 +23,7 @@
 
 #include <svs/core/data/simple.h>
 #include <svs/core/query_result.h>
+#include <svs/index/vamana/dynamic_index.h>
 #include <svs/index/vamana/index.h>
 #include <svs/lib/misc.h>
 
@@ -63,6 +64,8 @@ struct Index {
     virtual size_t size() const = 0;
 };
 
+using DeleteResponse = svs::index::vamana::DeleteResponse;
+
 struct DynamicIndex : public Index {
     svs_sync_kind_t sync_kind;
     mutable std::optional<std::shared_mutex> mutex;
@@ -92,8 +95,10 @@ struct DynamicIndex : public Index {
         svs::data::ConstSimpleDataView<float> new_points, std::span<const size_t> ids
     ) = 0;
     virtual size_t delete_points(std::span<const size_t> ids) = 0;
+    virtual size_t delete_points(std::span<const size_t> ids, DeleteResponse& response) = 0;
     virtual bool has_id(size_t id) const = 0;
     virtual void consolidate() = 0;
+    virtual size_t repair(const DeleteResponse& response) = 0;
     virtual void compact(size_t batchsize) = 0;
 };
 } // namespace svs::c_runtime

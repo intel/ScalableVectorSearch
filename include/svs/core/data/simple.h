@@ -592,6 +592,12 @@ class SimpleData {
         compact(new_to_old, pool, batchsize);
     }
 
+    template <std::integral I, threads::ThreadPool Pool>
+        requires(!is_const)
+    void compact(std::span<const std::pair<I, I>> old_to_new, Pool& threadpool) {
+        compact_data(*this, old_to_new, threadpool);
+    }
+
   private:
     void resize_impl(size_t new_size, bool force_reallocate) {
         bool forced = force_reallocate && (capacity() != size());
@@ -957,6 +963,11 @@ class SimpleData<T, Extent, Allocator> {
     void compact(std::span<const I> new_to_old, size_t batchsize = 1'000'000) {
         auto pool = threads::SequentialThreadPool();
         compact(new_to_old, pool, batchsize);
+    }
+
+    template <std::integral I, threads::ThreadPool Pool>
+    void compact(std::span<const std::pair<I, I>> old_to_new, Pool& threadpool) {
+        compact_data(*this, old_to_new, threadpool);
     }
 
     ///// Saving

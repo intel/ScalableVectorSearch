@@ -72,6 +72,7 @@ class ReverseEdges {
     }
 
     void set_recording(bool on) { recording_.store(on, std::memory_order_release); }
+    bool recording() const { return recording_.load(std::memory_order_acquire); }
 
     // lists are keeped sorted for fast binary search of elements.
     void record(Idx m, Idx n) {

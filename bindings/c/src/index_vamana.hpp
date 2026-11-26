@@ -130,6 +130,10 @@ struct DynamicIndexVamana : public DynamicIndex {
 
     void consolidate() override;
 
+    size_t delete_points(std::span<const size_t> ids, DeleteResponse& response) override;
+
+    size_t repair(const DeleteResponse& response) override;
+
     void compact(size_t batchsize) override;
 
     size_t get_num_threads() const override {
@@ -183,6 +187,10 @@ struct ConcurrentIndexVamana : public DynamicIndexVamana {
         auto lock = read_lock();
         index.consolidate();
     }
+
+    size_t delete_points(std::span<const size_t> ids, DeleteResponse& response) override;
+
+    size_t repair(const DeleteResponse& response) override;
 
     void compact(size_t batchsize) override {
         // exclusive lock prevents potential deadlock in case of custom threadpool takes

@@ -1693,6 +1693,92 @@ extern "C" bool svs_index_dynamic_delete_points(
     );
 }
 
+struct svs_task {
+    using IndexPtr_t = std::shared_ptr<svs::c_runtime::DynamicIndex>;
+    class AbstractTask {
+      protected:
+        IndexPtr_t index_;
+
+      public:
+        AbstractTask(IndexPtr_t index)
+            : index_(index){};
+
+        virtual ~AbstractTask() = default;
+
+        virtual void execute() const = 0;
+    };
+
+    class RepairTask : public AbstractTask {
+        svs::c_runtime::DeleteResponse response_;
+
+      public:
+        RepairTask(IndexPtr_t index)
+            : AbstractTask(index){};
+
+        void execute() const override { index_->repair(response_); };
+
+        svs::c_runtime::DeleteResponse& get_response() { return response_; }
+    };
+
+    void execute() { task->execute(); }
+
+    svs_task(std::unique_ptr<AbstractTask> _task)
+        : task(std::move(_task)) {}
+
+  private:
+    std::unique_ptr<AbstractTask> task;
+};
+
+extern "C" bool svs_index_dynamic_mark_points_deleted(
+    svs_index_h index,
+    const size_t* ids,
+    size_t num_ids,
+    svs_task_h* follow_up,
+    size_t* out_deleted_count,
+    svs_error_h out_err
+) {
+    using namespace svs::c_runtime;
+    return wrap_exceptions(
+        [&]() {
+            EXPECT_ARG_NOT_NULL(index);
+            EXPECT_ARG_NOT_NULL(ids);
+            EXPECT_ARG_GT_THAN(num_ids, 0);
+            EXPECT_ARG_NOT_NULL(follow_up);
+            auto dynamic_index_ptr = std::dynamic_pointer_cast<DynamicIndex>(index->impl);
+            INVALID_ARGUMENT_IF(
+                dynamic_index_ptr == nullptr, "Index does not support dynamic updates"
+            );
+            auto task = std::make_unique<svs_task::RepairTask>(dynamic_index_ptr);
+            auto& response = task->get_response();
+            auto output = std::make_unique<svs_task>(svs_task{std::move(task)});
+
+            auto deleted_count =
+                dynamic_index_ptr->delete_points(std::span(ids, num_ids), response);
+            if (out_deleted_count) {
+                *out_deleted_count = deleted_count;
+            }
+
+            *follow_up = output.release();
+            return true;
+        },
+        out_err
+    );
+}
+
+extern "C" bool svs_execute_task(svs_task_h task, svs_error_h out_err) {
+    using namespace svs::c_runtime;
+    return wrap_exceptions(
+        [&]() {
+            EXPECT_ARG_NOT_NULL(task);
+            task->execute();
+            return true;
+        },
+        out_err
+    );
+}
+
+extern "C" void svs_task_free(svs_task_h task) { delete task; }
+
 extern "C" bool svs_index_dynamic_has_id(
     svs_index_h index, size_t id, bool* out_has_id, svs_error_h out_err
 ) {

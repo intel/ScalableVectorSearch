@@ -503,7 +503,7 @@ class VamanaBuilder {
                         pruned_results
                     );
                     graph_.replace_node(
-                        node_id, lib::as_const_span(pruned_results), node_lock
+                        node_id, lib::as_const_span(pruned_results), node_lock, eligible_
                     );
                 }
             }
@@ -633,7 +633,7 @@ class VamanaBuilder {
                             pruned_results
                         );
                         graph_.replace_node(
-                            src, lib::as_const_span(pruned_results), node_lock
+                            src, lib::as_const_span(pruned_results), node_lock, eligible_
                         );
                     }
                 }

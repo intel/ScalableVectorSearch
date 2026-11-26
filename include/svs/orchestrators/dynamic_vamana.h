@@ -44,7 +44,14 @@ class DynamicVamanaInterface : public VamanaInterface {
     ) = 0;
 
     virtual void delete_points(std::span<const size_t> ids) = 0;
+    // The response operations below are provided by the concurrent index only.
+    // Like delete_points; also fills `response` and returns how many were deleted.
+    virtual size_t
+    delete_points(std::span<const size_t> ids, index::vamana::DeleteResponse& response) = 0;
     virtual void consolidate() = 0;
+    // Consolidates the slots in `response`.
+    virtual size_t repair_incoming_connections(const index::vamana::DeleteResponse& response
+    ) = 0;
     virtual void compact(size_t batchsize = 1'000'000) = 0;
 
     // ID inspection.
@@ -85,6 +92,26 @@ class DynamicVamanaImpl : public VamanaImpl<QueryTypes, Impl, DynamicVamanaInter
 
     void delete_points(std::span<const size_t> ids) override { impl().delete_entries(ids); }
     void consolidate() override { impl().consolidate(); }
+    size_t delete_points(
+        std::span<const size_t> ids, index::vamana::DeleteResponse& response
+    ) override {
+        if constexpr (requires { impl().delete_entries(ids, &response); }) {
+            return impl().delete_entries(ids, &response);
+        } else {
+            throw ANNEXCEPTION("Reporting internal IDs is not supported by this index type."
+            );
+        }
+    }
+    size_t repair_incoming_connections(const index::vamana::DeleteResponse& response
+    ) override {
+        if constexpr (requires { impl().repair_incoming_connections(response); }) {
+            return impl().repair_incoming_connections(response);
+        } else {
+            throw ANNEXCEPTION(
+                "Consolidating internal IDs is not supported by this index type."
+            );
+        }
+    }
     void compact(size_t batchsize) override { impl().compact(batchsize); }
 
     // ID inspection.
@@ -182,6 +209,10 @@ class DynamicVamana : public manager::IndexManager<DynamicVamanaInterface> {
         return *this;
     }
 
+    size_t repair_incoming_connections(const index::vamana::DeleteResponse& response) {
+        return impl_->repair_incoming_connections(response);
+    }
+
     DynamicVamana& compact(size_t batchsize = 1'000'000) {
         impl_->compact(batchsize);
         return *this;
@@ -201,6 +232,11 @@ class DynamicVamana : public manager::IndexManager<DynamicVamanaInterface> {
     DynamicVamana& delete_points(std::span<const size_t> ids) {
         impl_->delete_points(ids);
         return *this;
+    }
+
+    size_t
+    delete_points(std::span<const size_t> ids, index::vamana::DeleteResponse& response) {
+        return impl_->delete_points(ids, response);
     }
 
     // Accessors

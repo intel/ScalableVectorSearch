@@ -649,8 +649,8 @@ struct svs_dynamic_index_params {
 ///
 /// @remarks Thread-safety: unless a specific function documents otherwise, handles
 /// (svs_error_h, svs_index_h, svs_index_builder_h, svs_algorithm_h, svs_storage_h,
-/// svs_search_params_h) are not internally synchronized. Do not operate on the same
-/// handle from multiple threads concurrently without external synchronization.
+/// svs_search_params_h, svs_task_h) are not internally synchronized. Do not operate on
+/// the samehandle from multiple threads concurrently without external synchronization.
 /// Exception: dynamic indices built or loaded with a svs_sync_kind other than
 /// SVS_SYNC_KIND_NONE are internally synchronized, with the limits listed in
 /// svs_sync_kind.
@@ -661,6 +661,7 @@ typedef struct svs_storage* svs_storage_h;
 typedef struct svs_search_params* svs_search_params_h;
 typedef struct svs_leanvec_training_data* svs_leanvec_training_data_h;
 typedef struct svs_logger* svs_logger_h;
+typedef struct svs_task* svs_task_h;
 
 // Fully defined types; "_t" suffix indicates a fully defined struct
 typedef enum svs_error_code svs_error_code_t;
@@ -1647,6 +1648,44 @@ SVS_API bool svs_index_dynamic_delete_points(
     size_t* out_deleted_count /*=NULL*/,
     svs_error_h out_err /*=NULL*/
 );
+
+/// @brief Start deletion of points from a dynamic index,
+//  returns a task that finalize the deletion.
+//  Points aren't returnable by search after this operation.
+/// @param index The dynamic index handle
+/// @param ids Pointer to the vector IDs to delete (size_t array)
+/// @param num_ids The number of vector IDs to delete
+/// @param follow_up Receives the task on success, not written on failure.
+//  Free it with svs_task_free()
+/// @param out_deleted_count Optional pointer to store the number of successfully deleted
+/// vectors
+/// @param out_err An optional error handle to capture errors
+/// @return true on success, false on failure
+/// @error SVS_ERROR_NOT_IMPLEMENTED if @p index doesn't use SVS_SYNC_KIND_FINE_GRAIN or
+/// @p num_ids is greater than 1
+SVS_API bool svs_index_dynamic_mark_points_deleted(
+    svs_index_h index,
+    const size_t* ids,
+    size_t num_ids,
+    svs_task_h* follow_up,
+    size_t* out_deleted_count /*=NULL*/,
+    svs_error_h out_err /*=NULL*/
+);
+
+/// @brief Finalize a two-stage task being started by one of the following calls:
+//  svs_index_dynamic_mark_points_deleted()
+/// @param task The task handle
+/// @param out_err An optional error handle to capture errors
+/// @return true on success, false on failure
+SVS_API bool svs_execute_task(
+    svs_task_h task, svs_error_h out_err /*=NULL*/
+);
+
+/// @brief Free the task handle
+/// @param task The task handle to free
+/// @remarks A task keeps its index alive: the index is released only when the index
+/// handle and all of its tasks are freed.
+SVS_API void svs_task_free(svs_task_h task);
 
 /// @brief Check if a dynamic index has a specific ID
 /// @param index The dynamic index handle

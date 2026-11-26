@@ -25,6 +25,7 @@
 #include "svs/lib/boundscheck.h"
 #include "svs/lib/concurrency/atomic_span.h"
 #include "svs/lib/concurrency/seqlock.h"
+#include "svs/lib/misc.h"
 #include "svs/lib/saveload.h"
 #include "svs/lib/segmented_vector.h"
 #include "svs/lib/threads.h"
@@ -257,13 +258,20 @@ template <std::unsigned_integral Idx, data::MemoryDataset Data> class SimpleGrap
     }
 
     /// Replace under an already-held source lock, without acquiring it twice.
+    ///
+    /// `eligible` is checked for each new neighbor after its reverse edge is recorded,
+    /// and a rejected neighbor is dropped. A consolidation of that neighbor then either
+    /// finds `i` in its reverse edges, or this check sees the deletion. The default
+    /// accepts all neighbors.
+    template <typename Eligible = lib::ReturnsTrueType>
     void replace_node(
         Idx i,
         std::span<const Idx> new_neighbors,
-        [[maybe_unused]] const std::unique_lock<SpinLock>& lock
+        [[maybe_unused]] const std::unique_lock<SpinLock>& lock,
+        const Eligible& eligible = {}
     ) {
         assert(lock.owns_lock() && lock.mutex() == &node_locks_[i]);
-        replace_node_locked(i, new_neighbors);
+        replace_node_locked(i, new_neighbors, eligible);
     }
 
     ///
@@ -499,7 +507,9 @@ template <std::unsigned_integral Idx, data::MemoryDataset Data> class SimpleGrap
         replace_node_locked(i, new_neighbors);
     }
 
-    template <typename Span> void replace_node_locked(Idx i, const Span& new_neighbors) {
+    template <typename Span, typename Eligible = lib::ReturnsTrueType>
+    void
+    replace_node_locked(Idx i, const Span& new_neighbors, const Eligible& eligible = {}) {
         std::span<Idx> raw_data = data_.get_datum(i);
 
         // Clamp the number of elements to copy to the maximum out degree to correctly
@@ -509,7 +519,9 @@ template <std::unsigned_integral Idx, data::MemoryDataset Data> class SimpleGrap
 
         // [Exact list]
         // std::vector<Idx> edges_to_remove;
-        if (reverse_edges_) {
+        // These scans only feed record() and the `eligible` check, so they run only
+        // while recording.
+        if (reverse_edges_ && reverse_edges_->recording()) {
             Idx old_size = relaxed_load(raw_data[0]);
             old_size = std::min(old_size, max_degree_);
 
@@ -530,12 +542,15 @@ template <std::unsigned_integral Idx, data::MemoryDataset Data> class SimpleGrap
                 return false;
             };
 
+            bool rejected = false;
             for (Idx k = 0; k < elements_to_copy; ++k) {
                 Idx dst = new_neighbors[k];
                 if (in_old(dst))
                     continue;
 
                 reverse_edges_->record(i, dst);
+                // The check must come after record(): see replace_node().
+                rejected = rejected || !eligible(dst);
                 // [Exact list]
                 // Commented lines with [Exact list] mark
                 // can be used to maintain exact reverse_edges list
@@ -561,6 +576,19 @@ template <std::unsigned_integral Idx, data::MemoryDataset Data> class SimpleGrap
                 // if (has_edge(dst, i)) {
                 //     reverse_edges_->record(dst, i);
                 // }
+            }
+
+            if (rejected) {
+                // Rare race: publish the list without the rejected new neighbors.
+                std::vector<Idx> kept{};
+                for (Idx k = 0; k < elements_to_copy; ++k) {
+                    Idx dst = new_neighbors[k];
+                    if (in_old(dst) || eligible(dst)) {
+                        kept.push_back(dst);
+                    }
+                }
+                replace_node_locked(i, lib::as_const_span(kept));
+                return;
             }
         }
 
