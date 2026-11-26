@@ -277,7 +277,7 @@ Invalid parameters are rejected with `SVS_ERROR_INVALID_ARGUMENT`; unlike the le
 | `svs_sync_kind_t` | Behavior |
 |-----------------|----------|
 | `SVS_SYNC_KIND_NONE` | No internal synchronization (default); the caller must serialize access |
-| `SVS_SYNC_KIND_GLOBAL` | Index-wide reader/writer lock: read-only operations (search, `has_id`, `get_distance`, reconstruct, `get_size`, `get_num_threads`, memory queries, use as a conversion source) run concurrently; mutating operations (add/delete points, consolidate, compact, save, `set_num_threads`) are exclusive |
+| `SVS_SYNC_KIND_GLOBAL` | Index-wide reader/writer lock: read-only operations (search, `has_id`, `get_distance`, reconstruct, `get_size`, `get_num_threads`, `get_prefetch_{lookahead,step}`, memory queries, use as a conversion source) run concurrently; mutating operations (add/delete points, consolidate, compact, save, `set_num_threads`) are exclusive |
 | `SVS_SYNC_KIND_FINE_GRAIN` | Backed by the concurrent Vamana index, which synchronizes updates itself: read-only operations and add/delete points, consolidate, compact all take a shared lock and run in parallel (compact still waits inside the index). Save, `set_num_threads`, memory queries and use as a conversion source are exclusive |
 
 Synchronization limits:
@@ -657,7 +657,7 @@ for full signatures, parameters, and Doxygen documentation.
 | **Memory estimation** | `svs_index_builder_estimate_memory`, `svs_index_builder_estimate_memory_dynamic[_ex]`, `svs_index_builder_estimate_search_memory`, `svs_index_builder_estimate_search_memory_dynamic[_ex]`, `svs_index_builder_get_default_blocksize_bytes` |
 | **Index lifecycle** | `svs_index_build`, `svs_index_build_dynamic[_ex]`, `svs_index_convert`, `svs_index_convert_dynamic[_ex]`, `svs_index_load`, `svs_index_load_dynamic[_ex]`, `svs_index_load_stream`, `svs_index_load_stream_dynamic[_ex]`, `svs_index_save`, `svs_index_save_stream`, `svs_index_free` |
 | **Dynamic ops** | `svs_index_dynamic_{add_points,delete_points,has_id,consolidate,compact,get_sync_kind}` |
-| **Introspection** | `svs_index_get_num_threads` / `set_num_threads`, `svs_index_get_distance`, `svs_index_reconstruct`, `svs_index_get_memory_usage`, `svs_index_get_memory_breakdown` |
+| **Introspection** | `svs_index_get_num_threads` / `set_num_threads`, `svs_index_get_prefetch_{lookahead,step}`, `svs_index_get_distance`, `svs_index_reconstruct`, `svs_index_get_memory_usage`, `svs_index_get_memory_breakdown` |
 | **Search** | `svs_index_search_topk` (+ deprecated `svs_index_search`), `svs_search_results_free` |
 
 ### Conventions

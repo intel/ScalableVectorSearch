@@ -31,6 +31,7 @@
 #include <svs/core/translation.h>
 #include <svs/index/vamana/build_params.h>
 #include <svs/index/vamana/dynamic_index.h>
+#include <svs/index/vamana/extensions.h>
 #include <svs/lib/dispatcher.h>
 #include <svs/lib/narrow.h>
 #include <svs/lib/threads/threadpool.h>
@@ -165,6 +166,14 @@ svs::DynamicVamana copy_dynamic_vamana_index(
     auto data_allocator =
         allocator_type{block_params, allocator_builder.build<value_type>()};
     auto data = dst_builder.build(src_data, pool, data_allocator);
+
+    // The source's search parameters carry prefetch settings estimated from the source
+    // data. Re-estimate them for the converted data, as a freshly built index would.
+    {
+        auto prefetch = svs::index::vamana::extensions::estimate_prefetch_parameters(data);
+        config.search_parameters.prefetch_lookahead(prefetch.lookahead)
+            .prefetch_step(prefetch.step);
+    }
 
     auto graph_allocator = typename DstFlavor::graph_allocator_type{
         block_params, allocator_builder.build_for_graph<uint32_t>()};

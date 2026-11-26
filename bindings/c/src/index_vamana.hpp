@@ -72,6 +72,10 @@ struct IndexVamana : public Index {
         return index.get_memory_breakdown();
     }
 
+    svs::index::vamana::VamanaSearchParameters get_search_parameters() const override {
+        return index.get_search_parameters();
+    }
+
     size_t size() const override { return index.size(); }
 };
 
@@ -142,6 +146,11 @@ struct DynamicIndexVamana : public DynamicIndex {
     svs::index::vamana::MemoryBreakdown get_memory_breakdown() const override {
         auto lock = read_lock();
         return index.get_memory_breakdown();
+    }
+
+    svs::index::vamana::VamanaSearchParameters get_search_parameters() const override {
+        auto lock = read_lock();
+        return index.get_search_parameters();
     }
 
     size_t size() const override {
