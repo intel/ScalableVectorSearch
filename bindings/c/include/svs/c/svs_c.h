@@ -536,7 +536,9 @@ static inline void svs_search_results_row(
     const float** out_distances,
     size_t* out_count
 ) {
-    if (q >= results->num_queries) {
+    size_t begin = q < results->num_queries ? results->offsets[q] : 0;
+    size_t end = q < results->num_queries ? results->offsets[q + 1] : 0;
+    if (begin == end) {
         if (out_ids) {
             *out_ids = NULL;
         }
@@ -548,8 +550,6 @@ static inline void svs_search_results_row(
         }
         return;
     }
-    size_t begin = results->offsets[q];
-    size_t end = results->offsets[q + 1];
     if (out_ids) {
         *out_ids = results->indices + begin;
     }
@@ -607,8 +607,9 @@ struct svs_memory_breakdown {
 ///   operations that need an exclusive lock.
 /// * With FINE_GRAIN, counts returned by add_points/delete_points and the index size
 ///   reflect a point in time and may be affected by concurrent updates.
-/// * With FINE_GRAIN, search, add_points and delete_points accept at most one query,
-///   vector or ID per call; larger batches fail with SVS_ERROR_NOT_IMPLEMENTED.
+/// * With FINE_GRAIN, TopK search, range search, add_points and delete_points accept at
+///   most one query, vector or ID per call; larger batches fail with
+///   SVS_ERROR_NOT_IMPLEMENTED.
 /// * The sync kind is a runtime property: it is not persisted by svs_index_save(), so
 ///   pass it again to svs_index_load_dynamic_ex().
 enum svs_sync_kind {
@@ -1540,6 +1541,8 @@ SVS_API bool svs_index_get_size(
 /// @param id_filter The ID filter interface (can be NULL for no filtering)
 /// @param out_err An optional error handle to capture errors
 /// @return true on success, false on failure
+/// @error SVS_ERROR_INVALID_ARGUMENT if caller-owned buffers in @p out_results hold
+/// fewer than @p num_queries + 1 offsets or @p num_queries * @p k results
 /// @error SVS_ERROR_NOT_IMPLEMENTED if @p index is a dynamic index with
 /// SVS_SYNC_KIND_FINE_GRAIN and @p num_queries is greater than 1
 SVS_API bool svs_index_search_topk(
@@ -1547,6 +1550,51 @@ SVS_API bool svs_index_search_topk(
     const float* queries,
     size_t num_queries,
     size_t k,
+    svs_search_results_t* out_results,
+    svs_search_params_h search_params /*=NULL*/,
+    svs_id_filter_i id_filter /*=NULL*/,
+    svs_error_h out_err /*=NULL*/
+);
+
+/// @brief Range search the index with the provided queries and an optional ID filter
+/// @details Returns, for each query, every neighbor meeting the inclusive radius threshold:
+/// distance <= @p radius for SVS_DISTANCE_METRIC_EUCLIDEAN (squared L2), and similarity >=
+/// @p radius for SVS_DISTANCE_METRIC_DOT_PRODUCT and SVS_DISTANCE_METRIC_COSINE. Results
+/// are approximate, like TopK search, and each row is ordered from closest to farthest.
+/// Rows have a variable number of results, possibly zero, capped by @p max_results;
+/// results are written into
+/// @p out_results in CSR layout (see svs_search_results). If ID filter is provided, only
+/// the results that pass the filter are returned. If ID filter is provided with
+/// `filter_rate > 0.0` and the observed filter hit rate is less than `filter_rate`, the
+/// affected rows (or all rows, if detected before the search) are returned empty.
+/// @note After use, release library-owned buffers with svs_search_results_free().
+/// @param index The index handle
+/// @param queries Pointer to the query data (float array)
+/// @param num_queries The number of query vectors
+/// @param radius The distance (or similarity) threshold, in the units of the index metric
+/// @param max_results The maximum number of results per query, or 0 for no limit. A
+///   limited row holds the closest in-range neighbors and the search for that query stops
+///   once the row is full, so a row of exactly @p max_results results may be truncated.
+/// @param out_results Pointer to a caller-provided results structure (typically
+///   initialized with SVS_INIT_SEARCH_RESULTS()). See svs_search_results for
+///   ownership and buffer-reuse semantics. The number of results is not known in
+///   advance, so caller-owned buffers must be large enough for the actual result count;
+///   @p num_queries * @p max_results results always suffice when @p max_results is set.
+/// @param search_params The search parameters handle (can be NULL for defaults); the
+///   search window size also sets the batch size used to walk the graph
+/// @param id_filter The ID filter interface (can be NULL for no filtering)
+/// @param out_err An optional error handle to capture errors
+/// @return true on success, false on failure
+/// @error SVS_ERROR_INVALID_ARGUMENT if caller-owned buffers in @p out_results are too
+/// small for the results; @p out_results is left unchanged
+/// @error SVS_ERROR_NOT_IMPLEMENTED if @p index is a dynamic index with
+/// SVS_SYNC_KIND_FINE_GRAIN and @p num_queries is greater than 1
+SVS_API bool svs_index_search_range(
+    svs_index_h index,
+    const float* queries,
+    size_t num_queries,
+    float radius,
+    size_t max_results /*=0*/,
     svs_search_results_t* out_results,
     svs_search_params_h search_params /*=NULL*/,
     svs_id_filter_i id_filter /*=NULL*/,

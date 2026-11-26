@@ -23,6 +23,7 @@
 #include "index_builder.hpp"
 #include "leanvec_training_data.hpp"
 #include "logger.hpp"
+#include "search_results.hpp"
 #include "storage.hpp"
 #include "stream.hpp"
 #include "threadpool.hpp"
@@ -1460,58 +1461,6 @@ extern "C" bool svs_index_get_size(
     );
 }
 
-namespace {
-
-// Ensures out_results has at least `min_capacity` results and
-// `min_offsets_capacity` offset entries; grows library-owned buffers as needed.
-// For caller-owned buffers, insufficient capacity is a hard error.
-inline void ensure_search_results_capacity(
-    svs_search_results_t* r, size_t min_offsets_capacity, size_t min_results_capacity
-) {
-    if (r->owns_buffers) {
-        if (r->offsets_capacity < min_offsets_capacity) {
-            delete[] r->offsets;
-            r->offsets = nullptr;
-            r->offsets_capacity = 0;
-            r->offsets = new size_t[min_offsets_capacity];
-            r->offsets_capacity = min_offsets_capacity;
-        }
-        if (r->results_capacity < min_results_capacity) {
-            delete[] r->indices;
-            delete[] r->distances;
-            r->indices = nullptr;
-            r->distances = nullptr;
-            r->results_capacity = 0;
-            // Use temporary unique_ptr to ensure exception safety during allocation.
-            auto indices = std::make_unique_for_overwrite<size_t[]>(min_results_capacity);
-            auto distances = std::make_unique_for_overwrite<float[]>(min_results_capacity);
-            r->indices = indices.release();
-            r->distances = distances.release();
-            r->results_capacity = min_results_capacity;
-        }
-    } else if (r->offsets == nullptr && r->indices == nullptr && r->distances == nullptr) {
-        // Descriptor was zero-initialized: take ownership and allocate.
-        // Use temporary unique_ptr to ensure exception safety during allocation.
-        auto offsets = std::make_unique_for_overwrite<size_t[]>(min_offsets_capacity);
-        auto indices = std::make_unique_for_overwrite<size_t[]>(min_results_capacity);
-        auto distances = std::make_unique_for_overwrite<float[]>(min_results_capacity);
-        r->offsets = offsets.release();
-        r->offsets_capacity = min_offsets_capacity;
-        r->indices = indices.release();
-        r->distances = distances.release();
-        r->results_capacity = min_results_capacity;
-        r->owns_buffers = true;
-    } else {
-        INVALID_ARGUMENT_IF(
-            r->offsets_capacity < min_offsets_capacity ||
-                r->results_capacity < min_results_capacity,
-            "Caller-provided svs_search_results buffers are too small"
-        );
-    }
-}
-
-} // namespace
-
 extern "C" bool svs_index_search_topk(
     svs_index_h index,
     const float* queries,
@@ -1532,16 +1481,10 @@ extern "C" bool svs_index_search_topk(
             EXPECT_ARG_NOT_NULL(out_results);
             auto& index_ptr = index->impl;
             INVALID_ARGUMENT_IF(index_ptr == nullptr, "Invalid index handle");
-            INVALID_ARGUMENT_IF(
-                out_results->version > svs_get_version(),
-                "Incompatible svs_search_results_t version"
-            );
-            INVALID_ARGUMENT_IF(
-                out_results->struct_size > sizeof(svs_search_results_t),
-                "Incompatible svs_search_results_t struct_size"
-            );
+            SearchResults results{*out_results};
+            results.validate();
             // Early fail if no enough capacity in caller-owned buffers.
-            ensure_search_results_capacity(out_results, num_queries + 1, num_queries * k);
+            results.reserve(num_queries, k);
 
             auto queries_view = svs::data::ConstSimpleDataView<float>(
                 queries, num_queries, index_ptr->dimensions()
@@ -1556,24 +1499,52 @@ extern "C" bool svs_index_search_topk(
                 id_filter == nullptr ? nullptr : &id_filter_adapter
             );
 
-            out_results->num_queries = num_queries;
-            out_results->total_results = std::accumulate(
-                found_neighbors_per_query.begin(),
-                found_neighbors_per_query.end(),
-                size_t{0}
+            results.assign(search_results, found_neighbors_per_query);
+            return true;
+        },
+        out_err
+    );
+}
+
+extern "C" bool svs_index_search_range(
+    svs_index_h index,
+    const float* queries,
+    size_t num_queries,
+    float radius,
+    size_t max_results,
+    svs_search_results_t* out_results,
+    svs_search_params_h search_params,
+    svs_id_filter_i id_filter,
+    svs_error_h out_err
+) {
+    using namespace svs::c_runtime;
+    return wrap_exceptions(
+        [&]() {
+            EXPECT_ARG_NOT_NULL(index);
+            EXPECT_ARG_NOT_NULL(queries);
+            EXPECT_ARG_GT_THAN(num_queries, 0);
+            EXPECT_ARG_NOT_NULL(out_results);
+            auto& index_ptr = index->impl;
+            INVALID_ARGUMENT_IF(index_ptr == nullptr, "Invalid index handle");
+            SearchResults results{*out_results};
+            results.validate();
+            // Early fail if no enough offsets capacity in caller-owned buffers.
+            results.reserve(num_queries, 0);
+
+            auto queries_view = svs::data::ConstSimpleDataView<float>(
+                queries, num_queries, index_ptr->dimensions()
             );
 
-            size_t result_index = 0;
-            for (size_t i = 0; i < num_queries; ++i) {
-                out_results->offsets[i] = result_index;
-                for (size_t j = 0; j < found_neighbors_per_query[i]; ++j) {
-                    out_results->indices[result_index] = search_results.index(i, j);
-                    out_results->distances[result_index] = search_results.distance(i, j);
-                    ++result_index;
-                }
-            }
-            out_results->offsets[num_queries] = result_index; // sentinel
+            IDFilterAdapter id_filter_adapter(id_filter);
 
+            index_ptr->search_range(
+                results,
+                queries_view,
+                radius,
+                max_results,
+                search_params == nullptr ? nullptr : search_params->impl,
+                id_filter == nullptr ? nullptr : &id_filter_adapter
+            );
             return true;
         },
         out_err
@@ -1584,20 +1555,7 @@ extern "C" void svs_search_results_free(svs_search_results_t* results) {
     if (results == nullptr) {
         return;
     }
-    results->num_queries = 0;
-    results->total_results = 0;
-    if (!results->owns_buffers) {
-        return; // caller-owned: leave pointers/capacities intact.
-    }
-    delete[] results->offsets;
-    delete[] results->indices;
-    delete[] results->distances;
-    results->offsets = nullptr;
-    results->indices = nullptr;
-    results->distances = nullptr;
-    results->offsets_capacity = 0;
-    results->results_capacity = 0;
-    results->owns_buffers = false;
+    svs::c_runtime::SearchResults{*results}.reset();
 }
 
 extern "C" bool
