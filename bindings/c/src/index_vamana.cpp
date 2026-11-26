@@ -247,6 +247,20 @@ void DynamicIndexVamana::consolidate() {
     index.consolidate();
 }
 
+size_t DynamicIndexVamana::delete_points(
+    std::span<const size_t> /*ids*/, DeleteResponse& /*response*/
+) {
+    throw not_implemented(
+        "Reporting internal IDs is only supported by FINE GRAIN dynamic indices."
+    );
+}
+
+size_t DynamicIndexVamana::repair(const DeleteResponse& /*response*/) {
+    throw not_implemented(
+        "Consolidating internal IDs is only supported by FINE GRAIN dynamic indices."
+    );
+}
+
 void DynamicIndexVamana::compact(size_t batchsize) {
     auto lock = write_lock();
     // Ensure the index is consolidated before compacting.
@@ -318,6 +332,31 @@ size_t ConcurrentIndexVamana::delete_points(std::span<const size_t> ids) {
     }
     auto lock = read_lock();
     return delete_points_unlocked(ids);
+}
+
+size_t ConcurrentIndexVamana::delete_points(
+    std::span<const size_t> ids, DeleteResponse& response
+) {
+    assert(sync_kind == SVS_SYNC_KIND_FINE_GRAIN);
+    if (ids.size() > 1) {
+        throw not_implemented(
+            "FINE GRAIN dynamic index only supports deleting one point at a time."
+        );
+    }
+    auto lock = read_lock();
+    return index.delete_points(ids, response);
+}
+
+size_t ConcurrentIndexVamana::repair(const DeleteResponse& response) {
+    assert(sync_kind == SVS_SYNC_KIND_FINE_GRAIN);
+    if (response.internal_ids.size() > 1) {
+        throw not_implemented(
+            "FINE GRAIN dynamic index only supports repairment one point at a time."
+        );
+    }
+    auto lock = read_lock();
+    // The index skips the repair if it was compacted since the delete.
+    return index.repair_incoming_connections(response);
 }
 
 } // namespace svs::c_runtime

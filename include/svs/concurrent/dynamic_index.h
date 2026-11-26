@@ -1329,14 +1329,19 @@ class MutableVamanaIndex {
     ///   graph.
     ///
     /// @param ids External IDs to delete. Missing or already deleted IDs are skipped.
-    /// @param internal_ids If not null, the internal ID of each entry deleted by this
-    ///     call is appended. Keep them for `compact(ids)`: after `consolidate()` the
-    ///     external ID is gone and can no longer be translated.
+    /// @param response If not null, it is overwritten with the internal ID of each entry
+    ///     deleted by this call and the current compaction epoch.
     ///
     template <typename T>
-    size_t delete_entries(const T& ids, std::vector<Idx>* internal_ids = nullptr) {
+    size_t delete_entries(const T& ids, DeleteResponse* response = nullptr) {
         auto compact_lock = lock_storage_shared();
         std::shared_lock lock{*translator_mutex_};
+
+        if (response != nullptr) {
+            response->internal_ids.clear();
+            response->epoch = compaction_epoch_;
+        }
+
         size_t deleted = 0;
         for (auto i : ids) {
             if (!translator_.has_external(i)) {
@@ -1348,8 +1353,8 @@ class MutableVamanaIndex {
             }
             delete_entry(internal);
             ++deleted;
-            if (internal_ids != nullptr) {
-                internal_ids->push_back(lib::narrow_cast<Idx>(internal));
+            if (response != nullptr) {
+                response->internal_ids.push_back(internal);
             }
         }
         // Don't erase translator entries here — concurrent search may still
@@ -1841,23 +1846,30 @@ class MutableVamanaIndex {
     }
 
     ///
-    /// @brief Consolidate only the soft-deleted slots listed in `internal_ids`.
+    /// @brief Consolidate only the soft-deleted slots listed in `response`.
     ///
     /// * Same effect as `consolidate(ids)`, addressed by internal ID, so it also reaches
     ///   a Deleted slot whose external ID was reassigned by a later `add_points`.
-    ///   `delete_entries()` can report the internal IDs.
+    ///
+    /// * Does nothing if the index was compacted after `delete_entries()` filled
+    ///   `response`: its internal IDs may now name other slots.
     ///
     /// * Listed slots that are not currently Deleted, or are outside the index, are
     ///   skipped.
     ///
-    /// @returns The number of listed slots that were consolidated.
+    /// @param response What `delete_entries()` reported.
     ///
-    template <std::ranges::input_range Ids>
-    size_t repair_incomming_connections(Ids&& internal_ids) {
+    /// @returns The number of listed slots that were consolidated
+    ///
+    size_t repair_incoming_connections(const DeleteResponse& response) {
         auto compact_lock = lock_storage_shared();
+        if (response.epoch != compaction_epoch_) {
+            // compaction was launched between delete and repair calls
+            return 0;
+        }
 
         tsl::robin_set<Idx> targets{};
-        for (auto i : internal_ids) {
+        for (auto i : response.internal_ids) {
             const auto id = static_cast<size_t>(i);
             if (id < status_.size() && is_deleted(id)) {
                 targets.insert(lib::narrow_cast<Idx>(id));

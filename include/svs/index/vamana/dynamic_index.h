@@ -20,6 +20,7 @@
 #include <algorithm>
 #include <memory>
 #include <stdexcept>
+#include <vector>
 
 // Include the flat index to spin-up exhaustive searches on demand.
 #include "svs/index/flat/flat.h"
@@ -91,6 +92,20 @@ inline constexpr std::string_view name(SlotMetadata metadata) {
     throw ANNEXCEPTION("Unreachable!");
 }
 // clang-format on
+
+///
+/// @brief What the concurrent index's `delete_entries()` reports for a later
+/// `repair_incoming_connections()`.
+///
+/// Internal IDs change only when the index is compacted, so the IDs are valid only
+/// while `epoch` matches the index.
+///
+struct DeleteResponse {
+    /// Internal IDs of the entries the call deleted.
+    std::vector<size_t> internal_ids;
+    /// Compaction epoch of the index when they were deleted.
+    size_t epoch = 0;
+};
 
 class ValidBuilder {
   public:
