@@ -24,6 +24,7 @@
 #include "svs/core/query_result.h"
 #include "svs/core/recall.h"
 #include "svs/index/vamana/calibrate.h"
+#include "svs/index/vamana/dynamic_search_buffer.h"
 #include "svs/index/vamana/extensions.h"
 #include "svs/index/vamana/greedy_search.h"
 #include "svs/index/vamana/search_buffer.h"
@@ -39,6 +40,7 @@
 #include <concepts>
 #include <filesystem>
 #include <fstream>
+#include <functional>
 #include <iostream>
 #include <string>
 #include <string_view>
@@ -49,6 +51,22 @@
 namespace svs::index::vamana {
 
 template <typename Index, typename QueryType> class BatchIterator;
+
+// Marks candidates failing the filter invalid.
+template <typename Filter> class FilteredNeighborBuilder {
+  public:
+    explicit FilteredNeighborBuilder(const Filter& filter)
+        : filter_{&filter} {}
+
+    template <typename I>
+    constexpr PredicatedSearchNeighbor<I> operator()(I i, float distance) const {
+        bool valid = (*filter_)(static_cast<size_t>(i));
+        return PredicatedSearchNeighbor<I>(i, distance, valid);
+    }
+
+  private:
+    const Filter* filter_;
+};
 
 struct VamanaIndexParameters {
     // Members
@@ -485,13 +503,23 @@ class VamanaIndex {
     // This is an internal method, mostly used to help implement the batch iterator.
     static NeighborBuilder internal_search_builder() { return NeighborBuilder(); }
 
+    template <bool Filtered = false>
     auto greedy_search_closure(
         GreedySearchPrefetchParameters prefetch_parameters,
-        const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>())
+        const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>()),
+        const std::function<bool(size_t)>* filter = nullptr
     ) const {
-        return [&, prefetch_parameters](
-                   const auto& query, auto& accessor, auto& distance, auto& buffer
-               ) {
+        return [&,
+                prefetch_parameters,
+                filter](const auto& query, auto& accessor, auto& distance, auto& buffer) {
+            static_cast<void>(filter); // Unused in regular search.
+            auto builder = [&] {
+                if constexpr (Filtered) {
+                    return FilteredNeighborBuilder<std::function<bool(size_t)>>{*filter};
+                } else {
+                    return internal_search_builder();
+                }
+            }();
             greedy_search(
                 graph_,
                 data_,
@@ -500,10 +528,14 @@ class VamanaIndex {
                 distance,
                 buffer,
                 vamana::EntryPointInitializer<Idx>{lib::as_const_span(entry_point_)},
-                internal_search_builder(),
+                builder,
                 prefetch_parameters,
                 cancel
             );
+            if constexpr (Filtered) {
+                // Remove the invalid entries that remain in the buffer.
+                buffer.cleanup();
+            }
         };
     }
 
@@ -578,12 +610,46 @@ class VamanaIndex {
         QueryResultView<I> result,
         const Queries& queries,
         const search_parameters_type& search_parameters,
-        const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>())
+        const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>()),
+        const std::function<bool(size_t)>* filter = nullptr
     ) {
         threads::parallel_for(
             threadpool_,
             threads::StaticPartition{queries.size()},
             [&](const auto is, uint64_t SVS_UNUSED(tid)) {
+                if (filter != nullptr) {
+                    [&]() __attribute__((noinline)) {
+                        // The filtered search buffer must hold invalid entries.
+                        auto search_buffer = MutableBuffer<Idx, distance::compare_t<Dist>>{
+                            search_parameters.buffer_config_.get_total_capacity() <
+                                    result.n_neighbors()
+                                ? SearchBufferConfig{result.n_neighbors()}
+                                : search_parameters.buffer_config_,
+                            distance::comparator(distance_),
+                            search_parameters.search_buffer_visited_set_};
+                        auto prefetch_parameters = GreedySearchPrefetchParameters{
+                            search_parameters.prefetch_lookahead_,
+                            search_parameters.prefetch_step_};
+                        auto scratch =
+                            extensions::per_thread_batch_search_setup(data_, distance_);
+                        extensions::per_thread_batch_search(
+                            data_,
+                            search_buffer,
+                            scratch,
+                            queries,
+                            result,
+                            threads::UnitRange{is},
+                            greedy_search_closure<true>(
+                                prefetch_parameters, cancel, filter
+                            ),
+                            *this,
+                            cancel
+                        );
+                    }
+                    ();
+                    return;
+                }
+
                 // The number of neighbors to store in the result.
                 size_t num_neighbors = result.n_neighbors();
 
