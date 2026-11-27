@@ -24,8 +24,12 @@
 #include "svs/index/vamana/greedy_search.h"
 #include "svs/lib/invoke.h"
 #include "svs/lib/misc.h"
+#include "svs/lib/neighbor.h"
 #include "svs/lib/preprocessor.h"
 #include "svs/lib/threads.h"
+#include "svs/lib/type_traits.h"
+
+#include <type_traits>
 
 namespace svs::index::vamana::extensions {
 
@@ -449,6 +453,21 @@ void check_and_supplement_search_buffer(
     }
 }
 
+/// @brief Passed to ``single_search`` in place of the index to skip the buffer top-up.
+///
+/// The search extensions read nothing but ``needs_id_translation`` from the index.
+template <typename Index> struct SupplementSuppressed {
+    SupplementSuppressed() = default;
+    explicit SupplementSuppressed(const Index&) {}
+    static constexpr bool needs_id_translation = false;
+};
+
+/// The index type to pass to ``single_search``. The top-up ignores filters, so filtered
+/// searches set ``Supplement`` to false.
+template <typename Index, bool Supplement>
+using supplement_index_t =
+    std::conditional_t<Supplement, const Index&, SupplementSuppressed<Index>>;
+
 /// Customization point object for processing single queries.
 inline constexpr VamanaSingleSearchType single_search{};
 
@@ -551,6 +570,31 @@ struct VamanaPerThreadBatchSearchType {
 /// @brief Customization point object for batch search.
 inline constexpr VamanaPerThreadBatchSearchType per_thread_batch_search{};
 
+///
+/// @brief Copy the leading entries of ``search_buffer`` to row ``i`` of ``result``.
+///
+/// @param search_buffer The buffer holding the results of the search for query ``i``.
+/// @param result The global result buffer.
+/// @param i The row of ``result`` to fill.
+///
+/// A buffer with fewer than ``result.n_neighbors()`` entries (e.g. after a selective
+/// filter) leaves the rest of the row padded with sentinel neighbors, see
+/// ``svs::type_traits::sentinel_v``.
+///
+template <typename SearchBuffer, std::integral I>
+void copy_results(const SearchBuffer& search_buffer, QueryResultView<I>& result, size_t i) {
+    constexpr auto sentinel =
+        type_traits::sentinel_v<Neighbor<I>, typename SearchBuffer::compare_type>;
+    size_t num_neighbors = result.n_neighbors();
+    auto num_results = std::min(num_neighbors, search_buffer.size());
+    for (size_t j = 0; j < num_results; ++j) {
+        result.set(search_buffer[j], i, j);
+    }
+    for (size_t j = num_results; j < num_neighbors; ++j) {
+        result.set(sentinel, i, j);
+    }
+}
+
 // Default Implementation
 template <
     typename Data,
@@ -573,7 +617,6 @@ void svs_invoke(
     const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>())
 ) {
     // Fallback implementation
-    size_t num_neighbors = result.n_neighbors();
     for (auto i : thread_indices) {
         // Check if request to cancel the search
         if (cancel()) {
@@ -585,9 +628,7 @@ void svs_invoke(
         );
 
         // Copy back results.
-        for (size_t j = 0; j < num_neighbors; ++j) {
-            result.set(search_buffer[j], i, j);
-        }
+        copy_results(search_buffer, result, i);
     }
 }
 

@@ -171,6 +171,69 @@ class ValidBuilder {
     const lib::SegmentedVector<SlotMetadata>& status_;
 };
 
+// The index whose user filter runs on this thread, so re-entering it fails fast.
+inline thread_local const void* filtering_index = nullptr;
+
+struct FilterScope {
+    explicit FilterScope(const void* index)
+        : previous_{filtering_index} {
+        filtering_index = index;
+    }
+    ~FilterScope() { filtering_index = previous_; }
+    const void* previous_;
+};
+
+inline void check_not_in_filter(const void* index) {
+    if (filtering_index == index) {
+        throw ANNEXCEPTION("filter must not call into the same index");
+    }
+}
+
+// Separate template so the regular search compiles without any filter check.
+template <typename Filter> class FilteredValidBuilder {
+  public:
+    FilteredValidBuilder(
+        const lib::SegmentedVector<SlotMetadata>& status,
+        const IDTranslator& translator,
+        std::shared_mutex& translator_mutex,
+        const Filter& filter,
+        const void* owner
+    )
+        : status_{status}
+        , translator_{translator}
+        , translator_mutex_{translator_mutex}
+        , filter_{filter}
+        , owner_{owner} {}
+
+    template <typename I>
+    PredicatedSearchNeighbor<I> operator()(I i, float distance) const {
+        bool valid =
+            std::atomic_ref<SlotMetadata>(const_cast<SlotMetadata&>(getindex(status_, i)))
+                .load(std::memory_order_acquire) == SlotMetadata::Valid;
+        if (valid) {
+            size_t external;
+            // TODO: refactor translator to provide a more efficient way to get the external
+            // id without locking.
+            {
+                // Released before the filter runs so a slow filter cannot stall writers.
+                std::shared_lock lock{translator_mutex_};
+                external = translator_.get_external_or(i, no_external_id);
+            }
+            // An erased slot has no external id and fails.
+            FilterScope scope{owner_};
+            valid = external != no_external_id && filter_(external);
+        }
+        return PredicatedSearchNeighbor<I>(i, distance, valid);
+    }
+
+  private:
+    const lib::SegmentedVector<SlotMetadata>& status_;
+    const IDTranslator& translator_;
+    std::shared_mutex& translator_mutex_;
+    const Filter& filter_;
+    const void* owner_;
+};
+
 template <graphs::MemoryGraph Graph, typename Data, typename Dist>
 class MutableVamanaIndex {
     friend class MultiMutableVamanaIndex<Graph, Data, Dist>;
@@ -606,11 +669,7 @@ class MutableVamanaIndex {
         size_t metadata_bytes = status_.capacity() * sizeof(SlotMetadata);
         metadata_bytes +=
             entry_point_.capacity() * sizeof(typename entry_point_type::value_type);
-        // The IDTranslator holds two tsl::robin_map instances (external->internal and
-        // internal->external), neither of which exposes its allocated byte count. We
-        // approximate the storage as the id pair held in each of the two directions. This
-        // ignores the maps' load-factor slack and control bytes, so it is an estimate of
-        // the hash-map overhead that is accurate to within a few percent.
+        // Estimate: one id pair per entry for each translation direction.
         metadata_bytes += 2 * translator_.size() *
                           (sizeof(IDTranslator::external_id_type) +
                            sizeof(IDTranslator::internal_id_type));
@@ -810,6 +869,9 @@ class MutableVamanaIndex {
             [&](const auto is, uint64_t /*tid*/) {
                 for (auto i : is) {
                     for (size_t j = 0, jmax = getsize<1>(ids); j < jmax; ++j) {
+                        if (ids.at(i, j) == static_cast<size_t>(-1)) {
+                            continue; // Padding from a filtered search.
+                        }
                         auto internal = lib::narrow_cast<Idx>(ids.at(i, j));
                         ids.at(i, j) = unsafe_translate_internal_id(internal);
                     }
@@ -880,7 +942,15 @@ class MutableVamanaIndex {
 
     // Return a `greedy_search` compatible builder for this index.
     // This is an internal method, mostly used to help implement the batch iterator.
-    ValidBuilder internal_search_builder() const { return ValidBuilder{status_}; }
+    ValidBuilder internal_search_builder(const AcceptAll& SVS_UNUSED(filter) = {}) const {
+        return ValidBuilder{status_};
+    }
+
+    template <typename Filter>
+    FilteredValidBuilder<Filter> internal_search_builder(const Filter& filter) const {
+        return FilteredValidBuilder<Filter>{
+            status_, translator_, *translator_mutex_, filter, this};
+    }
 
     /// @brief RAII shared lock guarding data_/graph_ against compact()'s shrink
     /// (which frees segments). Used by searches, iterators and mutations that
@@ -889,6 +959,7 @@ class MutableVamanaIndex {
     /// Hold this through internal-to-external ID translation. Acquire the translation
     /// lock inside this guard, preserving the compact -> translator lock order.
     [[nodiscard]] std::shared_lock<std::shared_mutex> lock_storage_shared() const {
+        check_not_in_filter(this);
         std::shared_lock gatekeeper_lock{*compact_gatekeeper_};
         return std::shared_lock<std::shared_mutex>(*compact_mutex_);
     }
@@ -900,13 +971,15 @@ class MutableVamanaIndex {
         return std::shared_lock<std::shared_mutex>(*translator_mutex_);
     }
 
+    template <typename Builder>
     auto greedy_search_closure(
+        const Builder& builder,
         GreedySearchPrefetchParameters prefetch_parameters,
         const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>())
     ) const {
-        return [&, prefetch_parameters](
-                   const auto& query, auto& accessor, auto& distance, auto& buffer
-               ) {
+        return [&,
+                prefetch_parameters,
+                builder](const auto& query, auto& accessor, auto& distance, auto& buffer) {
             const Idx seed = entry_point();
             if (seed == NO_ENTRY) {
                 buffer.clear();
@@ -921,7 +994,7 @@ class MutableVamanaIndex {
                 distance,
                 buffer,
                 vamana::EntryPointInitializer<Idx>{std::span<const Idx>{&seed, 1}},
-                internal_search_builder(),
+                builder,
                 prefetch_parameters,
                 cancel
             );
@@ -947,17 +1020,20 @@ class MutableVamanaIndex {
             scratch.buffer,
             scratch.scratch,
             query,
-            greedy_search_closure(scratch.prefetch_parameters, cancel),
+            greedy_search_closure(
+                internal_search_builder(), scratch.prefetch_parameters, cancel
+            ),
             *this
         );
     }
 
-    template <typename I, data::ImmutableMemoryDataset Queries>
+    template <typename I, data::ImmutableMemoryDataset Queries, typename Filter = AcceptAll>
     void search(
         QueryResultView<I> results,
         const Queries& queries,
         const search_parameters_type& sp,
-        const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>())
+        const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>()),
+        const Filter& filter = AcceptAll{}
     ) {
         // Internal IDs must retain their meaning until translation has completed.
         auto compact_lock = lock_storage_shared();
@@ -989,8 +1065,12 @@ class MutableVamanaIndex {
                         queries,
                         results,
                         threads::UnitRange{is},
-                        greedy_search_closure(prefetch_parameters, cancel),
-                        *this,
+                        greedy_search_closure(
+                            internal_search_builder(filter), prefetch_parameters, cancel
+                        ),
+                        static_cast<extensions::supplement_index_t<
+                            MutableVamanaIndex,
+                            std::is_same_v<Filter, AcceptAll>>>(*this),
                         cancel
                     );
                 }
@@ -1005,6 +1085,27 @@ class MutableVamanaIndex {
         // After the search procedure, the indices in `results` are internal.
         // Perform one more pass to convert these to external ids.
         translate_to_external(results.indices());
+
+        if constexpr (!std::is_same_v<Filter, AcceptAll>) {
+            // A concurrent remap may have changed the answer: re-check the final ids.
+            constexpr auto sentinel =
+                type_traits::sentinel_v<Neighbor<I>, distance::compare_t<Dist>>;
+            for (size_t i = 0; i < results.n_queries(); ++i) {
+                for (size_t j = 0; j < results.n_neighbors(); ++j) {
+                    auto id = results.index(i, j);
+                    if (id != sentinel.id()) {
+                        FilterScope scope{this};
+                        if (!filter(id)) {
+                            results.index(i, j) = sentinel.id();
+                        }
+                    }
+                    // Also covers ids a concurrent erase left without a translation.
+                    if (results.index(i, j) == sentinel.id()) {
+                        results.distance(i, j) = sentinel.distance();
+                    }
+                }
+            }
+        }
     }
 
     ///
@@ -1400,6 +1501,7 @@ class MutableVamanaIndex {
     ///     improve performance but requires more working memory.
     ///
     void compact(Idx batch_size = 1'000) {
+        check_not_in_filter(this);
         std::lock_guard gatekeeper_lock{*compact_gatekeeper_};
         std::lock_guard compact_lock{*compact_mutex_};
 
@@ -2068,22 +2170,6 @@ class MutableVamanaIndex {
 };
 
 ///
-/// @brief Hides an index's id translation from the search extensions.
-///
-/// Every ``extensions::single_search`` implementation tops the search buffer up itself, by
-/// calling the generic ``extensions::check_and_supplement_search_buffer`` under
-/// ``if constexpr (Index::needs_id_translation)``. That routine is unsafe for this index --
-/// see ``MutableVamanaIndex::supplement_search_buffer`` -- and it is a plain function, not
-/// a customization point, so it cannot be overridden. Passing this wrapper in place of the
-/// index makes that branch disappear, leaving the top-up to the index itself.
-///
-/// The implementations touch nothing else on the index, so nothing else needs forwarding.
-///
-template <typename Index> struct SupplementSuppressed {
-    static constexpr bool needs_id_translation = false;
-};
-
-///
 /// @brief ``extensions::single_search`` for the concurrent mutable index.
 ///
 /// Runs the dataset's own search implementation and then tops the buffer up through the
@@ -2125,7 +2211,7 @@ SVS_FORCE_INLINE void svs_invoke(
         scratch,
         query,
         search,
-        SupplementSuppressed<index_type>{},
+        vamana::extensions::SupplementSuppressed<index_type>{},
         cancel
     );
 

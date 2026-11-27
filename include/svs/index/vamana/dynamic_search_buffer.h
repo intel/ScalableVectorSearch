@@ -515,18 +515,17 @@ template <typename Idx, typename Cmp = std::less<>> class MutableBuffer {
             // Maintain 5A
             // Invariant 6 has not activated.
             roi_end_ = size();
-            return;
-        }
-
-        // Maintain 5B
-        size_t valid_count = 0;
-        for (size_t i = 0; i < size(); ++i) {
-            if (candidates_[i].valid()) {
-                ++valid_count;
-                if (valid_count == target_valid_) {
-                    // One past the last valid element.
-                    roi_end_ = i + 1;
-                    break;
+        } else {
+            // Maintain 5B
+            size_t valid_count = 0;
+            for (size_t i = 0; i < size(); ++i) {
+                if (candidates_[i].valid()) {
+                    ++valid_count;
+                    if (valid_count == target_valid_) {
+                        // One past the last valid element.
+                        roi_end_ = i + 1;
+                        break;
+                    }
                 }
             }
         }

@@ -22,6 +22,7 @@
 #include <algorithm>
 #include <cstdint>
 #include <filesystem>
+#include <functional>
 #include <iostream>
 #include <memory>
 #include <numeric>
@@ -33,12 +34,16 @@
 #include "svs/core/recall.h"
 #include "svs/lib/spinlock.h"
 #include "svs/lib/timing.h"
+#include "svs/orchestrators/concurrent_dynamic_vamana.h"
 
 // catch2
+#include "catch2/catch_template_test_macros.hpp"
 #include "catch2/catch_test_macros.hpp"
+#include "catch2/matchers/catch_matchers_string.hpp"
 #include <catch2/catch_approx.hpp>
 
 // tests
+#include "tests/utils/filtered_search.h"
 #include "tests/utils/test_dataset.h"
 #include "tests/utils/utils.h"
 
@@ -626,4 +631,131 @@ CATCH_TEST_CASE(
     CATCH_REQUIRE(breakdown.total() == expected_total_bytes);
     const size_t usage = index.get_memory_breakdown().total();
     CATCH_REQUIRE(usage == expected_total_bytes);
+}
+
+CATCH_TEMPLATE_TEST_CASE(
+    "Concurrent MutableVamana Index Filtered Search",
+    "[concurrent][graph_index][dynamic_index][filtered]",
+    svs::distance::DistanceL2,
+    svs::distance::DistanceIP
+) {
+    using Distance = TestType;
+    const size_t num_threads = 2;
+    const size_t num_neighbors = 10;
+
+    // Labels differ from internal ids, so a filter applied to the wrong kind of id fails.
+    // Enough queries for each search thread to get a batch of its own.
+    auto reference = svs_test::FilteredSearchReference<Distance>(64, 1'000'003);
+    const auto& queries = reference.queries();
+    const auto& ids = reference.ids();
+    const auto parameters = reference.build_parameters();
+    auto search_parameters = svs::index::vamana::VamanaSearchParameters{};
+    search_parameters.buffer_config_ = svs::index::vamana::SearchBufferConfig{100};
+    auto unfiltered = svs::QueryResult<size_t>(queries.size(), num_neighbors);
+
+    CATCH_SECTION("Index") {
+        auto index = cc::MutableVamanaIndex(
+            parameters, data_segmented_f32(), ids, Distance(), num_threads
+        );
+        auto search = [&](const auto& filter) {
+            auto results = svs::QueryResult<size_t>(queries.size(), num_neighbors);
+            index.search(
+                results.view(),
+                queries.cview(),
+                search_parameters,
+                svs::lib::Returns(svs::lib::Const<false>()),
+                filter
+            );
+            return results;
+        };
+        index.search(unfiltered.view(), queries.cview(), search_parameters);
+        svs_test::check_filtered_search(reference, search, unfiltered);
+
+        // The filter sees the current label of a relabeled entry.
+        const size_t old_id = ids[43];
+        const size_t new_id = 7;
+        CATCH_REQUIRE(
+            index.replace_external_id(old_id, new_id) == cc::ReplaceExternalIdResult::Ok
+        );
+        reference.relabel(old_id, new_id);
+        const auto only_new = [=](size_t id) { return id == new_id; };
+        CATCH_REQUIRE(reference.check(search(only_new), only_new) == 1.0);
+        const auto only_old = [=](size_t id) { return id == old_id; };
+        CATCH_REQUIRE(reference.check(search(only_old), only_old) == 1.0);
+
+        // Deleted entries are never returned, before or after consolidation.
+        auto deleted = std::vector<size_t>{};
+        for (size_t i = 0; i < ids.size(); i += 3) {
+            deleted.push_back(ids[i]);
+        }
+        index.delete_entries(deleted);
+        reference.erase(deleted);
+        const auto every_tenth = [](size_t id) { return id % 10 == 0; };
+        CATCH_REQUIRE(
+            reference.check(search(every_tenth), every_tenth) >
+            reference.min_selective_recall
+        );
+        // Consolidating a quick build costs recall, so only require well-formed rows.
+        index.consolidate();
+        reference.check(search(every_tenth), every_tenth);
+    }
+
+    CATCH_SECTION("Orchestrator") {
+        auto index = svs::ConcurrentDynamicVamana::build<float>(
+            parameters, data_segmented_f32(), ids, Distance(), num_threads
+        );
+        auto search = [&](const std::function<bool(size_t)>& filter) {
+            auto results = svs::QueryResult<size_t>(queries.size(), num_neighbors);
+            index.filtered_search(
+                results.view(), queries.cview(), search_parameters, filter
+            );
+            return results;
+        };
+        index.search(unfiltered.view(), queries.cview(), search_parameters);
+        svs_test::check_filtered_search(reference, search, unfiltered);
+    }
+}
+
+CATCH_TEST_CASE(
+    "Concurrent MutableVamana Index Filter Reentrancy",
+    "[concurrent][graph_index][dynamic_index][filtered]"
+) {
+    using Distance = svs::distance::DistanceL2;
+    const size_t num_threads = 2;
+    const size_t num_neighbors = 10;
+
+    auto reference = svs_test::FilteredSearchReference<Distance>(64);
+    const auto& queries = reference.queries();
+    const auto& ids = reference.ids();
+    const auto parameters = reference.build_parameters();
+    auto search_parameters = svs::index::vamana::VamanaSearchParameters{};
+    search_parameters.buffer_config_ = svs::index::vamana::SearchBufferConfig{100};
+
+    auto index = cc::MutableVamanaIndex(
+        parameters, data_segmented_f32(), ids, Distance(), num_threads
+    );
+    auto search = [&](const auto& filter) {
+        auto results = svs::QueryResult<size_t>(queries.size(), num_neighbors);
+        index.search(
+            results.view(),
+            queries.cview(),
+            search_parameters,
+            svs::lib::Returns(svs::lib::Const<false>()),
+            filter
+        );
+        return results;
+    };
+
+    const auto reentrant = [&](size_t id) { return index.get_datum(id).size() != 0; };
+    CATCH_REQUIRE_THROWS_WITH(
+        search(reentrant),
+        Catch::Matchers::ContainsSubstring("filter must not call into the same index")
+    );
+
+    // Only the index being filtered is off limits, and only while its filter runs.
+    auto other = cc::MutableVamanaIndex(
+        parameters, data_segmented_f32(), ids, Distance(), num_threads
+    );
+    const auto calls_other = [&](size_t id) { return other.get_datum(id).size() != 0; };
+    reference.check(search(calls_other), calls_other);
 }

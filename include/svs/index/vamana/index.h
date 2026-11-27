@@ -24,6 +24,7 @@
 #include "svs/core/query_result.h"
 #include "svs/core/recall.h"
 #include "svs/index/vamana/calibrate.h"
+#include "svs/index/vamana/dynamic_search_buffer.h"
 #include "svs/index/vamana/extensions.h"
 #include "svs/index/vamana/greedy_search.h"
 #include "svs/index/vamana/search_buffer.h"
@@ -39,6 +40,7 @@
 #include <concepts>
 #include <filesystem>
 #include <fstream>
+#include <functional>
 #include <iostream>
 #include <string>
 #include <string_view>
@@ -49,6 +51,27 @@
 namespace svs::index::vamana {
 
 template <typename Index, typename QueryType> class BatchIterator;
+
+// The filter of an unfiltered search.
+struct AcceptAll {
+    constexpr bool operator()(size_t) const { return true; }
+};
+
+// Marks candidates failing the filter invalid.
+template <typename Filter> class FilteredNeighborBuilder {
+  public:
+    explicit FilteredNeighborBuilder(const Filter& filter)
+        : filter_{filter} {}
+
+    template <typename I>
+    constexpr PredicatedSearchNeighbor<I> operator()(I i, float distance) const {
+        bool valid = filter_(static_cast<size_t>(i));
+        return PredicatedSearchNeighbor<I>(i, distance, valid);
+    }
+
+  private:
+    const Filter& filter_;
+};
 
 struct VamanaIndexParameters {
     // Members
@@ -303,6 +326,7 @@ class VamanaIndex {
     /// Type of the distance functor.
     using distance_type = Dist;
     using search_buffer_type = SearchBuffer<Idx, distance::compare_t<Dist>>;
+    using filtered_buffer_type = MutableBuffer<Idx, distance::compare_t<Dist>>;
     /// Type of the graph.
     using graph_type = Graph;
     /// Type of the dataset.
@@ -483,15 +507,25 @@ class VamanaIndex {
 
     // Return a `greedy_search` compatible builder for this index.
     // This is an internal method, mostly used to help implement the batch iterator.
-    static NeighborBuilder internal_search_builder() { return NeighborBuilder(); }
+    static NeighborBuilder
+    internal_search_builder(const AcceptAll& SVS_UNUSED(filter) = {}) {
+        return NeighborBuilder();
+    }
 
+    template <typename Filter>
+    static FilteredNeighborBuilder<Filter> internal_search_builder(const Filter& filter) {
+        return FilteredNeighborBuilder<Filter>{filter};
+    }
+
+    template <typename Builder>
     auto greedy_search_closure(
+        const Builder& builder,
         GreedySearchPrefetchParameters prefetch_parameters,
         const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>())
     ) const {
-        return [&, prefetch_parameters](
-                   const auto& query, auto& accessor, auto& distance, auto& buffer
-               ) {
+        return [&,
+                prefetch_parameters,
+                builder](const auto& query, auto& accessor, auto& distance, auto& buffer) {
             greedy_search(
                 graph_,
                 data_,
@@ -500,10 +534,14 @@ class VamanaIndex {
                 distance,
                 buffer,
                 vamana::EntryPointInitializer<Idx>{lib::as_const_span(entry_point_)},
-                internal_search_builder(),
+                builder,
                 prefetch_parameters,
                 cancel
             );
+            if constexpr (requires { buffer.cleanup(); }) {
+                // Remove the invalid entries that remain in the buffer.
+                buffer.cleanup();
+            }
         };
     }
 
@@ -532,7 +570,9 @@ class VamanaIndex {
             scratch.buffer,
             scratch.scratch,
             query,
-            greedy_search_closure(scratch.prefetch_parameters, cancel),
+            greedy_search_closure(
+                internal_search_builder(), scratch.prefetch_parameters, cancel
+            ),
             *this
         );
     }
@@ -573,12 +613,13 @@ class VamanaIndex {
     /// - The value type of ``queries`` is compatible with the value type of the index
     ///     dataset with respect to the stored distance functor.
     ///
-    template <typename I, data::ImmutableMemoryDataset Queries>
+    template <typename I, data::ImmutableMemoryDataset Queries, typename Filter = AcceptAll>
     void search(
         QueryResultView<I> result,
         const Queries& queries,
         const search_parameters_type& search_parameters,
-        const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>())
+        const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>()),
+        const Filter& filter = AcceptAll{}
     ) {
         threads::parallel_for(
             threadpool_,
@@ -587,8 +628,13 @@ class VamanaIndex {
                 // The number of neighbors to store in the result.
                 size_t num_neighbors = result.n_neighbors();
 
+                using buffer_type = std::conditional_t<
+                    std::is_same_v<Filter, AcceptAll>,
+                    search_buffer_type,
+                    filtered_buffer_type>;
+
                 // Allocate scratchspace according to the provided search parameters.
-                auto search_buffer = search_buffer_type{
+                auto search_buffer = buffer_type{
                     // Increase the search window size if the defaults are not suitable for
                     // the requested number of neighbors.
                     search_parameters.buffer_config_.get_total_capacity() < num_neighbors
@@ -612,7 +658,9 @@ class VamanaIndex {
                     queries,
                     result,
                     threads::UnitRange{is},
-                    greedy_search_closure(prefetch_parameters, cancel),
+                    greedy_search_closure(
+                        internal_search_builder(filter), prefetch_parameters, cancel
+                    ),
                     *this,
                     cancel
                 );

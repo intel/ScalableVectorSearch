@@ -38,7 +38,9 @@
 
 #include "svs/core/data.h"
 #include "svs/core/distance.h"
+#include "svs/lib/neighbor.h"
 #include "svs/lib/threads.h"
+#include "svs/lib/type_traits.h"
 
 // catch2
 #include "catch2/catch_test_macros.hpp"
@@ -46,6 +48,7 @@
 // stl
 #include <algorithm>
 #include <atomic>
+#include <chrono>
 #include <cstdint>
 #include <memory>
 #include <numeric>
@@ -580,4 +583,160 @@ CATCH_TEST_CASE("Concurrent MutableVamanaIndex batch iterator", "[concurrent][in
         CATCH_REQUIRE(bad_ids.load() == 0);
         CATCH_REQUIRE(batches_completed.load() > 0);
     }
+}
+
+// A filtered search reads the label of every candidate while writers insert, delete and
+// relabel. The filter passes even labels and the relabeler keeps flipping entries between
+// an even and an odd label, so an entry accepted under a label it has since lost must not
+// come back under the new one.
+CATCH_TEST_CASE(
+    "Concurrent MutableVamanaIndex filtered search during mutation", "[concurrent][index]"
+) {
+    const size_t total = kInitialPoints + kIncrementalPoints;
+    auto base = random_vectors(total, kDim, 1357);
+
+    std::vector<size_t> initial_ids(kInitialPoints);
+    std::iota(initial_ids.begin(), initial_ids.end(), 0);
+    auto initial_slice = std::vector<float>(
+        base.begin(), base.begin() + static_cast<long>(kInitialPoints * kDim)
+    );
+    auto index = build_index(initial_slice, kDim, initial_ids, kBuildThreads);
+
+    auto sp = index->get_search_parameters();
+    sp.buffer_config({100});
+
+    auto queries_raw = random_vectors(kNumQueries, kDim, 2468);
+    auto queries = make_dataset(queries_raw, kDim);
+
+    const auto passes = [](size_t id) { return id % 2 == 0; };
+    const auto never_cancel = svs::lib::Returns(svs::lib::Const<false>());
+    // Odd, and past every label the writer inserts.
+    const size_t relabel_offset = 2 * total + 1;
+    // The relabeler owns the labels with residue 0 modulo this stride.
+    constexpr size_t kStride = 40;
+    // What a filtered search writes to the result slots it could not fill.
+    constexpr auto padding = svs::type_traits::
+        sentinel_v<svs::Neighbor<size_t>, svs::distance::compare_t<Distance>>;
+
+    std::atomic<bool> writer_done{false};
+    std::atomic<size_t> searches_completed{0};
+    std::atomic<size_t> filter_violations{0};
+    std::atomic<size_t> bad_padding{0};
+    std::atomic<size_t> duplicate_ids{0};
+    std::atomic<size_t> failed_relabels{0};
+    std::atomic<size_t> exceptions{0};
+
+    std::thread writer{[&] {
+        try {
+            constexpr size_t kBatch = 250;
+            for (size_t offset = 0; offset < kIncrementalPoints; offset += kBatch) {
+                const size_t n = std::min(kBatch, kIncrementalPoints - offset);
+                add_batch(*index, base, kInitialPoints + offset, n);
+
+                // Retire passing labels: an even residue, never the relabeler's.
+                const size_t residue = 2 * ((offset / kBatch) % (kStride / 2 - 1) + 1);
+                std::vector<size_t> to_delete;
+                for (size_t id = residue; id < kInitialPoints; id += kStride) {
+                    to_delete.push_back(id);
+                }
+                index->delete_entries(to_delete);
+            }
+        } catch (const std::exception& e) {
+            CATCH_WARN("writer threw: " << e.what());
+            exceptions.fetch_add(1);
+        }
+        writer_done.store(true);
+    }};
+
+    std::thread relabeler{[&] {
+        try {
+            // Stop only after an even number of passes, so every entry ends under its
+            // original label.
+            bool flipped = false;
+            while (!writer_done.load() || flipped) {
+                for (size_t id = 0; id < kInitialPoints; id += kStride) {
+                    const size_t from = flipped ? id + relabel_offset : id;
+                    const size_t to = flipped ? id : id + relabel_offset;
+                    if (index->replace_external_id(from, to) !=
+                        cc::ReplaceExternalIdResult::Ok) {
+                        failed_relabels.fetch_add(1, std::memory_order_relaxed);
+                    }
+                }
+                flipped = !flipped;
+                std::this_thread::yield();
+            }
+        } catch (const std::exception& e) {
+            CATCH_WARN("relabeler threw: " << e.what());
+            exceptions.fetch_add(1);
+        }
+    }};
+
+    auto searcher = [&] {
+        try {
+            auto results = svs::QueryResult<size_t>{kNumQueries, kNumNeighbors};
+            std::unordered_set<size_t> seen_ids;
+            while (!writer_done.load(std::memory_order_relaxed)) {
+                index->search(results.view(), queries, sp, never_cancel, passes);
+                for (size_t q = 0; q < kNumQueries; ++q) {
+                    seen_ids.clear();
+                    for (size_t j = 0; j < kNumNeighbors; ++j) {
+                        const size_t id = results.index(q, j);
+                        // A relabel caught by the final re-check leaves padding anywhere
+                        // in the row, not only at its end.
+                        if (id == padding.id()) {
+                            if (results.distance(q, j) != padding.distance()) {
+                                bad_padding.fetch_add(1, std::memory_order_relaxed);
+                            }
+                            continue;
+                        }
+                        if (!passes(id)) {
+                            filter_violations.fetch_add(1, std::memory_order_relaxed);
+                        }
+                        if (!seen_ids.insert(id).second) {
+                            duplicate_ids.fetch_add(1, std::memory_order_relaxed);
+                        }
+                    }
+                }
+                searches_completed.fetch_add(1, std::memory_order_relaxed);
+                // A batch search holds the index's thread pool for its whole duration and
+                // `add_points` needs it too: step aside so the writer is not starved.
+                std::this_thread::sleep_for(std::chrono::microseconds(200));
+            }
+        } catch (const std::exception& e) {
+            CATCH_WARN("searcher threw: " << e.what());
+            exceptions.fetch_add(1);
+        }
+    };
+
+    std::vector<std::thread> searchers;
+    for (int i = 0; i < 2; ++i) {
+        searchers.emplace_back(searcher);
+    }
+    writer.join();
+    relabeler.join();
+    for (auto& t : searchers) {
+        t.join();
+    }
+
+    CATCH_INFO("filtered searches completed: " << searches_completed.load());
+    CATCH_REQUIRE(exceptions.load() == 0);
+    CATCH_REQUIRE(failed_relabels.load() == 0);
+    CATCH_REQUIRE(filter_violations.load() == 0);
+    CATCH_REQUIRE(bad_padding.load() == 0);
+    CATCH_REQUIRE(duplicate_ids.load() == 0);
+    CATCH_REQUIRE(searches_completed.load() > 0);
+
+    // Quiescent again, the filtered search must still find the passing neighbors.
+    std::unordered_set<size_t> live;
+    index->on_ids([&](size_t id) {
+        if (passes(id)) {
+            live.insert(id);
+        }
+    });
+    auto truth = ground_truth(base, live, queries_raw, kDim, kNumNeighbors);
+    auto results = svs::QueryResult<size_t>{kNumQueries, kNumNeighbors};
+    index->search(results.view(), queries, sp, never_cancel, passes);
+    const double recall = recall_at_k(results, truth);
+    CATCH_INFO("post-mutation filtered recall@" << kNumNeighbors << " = " << recall);
+    CATCH_REQUIRE(recall > 0.85);
 }
