@@ -50,7 +50,7 @@ namespace svs {
 
 namespace detail {
 
-// Storage and slot access for the internal->external table of ``BasicIDTranslator``.
+// Storage and slot access for the internal->external table of ``IDTranslatorBase``.
 // ``load`` yields ``default_val`` for an index beyond the table, and ``store`` fills the
 // slots it has to add below the stored index with its last argument.
 template <typename T, bool Concurrent> struct VectorMapTraits;
@@ -96,7 +96,6 @@ template <typename T> struct VectorMapTraits<T, true> {
         std::atomic_ref<value_type>(table[i]).store(external, std::memory_order_release);
     }
 };
-} // namespace detail
 
 ///
 /// @brief Two-way translation between external IDs and internal IDs.
@@ -106,7 +105,8 @@ template <typename T> struct VectorMapTraits<T, true> {
 /// holds one ``external_id_type`` per slot up to the largest internal ID ever stored.
 ///
 /// @tparam Concurrent Selects the storage of the internal-to-external table. Use the
-///     aliases ``IDTranslator`` (``false``) and ``ConcurrentIDTranslator`` (``true``).
+///     aliases ``svs::IDTranslator`` (``false``) and ``svs::ConcurrentIDTranslator``
+///     (``true``); the template itself is not part of the public API.
 ///
 /// With ``Concurrent == false`` the translator offers no thread safety beyond concurrent
 /// ``const`` access.
@@ -119,7 +119,7 @@ template <typename T> struct VectorMapTraits<T, true> {
 /// * Every other method reads the external-to-internal hash map and must be synchronized
 ///   with writers by the caller, e.g. with a shared lock.
 ///
-template <bool Concurrent> class BasicIDTranslator {
+template <bool Concurrent> class IDTranslatorBase {
   public:
     using internal_id_type = uint32_t;
     using external_id_type = uint64_t;
@@ -141,8 +141,8 @@ template <bool Concurrent> class BasicIDTranslator {
         size_t n_;
     };
 
-    BasicIDTranslator() = default;
-    BasicIDTranslator(Identity tag) {
+    IDTranslatorBase() = default;
+    IDTranslatorBase(Identity tag) {
         auto ids = threads::UnitRange<size_t>{0, tag.n_};
         insert(ids, ids);
     }
@@ -152,7 +152,7 @@ template <bool Concurrent> class BasicIDTranslator {
     ///
     /// @param other The translator to take the translations from.
     ///
-    explicit BasicIDTranslator(BasicIDTranslator<!Concurrent> other)
+    explicit IDTranslatorBase(IDTranslatorBase<!Concurrent> other)
         : external_to_internal_{std::move(other.external_to_internal_)} {
         for (const auto& [external, internal] : external_to_internal_) {
             store_external(internal, external);
@@ -637,12 +637,11 @@ template <bool Concurrent> class BasicIDTranslator {
         }
     }
 
-    static BasicIDTranslator
-    load(const lib::ContextFreeLoadTable& table, std::istream& is) {
-        BasicIDTranslator::validate(table);
+    static IDTranslatorBase load(const lib::ContextFreeLoadTable& table, std::istream& is) {
+        IDTranslatorBase::validate(table);
         auto num_points = lib::load_at<size_t>(table, "num_points");
 
-        auto translator = BasicIDTranslator{};
+        auto translator = IDTranslatorBase{};
         for (size_t i = 0; i < num_points; ++i) {
             auto external_id = lib::read_binary<external_id_type>(is);
             auto internal_id = lib::read_binary<internal_id_type>(is);
@@ -651,21 +650,21 @@ template <bool Concurrent> class BasicIDTranslator {
         return translator;
     }
 
-    static BasicIDTranslator load(const lib::LoadTable& table) {
-        BasicIDTranslator::validate(table);
+    static IDTranslatorBase load(const lib::LoadTable& table) {
+        IDTranslatorBase::validate(table);
 
         // Now that we've more-or-less validated the metadata, time to start loading
         // the points.
         auto resolved = table.resolve_at("filename");
         auto is = lib::open_read(resolved);
-        return BasicIDTranslator::load(table, is);
+        return IDTranslatorBase::load(table, is);
     }
 
   private:
     // The converting constructor takes the other variant's external->internal map.
-    friend class BasicIDTranslator<!Concurrent>;
+    friend class IDTranslatorBase<!Concurrent>;
 
-    using i_to_e_traits = detail::VectorMapTraits<external_id_type, Concurrent>;
+    using i_to_e_traits = VectorMapTraits<external_id_type, Concurrent>;
 
     template <class Begin, class End, class Contains, class Modifier = lib::identity>
     void check(
@@ -696,11 +695,12 @@ template <bool Concurrent> class BasicIDTranslator {
         i_to_e_traits::store(internal_to_external_, size_t{i}, e, invalid_external_id);
     }
 };
+} // namespace detail
 
-/// The translator for single-threaded use. See ``BasicIDTranslator``.
-using IDTranslator = BasicIDTranslator<false>;
+/// The translator for single-threaded use. See ``detail::IDTranslatorBase``.
+using IDTranslator = detail::IDTranslatorBase<false>;
 /// The translator whose internal-to-external lookups may run without a lock against one
-/// writer. See ``BasicIDTranslator``.
-using ConcurrentIDTranslator = BasicIDTranslator<true>;
+/// writer. See ``detail::IDTranslatorBase``.
+using ConcurrentIDTranslator = detail::IDTranslatorBase<true>;
 
 } // namespace svs

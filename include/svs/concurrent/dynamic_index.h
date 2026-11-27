@@ -639,28 +639,18 @@ class MutableVamanaIndex {
 
     ///// Index translation.
     //
-    // The translator is mutated by `add_points` (insert), `consolidate` (erase), and
-    // `compact` (remap) under `translator_mutex_` exclusive. Its external->internal side
-    // is a hash map, and a hash-map read concurrent with an insert is a data race in the
-    // strict sense and a crash in practice: an insert can rehash and free the bucket array
-    // a reader is walking.
+    // `add_points`, `consolidate`, and `compact` mutate the translator under the exclusive
+    // lock. Its external-to-internal hash map can rehash, so reads also require the shared
+    // lock. This ensures each batch sees a consistent state.
     //
-    // `ConcurrentIDTranslator` would allow internal->external reads without the lock, but
-    // the accessors below do not rely on that: every read of `translator_` happens under
-    // `translator_mutex_` shared, so a batch sees one consistent state. Each
-    // translation operation comes in two flavours:
+    // Locking accessors (`foo`) acquire the shared lock; `unsafe_foo` accessors require
+    // the caller to hold `lock_for_translation()`. Use the latter for batches or when
+    // already holding the lock: `std::shared_mutex` is non-recursive, so reacquiring it
+    // can deadlock. Internal-to-external reads follow the same locking scheme.
     //
-    //   * `foo(...)`          -- takes the shared lock itself. Use this by default.
-    //   * `unsafe_foo(...)`   -- assumes the caller already holds the shared lock (via
-    //                            `lock_for_translation()`). Use this to translate a *batch*
-    //                            of ids under one lock acquisition, and inside code that
-    //                            already holds the lock.
-    //
-    // The split is not merely an optimization: `std::shared_mutex` is not recursive, so a
-    // self-locking accessor called from a context that already holds the lock is a latent
-    // deadlock (a writer arriving between the two shared acquisitions blocks the second).
-    // That is why the batch paths below, and `BatchIterator::next`, use the `unsafe_`
-    // variants under an explicit lock rather than paying per-id locking.
+    // TODO: `ConcurrentIDTranslator` would allow internal->external reads without the
+    // lock, but the accessors below do not rely on that. Consider using it to avoid
+    // unnecessary locks.
 
     ///
     /// @brief Get the internal ID mapped to be `e`.
