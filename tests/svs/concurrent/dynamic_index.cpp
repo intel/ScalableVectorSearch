@@ -596,11 +596,16 @@ CATCH_TEST_CASE(
     const size_t segmented_capacity =
         svs::lib::SegmentedVector<cc::SlotMetadata>(data_size).capacity();
     const size_t expected_status_bytes = segmented_capacity * sizeof(cc::SlotMetadata);
-    const size_t expected_metadata_bytes = expected_status_bytes +
-                                           sizeof(typename Index::internal_id_type) +
-                                           2 * indices.size() *
-                                               (sizeof(typename Index::external_id_type) +
-                                                sizeof(typename Index::internal_id_type));
+    // The translator holds one id pair per translation plus an internal-to-external table,
+    // another `SegmentedVector` with one external id per slot.
+    using ExternalId = typename Index::external_id_type;
+    using InternalId = typename Index::internal_id_type;
+    const size_t expected_translator_bytes =
+        indices.size() * (sizeof(ExternalId) + sizeof(InternalId)) +
+        svs::lib::SegmentedVector<ExternalId>(indices.size()).capacity() *
+            sizeof(ExternalId);
+    const size_t expected_metadata_bytes =
+        expected_status_bytes + sizeof(InternalId) + expected_translator_bytes;
 
     // The reverse-edge index holds one in-neighbor list plus one lock per slot, so its
     // directory overhead is deterministic. The payload is not: the index only records

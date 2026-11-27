@@ -229,7 +229,7 @@ class MutableVamanaIndex {
     // < *first_reusable_ is Empty.
     std::unique_ptr<std::atomic<size_t>> first_reusable_{
         std::make_unique<std::atomic<size_t>>(0)};
-    IDTranslator translator_;
+    ConcurrentIDTranslator translator_;
     // Count of Valid slots. Maintained atomically in add_points/delete_entry.
     // Wrapped in unique_ptr because std::atomic is not movable.
     std::unique_ptr<std::atomic<size_t>> num_valid_{
@@ -596,7 +596,7 @@ class MutableVamanaIndex {
     ///
     /// Reports the capacity-based bytes reserved by the graph adjacency lists, the vector
     /// data, and the dynamic metadata (per-slot status, entry-point list, and the
-    /// external/internal ID translation maps). Capacity-based accounting includes the
+    /// external/internal ID translation tables). Capacity-based accounting includes the
     /// block over-allocation so integrators can report the true memory footprint.
     MemoryBreakdown get_memory_breakdown() const {
         MemoryBreakdown usage{};
@@ -606,14 +606,7 @@ class MutableVamanaIndex {
         size_t metadata_bytes = status_.capacity() * sizeof(SlotMetadata);
         metadata_bytes +=
             entry_point_.capacity() * sizeof(typename entry_point_type::value_type);
-        // The IDTranslator holds two tsl::robin_map instances (external->internal and
-        // internal->external), neither of which exposes its allocated byte count. We
-        // approximate the storage as the id pair held in each of the two directions. This
-        // ignores the maps' load-factor slack and control bytes, so it is an estimate of
-        // the hash-map overhead that is accurate to within a few percent.
-        metadata_bytes += 2 * translator_.size() *
-                          (sizeof(IDTranslator::external_id_type) +
-                           sizeof(IDTranslator::internal_id_type));
+        metadata_bytes += translator_.get_memory_usage();
         usage.metadata_bytes = metadata_bytes;
         if (const auto* reverse_edges = graph_.reverse_edges()) {
             usage.reverse_edges_bytes = reverse_edges->memory_bytes();
@@ -646,26 +639,18 @@ class MutableVamanaIndex {
 
     ///// Index translation.
     //
-    // The translator is a pair of hash maps mutated by `add_points` (insert),
-    // `consolidate` (erase), and `compact` (remap) under `translator_mutex_` exclusive. A
-    // hash-map read concurrent with an insert is a data race in the strict sense and a
-    // crash in practice: an insert can rehash and free the bucket array a reader is
-    // walking.
+    // `add_points`, `consolidate`, and `compact` mutate the translator under the exclusive
+    // lock. Its external-to-internal hash map can rehash, so reads also require the shared
+    // lock. This ensures each batch sees a consistent state.
     //
-    // So every read of `translator_` happens under `translator_mutex_` shared. Each
-    // translation operation comes in two flavours:
+    // Locking accessors (`foo`) acquire the shared lock; `unsafe_foo` accessors require
+    // the caller to hold `lock_for_translation()`. Use the latter for batches or when
+    // already holding the lock: `std::shared_mutex` is non-recursive, so reacquiring it
+    // can deadlock. Internal-to-external reads follow the same locking scheme.
     //
-    //   * `foo(...)`          -- takes the shared lock itself. Use this by default.
-    //   * `unsafe_foo(...)`   -- assumes the caller already holds the shared lock (via
-    //                            `lock_for_translation()`). Use this to translate a *batch*
-    //                            of ids under one lock acquisition, and inside code that
-    //                            already holds the lock.
-    //
-    // The split is not merely an optimization: `std::shared_mutex` is not recursive, so a
-    // self-locking accessor called from a context that already holds the lock is a latent
-    // deadlock (a writer arriving between the two shared acquisitions blocks the second).
-    // That is why the batch paths below, and `BatchIterator::next`, use the `unsafe_`
-    // variants under an explicit lock rather than paying per-id locking.
+    // TODO: `ConcurrentIDTranslator` would allow internal->external reads without the
+    // lock, but the accessors below do not rely on that. Consider using it to avoid
+    // unnecessary locks.
 
     ///
     /// @brief Get the internal ID mapped to be `e`.
@@ -1871,7 +1856,7 @@ class MutableVamanaIndex {
     const Graph& view_graph() const { return graph_; }
 
     // Not synchronized: callers must exclude concurrent mutation.
-    const IDTranslator& view_translator() const { return translator_; }
+    const ConcurrentIDTranslator& view_translator() const { return translator_; }
 
     // Not synchronized: callers must exclude concurrent mutation.
     std::vector<SlotMetadata> status_snapshot() const {
