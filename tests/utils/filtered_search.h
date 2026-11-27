@@ -22,6 +22,8 @@
 #include "svs/core/distance.h"
 #include "svs/core/query_result.h"
 #include "svs/index/vamana/build_params.h"
+#include "svs/lib/neighbor.h"
+#include "svs/lib/type_traits.h"
 
 // tests
 #include "tests/utils/test_dataset.h"
@@ -32,7 +34,6 @@
 
 // stl
 #include <algorithm>
-#include <cmath>
 #include <cstddef>
 #include <span>
 #include <unordered_map>
@@ -48,8 +49,9 @@ namespace svs_test {
 /// test queries are used, to keep the scan cheap.
 template <typename Distance> class FilteredSearchReference {
   public:
-    /// The id a filtered search writes to result slots it could not fill.
-    static constexpr size_t padding = static_cast<size_t>(-1);
+    /// The neighbor a filtered search writes to result slots it could not fill.
+    static constexpr svs::Neighbor<size_t> padding = svs::type_traits::
+        sentinel_v<svs::Neighbor<size_t>, svs::distance::compare_t<Distance>>;
 
     explicit FilteredSearchReference(size_t num_queries, size_t first_id = 0)
         : data_{test_dataset::data_f32()}
@@ -133,7 +135,7 @@ template <typename Distance> class FilteredSearchReference {
             size_t found = 0;
             for (; found < num_neighbors; ++found) {
                 const size_t id = results.index(q, found);
-                if (id == padding) {
+                if (id == padding.id()) {
                     break;
                 }
                 CATCH_INFO("query " << q << ", neighbor " << found << ", id " << id);
@@ -156,11 +158,8 @@ template <typename Distance> class FilteredSearchReference {
             CATCH_INFO("query " << q << " found " << found << " neighbors");
             CATCH_REQUIRE(found == exact.size());
             for (size_t j = found; j < num_neighbors; ++j) {
-                CATCH_REQUIRE(results.index(q, j) == padding);
-                // Padding must sort after every real distance.
-                const float distance_j = results.distance(q, j);
-                CATCH_REQUIRE(std::isinf(distance_j));
-                CATCH_REQUIRE(!compare(distance_j, 0.0f));
+                CATCH_REQUIRE(results.index(q, j) == padding.id());
+                CATCH_REQUIRE(results.distance(q, j) == padding.distance());
             }
             total += exact.size();
         }

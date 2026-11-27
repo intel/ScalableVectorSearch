@@ -23,10 +23,6 @@
 // catch2
 #include "catch2/catch_test_macros.hpp"
 
-// stl
-#include <functional>
-#include <limits>
-
 namespace {
 // Comparison operators.
 struct CustomComparator : std::less<> {
@@ -43,10 +39,6 @@ struct HasComparator {
 
 struct NoComparator {
     using compare = std::less<>;
-};
-
-struct LargerIsBetter {
-    using compare = std::greater<>;
 };
 
 // Implicit Broadcasting.
@@ -89,12 +81,6 @@ CATCH_TEST_CASE("Distance Concepts", "[core][distance]") {
         NoComparator b{};
         auto cmp_b = svs::distance::comparator(b);
         CATCH_REQUIRE(std::is_same_v<decltype(cmp_b), std::less<>>);
-    }
-
-    CATCH_SECTION("Worst Distance") {
-        const float infinity = std::numeric_limits<float>::infinity();
-        CATCH_REQUIRE(svs::distance::worst_distance(NoComparator{}) == infinity);
-        CATCH_REQUIRE(svs::distance::worst_distance(LargerIsBetter{}) == -infinity);
     }
 
     CATCH_SECTION("Implicit Broadcast") {

@@ -780,12 +780,6 @@ class MutableVamanaIndex {
 
                 auto scratch = extensions::per_thread_batch_search_setup(data_, distance_);
 
-                // The buffer top-up ignores the filter, so a filtered search skips it.
-                using topup_index_type = std::conditional_t<
-                    std::is_same_v<Filter, AcceptAll>,
-                    const MutableVamanaIndex&,
-                    extensions::SupplementSuppressed<MutableVamanaIndex>>;
-
                 extensions::per_thread_batch_search(
                     data_,
                     buffer,
@@ -796,7 +790,9 @@ class MutableVamanaIndex {
                     greedy_search_closure(
                         internal_search_builder(filter), prefetch_parameters, cancel
                     ),
-                    static_cast<topup_index_type>(*this),
+                    static_cast<extensions::supplement_index_t<
+                        MutableVamanaIndex,
+                        std::is_same_v<Filter, AcceptAll>>>(*this),
                     cancel
                 );
             }

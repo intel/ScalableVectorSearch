@@ -38,7 +38,9 @@
 
 #include "svs/core/data.h"
 #include "svs/core/distance.h"
+#include "svs/lib/neighbor.h"
 #include "svs/lib/threads.h"
+#include "svs/lib/type_traits.h"
 
 // catch2
 #include "catch2/catch_test_macros.hpp"
@@ -48,7 +50,6 @@
 #include <atomic>
 #include <chrono>
 #include <cstdint>
-#include <limits>
 #include <memory>
 #include <numeric>
 #include <random>
@@ -613,6 +614,9 @@ CATCH_TEST_CASE(
     const size_t relabel_offset = 2 * total + 1;
     // The relabeler owns the labels with residue 0 modulo this stride.
     constexpr size_t kStride = 40;
+    // What a filtered search writes to the result slots it could not fill.
+    constexpr auto padding = svs::type_traits::
+        sentinel_v<svs::Neighbor<size_t>, svs::distance::compare_t<Distance>>;
 
     std::atomic<bool> writer_done{false};
     std::atomic<size_t> searches_completed{0};
@@ -679,9 +683,8 @@ CATCH_TEST_CASE(
                         const size_t id = results.index(q, j);
                         // A relabel caught by the final re-check leaves padding anywhere
                         // in the row, not only at its end.
-                        if (id == static_cast<size_t>(-1)) {
-                            if (results.distance(q, j) !=
-                                std::numeric_limits<float>::infinity()) {
+                        if (id == padding.id()) {
+                            if (results.distance(q, j) != padding.distance()) {
                                 bad_padding.fetch_add(1, std::memory_order_relaxed);
                             }
                             continue;

@@ -1058,12 +1058,6 @@ class MutableVamanaIndex {
                     auto scratch =
                         extensions::per_thread_batch_search_setup(data_, distance_);
 
-                    // The buffer top-up ignores the filter, so a filtered search skips it.
-                    using topup_index_type = std::conditional_t<
-                        std::is_same_v<Filter, AcceptAll>,
-                        const MutableVamanaIndex&,
-                        extensions::SupplementSuppressed<MutableVamanaIndex>>;
-
                     extensions::per_thread_batch_search(
                         data_,
                         buffer,
@@ -1074,7 +1068,9 @@ class MutableVamanaIndex {
                         greedy_search_closure(
                             internal_search_builder(filter), prefetch_parameters, cancel
                         ),
-                        static_cast<topup_index_type>(*this),
+                        static_cast<extensions::supplement_index_t<
+                            MutableVamanaIndex,
+                            std::is_same_v<Filter, AcceptAll>>>(*this),
                         cancel
                     );
                 }
@@ -1092,19 +1088,20 @@ class MutableVamanaIndex {
 
         if constexpr (!std::is_same_v<Filter, AcceptAll>) {
             // A concurrent remap may have changed the answer: re-check the final ids.
-            const float worst = distance::worst_distance(distance_);
+            constexpr auto sentinel =
+                type_traits::sentinel_v<Neighbor<I>, distance::compare_t<Dist>>;
             for (size_t i = 0; i < results.n_queries(); ++i) {
                 for (size_t j = 0; j < results.n_neighbors(); ++j) {
                     auto id = results.index(i, j);
-                    if (id != static_cast<I>(-1)) {
+                    if (id != sentinel.id()) {
                         FilterScope scope{this};
                         if (!filter(id)) {
-                            results.index(i, j) = static_cast<I>(-1);
+                            results.index(i, j) = sentinel.id();
                         }
                     }
                     // Also covers ids a concurrent erase left without a translation.
-                    if (results.index(i, j) == static_cast<I>(-1)) {
-                        results.distance(i, j) = worst;
+                    if (results.index(i, j) == sentinel.id()) {
+                        results.distance(i, j) = sentinel.distance();
                     }
                 }
             }

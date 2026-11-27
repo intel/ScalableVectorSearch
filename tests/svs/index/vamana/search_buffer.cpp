@@ -905,6 +905,31 @@ CATCH_TEST_CASE("MutableBuffer", "[core][search_buffer]") {
             CATCH_REQUIRE(b.next() == make_visited(1, 10.0, true));
             CATCH_REQUIRE(b.done());
         }
+
+        // `cleanup()` moves the end of the buffer, so `sort()` must look up the best
+        // unvisited candidate again, also with fewer valid candidates than the window.
+        CATCH_SECTION("Sort below the search window") {
+            b.push_back({1, 10.0, true});
+            b.push_back({2, 9.0, false});
+            b.push_back({3, 8.0, false});
+            b.sort();
+            while (!b.done()) {
+                b.next();
+            }
+            CATCH_REQUIRE(b.best_unvisited() == 3);
+
+            b.cleanup();
+            b.sort();
+            CATCH_REQUIRE(b.size() == 1);
+            CATCH_REQUIRE(b.best_unvisited() == 1);
+            CATCH_REQUIRE(b.done());
+
+            // The search resumes from a new candidate.
+            b.insert({4, 7.0, true});
+            CATCH_REQUIRE(!b.done());
+            CATCH_REQUIRE(b.next() == make_visited(4, 7.0, true));
+            CATCH_REQUIRE(b.done());
+        }
     }
 }
 
